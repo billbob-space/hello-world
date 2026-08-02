@@ -96,12 +96,30 @@ un déploiement. Elle n'est donc pas dans ce dépôt, mais dans un secret :
 secret*. Sans l'URL, le workflow publie l'image, émet un avertissement et
 n'appelle rien — la construction reste verte, mais **rien n'est déployé**.
 
-L'appel porte les deux conventions de signature en usage chez les forges que
-`dockhand` accepte : `x-hub-signature-256` (HMAC-SHA256 du corps, façon GitHub
-et Gitea) et `x-gitlab-token` (le secret en clair, façon GitLab). Le serveur lit
-celle qu'il connaît. Si l'appel est refusé, la réponse HTTP et le corps renvoyé
-sont affichés dans les logs du pas *déclencher le déploiement*, et le workflow
-échoue : une image publiée sans déploiement ne doit pas passer pour un succès.
+`dockhand` accepte trois façons de s'authentifier ; le workflow suit celle que
+sa documentation recommande pour une CI générique :
+
+| Méthode | En-tête / paramètre | Usage |
+|---|---|---|
+| **HMAC-SHA256** | `X-Hub-Signature-256: sha256=<hex>` | ce que fait le workflow |
+| Jeton en clair | `X-Gitlab-Token: <secret>` | webhooks GitLab |
+| Paramètre d'URL | `?secret=<secret>` | **GET uniquement** |
+
+Le corps envoyé est `{}` : `dockhand` ne le lit pas, il relit le dépôt lui-même.
+Seule la signature compte.
+
+### Deux réglages obligatoires sur la stack
+
+`dockhand` ne redéploie **que s'il voit un commit nouveau** — sinon il répond
+`200` avec `{"success":true,"skipped":true}` et ne touche à rien. Comme l'image
+est publiée sur un tag fixe, sa documentation demande d'activer, sur la stack :
+
+- **Re-pull images** — sans quoi le serveur redéploie l'image déjà présente ;
+- **Force redeployment** — sans quoi le déploiement est sauté.
+
+Le workflow traite ce `skipped` comme un échec : une image publiée sans
+déploiement ne doit pas passer pour une construction verte. De même, un `403`
+est signalé explicitement comme une non-correspondance de secret.
 
 L'infrastructure (`compose.yaml`, `.github/workflows/build.yml`,
 `.dockerignore`) est générée par `./init.sh` depuis `app.yml` — ne pas l'éditer

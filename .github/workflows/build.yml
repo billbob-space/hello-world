@@ -63,37 +63,43 @@ jobs:
             exit 0
           fi
 
-          # Corps d'un evenement push GitHub. Le depot y figure : un serveur
-          # qui rattache le webhook a une stack verifie generalement que le
-          # depot annonce est bien celui de la stack, et refuse sinon.
-          branch=${GITHUB_REF#refs/heads/}
-          repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          body=$(printf '{"ref":"%s","after":"%s","repository":{"full_name":"%s","name":"%s","html_url":"%s","clone_url":"%s.git","default_branch":"%s"}}' \
-                   "$GITHUB_REF" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "${GITHUB_REPOSITORY#*/}" \
-                   "$repo_url" "$repo_url" "$branch")
-          echo "corps envoye : $body"
+          # Un secret colle porte souvent un retour a la ligne invisible. Il
+          # casserait la signature comme le jeton, pour un 403 indistinguable
+          # d'un mauvais secret.
+          secret=$(printf '%s' "$WEBHOOK_SECRET" | tr -d '\r\n')
 
-          # Deux conventions de signature coexistent chez les forges que
-          # dockhand accepte : GitHub et Gitea signent le corps en HMAC-SHA256
-          # (X-Hub-Signature-256), GitLab envoie le secret en clair
-          # (X-Gitlab-Token). Les deux en-tetes partent ensemble ; le serveur
-          # lit celui qu'il connait et ignore l'autre.
-          set -- -H 'content-type: application/json' -H 'x-github-event: push' \
-                 -H "x-github-delivery: $(cat /proc/sys/kernel/random/uuid)"
-          if [ -n "$WEBHOOK_SECRET" ]; then
-            sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $NF}')
-            set -- "$@" -H "x-hub-signature-256: sha256=$sig" \
-                        -H "x-gitlab-token: $WEBHOOK_SECRET"
+          # Recette documentee par dockhand pour une CI generique : POST d'un
+          # corps quelconque, signe en HMAC-SHA256. Le corps ne sert pas au
+          # serveur, qui relit le depot lui-meme ; seule la signature compte.
+          payload='{}'
+          if [ -n "$secret" ]; then
+            sig=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$secret" | awk '{print $NF}')
+            set -- -H "x-hub-signature-256: sha256=$sig"
           else
-            echo "::warning::secret DOCKHAND_WEBHOOK_SECRET absent — appel non signe, le serveur le refusera s'il attend une signature"
+            echo "::warning::secret DOCKHAND_WEBHOOK_SECRET absent — appel non signe, il sera refuse"
+            set --
           fi
 
           code=$(curl -sS -o reponse.txt -w '%{http_code}' --retry 3 --retry-delay 5 \
-                   -X POST "$WEBHOOK" "$@" -d "$body")
+                   -X POST "$WEBHOOK" -H 'content-type: application/json' "$@" -d "$payload")
           echo "reponse HTTP $code :"
           cat reponse.txt; echo
+
+          if [ "$code" = 403 ]; then
+            echo "::error::403 — le secret envoye ne correspond pas a celui configure sur la stack dockhand"
+            exit 1
+          fi
           if [ "$code" -ge 400 ]; then
             echo "::error::le webhook a refuse l'appel — image publiee, rien n'est deploye"
+            exit 1
+          fi
+
+          # dockhand ne redeploie que s'il voit un commit nouveau. Le tag :main
+          # etant mutable, une image reconstruite sans commit le fait sauter le
+          # deploiement, en repondant 200 : sans ce test, la CI serait verte et
+          # le serveur servirait toujours l'image d'avant.
+          if grep -q '"skipped":[[:space:]]*true' reponse.txt; then
+            echo "::error::dockhand a saute le deploiement (aucun commit nouveau vu). Active « Re-pull images » et « Force redeployment » sur la stack."
             exit 1
           fi
           echo "deploiement declenche"
