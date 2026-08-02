@@ -190,6 +190,7 @@ if [ "$CHECK" = 1 ]; then
     grep -q "middlewares=$MW"             "$COMPOSE" && ok "auth $MW chainee"             || bad "middleware $MW absent — l'app serait EXPOSEE"
     grep -q "server.port=$PORT"           "$COMPOSE" && ok "port du service conforme"     || bad "port du service different de app.yml"
     grep -q 'container_name:'             "$COMPOSE" && ok "container_name declare"       || bad "container_name absent"
+    grep -q 'pull_policy: always'         "$COMPOSE" && ok "pull_policy always"           || bad "pull_policy absent — un redeploiement servirait l'image locale perimee"
   else
     bad "$COMPOSE absent — lance ./init.sh"
   fi
@@ -301,6 +302,10 @@ services:
     container_name: $APP
     restart: unless-stopped
     mem_limit: $MEMORY
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
 $HEALTH_BLOCK
     labels:
