@@ -75,5 +75,31 @@ L'infrastructure (`compose.yaml`, `.github/workflows/build.yml`,
 
 ## Besoins d'infrastructure
 
-Aucun. Cette application n'a besoin ni de base de données, ni de cache, ni de
-volume persistant, ni de port supplémentaire.
+Ni base de données, ni cache, ni volume persistant, ni port supplémentaire.
+
+**Un point reste à régler côté serveur : l'accès en lecture au paquet GHCR.**
+La construction réussit et publie bien `ghcr.io/billbob-space/hello-world:main`
+(image de 15 Mo), mais `dockhand` échoue à la récupérer :
+
+```
+Error response from daemon: Head "https://ghcr.io/v2/billbob-space/hello-world/manifests/main": unauthorized
+```
+
+Ce dépôt est privé, donc le paquet GHCR l'est aussi, et le démon Docker du
+serveur tire sans identifiants. Rien dans ce dépôt ne peut corriger cela : ni
+le `Dockerfile`, ni le `compose.yaml`, ni le workflow. Deux résolutions, toutes
+deux côté serveur ou côté organisation GitHub :
+
+1. **Authentifier le serveur sur `ghcr.io`** avec un jeton en lecture seule
+   (portée `read:packages`) — `docker login ghcr.io`, ou la configuration
+   d'identifiants de registre de `dockhand`. L'image reste privée. C'est la
+   voie à préférer pour un dépôt privé.
+2. **Rendre le paquet public** (page du paquet → *Package settings* → *Change
+   visibility*). Le dépôt reste privé, mais l'image publiée devient
+   téléchargeable par n'importe qui — donc le binaire de l'application avec.
+
+Le jeton, quelle que soit l'option, vit côté serveur : ni dans ce dépôt, ni
+dans l'image, ni dans `.claude/settings.json`.
+
+Comme le paquet de toute application créée depuis ce contrat est privé par
+défaut, cette étape concerne l'ensemble des dépôts, pas seulement celui-ci.
