@@ -26,11 +26,18 @@ var assets embed.FS
 // ecrasant tout en-tete de meme nom present dans la requete entrante.
 const userHeader = "X-Forwarded-User"
 
+// version identifie l'image deployee. Elle est posee a la construction par
+// -ldflags "-X main.version=..." et vaut le SHA du commit en CI ; "dev" en
+// construction locale. C'est ce qui permet de verifier d'un coup d'oeil, sur
+// la page, qu'un deploiement a bien remplace la version precedente.
+var version = "dev"
+
 var startedAt = time.Now()
 
 type pageData struct {
 	User    string
 	Host    string
+	Version string
 	Started string
 	Uptime  string
 }
@@ -92,6 +99,7 @@ func handleHome(page *template.Template) http.HandlerFunc {
 		data := pageData{
 			User:    user,
 			Host:    r.Host,
+			Version: version,
 			Started: startedAt.Format(time.RFC3339),
 			Uptime:  time.Since(startedAt).Truncate(time.Second).String(),
 		}
