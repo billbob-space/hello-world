@@ -6,6 +6,48 @@
 # toute la fabrique.
 services:
 
+  # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh
+  cadran:
+    image: ghcr.io/billbob-space/hello-world/cadran:main
+    container_name: cadran
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.cadran.rule=Host(`cadran.apps.billbob.ovh`)"
+      - "traefik.http.routers.cadran.entrypoints=websecure"
+      - "traefik.http.routers.cadran.priority=100"
+      # forwardauth = authentification Google (exposure private). La retirer
+      # exposerait l'app en clair.
+      - "traefik.http.routers.cadran.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.cadran.tls.certresolver=letsencrypt"
+      - "traefik.http.services.cadran.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+  # <<< cadran
+
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
     image: ghcr.io/billbob-space/hello-world/hello-world:main

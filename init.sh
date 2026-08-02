@@ -934,7 +934,7 @@ ui: $ui
 YAML
   ok "$dir/app.yml"
 
-  cat > "$dir/.dockerignore" <<'EOF'
+  cat > "$dir/.dockerignore" <<EOF
 # Genere par init.sh — le contexte de construction est ce repertoire, pas la
 # racine du depot. Exclure la doc fige le cache de couches sur les seules
 # modifications de code.
@@ -943,6 +943,7 @@ YAML
 app.yml
 test.sh
 .dockerignore
+$a
 node_modules
 dist
 build
@@ -1420,7 +1421,12 @@ for f in "${DERIVES[@]}"; do
 done
 chmod +x .claude/check-plugins.sh
 
-for line in '.claude/settings.local.json' '.env' '.env.*' '*.log'; do
+IGNORES=('.claude/settings.local.json' '.env' '.env.*' '*.log')
+# `go build` sans -o depose son binaire dans le repertoire courant, sous le nom
+# de ce repertoire : apps/cadran/cadran. Un tel artefact se committe tout seul
+# au premier `git add -A`, et alourdit le contexte de construction.
+for a in "${APPS[@]}"; do IGNORES+=("/apps/$a/$a"); done
+for line in "${IGNORES[@]}"; do
   { [ ! -f .gitignore ] || ! grep -qxF "$line" .gitignore; } && echo "$line" >> .gitignore
 done
 ok ".gitignore complete"

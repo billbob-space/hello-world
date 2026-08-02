@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Heure}} · cadran</title>
+<style>
+  :root {
+    color-scheme: dark;
+
+    /* Meme atelier que hello-world : un objet physique dans une piece sombre.
+       Il est noir sous toute lumiere ambiante, donc pas de variante claire. */
+    --room:    #050506;  /* le mur derriere l'instrument */
+    --frame:   #0b0b0c;  /* le caisson */
+    --face-hi: #16171a;  /* le cadran, la ou la lumiere tombe */
+    --face-lo: #090a0b;  /* le cadran, dans l'ombre du biseau */
+    --flap-hi: #1c1d20;  /* la lecture chiffree : moitie haute du volet */
+    --flap-lo: #141518;  /* moitie basse, dans l'ombre du volet suivant */
+    --seam:    #08080a;  /* la charniere */
+    --ink:     #ece7dc;  /* les aiguilles et les chiffres : blanc chaud, jamais pur */
+    --silk:    #8a867c;  /* la serigraphie et les graduations mineures */
+    --signal:  #f0a828;  /* l'ambre : la trotteuse, et rien d'autre */
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "DejaVu Sans Mono",
+            "Liberation Mono", Menlo, Consolas, monospace;
+    --silk-face: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: clamp(1rem, 4vw, 2.5rem);
+    background: var(--room);
+    color: var(--ink);
+    font-family: var(--silk-face);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ---- le caisson ------------------------------------------------------ */
+
+  .case {
+    width: min(26rem, 100%);
+    background: var(--frame);
+    border-radius: 4px;
+    padding: clamp(1.1rem, 4.5vw, 1.6rem);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .055),
+      0 26px 60px -24px rgba(0, 0, 0, .95);
+  }
+
+  /* La plaque de nom serigraphiee sur le caisson. */
+  /* flex-wrap, et surtout pas de white-space: nowrap sur la mention de fuseau :
+     un texte insecable ne peut pas retrecir, et forcerait le caisson au-dela de
+     la fenetre sur un telephone — la moitie droite de la ligne disparaitrait. */
+  .housing {
+    padding-bottom: .85rem;
+    border-bottom: 1px solid #17181b;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .3rem 1rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--silk);
+  }
+
+  .zone {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .06em;
+    color: var(--silk);
+  }
+
+  /* ---- le cadran ------------------------------------------------------- */
+
+  .dial {
+    position: relative;
+    margin: clamp(1.2rem, 5vw, 1.9rem) auto;
+    width: min(19rem, 82vw);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    /* Indispensable, et pas seulement esthetique : les graduations sont des
+       calques carres de la taille du cadran, pivotes. Une rotation agrandit la
+       zone de debordement d'un facteur racine de deux, et sans cette ligne la
+       page defile lateralement sur telephone. Le clip suit le disque. */
+    overflow: hidden;
+    /* La lumiere vient d'en haut a gauche, comme sur le caisson. */
+    background: radial-gradient(115% 115% at 32% 24%, var(--face-hi), var(--face-lo) 72%);
+    box-shadow:
+      /* le biseau */
+      inset 0 0 0 1px rgba(255, 255, 255, .05),
+      inset 0 2px 5px rgba(0, 0, 0, .8),
+      /* le corps de l'instrument, encastre dans le caisson */
+      0 0 0 7px #101114,
+      0 0 0 8px rgba(255, 255, 255, .045),
+      0 14px 34px -16px rgba(0, 0, 0, .9);
+  }
+
+  /* Chaque graduation est un calque de la taille du cadran, pivote autour du
+     centre ; la marque elle-meme est peinte en haut du calque. Aucun calcul de
+     position n'est donc necessaire, seulement un angle. */
+  .mark,
+  .numeral {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .mark::before {
+    content: "";
+    width: 1px;
+    height: 4%;
+    margin-top: 6.5%;
+    border-radius: 1px;
+    background: var(--silk);
+    opacity: .4;
+  }
+
+  .mark.major::before {
+    width: 2px;
+    height: 7.5%;
+    margin-top: 4.5%;
+    background: var(--ink);
+    opacity: .8;
+  }
+
+  /* Les quatre cardinaux. Douze chiffres encombreraient un cadran dont les
+     aiguilles sont deja de la meme encre. */
+  .numeral {
+    align-items: center;
+    font-family: var(--mono);
+    font-size: clamp(.8rem, 3.4vw, .95rem);
+    font-weight: 500;
+    letter-spacing: .02em;
+    color: var(--silk);
+  }
+
+  /* ---- les aiguilles --------------------------------------------------- */
+
+  .hand {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    transform-origin: 50% 100%;
+    border-radius: 2px;
+    /* Le navigateur promeut le calque : la trotteuse balaie a 60 images par
+       seconde sans repeindre le cadran. */
+    will-change: transform;
+  }
+
+  .hand-h {
+    width: 7px;
+    margin-left: -3.5px;
+    height: 27%;
+    background: var(--ink);
+    box-shadow: 0 0 10px rgba(0, 0, 0, .55);
+  }
+
+  .hand-m {
+    width: 4px;
+    margin-left: -2px;
+    height: 39%;
+    background: var(--ink);
+    box-shadow: 0 0 10px rgba(0, 0, 0, .55);
+  }
+
+  /* L'ambre est la couleur du vivant, ici comme sur le panneau de
+     hello-world : elle ne sert qu'a la trotteuse. */
+  .hand-s {
+    width: 2px;
+    margin-left: -1px;
+    height: 43%;
+    background: var(--signal);
+  }
+
+  /* Le contrepoids, de l'autre cote de l'axe. */
+  .hand-s::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 4px;
+    height: 3.2rem;
+    max-height: 22%;
+    margin-left: -2px;
+    border-radius: 2px;
+    background: var(--signal);
+  }
+
+  .cap {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 11px;
+    height: 11px;
+    margin: -5.5px 0 0 -5.5px;
+    border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 0 2px var(--face-lo), 0 1px 3px rgba(0, 0, 0, .9);
+  }
+
+  /* Le verre. Un reflet doux, sans bord franc : une transition brutale se lit
+     comme un defaut de rendu, pas comme une surface bombee. Meme source de
+     lumiere que le cadran et que le caisson — en haut a gauche. */
+  .glass {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+      radial-gradient(80% 65% at 26% 14%,
+        rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 62%),
+      radial-gradient(120% 100% at 50% 118%,
+        rgba(255, 255, 255, .022), rgba(255, 255, 255, 0) 55%);
+  }
+
+  /* ---- la lecture chiffree --------------------------------------------- */
+
+  /* Les memes volets que hello-world, en une seule ligne : c'est le lien de
+     famille entre les deux applications, et la lecture de secours quand on
+     veut la seconde exacte plutot que l'allure generale. */
+  .readout {
+    --cellw: 1.24ch;
+    --flaph: 1.9em;
+
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 1.32rem;
+    font-weight: 500;
+    letter-spacing: .24ch;
+    line-height: var(--flaph);
+    text-align: center;
+    padding-left: .12ch;        /* demi-jeu : centre le glyphe dans sa cellule */
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    background-color: var(--flap-hi);
+    background-image:
+      linear-gradient(180deg,
+        transparent calc(50% - 1px),
+        var(--seam) calc(50% - 1px), var(--seam) 50%,
+        rgba(255, 255, 255, .05) 50%, rgba(255, 255, 255, .05) calc(50% + 1px),
+        transparent calc(50% + 1px)),
+      linear-gradient(90deg, var(--frame) 0 1px, transparent 1px),
+      linear-gradient(180deg, var(--flap-hi) 0 50%, var(--flap-lo) 50% 100%);
+    background-size: 100% var(--flaph), var(--cellw) 100%, 100% var(--flaph);
+    background-repeat: repeat-y, repeat-x, repeat-y;
+  }
+
+  .date {
+    margin: .7rem 0 0;
+    text-align: center;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    color: var(--silk);
+  }
+
+  .plate {
+    margin-top: 1.15rem;
+    padding-top: .8rem;
+    border-top: 1px solid #17181b;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: var(--silk);
+  }
+
+  /* Sans JavaScript, les aiguilles gardent l'angle calcule au serveur : le
+     cadran est juste, mais fige. La mention le dit plutot que de laisser
+     croire a une horloge arretee. */
+  .fige { display: none; }
+  html:not(.anime) .fige { display: inline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hand { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="case">
+    <div class="housing">
+      <h1>cadran</h1>
+      <span class="zone">{{.Zone}} · {{.Decalage}}</span>
+    </div>
+
+    <div class="dial" id="cadran"
+         data-iso="{{.ISO}}"
+         data-offset="{{.Decalage}}">
+      {{range .Marques}}<div class="mark{{if .Majeure}} major{{end}}" style="transform: {{.Rotation}}"></div>{{end}}
+      {{range .Chiffres}}<div class="numeral" style="transform: {{.Placement}}">{{.Texte}}</div>{{end}}
+
+      <div class="hand hand-h" id="aig-h" style="transform: {{.RotHeure}}"></div>
+      <div class="hand hand-m" id="aig-m" style="transform: {{.RotMinute}}"></div>
+      <div class="hand hand-s" id="aig-s" style="transform: {{.RotSeconde}}"></div>
+      <div class="cap"></div>
+      <div class="glass"></div>
+    </div>
+
+    <p class="readout" id="lecture">{{.Heure}}</p>
+    <p class="date" id="date">{{.Date}}<span class="fige"> · heure du rendu</span></p>
+
+    <div class="plate">
+      <span>heure du serveur</span>
+      <span title="{{.Version}}">{{.VersionShort}}</span>
+    </div>
+  </main>
+
+<script>
+// L'heure affichee est celle du SERVEUR. Le navigateur ne lit jamais sa propre
+// horloge comme source : il mesure une fois l'ecart entre elle et celle du
+// serveur, puis compte a partir de la. Un poste deregle affiche donc quand meme
+// l'heure juste.
+(function () {
+  "use strict";
+
+  var dial = document.getElementById("cadran");
+  var aigH = document.getElementById("aig-h");
+  var aigM = document.getElementById("aig-m");
+  var aigS = document.getElementById("aig-s");
+  var lecture = document.getElementById("lecture");
+  if (!dial || !aigH || !aigM || !aigS) { return; }
+
+  var ecart = 0;        // heure serveur moins heure locale, en millisecondes
+  var decalage = 0;     // decalage du fuseau serveur par rapport a UTC, en ms
+
+  // Le decalage arrive sous la forme UTC+02:00 : il sert a lire l'heure murale
+  // du serveur avec les seuls accesseurs UTC, sans demander au navigateur de
+  // connaitre le fuseau — tous ne le connaissent pas.
+  function litDecalage(texte) {
+    var m = /^UTC([+-])(\d{2}):(\d{2})$/.exec(texte || "");
+    if (!m) { return 0; }
+    var s = (parseInt(m[2], 10) * 3600 + parseInt(m[3], 10) * 60) * 1000;
+    return m[1] === "-" ? -s : s;
+  }
+
+  function cale(iso, offsetTexte) {
+    var t = Date.parse(iso);
+    if (!isFinite(t)) { return false; }
+    ecart = t - Date.now();
+    decalage = litDecalage(offsetTexte);
+    return true;
+  }
+
+  if (!cale(dial.dataset.iso, dial.dataset.offset)) { return; }
+  document.documentElement.className += " anime";
+
+  function deux(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function pose(el, deg) { el.style.transform = "rotate(" + deg.toFixed(4) + "deg)"; }
+
+  var derniereLecture = "";
+
+  function battre() {
+    var d = new Date(Date.now() + ecart + decalage);
+    var s = d.getUTCSeconds() + d.getUTCMilliseconds() / 1000;
+    var m = d.getUTCMinutes() + s / 60;
+    var h = (d.getUTCHours() % 12) + m / 60;
+
+    pose(aigH, h * 30);
+    pose(aigM, m * 6);
+    pose(aigS, s * 6);
+
+    var texte = deux(d.getUTCHours()) + ":" + deux(d.getUTCMinutes()) + ":" + deux(d.getUTCSeconds());
+    if (texte !== derniereLecture) {
+      derniereLecture = texte;
+      if (lecture) { lecture.textContent = texte; }
+    }
+  }
+
+  // Un mouvement continu a soixante images par seconde n'apporte rien a qui a
+  // demande moins d'animation : on retombe alors sur un battement par seconde.
+  var sobre = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (sobre || typeof requestAnimationFrame !== "function") {
+    battre();
+    setInterval(battre, 1000);
+  } else {
+    (function boucle() { battre(); requestAnimationFrame(boucle); })();
+  }
+
+  // Resynchronisation : l'horloge du poste derive, et l'onglet endormi fige le
+  // compteur. Un echec n'a pas d'effet visible — on continue sur le dernier
+  // ecart connu, dont la derive se compte en millisecondes par minute.
+  function resynchroniser() {
+    if (!window.fetch) { return; }
+    fetch("/api/heure", { cache: "no-store", credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.iso) { return; }
+        var t = Date.parse(j.iso);
+        if (isFinite(t)) {
+          ecart = t - Date.now();
+          if (typeof j.decalage_s === "number") { decalage = j.decalage_s * 1000; }
+        }
+      })
+      .catch(function () { /* on garde l'ecart precedent */ });
+  }
+
+  setInterval(resynchroniser, 60000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { resynchroniser(); }
+  });
+})();
+</script>
+</body>
+</html>

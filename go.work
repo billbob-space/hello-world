@@ -4,4 +4,5 @@
 // local, les constructions Docker ayant pour contexte apps/<nom>.
 go 1.24
 
+use ./apps/cadran
 use ./apps/hello-world
