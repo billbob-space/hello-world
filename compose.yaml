@@ -6,6 +6,10 @@ services:
     container_name: hello-world
     restart: unless-stopped
     mem_limit: 128m
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
