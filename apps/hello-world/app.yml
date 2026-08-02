@@ -1,0 +1,15 @@
+# Parametres de deploiement de hello-world.
+# Le nom de l'app — donc son URL — est celui du repertoire : apps/hello-world/
+# Ce fichier n'est JAMAIS reecrit par init.sh : edite-le, puis relance ./init.sh
+#
+# enabled: false = l'app vit dans le depot mais n'entre pas dans compose.yaml.
+# Passe-le a true une fois sa premiere image publiee sur le registre.
+enabled: true
+port: 8080
+memory: 128m
+health_path: /healthz
+health_cmd: wget --spider -q http://localhost:8080/healthz
+exposure: private
+# Outillage de l'agent, sans effet sur le deploiement :
+stack: go
+ui: true

@@ -1,0 +1,7 @@
+// Genere par init.sh — les apps Go de la fabrique.
+// Sans ce fichier, gopls ouvert a la racine du depot ne voit aucun module :
+// chaque app est un module distinct sous apps/. Il ne sert qu'a l'outillage
+// local, les constructions Docker ayant pour contexte apps/<nom>.
+go 1.24
+
+use ./apps/hello-world

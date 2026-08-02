@@ -1,0 +1,14 @@
+# Valeurs communes a toutes les applications de la fabrique.
+# Modifie ce fichier puis relance ./init.sh.
+org: billbob-space
+repo: hello-world                 # entre dans le nom des images : ghcr.io/billbob-space/hello-world/<app>
+registry: ghcr.io
+domain: apps.billbob.ovh             # chaque app est servie sur <nom-app>.<domain>
+network: apps_net           # reseau Docker existant cote serveur
+entrypoint: websecure
+cert_resolver: letsencrypt
+security_headers: security-headers@file
+memory_budget: 1024m   # plafond de la somme des mem_limit
+image_max_mb: 200
+log_max_size: 10m     # cap des journaux json-file, par service
+log_max_file: 3

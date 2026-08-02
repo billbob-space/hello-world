@@ -1,17 +1,127 @@
-# Genere par init.sh — construit l'image et la publie sur GHCR.
-# Le serveur la recupere ensuite ; aucun secret de deploiement ici.
+# Genere par init.sh — une construction par app modifiee, un seul deploiement.
+# NE PAS EDITER — ./init.sh --check refuse un workflow desynchronise.
 name: build
 
 on:
   push:
     branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      toutes:
+        description: reconstruire toutes les apps
+        type: boolean
+        default: false
+
+# Une seule stack dockhand : deux deploiements concurrents se marcheraient
+# dessus. On serialise sans annuler — un deploiement engage doit finir.
+concurrency:
+  group: fabrique-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # Le contrat devient un verrou de CI, et non plus un geste manuel : avec une
+  # stack partagee, un compose faux fusionne casse toutes les apps a la fois.
+  contrat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./init.sh --check
+
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.choix.outputs.apps }}
+      deploy: ${{ steps.choix.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: choix
+        env:
+          EVENT: ${{ github.event_name }}
+          TOUTES: ${{ inputs.toutes }}
+          AVANT: ${{ github.event.before }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          APRES: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          toutes='["hello-world"]'
+
+          if [ "$EVENT" = pull_request ]; then base="$BASE_PR"; else base="$AVANT"; fi
+
+          # Une base absente du depot — premiere poussee d'une branche, greffe,
+          # force-push — donnerait un diff vide. On reconstruit tout plutot que
+          # de ne rien construire en silence.
+          tout=0
+          if [ "$EVENT" = workflow_dispatch ] && [ "$TOUTES" = true ]; then
+            tout=1
+          elif [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "base de comparaison indisponible ($base) — reconstruction complete"
+            tout=1
+          fi
+
+          if [ "$tout" = 1 ]; then
+            apps="$toutes"; deploy=true
+          else
+            changed=$(git diff --name-only "$base" "$APRES")
+            echo "fichiers modifies :"; printf '  %s\n' $changed
+
+            if printf '%s\n' "$changed" | grep -qE '^(init\.sh|fabrique\.yml|\.github/workflows/)'; then
+              # Le generateur ou la CI ont bouge : plus rien ne garantit que les
+              # images publiees correspondent aux Dockerfile courants.
+              apps="$toutes"
+            else
+              liste=$(printf '%s\n' "$changed" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u)
+              if [ -n "$liste" ]; then
+                apps="[$(printf '%s\n' "$liste" | sed 's/.*/"&"/' | paste -sd, -)]"
+              else
+                apps='[]'
+              fi
+            fi
+
+            # Redeployer seulement si une image change ou si le compose change :
+            # sinon un commit de documentation redemarrerait toute la stack.
+            if [ "$apps" != '[]' ] || printf '%s\n' "$changed" | grep -qx 'compose.yaml'; then
+              deploy=true
+            else
+              deploy=false
+            fi
+          fi
+
+          echo "apps=$apps"     >> "$GITHUB_OUTPUT"
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          echo "-> apps : $apps   deploy : $deploy"
+
+  # Une matrice vide fait echouer le job : d'ou le garde sur '[]'.
+  test:
+    needs: [contrat, detect]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Chaque app dit comment elle se teste dans un executable, comme elle dit
+      # comment elle se construit dans un Dockerfile : la fabrique n'a pas a
+      # connaitre les langages. Le runner fournit Go, Node, Python et Java ;
+      # pour une autre chaine, testez dans un etage du Dockerfile.
+      - name: tests de ${{ matrix.app }}
+        run: ./apps/${{ matrix.app }}/test.sh
+
   build:
+    needs: [contrat, detect, test]
+    if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
       # Sans buildx, le driver par defaut est 'docker', qui ne sait pas
@@ -25,25 +135,96 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: .
-          push: true
+          # Contexte reduit a l'app : c'est ce qui isole les constructions les
+          # unes des autres et empeche une edition dans une app d'invalider le
+          # cache de couches des autres.
+          context: apps/${{ matrix.app }}
+          file: apps/${{ matrix.app }}/Dockerfile
+          # Sur une pull request on construit sans publier : la validation du
+          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/billbob-space/hello-world:main
-            ghcr.io/billbob-space/hello-world:${{ github.sha }}
+            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
+            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:${{ github.sha }}
+          # Rattache le paquet au depot : ses permissions suivent alors celles
+          # du depot, et un seul identifiant de lecture couvre toutes les apps.
+          labels: |
+            org.opencontainers.image.source=https://github.com/billbob-space/hello-world
           # Identifie la version deployee ; le Dockerfile en fait ce qu'il veut,
           # l'ignorer est sans consequence.
           build-args: |
             VERSION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Le scope est obligatoire en matrice : sans lui les constructions
+          # paralleles se disputent un cache unique et s'evincent l'une l'autre.
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
       - name: taille de l'image
+        if: github.event_name != 'pull_request'
         run: |
-          docker pull ghcr.io/billbob-space/hello-world:main
-          size=$(docker image inspect ghcr.io/billbob-space/hello-world:main --format '{{.Size}}')
-          echo "Image : $((size / 1024 / 1024)) Mo"
-          if [ "$size" -gt 209715200 ]; then
+          image=ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
+          docker pull "$image"
+          size=$(docker image inspect "$image" --format '{{.Size}}')
+          echo "Image ${{ matrix.app }} : $((size / 1024 / 1024)) Mo"
+          if [ "$size" -gt $((200 * 1024 * 1024)) ]; then
             echo "::warning::image au-dela de 200 Mo — le serveur est a 92 % de disque"
           fi
+
+  deploy:
+    needs: [contrat, detect, test, build]
+    # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
+    # reconstruire, mais le compose a change) doit laisser passer, un build en
+    # echec doit bloquer. Sinon un commit a moitie construit referencerait une
+    # image inexistante et emporterait les apps saines.
+    if: >-
+      always()
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && needs.detect.outputs.deploy == 'true'
+      && needs.contrat.result == 'success'
+      && needs.detect.result == 'success'
+      && (needs.test.result == 'success' || needs.test.result == 'skipped')
+      && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Garde-fou propre a la stack unique : « docker compose up » est atomique
+      # pour la stack entiere. Une seule image absente du registre le fait
+      # echouer et emporte les applications saines. On verifie donc chaque
+      # reference du compose AVANT d'appeler le webhook — le pire cas devient
+      # « rien n'est deploye » au lieu de « tout tombe ».
+      - name: toutes les images du compose sont tirables
+        run: |
+          set -euo pipefail
+          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml)
+          if [ ${#images[@]} -eq 0 ]; then
+            echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
+            exit 1
+          fi
+          manquantes=()
+          for img in "${images[@]}"; do
+            if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
+              echo "  ok   $img"
+            else
+              echo "  KO   $img"
+              manquantes+=("$img")
+            fi
+          done
+          if [ ${#manquantes[@]} -gt 0 ]; then
+            printf '::error::image absente du registre : %s\n' "${manquantes[@]}"
+            echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
+            exit 1
+          fi
+          echo "${#images[@]} image(s) verifiee(s)"
 
       # Le tag :main est mutable : une image reconstruite ne change pas une
       # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne
@@ -59,7 +240,7 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
         run: |
           if [ -z "$WEBHOOK" ]; then
-            echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — image publiee, deploiement NON declenche"
+            echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — images publiees, deploiement NON declenche"
             exit 0
           fi
 
@@ -90,16 +271,17 @@ jobs:
             exit 1
           fi
           if [ "$code" -ge 400 ]; then
-            echo "::error::le webhook a refuse l'appel — image publiee, rien n'est deploye"
+            echo "::error::le webhook a refuse l'appel — images publiees, rien n'est deploye"
             exit 1
           fi
 
           # dockhand ne redeploie que s'il voit un commit nouveau. Le tag :main
           # etant mutable, une image reconstruite sans commit le fait sauter le
           # deploiement, en repondant 200 : sans ce test, la CI serait verte et
-          # le serveur servirait toujours l'image d'avant.
+          # le serveur servirait toujours les images d'avant.
           if grep -q '"skipped":[[:space:]]*true' reponse.txt; then
-            echo "::error::dockhand a saute le deploiement (aucun commit nouveau vu). Active « Re-pull images » et « Force redeployment » sur la stack."
+            echo "::error::dockhand a saute le deploiement (aucun commit nouveau vu)."
+            echo "::error::Active « Force redeployment » dans les Deploy options de la stack. « Re-pull images » n'est pas necessaire : pull_policy: always le couvre depuis le depot."
             exit 1
           fi
           echo "deploiement declenche"

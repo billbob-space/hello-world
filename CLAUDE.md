@@ -1,28 +1,53 @@
 # Contrat de déploiement — billbob.ovh
 
-Cette application est déployée automatiquement sur le serveur `billbob.ovh`.
-Les règles ci-dessous sont imposées par l'infrastructure : les enfreindre ne
-provoque pas une erreur claire, mais un déploiement qui échoue en silence.
+Ce dépôt est une **fabrique** : il héberge plusieurs applications, chacune avec
+son code, son PRD, son URL et son palier d'authentification, toutes déployées
+ensemble dans **une seule stack dockhand**. Les règles ci-dessous sont imposées
+par l'infrastructure : les enfreindre ne provoque pas une erreur claire, mais un
+déploiement qui échoue en silence.
 
-**Le nom de l'application et l'organisation GitHub sont déduits du dépôt.** Rien
-n'est à personnaliser dans ce fichier : il est identique dans tous les dépôts.
+**Le nom d'une application est celui de son répertoire sous `apps/`.** C'est lui
+qui devient le sous-domaine, le nom de conteneur et le nom de routeur Traefik ;
+il doit donc être un label DNS valide. L'organisation, le dépôt et le domaine
+sont dans `fabrique.yml`.
+
+## Arborescence
+
+```
+apps/<nom>/          une application : app.yml, Dockerfile, test.sh, PRODUCT.md, code
+compose.yaml         GÉNÉRÉ — la stack, un service par app activée
+fabrique.yml         valeurs communes : org, dépôt, registre, domaine, réseau, plafonds
+init.sh              le générateur
+```
+
+Ce qui est **partagé** : la stack, la CI, le réseau, le domaine, l'outillage
+Claude Code. Ce qui **appartient à chaque app** : son code, son `Dockerfile`,
+son PRD, son URL, son palier d'authentification, ses tests.
 
 ## Démarrage
 
 ```bash
-./init.sh              # écrit app.yml et génère les fichiers d'infrastructure
-./init.sh --check      # vérifie le dépôt contre app.yml et contre le contrat
+./init.sh                 # régénère compose.yaml, la CI et l'outillage
+./init.sh --check         # vérifie le dépôt, service par service
+./init.sh --list          # état des applications
+./init.sh --add <nom>     # échafaude apps/<nom>/
+./init.sh --dry-run       # montre ce qui changerait, sans rien écrire
 ```
 
 `init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
-et le choix de la technologie t'appartient.
+et le choix de la technologie t'appartient, app par app.
 
-## `app.yml` — les valeurs que tu décides
+Les artefacts dérivés — `compose.yaml`, le workflow, `.claude/`, `go.work` —
+sont **toujours réécrits**. C'est ce qui garantit qu'une app ajoutée ne peut pas
+manquer du déploiement.
 
-C'est le seul fichier que tu renseignes. Il porte ce qui dépend de ton
-application ; le reste du contrat est encodé dans le script.
+## `apps/<nom>/app.yml` — les valeurs que tu décides
+
+Un fichier par application. **`init.sh` ne le réécrit jamais** : il est la
+source de vérité, tu l'édites à la main.
 
 ```yaml
+enabled: true              # false = dans le dépôt, mais hors du compose
 port: 8080                 # port d'écoute dans le conteneur, HTTP en clair
 memory: 128m               # limite mémoire du conteneur
 health_path: /healthz      # chemin HTTP renvoyant 200 quand l'app est prête
@@ -32,13 +57,19 @@ stack: none                # langage principal — active son serveur LSP
 ui: false                  # true si l'app sert une interface web
 ```
 
-Édite-le puis relance `./init.sh --force`, ou passe les valeurs en options :
+Édite-le puis relance `./init.sh`, ou passe les valeurs en options — elles ne
+valent alors que pour l'app ciblée :
 
 ```bash
-./init.sh --force --port 3000 --health /health \
+./init.sh --app mon-app --port 3000 --health /health \
           --health-cmd 'curl -fsS http://localhost:3000/health' \
           --exposure google
 ```
+
+**`enabled: false` n'est pas un brouillon, c'est une protection.** La stack est
+unique : référencer une image qui n'existe pas encore ferait échouer le
+`compose up` de **toutes** les apps. Une app neuve naît donc désactivée, et
+n'entre dans le compose qu'une fois sa première image publiée.
 
 **`health_cmd` est le piège le plus fréquent.** Il s'exécute *dans* ton
 conteneur : l'outil qu'il appelle doit exister dans l'image finale. `wget` est
@@ -49,7 +80,46 @@ permanence, sans que l'app soit en cause.
 
 **`stack` et `ui` ne changent rien au déploiement.** Ils déterminent l'outillage
 décrit plus bas. Renseigne-les dès que tu as choisi ta technologie, puis relance
-`./init.sh --force`.
+`./init.sh`. `.claude/settings.json` étant un réglage **de projet**, l'outillage
+est l'**union** de ce que demandent toutes les apps du dépôt — y compris les
+apps désactivées, dont il faut bien pouvoir écrire le code.
+
+## Ajouter une application
+
+Deux commits, dans cet ordre : **construire d'abord, brancher ensuite.**
+
+```bash
+./init.sh --add ma-nouvelle-app --stack go --exposure private
+# écris apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
+./init.sh --check
+git add apps/ma-nouvelle-app && git commit    # commit 1 : la CI publie l'image
+
+./init.sh --app ma-nouvelle-app --enable      # une fois l'image publiée
+./init.sh --check
+git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2 : le déploiement
+```
+
+Le chemin en un seul commit fonctionne aussi — la construction précède le
+garde-fou dans la même exécution — mais la séquence en deux commits fait
+arriver l'échec « l'image ne se construit pas » sur un commit qui, lui, **ne
+peut pas** casser la stack des autres.
+
+Si la nouvelle app introduit un langage absent du dépôt, recolle
+`.claude/cloud-setup.sh` dans le champ *Setup script* de ton environnement.
+
+## Le rayon de souffle
+
+Une seule stack, donc un seul `docker compose up`, atomique pour l'ensemble.
+Une erreur dans le bloc d'une app fait échouer le déploiement de **toutes** les
+autres, y compris celles que tu n'as pas touchées. Trois garde-fous en
+découlent, et c'est pour cela qu'ils existent :
+
+- `enabled` — une app entre dans le compose après son image, jamais avant ;
+- le garde-fou de CI — le webhook n'est appelé qu'après avoir vérifié que
+  **chaque** image du compose est tirable ; le pire cas devient « rien n'est
+  déployé » au lieu de « tout tombe » ;
+- `./init.sh --check` — vérification **par service**, jamais par recherche
+  globale dans le fichier.
 
 ## Ton outillage — les plugins Claude Code
 
@@ -68,9 +138,10 @@ Le socle, présent dans tous les dépôts :
 | `context7` | Documentation **à jour** des bibliothèques — consulte-le plutôt que ta mémoire |
 | `github` | PR, Actions, GHCR |
 
-S'y ajoutent, selon `app.yml` : le serveur **LSP** correspondant à `stack` — il
-te donne les erreurs du compilateur après chaque édition, pour zéro contexte —
-et, si `ui: true`, `frontend-design`, `playwright` et `impeccable`.
+S'y ajoutent, selon les `apps/*/app.yml` : **un serveur LSP par langage présent
+dans la fabrique** — il te donne les erreurs du compilateur après chaque
+édition, pour zéro contexte — et, dès qu'**une seule** app porte `ui: true`,
+`frontend-design`, `playwright` et `impeccable`.
 
 ### Un seul endroit installe : le setup script de l'environnement
 
@@ -84,9 +155,10 @@ représenterait à chaque fois.
 
 Le seul point d'accroche assez tôt est le **setup script de l'environnement**,
 qui tourne avant le lancement de Claude Code. `init.sh` en génère le contenu —
-les plugins, plus **le binaire du serveur LSP** correspondant à `stack` : l'image
+les plugins, plus **le binaire de chaque serveur LSP** de la fabrique : l'image
 cloud fournit les compilateurs, jamais les serveurs de langage, et sans ce
-binaire le plugin est installé mais inerte.
+binaire le plugin est installé mais inerte. Les installations partent en
+parallèle — le setup script doit tenir sous cinq minutes.
 
 ```bash
 cat .claude/cloud-setup.sh     # à coller dans le champ "Setup script"
@@ -103,8 +175,9 @@ travers l'allowlist réseau, le script généré pose un `TODO` explicite plutô
 qu'une commande inventée : complète-le avant de le coller.
 
 Cette configuration vit **hors du dépôt**, dans ton compte : `init.sh` ne peut
-pas la mettre à jour. Après un `./init.sh --force` qui change `stack` ou `ui`,
-recolle le fichier. `./init.sh --check` signale l'écart entre les deux listes.
+pas la mettre à jour. Après un `./init.sh` qui change un `stack` ou un `ui` —
+donc après l'ajout d'une app dans un langage nouveau — recolle le fichier.
+`./init.sh --check` signale l'écart entre les deux listes.
 
 ### Le hook `SessionStart` ne fait que rapporter
 
@@ -113,14 +186,13 @@ ce qui manque. `.claude/check-plugins.sh` s'exécute à chaque ouverture de
 session et écrit son rapport sur la sortie standard — donc dans ton contexte :
 
 ```
-Outillage : 12/12 plugins installes.
-  gopls present — diagnostics go actifs.
+Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents.
 ```
 
-Une ligne quand tout va bien ; sinon la liste des manquants et le geste qui
-répare. Il vérifie deux choses distinctes : le plugin présent dans le cache
-local, et — pour le LSP — **le binaire présent sur la machine**, les deux
-pouvant diverger. Lance-le à la main pour le voir tout de suite :
+Une ligne quand tout va bien, quel que soit le nombre d'applications ; sinon la
+liste des manquants et le geste qui répare. Il vérifie deux choses distinctes :
+le plugin présent dans le cache local, et — pour chaque LSP — **le binaire
+présent sur la machine**, les deux pouvant diverger. Lance-le à la main pour le voir tout de suite :
 
 ```bash
 ./.claude/check-plugins.sh
@@ -136,9 +208,10 @@ jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
 
 ## Les deux paliers d'authentification
 
-L'application est **toujours derrière une authentification Google**, appliquée
-par Traefik avant qu'une requête ne l'atteigne. Deux paliers existent, choisis
-par `exposure` dans `app.yml` :
+Chaque application est **toujours derrière une authentification Google**,
+appliquée par Traefik avant qu'une requête ne l'atteigne. Deux paliers existent,
+choisis app par app par `exposure` dans son `app.yml` — deux applications de la
+fabrique peuvent parfaitement ne pas avoir le même :
 
 | `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
 |---|---|---|---|
@@ -163,19 +236,26 @@ une ligne, l'inverse expose des données.
 
 ## Règles impératives
 
-- **`Dockerfile` à la racine**, construction multi-étapes, image finale
-  **< 200 Mo**. Le disque du serveur est à 92 % — une image lourde est refusée.
+- **Un `Dockerfile` par app, dans `apps/<nom>/`**, construction multi-étapes,
+  image finale **< 200 Mo**. Le disque du serveur est à 92 % — une image lourde
+  est refusée. Le contexte de construction est `apps/<nom>`, pas la racine :
+  c'est ce qui empêche une édition dans une app d'invalider le cache des autres.
 - **L'app tourne en utilisateur non root** (`USER` dans le `Dockerfile`).
 - **Ne publie aucun port.** Pas de section `ports:`. Traefik joint le conteneur
-  par le réseau Docker `apps_net`.
+  par le réseau Docker `apps_net`. Deux apps peuvent écouter sur le même port :
+  chacune est dans son conteneur, rien n'est publié sur l'hôte.
 - **Le fichier Compose s'appelle `compose.yaml`**, à la racine. C'est le nom
   canonique de la Compose Spec, et le seul que `dockhand` ouvre côté serveur :
   un `docker-compose.yml` lui renvoie « Compose file not found » et le
-  déploiement s'arrête là.
+  déploiement s'arrête là. Il est **généré** et porte N services : ne l'édite
+  jamais à la main, `./init.sh --check` refuse un compose désynchronisé.
 - **Le routage vit dans les labels du `compose.yaml`**, générés par
   `init.sh`. N'y touche pas : le middleware d'authentification et
   `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
-  catch-all de capter l'URL et de servir un 404 silencieux.
+  catch-all de capter l'URL et de servir un 404 silencieux. Ton bloc est un
+  parmi N : une erreur dedans fait échouer le déploiement de toutes les apps.
+- **Chaque app déclare ses tests dans `apps/<nom>/test.sh`**, exécutable. La CI
+  ne lance que ce fichier ; la fabrique n'a pas à connaître ton langage.
 - **Aucun `LABEL traefik.*` dans le `Dockerfile`**, sans exception. Docker
   fusionne les labels de l'image dans ceux du conteneur : un label de routage
   gravé dans l'image publierait un routeur **supplémentaire**, que le compose ne
@@ -193,6 +273,10 @@ La topologie réseau, les bases de données partagées et les secrets vivent sur
 serveur, hors de ce dépôt. Le réseau `apps_net` est déclaré `external: true` : il
 existe déjà côté serveur, ce dépôt ne le crée pas.
 
+Quand tu travailles sur une app, **les fichiers des autres apps ne t'appartiennent
+pas non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.claude/`,
+`go.work`. Tu changes `apps/<nom>/app.yml` et tu relances `./init.sh`.
+
 Si tu as besoin de quelque chose que le contrat ne prévoit pas — une base de
 données, un cache, un volume persistant, un port supplémentaire — **écris-le
 dans le `README` et arrête-toi**. C'est une décision d'infrastructure, elle se
@@ -204,6 +288,10 @@ prend côté serveur.
 ./init.sh --check
 ```
 
-Le déploiement se déclenche à chaque fusion sur `main` : construction de l'image
-chez GitHub, publication sur GHCR, puis récupération par le serveur. Compte deux
-à trois minutes entre la fusion et la mise en ligne.
+Le même contrôle tourne en CI, en verrou de tous les autres jobs : avec une
+stack partagée, un compose faux fusionné casserait toutes les apps à la fois.
+
+Le déploiement se déclenche à chaque fusion sur `main` : seules les apps
+modifiées sont reconstruites et publiées sur GHCR, puis un unique appel de
+webhook fait récupérer la stack entière par le serveur. Compte deux à trois
+minutes entre la fusion et la mise en ligne.

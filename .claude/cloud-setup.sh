@@ -18,19 +18,20 @@
 #   - sortir en 0, sinon la session refuse de demarrer — d'ou les || true ;
 #   - tenir sous ~5 minutes, sinon le cache ne se construit pas.
 #
-# Cette liste vit hors du depot : apres un ./init.sh --force qui change stack ou
+# Cette liste vit hors du depot : apres un ./init.sh qui change une stack ou un
 # ui, recolle ce fichier dans l'environnement. ./init.sh --check signale l'ecart.
 
 set -u
 
-# --- gopls : absent de l'image de base ---
-# L'image cloud fournit les compilateurs, pas les serveurs de langage. Sans ce
-# binaire, le plugin gopls-lsp est installe mais inerte : aucun diagnostic apres
-# edition. En arriere-plan, pour ne pas serialiser avec les plugins.
-(
-  PATH="/usr/local/go/bin:$PATH" GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest
-) >/tmp/gopls-setup.log 2>&1 &
-lsp_pid=$!
+# --- serveurs de langage : absents de l'image de base ---
+# L'image cloud fournit les compilateurs, jamais les serveurs de langage. Sans
+# ces binaires, les plugins LSP sont installes mais inertes : aucun diagnostic
+# apres edition. Toutes les installations partent en parallele.
+pids=() noms=()
+
+( PATH="/usr/local/go/bin:$PATH" GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest ) >/tmp/gopls-setup.log 2>&1 &
+pids+=($!) noms+=(gopls)
+
 
 # --- plugins Claude Code ---
 # Le setup script tourne en root, avec un PATH plus maigre que celui de la
@@ -59,12 +60,14 @@ do
   claude plugin install "$p" || echo "   echec : $p" >&2
 done
 
-wait "$lsp_pid" || { echo "echec gopls :" >&2; tail -3 /tmp/gopls-setup.log >&2; }
-if command -v gopls >/dev/null || [ -x /usr/local/bin/gopls ]; then
-  echo "gopls present."
-else
-  echo "gopls absent — le plugin gopls-lsp restera inerte." >&2
-fi
+for i in "${!pids[@]}"; do
+  wait "${pids[$i]}" || { echo "echec ${noms[$i]} :" >&2; tail -3 "/tmp/${noms[$i]}-setup.log" >&2; }
+  if command -v "${noms[$i]}" >/dev/null || [ -x "/usr/local/bin/${noms[$i]}" ]; then
+    echo "${noms[$i]} present."
+  else
+    echo "${noms[$i]} absent — son plugin restera inerte." >&2
+  fi
+done
 
 # Toujours 0 : un outil manquant degrade l'outillage, il ne doit pas empecher
 # la session de demarrer.
