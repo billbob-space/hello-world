@@ -28,6 +28,8 @@ memory: 128m               # limite mémoire du conteneur
 health_path: /healthz      # chemin HTTP renvoyant 200 quand l'app est prête
 health_cmd: wget --spider -q http://localhost:8080/healthz
 exposure: private          # private | google — voir plus bas
+stack: none                # langage principal — active son serveur LSP
+ui: false                  # true si l'app sert une interface web
 ```
 
 Édite-le puis relance `./init.sh --force`, ou passe les valeurs en options :
@@ -44,6 +46,43 @@ présent dans les images Alpine et BusyBox, `curl` rarement sans installation.
 Une image `scratch` ou `distroless` n'a **aucun shell** : mets alors
 `health_cmd: none`. Un healthcheck qui échoue rend le conteneur malsain en
 permanence, sans que l'app soit en cause.
+
+**`stack` et `ui` ne changent rien au déploiement.** Ils déterminent l'outillage
+décrit plus bas. Renseigne-les dès que tu as choisi ta technologie, puis relance
+`./init.sh --force`.
+
+## Ton outillage — les plugins Claude Code
+
+`init.sh` écrit un `.claude/settings.json` **versionné** : tout clone du dépôt —
+toi, un autre agent, une session cloud, la CI — repart avec le même outillage.
+
+Le socle, présent dans tous les dépôts :
+
+| Plugin | Ce qu'il apporte |
+|---|---|
+| `superpowers` | Méthode de travail : brainstorming avant de coder, TDD, débogage systématique, rédaction de plans |
+| `mattpocock-skills` | TDD, revue de code, modélisation du domaine, diagnostic de bogues |
+| `code-review` / `code-simplifier` | Revue et simplification du code déjà écrit |
+| `commit-commands` | Commit, push, ouverture de PR |
+| `security-guidance` | Relit chaque modification à la recherche de vulnérabilités |
+| `context7` | Documentation **à jour** des bibliothèques — consulte-le plutôt que ta mémoire |
+| `github` | PR, Actions, GHCR |
+
+S'y ajoutent, selon `app.yml` : le serveur **LSP** correspondant à `stack` — il
+te donne les erreurs du compilateur après chaque édition, pour zéro contexte —
+et, si `ui: true`, `frontend-design`, `playwright` et `impeccable`.
+
+**Déclarer un plugin ne l'installe pas.** Claude Code le signalera manquant tant
+qu'il n'a pas été récupéré. Une fois par machine ou par conteneur d'agent :
+
+```bash
+./.claude/install-plugins.sh     # puis /reload-plugins dans une session ouverte
+```
+
+`.claude/settings.local.json` est ignoré par git : c'est là que vont tes
+préférences personnelles, jamais dans le fichier versionné. Et **jamais de bloc
+`env` dans `.claude/settings.json`** : il est public par construction, y poser un
+jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
 
 ## Les deux paliers d'authentification
 

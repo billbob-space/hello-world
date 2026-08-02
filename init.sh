@@ -14,6 +14,12 @@
 #   --health CHEMIN     chemin HTTP de sante                 (defaut /healthz)
 #   --health-cmd CMD    commande de healthcheck, ou "none"   (defaut : wget)
 #   --exposure T        private | google                     (defaut private)
+#   --stack S           langage principal, active son LSP    (defaut none)
+#   --ui / --no-ui      l'app sert une interface web         (defaut no)
+#
+# --stack et --ui ne changent rien au deploiement : ils determinent les plugins
+# ecrits dans .claude/settings.json. Renseigne-les des que tu as choisi ta
+# technologie, puis relance ./init.sh --force.
 #
 # Le script ne genere NI Dockerfile NI code applicatif : le choix de la
 # technologie appartient a l'agent. Voir CLAUDE.md.
@@ -33,7 +39,10 @@ while [ $# -gt 0 ]; do
     --health)      SET[health_path]="$2"; shift ;;
     --health-cmd)  SET[health_cmd]="$2";  shift ;;
     --exposure)    SET[exposure]="$2";    shift ;;
-    -h|--help)     sed -n '2,21p' "$0"; exit 0 ;;
+    --stack)       SET[stack]="$2";       shift ;;
+    --ui)          SET[ui]=true ;;
+    --no-ui)       SET[ui]=false ;;
+    -h|--help)     sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 0 ;;
     *) echo "option inconnue : $1" >&2; exit 2 ;;
   esac
   shift
@@ -81,6 +90,60 @@ case "$EXPOSURE" in
   *) echo "ERREUR : exposure doit valoir 'private' ou 'google' (recu : $EXPOSURE)" >&2; exit 1 ;;
 esac
 printf '%s' "$PORT" | grep -qE '^[0-9]{2,5}$' || { echo "ERREUR : port invalide : $PORT" >&2; exit 1; }
+
+# --- outillage de l'agent : plugins Claude Code --------------------------------
+#
+# Ces plugins sont declares dans .claude/settings.json, versionne, pour que tout
+# clone du depot — un autre humain, une session cloud, un agent en CI — parte
+# avec le meme outillage. Un plugin declare n'est PAS installe pour autant :
+# .claude/install-plugins.sh fait l'installation, a lancer une fois par machine.
+
+STACK=$(get stack none)
+UI=$(get ui false)
+
+case "$UI" in true|false) ;; *) echo "ERREUR : ui doit valoir true ou false (recu : $UI)" >&2; exit 1 ;; esac
+
+# Le LSP donne a l'agent les diagnostics du compilateur apres chaque edition,
+# pour zero token de contexte. Le binaire doit exister sur la machine.
+case "$STACK" in
+  none)                LSP=""; LSP_BIN="" ;;
+  typescript|ts|node)  LSP=typescript-lsp;    LSP_BIN=typescript-language-server ;;
+  python|py)           LSP=pyright-lsp;       LSP_BIN=pyright-langserver ;;
+  go|golang)           LSP=gopls-lsp;         LSP_BIN=gopls ;;
+  rust)                LSP=rust-analyzer-lsp; LSP_BIN=rust-analyzer ;;
+  java)                LSP=jdtls-lsp;         LSP_BIN=jdtls ;;
+  kotlin)              LSP=kotlin-lsp;        LSP_BIN=kotlin-language-server ;;
+  php)                 LSP=php-lsp;           LSP_BIN=intelephense ;;
+  csharp|dotnet)       LSP=csharp-lsp;        LSP_BIN=csharp-ls ;;
+  swift)               LSP=swift-lsp;         LSP_BIN=sourcekit-lsp ;;
+  c|cpp|c++)           LSP=clangd-lsp;        LSP_BIN=clangd ;;
+  lua)                 LSP=lua-lsp;           LSP_BIN=lua-language-server ;;
+  *) echo "ERREUR : stack inconnue : $STACK" >&2
+     echo "Valeurs : none typescript python go rust java kotlin php csharp swift cpp lua" >&2
+     exit 1 ;;
+esac
+
+# Socle : methode de travail, revue, docs a jour, git, securite. ~1 300 tokens
+# de contexte au demarrage de l'agent — a comparer aux 26 000 d'un plugin comme
+# ecc, ecarte pour cette raison.
+PLUGIN_IDS=(
+  superpowers@claude-plugins-official        # brainstorming, TDD, debug, plans
+  mattpocock-skills@claude-plugins-official  # tdd, code-review, domain-modeling
+  code-review@claude-plugins-official
+  code-simplifier@claude-plugins-official
+  commit-commands@claude-plugins-official    # commit, push, PR
+  security-guidance@claude-plugins-official  # revue vulnerabilites a chaque edition
+  context7@claude-plugins-official           # doc a jour des bibliotheques (MCP)
+  github@claude-plugins-official             # PR, Actions, GHCR (MCP)
+)
+[ -n "$LSP" ] && PLUGIN_IDS+=("$LSP@claude-plugins-official")
+if [ "$UI" = true ]; then
+  PLUGIN_IDS+=(
+    frontend-design@claude-plugins-official
+    playwright@claude-plugins-official       # pilotage navigateur, E2E (MCP)
+    impeccable@impeccable                    # finition visuelle — marketplace tierce
+  )
+fi
 
 # --- verification --------------------------------------------------------------
 
@@ -135,6 +198,24 @@ if [ "$CHECK" = 1 ]; then
 
   [ -f .github/workflows/build.yml ] && ok "workflow present" || bad "workflow de construction absent"
 
+  if [ -f .claude/settings.json ]; then
+    if command -v python3 >/dev/null && ! python3 -m json.tool .claude/settings.json >/dev/null 2>&1; then
+      bad ".claude/settings.json n'est pas du JSON valide"
+    else
+      ok ".claude/settings.json present"
+    fi
+    # Un settings.json versionne qui porterait un bloc env exposerait ses valeurs
+    # a quiconque clone le depot : c'est la voie la plus courante de fuite de jeton.
+    grep -q '"env"' .claude/settings.json \
+      && bad "bloc \"env\" dans .claude/settings.json versionne — n'y mets jamais de secret" \
+      || ok "aucun bloc env dans le settings versionne"
+  else
+    warn ".claude/settings.json absent — lance ./init.sh pour l'outillage de l'agent"
+  fi
+  [ -x .claude/install-plugins.sh ] \
+    && ok "script d'installation des plugins present" \
+    || warn ".claude/install-plugins.sh absent ou non executable"
+
   if git ls-files -z 2>/dev/null | xargs -0 -r grep -lIE \
        '(ghp_|github_pat_|xox[baprs]-|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY)' \
        2>/dev/null | grep -q .; then
@@ -171,6 +252,9 @@ memory: $MEMORY
 health_path: $HEALTH_PATH
 health_cmd: $HEALTH_CMD
 exposure: $EXPOSURE
+# Outillage de l'agent, sans effet sur le deploiement :
+stack: $STACK
+ui: $UI
 YAML
 ok "app.yml"
 
@@ -261,6 +345,7 @@ YAML
 write .dockerignore <<'EOF'
 .git
 .github
+.claude
 node_modules
 *.md
 .env
@@ -272,7 +357,67 @@ __pycache__
 *.log
 EOF
 
-for line in '.env' '.env.*' '*.log'; do
+# --- outillage de l'agent -------------------------------------------------------
+
+ENABLED=""
+for i in "${!PLUGIN_IDS[@]}"; do
+  sep=","; [ "$i" -eq $(( ${#PLUGIN_IDS[@]} - 1 )) ] && sep=""
+  ENABLED="$ENABLED    \"${PLUGIN_IDS[$i]}\": true$sep
+"
+done
+
+# claude-plugins-official est enregistree d'office par Claude Code : seule une
+# marketplace tierce doit etre declaree ici.
+if [ "$UI" = true ]; then
+  MARKETPLACES='  "extraKnownMarketplaces": {
+    "impeccable": {
+      "source": { "source": "github", "repo": "pbakaus/impeccable" }
+    }
+  },
+'
+else
+  MARKETPLACES=""
+fi
+
+write .claude/settings.json <<JSON
+{
+$MARKETPLACES  "enabledPlugins": {
+$ENABLED  }
+}
+JSON
+
+write .claude/install-plugins.sh <<SH
+#!/usr/bin/env bash
+#
+# Genere par init.sh — installe les plugins declares dans .claude/settings.json.
+#
+# Declarer un plugin ne l'installe pas : Claude Code le signale manquant tant
+# qu'il n'a pas ete recupere. Lance ce script une fois par machine ou par
+# conteneur d'agent, puis /reload-plugins dans une session deja ouverte.
+#
+# Pour changer la liste : edite stack/ui dans app.yml, puis ./init.sh --force
+
+set -u
+
+command -v claude >/dev/null || {
+  echo "claude introuvable dans le PATH — rien a faire." >&2; exit 1; }
+
+$([ "$UI" = true ] && echo 'claude plugin marketplace add pbakaus/impeccable || true
+' || true)
+failed=0
+for p in ${PLUGIN_IDS[*]}; do
+  echo "-> \$p"
+  claude plugin install "\$p" || { echo "   echec : \$p" >&2; failed=1; }
+done
+$([ -n "$LSP" ] && echo "
+command -v $LSP_BIN >/dev/null || echo \"note : $LSP_BIN absent du PATH — le plugin $LSP restera inactif tant qu'il n'est pas installe.\" >&2
+" || true)
+[ "\$failed" = 0 ] && echo "Termine." || echo "Termine avec des echecs." >&2
+exit \$failed
+SH
+[ -f .claude/install-plugins.sh ] && chmod +x .claude/install-plugins.sh
+
+for line in '.claude/settings.local.json' '.env' '.env.*' '*.log'; do
   { [ ! -f .gitignore ] || ! grep -qxF "$line" .gitignore; } && echo "$line" >> .gitignore
 done
 ok ".gitignore complete"
@@ -293,6 +438,14 @@ Si ces valeurs ne conviennent pas a ta technologie, relance avec les bonnes :
 Le healthcheck actuel appelle : ${HEALTH_CMD}
 Assure-toi que cet outil existe dans l'image finale, sinon le conteneur sera
 declare malsain en permanence. Image sans shell : --health-cmd none.
+
+Outillage de l'agent : ${#PLUGIN_IDS[@]} plugins declares (stack $STACK, ui $UI).
+Ils ne sont pas installes pour autant — lance une fois :
+
+  ./.claude/install-plugins.sh
+
+Si tu changes de technologie, corrige stack/ui dans app.yml et relance
+./init.sh --force pour regenerer la liste.
 
 Puis :  ./init.sh --check
 EOF
