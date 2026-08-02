@@ -69,7 +69,7 @@ docker build -t hello-world .
 Le déploiement part de chaque fusion sur `main` : GitHub construit l'image, la
 publie sur GHCR, puis le serveur la récupère. Compter deux à trois minutes.
 
-L'infrastructure (`docker-compose.yml`, `.github/workflows/build.yml`,
+L'infrastructure (`compose.yaml`, `.github/workflows/build.yml`,
 `.dockerignore`) est générée par `./init.sh` depuis `app.yml` — ne pas l'éditer
 à la main, modifier `app.yml` et relancer `./init.sh --force`.
 

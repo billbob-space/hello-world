@@ -118,7 +118,11 @@ une ligne, l'inverse expose des données.
 - **L'app tourne en utilisateur non root** (`USER` dans le `Dockerfile`).
 - **Ne publie aucun port.** Pas de section `ports:`. Traefik joint le conteneur
   par le réseau Docker `apps_net`.
-- **Le routage vit dans les labels du `docker-compose.yml`**, générés par
+- **Le fichier Compose s'appelle `compose.yaml`**, à la racine. C'est le nom
+  canonique de la Compose Spec, et le seul que `dockhand` ouvre côté serveur :
+  un `docker-compose.yml` lui renvoie « Compose file not found » et le
+  déploiement s'arrête là.
+- **Le routage vit dans les labels du `compose.yaml`**, générés par
   `init.sh`. N'y touche pas : le middleware d'authentification et
   `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
   catch-all de capter l'URL et de servir un 404 silencieux.

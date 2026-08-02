@@ -78,6 +78,12 @@ get() {  # get <cle> <defaut>
   printf '%s' "${SET[$1]:-${v:-$2}}"
 }
 
+# dockhand, cote serveur, ouvre le fichier Compose par son nom canonique de la
+# Compose Spec — compose.yaml — et rien d'autre : un docker-compose.yml lui
+# renvoie "Compose file not found" et le deploiement s'arrete la.
+COMPOSE=compose.yaml
+LEGACY_COMPOSE=docker-compose.yml
+
 PORT=$(get port 8080)
 MEMORY=$(get memory 128m)
 HEALTH_PATH=$(get health_path /healthz)
@@ -173,20 +179,26 @@ if [ "$CHECK" = 1 ]; then
     bad "Dockerfile absent a la racine"
   fi
 
-  if [ -f docker-compose.yml ]; then
-    ok "docker-compose.yml present"
-    grep -qE '^[[:space:]]*ports:' docker-compose.yml \
+  if [ -f "$COMPOSE" ]; then
+    ok "$COMPOSE present"
+    grep -qE '^[[:space:]]*ports:' "$COMPOSE" \
       && bad "section ports: interdite — Traefik joint le conteneur par le reseau" \
       || ok "aucun port publie"
-    grep -q "mem_limit: $MEMORY"          docker-compose.yml && ok "mem_limit conforme a app.yml" || bad "mem_limit absent ou different de app.yml"
-    grep -q 'traefik.enable=true'         docker-compose.yml && ok "routage declare"              || bad "labels traefik absents"
-    grep -q 'priority=100'                docker-compose.yml && ok "priority=100 pose"            || bad "priority=100 absent — 404 silencieux garanti"
-    grep -q "middlewares=$MW"             docker-compose.yml && ok "auth $MW chainee"             || bad "middleware $MW absent — l'app serait EXPOSEE"
-    grep -q "server.port=$PORT"           docker-compose.yml && ok "port du service conforme"     || bad "port du service different de app.yml"
-    grep -q 'container_name:'             docker-compose.yml && ok "container_name declare"       || bad "container_name absent"
+    grep -q "mem_limit: $MEMORY"          "$COMPOSE" && ok "mem_limit conforme a app.yml" || bad "mem_limit absent ou different de app.yml"
+    grep -q 'traefik.enable=true'         "$COMPOSE" && ok "routage declare"              || bad "labels traefik absents"
+    grep -q 'priority=100'                "$COMPOSE" && ok "priority=100 pose"            || bad "priority=100 absent — 404 silencieux garanti"
+    grep -q "middlewares=$MW"             "$COMPOSE" && ok "auth $MW chainee"             || bad "middleware $MW absent — l'app serait EXPOSEE"
+    grep -q "server.port=$PORT"           "$COMPOSE" && ok "port du service conforme"     || bad "port du service different de app.yml"
+    grep -q 'container_name:'             "$COMPOSE" && ok "container_name declare"       || bad "container_name absent"
   else
-    bad "docker-compose.yml absent — lance ./init.sh"
+    bad "$COMPOSE absent — lance ./init.sh"
   fi
+
+  # Un docker-compose.yml oublie a cote reste un second fichier de routage, que
+  # ./init.sh ne regenere plus : il divergera en silence de compose.yaml.
+  [ -f "$LEGACY_COMPOSE" ] \
+    && bad "$LEGACY_COMPOSE encore present — dockhand ne le lit pas, supprime-le" \
+    || ok "aucun $LEGACY_COMPOSE residuel"
 
   # Le routage vit dans le compose. Un LABEL traefik.* dans le Dockerfile serait
   # fusionne dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE,
@@ -273,7 +285,14 @@ else
       start_period: 10s"
 fi
 
-write docker-compose.yml <<YAML
+# Depot cree avant le passage a compose.yaml : l'ancien fichier n'est plus
+# regenere, le laisser en place ferait diverger deux sources de routage.
+if [ -f "$LEGACY_COMPOSE" ]; then
+  rm -f "$LEGACY_COMPOSE"
+  ok "$LEGACY_COMPOSE supprime (remplace par $COMPOSE)"
+fi
+
+write "$COMPOSE" <<YAML
 # Genere par init.sh depuis app.yml — encode le contrat de billbob.ovh.
 # Pour changer une valeur : edite app.yml et relance ./init.sh --force.
 services:
