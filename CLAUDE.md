@@ -4,75 +4,101 @@ Cette application est déployée automatiquement sur le serveur `billbob.ovh`.
 Les règles ci-dessous sont imposées par l'infrastructure : les enfreindre ne
 provoque pas une erreur claire, mais un déploiement qui échoue en silence.
 
-**Le nom de l'application est celui du dépôt.** Dans tout ce document,
-`<app>` désigne ce nom. Rien n'est à personnaliser dans ce fichier.
+**Le nom de l'application et l'organisation GitHub sont déduits du dépôt.** Rien
+n'est à personnaliser dans ce fichier : il est identique dans tous les dépôts.
 
 ## Démarrage
 
-Lance d'abord le script d'initialisation, qui génère les fichiers
-d'infrastructure conformes au contrat :
-
 ```bash
-./init.sh              # génère compose, workflow CI, .dockerignore
-./init.sh --check      # vérifie que le dépôt respecte le contrat
+./init.sh              # écrit app.yml et génère les fichiers d'infrastructure
+./init.sh --check      # vérifie le dépôt contre app.yml et contre le contrat
 ```
 
-Il ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail, et le
-choix de la technologie t'appartient.
+`init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
+et le choix de la technologie t'appartient.
 
-## Le contrat
+## `app.yml` — les valeurs que tu décides
 
-| Élément | Valeur | Pourquoi |
-|---|---|---|
-| URL publique | `https://<app>.apps.billbob.ovh` | routage écrit côté serveur |
-| Port d'écoute | `8080`, **HTTP en clair** | le TLS est terminé par Traefik en amont |
-| Chemin de santé | `GET /healthz` → `200` quand l'app est prête | vérifié par le healthcheck du conteneur |
-| Image publiée | `ghcr.io/billbob-space/<app>:main` | tirée par le serveur à chaque déploiement |
-| Utilisateur | non root (`USER` dans le Dockerfile) | le conteneur ne doit pas tourner en root |
+C'est le seul fichier que tu renseignes. Il porte ce qui dépend de ton
+application ; le reste du contrat est encodé dans le script.
+
+```yaml
+port: 8080                 # port d'écoute dans le conteneur, HTTP en clair
+memory: 128m               # limite mémoire du conteneur
+health_path: /healthz      # chemin HTTP renvoyant 200 quand l'app est prête
+health_cmd: wget --spider -q http://localhost:8080/healthz
+exposure: private          # private | google — voir plus bas
+```
+
+Édite-le puis relance `./init.sh --force`, ou passe les valeurs en options :
+
+```bash
+./init.sh --force --port 3000 --health /health \
+          --health-cmd 'curl -fsS http://localhost:3000/health' \
+          --exposure google
+```
+
+**`health_cmd` est le piège le plus fréquent.** Il s'exécute *dans* ton
+conteneur : l'outil qu'il appelle doit exister dans l'image finale. `wget` est
+présent dans les images Alpine et BusyBox, `curl` rarement sans installation.
+Une image `scratch` ou `distroless` n'a **aucun shell** : mets alors
+`health_cmd: none`. Un healthcheck qui échoue rend le conteneur malsain en
+permanence, sans que l'app soit en cause.
+
+## Les deux paliers d'authentification
+
+L'application est **toujours derrière une authentification Google**, appliquée
+par Traefik avant qu'une requête ne l'atteigne. Deux paliers existent, choisis
+par `exposure` dans `app.yml` :
+
+| `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
+|---|---|---|---|
+| `private` *(défaut)* | `forwardauth` | **Uniquement les comptes de la liste blanche** du serveur | Tout ce qui touche à de l'administration, de l'infra, un shell, ou des données personnelles |
+| `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | Une app dont la surface ne touche que des API tierces ou du contenu non sensible, ou dont les données sont strictement cloisonnées par utilisateur |
+
+**Il n'existe pas de troisième palier.** L'exposition publique sans
+authentification n'est pas disponible ; ne cherche pas à la configurer.
+
+Dans les deux cas, l'identité de l'utilisateur connecté arrive dans l'en-tête
+HTTP **`X-Forwarded-User`** (son adresse e-mail), posé par Traefik.
+
+**Ne code pas de système de comptes.** Si tu dois cloisonner des données par
+utilisateur, `X-Forwarded-User` est la **seule** source d'identité admissible —
+et jamais un identifiant fourni par le client (paramètre d'URL, corps de
+requête, cookie applicatif). En palier `google`, ce cloisonnement n'est pas
+optionnel : n'importe qui peut se connecter, donc chaque utilisateur ne doit
+voir que ses propres données.
+
+Si tu hésites entre les deux paliers, prends `private` : c'est réversible en
+une ligne, l'inverse expose des données.
 
 ## Règles impératives
 
 - **`Dockerfile` à la racine**, construction multi-étapes, image finale
-  **< 200 Mo**. Le disque du serveur est à 92 % — une image lourde est refusée
-  en revue.
-- **Ne publie aucun port.** Pas de section `ports:` dans le compose. Traefik
-  joint le conteneur par le réseau Docker interne.
+  **< 200 Mo**. Le disque du serveur est à 92 % — une image lourde est refusée.
+- **L'app tourne en utilisateur non root** (`USER` dans le `Dockerfile`).
+- **Ne publie aucun port.** Pas de section `ports:`. Traefik joint le conteneur
+  par le réseau Docker `apps_net`.
 - **Le routage vit dans les labels du `docker-compose.yml`**, générés par
-  `init.sh`. N'y touche pas : le middleware `forwardauth` est l'authentification
-  Google, et `priority=100` est ce qui empêche un serveur catch-all de capter
-  l'URL et de servir un 404 silencieux.
+  `init.sh`. N'y touche pas : le middleware d'authentification et
+  `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
+  catch-all de capter l'URL et de servir un 404 silencieux.
 - **Aucun `LABEL traefik.*` dans le `Dockerfile`**, sans exception. Docker
   fusionne les labels de l'image dans ceux du conteneur : un label de routage
   gravé dans l'image publierait un routeur **supplémentaire**, que le compose ne
-  peut pas écraser puisqu'il porte un autre nom — donc **sans authentification**,
-  ouvert à tous.
-- **Aucun secret** dans le dépôt ni dans l'image : pas de clé d'API, pas de mot
-  de passe, pas de jeton. Les valeurs sensibles sont injectées par
-  l'infrastructure via l'environnement. Déclare les noms attendus dans le
-  `README`, jamais les valeurs.
-- **N'écris pas de logs dans un fichier** : écris sur la sortie standard.
+  peut pas écraser puisqu'il porte un autre nom — donc **sans authentification**.
+- **Aucun secret** dans le dépôt ni dans l'image. Les valeurs sensibles sont
+  injectées par l'infrastructure via l'environnement ; déclare les noms attendus
+  dans le `README`, jamais les valeurs.
+- **Écris les logs sur la sortie standard**, pas dans un fichier.
 - **L'app doit démarrer sans intervention** : pas de migration manuelle, pas de
   question interactive, pas de fichier à créer à la main.
-
-## Authentification
-
-L'application est **derrière une authentification Google**, appliquée par
-l'infrastructure avant qu'une requête ne l'atteigne.
-
-**Ne code pas de système de comptes.** L'identité de l'utilisateur connecté
-arrive dans l'en-tête HTTP `X-Forwarded-User` (son adresse e-mail). Si tu as
-besoin de cloisonner des données par utilisateur, c'est la seule source à
-utiliser — et ne fais jamais confiance à un identifiant fourni par le client
-(paramètre d'URL, corps de requête, cookie applicatif).
 
 ## Ce qui ne t'appartient pas
 
 La topologie réseau, les bases de données partagées et les secrets vivent sur le
-serveur, hors de ce dépôt. N'essaie pas de les configurer ici, et ne modifie pas
-les fichiers générés par `init.sh` sans raison : ils encodent le contrat.
-
-Le réseau `apps_net` est déclaré `external: true` : il existe déjà côté serveur,
-ce dépôt ne le crée pas.
+serveur, hors de ce dépôt. Le réseau `apps_net` est déclaré `external: true` : il
+existe déjà côté serveur, ce dépôt ne le crée pas.
 
 Si tu as besoin de quelque chose que le contrat ne prévoit pas — une base de
 données, un cache, un volume persistant, un port supplémentaire — **écris-le
@@ -85,6 +111,6 @@ prend côté serveur.
 ./init.sh --check
 ```
 
-Le déploiement se déclenche à chaque fusion sur `main` : construction de
-l'image chez GitHub, publication sur GHCR, puis récupération par le serveur.
-Compte deux à trois minutes entre la fusion et la mise en ligne.
+Le déploiement se déclenche à chaque fusion sur `main` : construction de l'image
+chez GitHub, publication sur GHCR, puis récupération par le serveur. Compte deux
+à trois minutes entre la fusion et la mise en ligne.
