@@ -90,10 +90,18 @@ un déploiement. Elle n'est donc pas dans ce dépôt, mais dans un secret :
 | Secret du dépôt | Contenu |
 |---|---|
 | `DOCKHAND_DEPLOY_WEBHOOK` | l'URL de webhook de la stack dans `dockhand` |
+| `DOCKHAND_WEBHOOK_SECRET` | le secret du webhook, configuré côté `dockhand` |
 
 À poser dans *Settings → Secrets and variables → Actions → New repository
-secret*. Sans lui, le workflow publie l'image, émet un avertissement et
+secret*. Sans l'URL, le workflow publie l'image, émet un avertissement et
 n'appelle rien — la construction reste verte, mais **rien n'est déployé**.
+
+L'appel porte les deux conventions de signature en usage chez les forges que
+`dockhand` accepte : `x-hub-signature-256` (HMAC-SHA256 du corps, façon GitHub
+et Gitea) et `x-gitlab-token` (le secret en clair, façon GitLab). Le serveur lit
+celle qu'il connaît. Si l'appel est refusé, la réponse HTTP et le corps renvoyé
+sont affichés dans les logs du pas *déclencher le déploiement*, et le workflow
+échoue : une image publiée sans déploiement ne doit pas passer pour un succès.
 
 L'infrastructure (`compose.yaml`, `.github/workflows/build.yml`,
 `.dockerignore`) est générée par `./init.sh` depuis `app.yml` — ne pas l'éditer
