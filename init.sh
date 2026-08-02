@@ -147,6 +147,17 @@ case "$STACK" in
      exit 1 ;;
 esac
 
+# LSP_INSTALL vise le setup script cloud, qui tourne en root : d'ou le GOBIN
+# sous /usr/local/bin et l'apt-get. install-plugins.sh, lui, tourne sur une
+# machine ordinaire — reprendre ces commandes telles quelles echouerait a
+# chaque session. D'ou cette seconde table, renseignee uniquement la ou
+# l'installation aboutit sans privileges. Vide = avertissement, comme avant.
+case "$STACK" in
+  go|golang) LSP_INSTALL_USER='go install golang.org/x/tools/gopls@latest' ;;
+  rust)      LSP_INSTALL_USER='rustup component add rust-analyzer' ;;
+  *)         LSP_INSTALL_USER="" ;;
+esac
+
 # Socle : methode de travail, revue, docs a jour, git, securite. ~1 300 tokens
 # de contexte au demarrage de l'agent — a comparer aux 26 000 d'un plugin comme
 # ecc, ecarte pour cette raison.
@@ -526,6 +537,43 @@ $ENABLED  },
 }
 JSON
 
+# Bloc LSP du script d'installation. Construit ici plutot qu'en ligne dans le
+# heredoc : sa valeur y est inseree telle quelle, sans seconde expansion.
+#
+# LSP_CHECK entre dans tout_installe() : sans lui, le mode --if-needed du hook
+# sortirait des le premier conteneur ou les plugins sont la, et n'installerait
+# jamais le binaire manquant.
+LSP_CHECK="" LSP_BLOCK=""
+if [ -n "$LSP" ] && [ -n "$LSP_INSTALL_USER" ]; then
+  LSP_TOOL=${LSP_INSTALL_USER%% *}
+  LSP_CHECK="  command -v $LSP_BIN >/dev/null || return 1"
+  LSP_BLOCK=$(cat <<BLOCK
+
+# $LSP lance le serveur LSP, il ne le fournit pas : sans le binaire $LSP_BIN
+# sur la machine, le plugin s'installe mais reste inerte, sans rien dire.
+if command -v $LSP_BIN >/dev/null; then
+  echo "-> $LSP_BIN deja present"
+elif ! command -v $LSP_TOOL >/dev/null; then
+  echo "note : $LSP_TOOL absent du PATH — $LSP_BIN ne peut pas etre installe, le plugin $LSP restera inerte." >&2
+else
+  echo "-> $LSP_BIN (requis par $LSP)"
+  if $LSP_INSTALL_USER; then
+    command -v $LSP_BIN >/dev/null || echo "   note : $LSP_BIN installe mais hors du PATH — ajoute le repertoire de binaires de $LSP_TOOL au PATH." >&2
+  else
+    echo "   echec : $LSP_BIN" >&2
+    failed=1
+  fi
+fi
+BLOCK
+)
+elif [ -n "$LSP" ]; then
+  LSP_BLOCK=$(cat <<BLOCK
+
+command -v $LSP_BIN >/dev/null || echo "note : $LSP_BIN absent du PATH — le plugin $LSP restera inactif tant qu'il n'est pas installe." >&2
+BLOCK
+)
+fi
+
 write .claude/install-plugins.sh <<SH
 #!/usr/bin/env bash
 #
@@ -565,6 +613,7 @@ tout_installe() {
   for p in \$PLUGINS; do
     grep -q "\"\$p\"" "\$etat" || return 1
   done
+$LSP_CHECK
   return 0
 }
 
@@ -581,9 +630,7 @@ for p in \$PLUGINS; do
   echo "-> \$p"
   claude plugin install "\$p" || { echo "   echec : \$p" >&2; failed=1; }
 done
-$([ -n "$LSP" ] && echo "
-command -v $LSP_BIN >/dev/null || echo \"note : $LSP_BIN absent du PATH — le plugin $LSP restera inactif tant qu'il n'est pas installe.\" >&2
-" || true)
+$LSP_BLOCK
 [ "\$failed" = 0 ] && echo "Termine." || echo "Termine avec des echecs." >&2
 exit \$failed
 SH
