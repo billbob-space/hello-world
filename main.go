@@ -35,7 +35,12 @@ var version = "dev"
 var startedAt = time.Now()
 
 type pageData struct {
-	User         string
+	User string
+	// UserKnown distingue une identite reellement posee par Traefik d'une
+	// execution locale sans en-tete. La page met en avant la premiere et
+	// laisse la seconde eteinte : signaler une session qui n'existe pas
+	// serait un mensonge d'affichage.
+	UserKnown    bool
 	Host         string
 	Version      string
 	VersionShort string
@@ -105,11 +110,13 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 func handleHome(page *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Header.Get(userHeader)
-		if user == "" {
+		known := user != ""
+		if !known {
 			user = "inconnu"
 		}
 		data := pageData{
 			User:         user,
+			UserKnown:    known,
 			Host:         r.Host,
 			Version:      version,
 			VersionShort: shortVersion(),

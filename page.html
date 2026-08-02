@@ -3,89 +3,284 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>hello-world</title>
+<title>{{.VersionShort}} · hello-world</title>
 <style>
   :root {
-    color-scheme: light dark;
-    --bg: #fbfbfa;
-    --card: #ffffff;
-    --ink: #1b1b18;
-    --muted: #6b6b63;
-    --line: #e6e5e0;
-    --accent: #b8552a;
+    color-scheme: dark;
+
+    /* Le panneau est un objet physique : il est noir sous toute lumiere
+       ambiante, donc pas de variante claire. */
+    --room:     #050506;  /* le mur derriere le panneau */
+    --frame:    #0b0b0c;  /* le caisson */
+    --flap-hi:  #1c1d20;  /* moitie haute du volet, qui prend la lumiere */
+    --flap-lo:  #141518;  /* moitie basse, dans l'ombre du volet suivant */
+    --seam:     #08080a;  /* la charniere */
+    --ink:      #ece7dc;  /* les lettres : blanc chaud, jamais pur */
+    --silk:     #8a867c;  /* la serigraphie du caisson, teintee depuis l'encre */
+    --signal:   #f0a828;  /* l'ambre : la lampe et la ligne « vous », rien d'autre */
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "DejaVu Sans Mono",
+            "Liberation Mono", Menlo, Consolas, monospace;
+    --silk-face: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161614;
-      --card: #1f1f1c;
-      --ink: #f2f1ec;
-      --muted: #9d9c92;
-      --line: #2e2e29;
-      --accent: #e08a5f;
-    }
-  }
+
   * { box-sizing: border-box; }
+
   body {
     margin: 0;
     min-height: 100dvh;
     display: grid;
     place-items: center;
-    padding: 1.5rem;
-    background: var(--bg);
+    padding: clamp(1rem, 4vw, 2.5rem);
+    background: var(--room);
     color: var(--ink);
-    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--silk-face);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
   }
-  main {
-    width: 100%;
-    max-width: 30rem;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 2rem;
+
+  /* ---- le caisson ------------------------------------------------------ */
+
+  .board {
+    width: min(32rem, 100%);
+    background: var(--frame);
+    border-radius: 4px;
+    padding: clamp(1.1rem, 4.5vw, 1.6rem);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .055),
+      0 26px 60px -24px rgba(0, 0, 0, .95);
   }
+
+  /* La plaque de nom serigraphiee sur le caisson. Pas de temoin d'etat :
+     lire le panneau prouve deja qu'il est alimente, et la ligne « en service »
+     en porte la duree. */
+  .housing {
+    padding-bottom: .85rem;
+    border-bottom: 1px solid #17181b;
+  }
+
   h1 {
-    margin: 0 0 .25rem;
-    font-size: 1.6rem;
-    letter-spacing: -0.02em;
-  }
-  p.lead { margin: 0 0 1.75rem; color: var(--muted); }
-  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .6rem 1.25rem; }
-  dt { color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; }
-  dd {
     margin: 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: .92rem;
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--silk);
+  }
+
+  /* ---- les volets ------------------------------------------------------ */
+
+  /* Une cellule de caractere par volet. Le treillis est peint en fond, en
+     unites `ch`, pour que le gabarit reste un simple champ de texte : les
+     tests verrouillent {{"{{.VersionShort}}"}} colle a sa balise, aucun
+     decoupage par caractere n'est possible. */
+  .flaps {
+    --cellw: 1.24ch;
+    --flaph: 1.5em;
+    --fhi: var(--flap-hi);
+    --flo: var(--flap-lo);
+    --div: var(--frame);
+
+    margin: 0;
+    font-family: var(--mono);
+    font-weight: 500;
+    letter-spacing: .24ch;
+    line-height: var(--flaph);
+    color: var(--ink);
+    padding-left: .12ch;        /* demi-jeu : centre le glyphe dans sa cellule */
     overflow-wrap: anywhere;
+    position: relative;
+    background-color: var(--fhi);
+    background-image:
+      linear-gradient(180deg,
+        transparent calc(50% - 1px),
+        var(--seam) calc(50% - 1px), var(--seam) 50%,
+        rgba(255, 255, 255, .05) 50%, rgba(255, 255, 255, .05) calc(50% + 1px),
+        transparent calc(50% + 1px)),
+      linear-gradient(90deg, var(--div) 0 1px, transparent 1px),
+      linear-gradient(180deg, var(--fhi) 0 50%, var(--flo) 50% 100%);
+    background-size: 100% var(--flaph), var(--cellw) 100%, 100% var(--flaph);
+    background-repeat: repeat-y, repeat-x, repeat-y;
   }
-  dd.user { color: var(--accent); font-weight: 600; }
-  dd.version { font-size: .8rem; color: var(--muted); }
+
+  /* Les tourillons de l'axe, de part et d'autre du module. */
+  .flaps::before,
+  .flaps::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: .16em;
+    height: .16em;
+    border-radius: 50%;
+    background: #34353a;
+    transform: translateY(-50%);
+  }
+  .flaps::before { left: -.3em; }
+  .flaps::after  { right: -.3em; }
+
+  /* ---- la ligne d'affiche ---------------------------------------------- */
+
+  .marquee { margin: 1.35rem 0 0; }
+
+  .marquee dt,
+  .rows dt {
+    font-size: .66rem;
+    font-weight: 600;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+    color: var(--silk);
+  }
+
+  .marquee dt { margin-bottom: .6rem; }
+
+  .marquee dd {
+    margin: 0;
+    font-size: clamp(2rem, 11vw, 3.6rem);
+  }
+  .marquee dd.flaps { --flaph: 1.4em; }
+
+  /* Le SHA complet est la vraie reponse : lisible, selectionnable d'un clic,
+     pas cache dans une infobulle. Il reste subordonne aux volets, d'ou le
+     selecteur assez specifique pour passer devant `.marquee dd`. */
+  .marquee dd.sha {
+    margin: .7rem 0 0;
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .04em;
+    color: var(--silk);
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+
+  /* ---- les lignes de depart -------------------------------------------- */
+
+  .rows {
+    margin: 1.6rem 0 0;
+    display: grid;
+    grid-template-columns: minmax(6rem, max-content) 1fr;
+    gap: .5rem 1.1rem;
+    align-items: center;
+  }
+
+  /* A l'echelle des lignes, la cellule tombe sous dix pixels : le treillis
+     plein contraste virerait au grain. On l'attenue pour qu'il reste des
+     volets vides, pas une texture. */
+  .rows dd {
+    margin: 0;
+    font-size: clamp(.8rem, 3vw, .94rem);
+    --fhi: #191a1d;
+    --flo: #151619;
+    --div: #101114;
+  }
+
+  /* Votre ligne sur le panneau. L'ambre n'est pose que sur une identite
+     reellement transmise par Traefik : en local, sans en-tete, la valeur
+     reste eteinte plutot que de faire croire a une session. */
+  .rows dd.you { color: var(--signal); }
+  .rows dd.unset { color: var(--silk); }
+
+  /* ---- la plaque de sonde ---------------------------------------------- */
+
   footer {
-    margin-top: 1.75rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-    font-size: .82rem;
+    margin-top: 1.7rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid #17181b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
-  a { color: inherit; }
+
+  .legend {
+    font-size: .66rem;
+    font-weight: 600;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+    color: var(--silk);
+  }
+
+  .probe {
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--ink);
+    text-decoration: none;
+    padding: .42rem .7rem;
+    border: 1px solid #2b2c31;
+    border-radius: 3px;
+    background: var(--flap-hi);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+    transition: background 160ms ease-out, transform 160ms ease-out,
+                box-shadow 160ms ease-out;
+  }
+  .probe:hover { background: #232428; }
+  .probe:active {
+    transform: translateY(1px);
+    background: var(--flap-lo);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, .6);
+  }
+  .probe:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 34rem) {
+    .rows { grid-template-columns: 1fr; gap: .25rem; }
+    .rows dt { margin-top: .55rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .probe { transition: none; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>Hello, world.</h1>
-  <p class="lead">L'application tourne et répond derrière l'authentification Google.</p>
-  <dl>
-    <dt>Utilisateur</dt>
-    <dd class="user">{{.User}}</dd>
-    <dt>Hôte</dt>
-    <dd>{{.Host}}</dd>
-    <dt>Version</dt>
-    <dd class="version" title="{{.Version}}">{{.VersionShort}}</dd>
-    <dt>Démarrée</dt>
-    <dd>{{.Started}}</dd>
-    <dt>Uptime</dt>
-    <dd>{{.Uptime}}</dd>
+<!--
+THESIS: a deployment is a flap turning — this page is the board showing the
+value now in service, not a status card with a green pill.
+OWN-WORLD: matte black housing, two-tone flap cards split by a hinge seam,
+ivory lettering in fixed character cells, axle pins on every strip, one amber
+signal reserved for the identity row and keyboard focus. No status lamp.
+STORY: the visitor merged minutes ago; they read the SHA at board scale,
+confirm it is theirs, and leave.
+FIRST VIEWPORT: silkscreened nameplate; "Version en ligne" over the SHA at
+board scale with the full hash beneath; four departure rows; the /healthz
+plate closes the frame.
+FORM: split-flap departure board, candidate 6 of 7, seed 8ff367b8.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+<main class="board">
+
+  <header class="housing">
+    <h1>hello-world</h1>
+  </header>
+
+  <dl class="marquee">
+    <dt>Version en ligne</dt>
+    <dd class="flaps" title="{{.Version}}">{{.VersionShort}}</dd>
+    <dd class="sha">{{.Version}}</dd>
   </dl>
-  <footer>Sonde de santé : <a href="/healthz">/healthz</a></footer>
+
+  <dl class="rows">
+    <dt>Utilisateur</dt>
+    <dd class="flaps {{if .UserKnown}}you{{else}}unset{{end}}">{{.User}}</dd>
+
+    <dt>Hôte</dt>
+    <dd class="flaps">{{.Host}}</dd>
+
+    <dt>Démarrée</dt>
+    <dd class="flaps">{{.Started}}</dd>
+
+    <dt>En service</dt>
+    <dd class="flaps">{{.Uptime}}</dd>
+  </dl>
+
+  <footer>
+    <span class="legend">Sonde de santé</span>
+    <a class="probe" href="/healthz">/healthz</a>
+  </footer>
+
 </main>
 </body>
 </html>

@@ -19,6 +19,17 @@ serveur HTTP, le gabarit de page et les tests tiennent dans trois fichiers :
 
 L'image finale est une Alpine portant le binaire statique, environ 12 Mo.
 
+La page est un **panneau à palettes** : chaque valeur est posée sur une grille
+de cellules de caractère, comme sur un tableau des départs. Tout est obtenu en
+CSS — le treillis des volets est peint en fond, en unités `ch`, derrière un
+simple champ de texte. C'est ce qui permet à `page.html` de rester un gabarit
+Go ordinaire : `main_test.go` verrouille `{{.VersionShort}}` collé à sa balise,
+donc aucun découpage caractère par caractère n'est possible. Aucun script,
+aucune police distante, aucune requête sortante depuis le navigateur.
+
+Le monde visuel et les décisions produit sont consignés dans
+[`PRODUCT.md`](PRODUCT.md) et [`DESIGN.md`](DESIGN.md).
+
 ## Routes
 
 | Route | Réponse |
