@@ -6,6 +6,7 @@
 app.yml
 test.sh
 .dockerignore
+hello-world
 node_modules
 dist
 build
