@@ -66,6 +66,47 @@ Construction de l'image, à l'identique de la CI :
 docker build -t hello-world .
 ```
 
+## Outillage de l'agent
+
+Les plugins sont déclarés dans `.claude/settings.json`, versionné. Le stockage
+étant local à la machine, chaque conteneur repart de zéro — et **aucun script du
+dépôt ne peut combler ce vide à temps** : Claude Code charge ses plugins avant
+qu'un hook `SessionStart` ne s'exécute, et `/reload-plugins` n'existe pas sur le
+web. L'installation appartient donc au **setup script de l'environnement**, seul
+point d'accroche antérieur au lancement. Voir [`CLAUDE.md`](CLAUDE.md) : il se
+colle une fois, et `init.sh` en génère le contenu dans `.claude/cloud-setup.sh`.
+
+Le hook, lui, se borne à dire ce qu'il voit. `.claude/check-plugins.sh` écrit son
+rapport à chaque ouverture de session :
+
+```
+Outillage : 12/12 plugins installes.
+  gopls present — diagnostics go actifs.
+```
+
+### La dépendance `gopls`
+
+`gopls-lsp` **lance** le serveur LSP, il ne le **fournit** pas. Sans le binaire
+`gopls`, le plugin s'installe sans erreur et reste inerte : plus de diagnostics
+du compilateur après édition, et rien qui l'annonce. D'où la seconde ligne du
+rapport, indépendante du décompte des plugins — les deux divergent.
+
+`cloud-setup.sh` s'en charge côté cloud. Sur une machine ordinaire — poste de
+dev, CI, agent hors cloud — l'installation est manuelle, une fois :
+
+```bash
+go install golang.org/x/tools/gopls@latest
+```
+
+Attention au piège : `go install` dépose le binaire dans `$(go env GOPATH)/bin`,
+souvent hors du PATH. Une installation réussie peut laisser le plugin tout aussi
+inerte — le rapport du hook continuera à signaler `gopls ABSENT` tant que le
+binaire n'est pas résolvable, ce qui est exactement ce qu'il faut savoir.
+
+La commande diffère de celle du setup script cloud, qui tourne **en root**
+(`GOBIN=/usr/local/bin`) pour déposer le binaire dans un répertoire déjà présent
+dans le PATH de toutes les sessions.
+
 ## Avant de pousser
 
 ```bash
