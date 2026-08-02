@@ -383,12 +383,40 @@ jobs:
       - name: declencher le deploiement
         env:
           WEBHOOK: \${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
+          WEBHOOK_SECRET: \${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
         run: |
           if [ -z "\$WEBHOOK" ]; then
             echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — image publiee, deploiement NON declenche"
             exit 0
           fi
-          curl -fsS --retry 3 --retry-delay 5 -X POST "\$WEBHOOK" && echo "deploiement declenche"
+
+          # Corps de la forme d'un evenement push : c'est ce que le serveur
+          # attend d'un webhook de depot, et il y lit la branche visee.
+          body=\$(printf '{"ref":"%s","after":"%s"}' "\$GITHUB_REF" "\$GITHUB_SHA")
+
+          # Deux conventions de signature coexistent chez les forges que
+          # dockhand accepte : GitHub et Gitea signent le corps en HMAC-SHA256
+          # (X-Hub-Signature-256), GitLab envoie le secret en clair
+          # (X-Gitlab-Token). Les deux en-tetes partent ensemble ; le serveur
+          # lit celui qu'il connait et ignore l'autre.
+          set -- -H 'content-type: application/json' -H 'x-github-event: push'
+          if [ -n "\$WEBHOOK_SECRET" ]; then
+            sig=\$(printf '%s' "\$body" | openssl dgst -sha256 -hmac "\$WEBHOOK_SECRET" | awk '{print \$NF}')
+            set -- "\$@" -H "x-hub-signature-256: sha256=\$sig" \\
+                        -H "x-gitlab-token: \$WEBHOOK_SECRET"
+          else
+            echo "::warning::secret DOCKHAND_WEBHOOK_SECRET absent — appel non signe, le serveur le refusera s'il attend une signature"
+          fi
+
+          code=\$(curl -sS -o reponse.txt -w '%{http_code}' --retry 3 --retry-delay 5 \\
+                   -X POST "\$WEBHOOK" "\$@" -d "\$body")
+          echo "reponse HTTP \$code :"
+          cat reponse.txt; echo
+          if [ "\$code" -ge 400 ]; then
+            echo "::error::le webhook a refuse l'appel — image publiee, rien n'est deploye"
+            exit 1
+          fi
+          echo "deploiement declenche"
 YAML
 
 write .dockerignore <<'EOF'
