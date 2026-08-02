@@ -103,6 +103,12 @@ printf '%s' "$PORT" | grep -qE '^[0-9]{2,5}$' || { echo "ERREUR : port invalide 
 # clone du depot — un autre humain, une session cloud, un agent en CI — parte
 # avec le meme outillage. Un plugin declare n'est PAS installe pour autant :
 # .claude/install-plugins.sh fait l'installation, a lancer une fois par machine.
+#
+# En session cloud (claude.ai/code), ce script arrive trop tard : Claude Code
+# charge les plugins avant de les installer, et /reload-plugins n'existe pas sur
+# le web. Le seul point d'accroche assez tot est le setup script de
+# l'environnement — d'ou .claude/cloud-setup.sh, genere ici pour etre colle dans
+# le champ correspondant sur claude.ai/code.
 
 STACK=$(get stack none)
 UI=$(get ui false)
@@ -228,6 +234,20 @@ if [ "$CHECK" = 1 ]; then
   [ -x .claude/install-plugins.sh ] \
     && ok "script d'installation des plugins present" \
     || warn ".claude/install-plugins.sh absent ou non executable"
+
+  # Le setup script vit dans l'environnement cloud, hors du depot : rien ne le
+  # resynchronise. Signale l'ecart, faute de pouvoir le corriger d'ici.
+  if [ -f .claude/cloud-setup.sh ]; then
+    drift=0
+    for p in "${PLUGIN_IDS[@]}"; do
+      grep -qF "$p" .claude/cloud-setup.sh || drift=1
+    done
+    [ "$drift" = 0 ] \
+      && ok "cloud-setup.sh aligne sur les ${#PLUGIN_IDS[@]} plugins declares" \
+      || warn "cloud-setup.sh desynchronise — ./init.sh --force, puis recolle-le sur claude.ai/code"
+  else
+    warn ".claude/cloud-setup.sh absent — les plugins resteront inertes en session cloud"
+  fi
 
   # Les deux motifs de jeton GitHub sont ecrits avec une classe d'un seul
   # caractere — gh[p]_ — pour ne pas contenir le litteral qu'ils recherchent :
@@ -506,7 +526,15 @@ write .claude/install-plugins.sh <<SH
 # Le hook SessionStart de .claude/settings.json lance ce script avec
 # --if-needed a chaque ouverture de session : le premier conteneur installe,
 # les suivants sortent sans rien faire. En session deja ouverte au moment de
-# l'installation, il reste a taper /reload-plugins.
+# l'installation, il reste a taper /reload-plugins — commande du terminal.
+#
+# EN SESSION CLOUD, CE SCRIPT NE SUFFIT PAS. Claude Code charge les plugins
+# avant de les installer : le hook s'execute apres, les plugins finissent bien
+# sur le disque mais la session en cours ne les voit pas, et /reload-plugins
+# n'existe pas sur le web. Chaque session cloud partant d'une VM neuve, le cas
+# se represente a chaque fois. Colle .claude/cloud-setup.sh dans le champ
+# "Setup script" de ton environnement sur claude.ai/code : il tourne avant le
+# lancement de Claude Code, et son resultat est mis en cache.
 #
 # Pour changer la liste : edite stack/ui dans app.yml, puis ./init.sh --force
 
@@ -549,6 +577,58 @@ exit \$failed
 SH
 [ -f .claude/install-plugins.sh ] && chmod +x .claude/install-plugins.sh
 
+# Un plugin par ligne : ce script se lit dans une textarea, pas dans un editeur.
+PLUGIN_LINES=$(printf '  %s \\\n' "${PLUGIN_IDS[@]}")
+PLUGIN_LINES=${PLUGIN_LINES% \\}
+
+write .claude/cloud-setup.sh <<SH
+#!/usr/bin/env bash
+#
+# Genere par init.sh — A COLLER dans le champ "Setup script" de l'environnement
+# cloud : claude.ai/code, icone nuage au-dessus de la zone de saisie, engrenage
+# de l'environnement. Ce fichier n'est jamais execute par le depot ni par la CI.
+#
+# Pourquoi il existe. En session cloud, Claude Code charge les plugins AVANT de
+# les installer : le hook SessionStart de .claude/settings.json s'execute apres
+# ce chargement, et /reload-plugins n'existe pas sur le web. Les plugins
+# atterrissent donc sur le disque sans jamais servir — et comme chaque session
+# cloud demarre sur une VM neuve, le --if-needed du hook ne rattrape rien. Le
+# setup script, lui, tourne avant le lancement de Claude Code, et son resultat
+# est fige dans un instantane du disque : il ne rejoue qu'apres modification de
+# l'environnement ou expiration du cache (~7 jours).
+#
+# Deux contraintes imposees par l'infrastructure cloud :
+#   - sortir en 0, sinon la session refuse de demarrer — d'ou les || true ;
+#   - tenir sous ~5 minutes, sinon le cache ne se construit pas.
+#
+# Cette liste vit hors du depot : apres un ./init.sh --force qui change stack ou
+# ui, recolle ce fichier dans l'environnement. ./init.sh --check signale l'ecart.
+
+set -u
+
+# Le setup script tourne en root, avec un PATH plus maigre que celui de la
+# session : retrouve le binaire s'il n'y est pas.
+command -v claude >/dev/null || {
+  c=\$(ls -1 /opt/*/bin/claude /usr/local/bin/claude 2>/dev/null | head -1)
+  [ -n "\${c:-}" ] && PATH="\$(dirname "\$c"):\$PATH" && export PATH
+}
+command -v claude >/dev/null || {
+  echo "claude introuvable dans le PATH — aucun plugin installe." >&2; exit 0; }
+
+$([ "$UI" = true ] && echo 'claude plugin marketplace add pbakaus/impeccable || true
+' || true)
+for p in \\
+$PLUGIN_LINES
+do
+  echo "-> \$p"
+  claude plugin install "\$p" || echo "   echec : \$p" >&2
+done
+
+# Toujours 0 : un plugin manquant degrade l'outillage, il ne doit pas empecher
+# la session de demarrer.
+exit 0
+SH
+
 for line in '.claude/settings.local.json' '.env' '.env.*' '*.log'; do
   { [ ! -f .gitignore ] || ! grep -qxF "$line" .gitignore; } && echo "$line" >> .gitignore
 done
@@ -572,12 +652,17 @@ Assure-toi que cet outil existe dans l'image finale, sinon le conteneur sera
 declare malsain en permanence. Image sans shell : --health-cmd none.
 
 Outillage de l'agent : ${#PLUGIN_IDS[@]} plugins declares (stack $STACK, ui $UI).
-Ils ne sont pas installes pour autant — lance une fois :
+Ils ne sont pas installes pour autant.
 
-  ./.claude/install-plugins.sh
+  En local     : ./.claude/install-plugins.sh   puis /reload-plugins
+  En cloud     : colle .claude/cloud-setup.sh dans le champ "Setup script" de
+                 ton environnement sur claude.ai/code (icone nuage, engrenage).
+
+Le hook SessionStart ne suffit pas en cloud : Claude Code charge les plugins
+avant de les installer, et /reload-plugins n'existe pas sur le web.
 
 Si tu changes de technologie, corrige stack/ui dans app.yml et relance
-./init.sh --force pour regenerer la liste.
+./init.sh --force pour regenerer la liste — puis recolle le setup script.
 
 Puis :  ./init.sh --check
 EOF

@@ -79,6 +79,33 @@ qu'il n'a pas été récupéré. Une fois par machine ou par conteneur d'agent :
 ./.claude/install-plugins.sh     # puis /reload-plugins dans une session ouverte
 ```
 
+### En session cloud, ce script ne suffit pas
+
+Sur `claude.ai/code`, **Claude Code charge les plugins avant de les installer**.
+Le hook `SessionStart` qui lance `install-plugins.sh` s'exécute après ce
+chargement : les plugins finissent bien sur le disque, mais la session en cours
+ne les voit pas. Et `/reload-plugins` est une commande du terminal, absente du
+web — comme `/plugin`, `/resume` ou `/clear`. Chaque session cloud démarrant sur
+une VM neuve, le `--if-needed` ne rattrape jamais rien : l'outillage est
+réinstallé à chaque fois et n'est jamais utilisé.
+
+Le seul point d'accroche assez tôt est le **setup script de l'environnement**,
+qui tourne avant le lancement de Claude Code. `init.sh` en génère le contenu :
+
+```bash
+cat .claude/cloud-setup.sh     # à coller dans le champ "Setup script"
+```
+
+Sur `claude.ai/code` : icône nuage au-dessus de la zone de saisie → engrenage de
+l'environnement → champ **Setup script**. Le résultat est figé dans un instantané
+du disque, donc le script ne rejoue qu'après modification de l'environnement ou
+expiration du cache (~7 jours) — les sessions suivantes démarrent avec
+l'outillage déjà en place.
+
+Cette configuration vit **hors du dépôt**, dans ton compte : `init.sh` ne peut
+pas la mettre à jour. Après un `./init.sh --force` qui change `stack` ou `ui`,
+recolle le fichier. `./init.sh --check` signale l'écart entre les deux listes.
+
 `.claude/settings.local.json` est ignoré par git : c'est là que vont tes
 préférences personnelles, jamais dans le fichier versionné. Et **jamais de bloc
 `env` dans `.claude/settings.json`** : il est public par construction, y poser un

@@ -9,7 +9,15 @@
 # Le hook SessionStart de .claude/settings.json lance ce script avec
 # --if-needed a chaque ouverture de session : le premier conteneur installe,
 # les suivants sortent sans rien faire. En session deja ouverte au moment de
-# l'installation, il reste a taper /reload-plugins.
+# l'installation, il reste a taper /reload-plugins — commande du terminal.
+#
+# EN SESSION CLOUD, CE SCRIPT NE SUFFIT PAS. Claude Code charge les plugins
+# avant de les installer : le hook s'execute apres, les plugins finissent bien
+# sur le disque mais la session en cours ne les voit pas, et /reload-plugins
+# n'existe pas sur le web. Chaque session cloud partant d'une VM neuve, le cas
+# se represente a chaque fois. Colle .claude/cloud-setup.sh dans le champ
+# "Setup script" de ton environnement sur claude.ai/code : il tourne avant le
+# lancement de Claude Code, et son resultat est mis en cache.
 #
 # Pour changer la liste : edite stack/ui dans app.yml, puis ./init.sh --force
 
