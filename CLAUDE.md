@@ -37,11 +37,15 @@ choix de la technologie t'appartient.
   en revue.
 - **Ne publie aucun port.** Pas de section `ports:` dans le compose. Traefik
   joint le conteneur par le réseau Docker interne.
-- **Aucun label `traefik.*`**, ni dans le compose, ni dans le `Dockerfile`.
-  Docker fusionne les `LABEL` de l'image dans les labels du conteneur, et
-  Traefik les honore : un label de routage posé dans un `Dockerfile` publierait
-  une route **sans authentification**. Le routage vit côté serveur, dans un
-  fichier que ce dépôt ne contrôle pas.
+- **Le routage vit dans les labels du `docker-compose.yml`**, générés par
+  `init.sh`. N'y touche pas : le middleware `forwardauth` est l'authentification
+  Google, et `priority=100` est ce qui empêche un serveur catch-all de capter
+  l'URL et de servir un 404 silencieux.
+- **Aucun `LABEL traefik.*` dans le `Dockerfile`**, sans exception. Docker
+  fusionne les labels de l'image dans ceux du conteneur : un label de routage
+  gravé dans l'image publierait un routeur **supplémentaire**, que le compose ne
+  peut pas écraser puisqu'il porte un autre nom — donc **sans authentification**,
+  ouvert à tous.
 - **Aucun secret** dans le dépôt ni dans l'image : pas de clé d'API, pas de mot
   de passe, pas de jeton. Les valeurs sensibles sont injectées par
   l'infrastructure via l'environnement. Déclare les noms attendus dans le
@@ -63,10 +67,12 @@ utiliser — et ne fais jamais confiance à un identifiant fourni par le client
 
 ## Ce qui ne t'appartient pas
 
-Le routage Traefik, la topologie réseau, les bases de données partagées et les
-secrets vivent sur le serveur, hors de ce dépôt. N'essaie pas de les configurer
-ici, et ne modifie pas les fichiers générés par `init.sh` sans raison : ils
-encodent le contrat.
+La topologie réseau, les bases de données partagées et les secrets vivent sur le
+serveur, hors de ce dépôt. N'essaie pas de les configurer ici, et ne modifie pas
+les fichiers générés par `init.sh` sans raison : ils encodent le contrat.
+
+Le réseau `apps_net` est déclaré `external: true` : il existe déjà côté serveur,
+ce dépôt ne le crée pas.
 
 Si tu as besoin de quelque chose que le contrat ne prévoit pas — une base de
 données, un cache, un volume persistant, un port supplémentaire — **écris-le

@@ -71,17 +71,23 @@ if [ "$CHECK" = 1 ]; then
       && bad "section ports: interdite — Traefik joint le conteneur par le reseau" \
       || ok "aucun port publie"
     grep -q 'mem_limit:'      docker-compose.yml && ok "mem_limit declare"      || bad "mem_limit absent"
-    grep -q 'app.untrusted'   docker-compose.yml && ok "label app.untrusted pose" || bad "label app.untrusted=true absent"
+    grep -q 'traefik.enable=true'     docker-compose.yml && ok "routage traefik declare"  || bad "labels traefik absents du compose"
+    grep -q 'priority=100'            docker-compose.yml && ok "priority=100 pose"        || bad "priority=100 absent — 404 silencieux garanti"
+    grep -q 'middlewares=forwardauth' docker-compose.yml && ok "forwardauth chaine"       || bad "middleware forwardauth absent — l'app serait EXPOSEE sans authentification"
     grep -q 'healthcheck:'    docker-compose.yml && ok "healthcheck declare"    || bad "healthcheck absent"
     grep -q 'container_name:' docker-compose.yml && ok "container_name declare" || bad "container_name absent"
   else
     bad "docker-compose.yml absent — lance ./init.sh"
   fi
 
-  if grep -rqi 'traefik\.' Dockerfile docker-compose.yml 2>/dev/null; then
-    bad "label traefik.* detecte — publierait une route SANS authentification"
+  # Le routage vit dans le compose. Dans le Dockerfile, un LABEL traefik.* serait
+  # fusionne dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE,
+  # que le compose ne peut pas ecraser puisqu'il porte un autre nom — donc sans
+  # aucun middleware d'authentification. C'est interdit, sans exception.
+  if grep -qi 'traefik\.' Dockerfile 2>/dev/null; then
+    bad "LABEL traefik.* dans le Dockerfile — publierait une route SANS authentification"
   else
-    ok "aucun label traefik.*"
+    ok "aucun label traefik.* dans le Dockerfile"
   fi
 
   [ -f .github/workflows/build.yml ] && ok "workflow de construction present" \
@@ -138,9 +144,19 @@ services:
       retries: 3
       start_period: 10s
     labels:
-      # Sort ce conteneur du provider Docker de Traefik : le routage est ecrit
-      # cote serveur, dans un fichier que ce depot ne controle pas.
-      - "app.untrusted=true"
+      # priority=100 est OBLIGATOIRE : le routeur catch-all d'agentIA capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.$APP.rule=Host(\`$APP.apps.billbob.ovh\`)"
+      - "traefik.http.routers.$APP.entrypoints=websecure"
+      - "traefik.http.routers.$APP.priority=100"
+      # forwardauth = authentification Google. La retirer expose l'app en clair.
+      - "traefik.http.routers.$APP.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.$APP.tls.certresolver=letsencrypt"
+      - "traefik.http.services.$APP.loadbalancer.server.port=$PORT"
+      - "traefik.docker.network=apps_net"
     networks: [apps_net]
 
 networks:
