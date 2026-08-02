@@ -1,0 +1,16 @@
+# Genere par init.sh — le contexte de construction est apps/hello-world.
+# Tout ce qui ne sert pas a construire l'image en est exclu : le contexte
+# reduit est ce qui isole cette app des autres apps de la fabrique.
+.git
+*.md
+app.yml
+test.sh
+.dockerignore
+node_modules
+dist
+build
+target
+__pycache__
+.env
+.env.*
+*.log
