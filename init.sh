@@ -117,19 +117,31 @@ case "$UI" in true|false) ;; *) echo "ERREUR : ui doit valoir true ou false (rec
 
 # Le LSP donne a l'agent les diagnostics du compilateur apres chaque edition,
 # pour zero token de contexte. Le binaire doit exister sur la machine.
+#
+# LSP_INSTALL sert au setup script cloud : l'image de base fournit les
+# compilateurs, jamais les serveurs de langage. Sans cette ligne le plugin est
+# installe mais inerte. Vide = pas d'installation en une commande fiable a
+# travers l'allowlist reseau ; le setup script genere pose alors un TODO plutot
+# qu'une commande inventee.
 case "$STACK" in
-  none)                LSP=""; LSP_BIN="" ;;
-  typescript|ts|node)  LSP=typescript-lsp;    LSP_BIN=typescript-language-server ;;
-  python|py)           LSP=pyright-lsp;       LSP_BIN=pyright-langserver ;;
-  go|golang)           LSP=gopls-lsp;         LSP_BIN=gopls ;;
-  rust)                LSP=rust-analyzer-lsp; LSP_BIN=rust-analyzer ;;
-  java)                LSP=jdtls-lsp;         LSP_BIN=jdtls ;;
-  kotlin)              LSP=kotlin-lsp;        LSP_BIN=kotlin-language-server ;;
-  php)                 LSP=php-lsp;           LSP_BIN=intelephense ;;
-  csharp|dotnet)       LSP=csharp-lsp;        LSP_BIN=csharp-ls ;;
-  swift)               LSP=swift-lsp;         LSP_BIN=sourcekit-lsp ;;
-  c|cpp|c++)           LSP=clangd-lsp;        LSP_BIN=clangd ;;
-  lua)                 LSP=lua-lsp;           LSP_BIN=lua-language-server ;;
+  none)                LSP=""; LSP_BIN=""; LSP_INSTALL="" ;;
+  typescript|ts|node)  LSP=typescript-lsp;    LSP_BIN=typescript-language-server
+                       LSP_INSTALL='npm install -g typescript-language-server typescript' ;;
+  python|py)           LSP=pyright-lsp;       LSP_BIN=pyright-langserver
+                       LSP_INSTALL='npm install -g pyright' ;;
+  go|golang)           LSP=gopls-lsp;         LSP_BIN=gopls
+                       LSP_INSTALL='PATH="/usr/local/go/bin:$PATH" GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest' ;;
+  rust)                LSP=rust-analyzer-lsp; LSP_BIN=rust-analyzer
+                       LSP_INSTALL='rustup component add rust-analyzer' ;;
+  java)                LSP=jdtls-lsp;         LSP_BIN=jdtls;         LSP_INSTALL="" ;;
+  kotlin)              LSP=kotlin-lsp;        LSP_BIN=kotlin-language-server; LSP_INSTALL="" ;;
+  php)                 LSP=php-lsp;           LSP_BIN=intelephense
+                       LSP_INSTALL='npm install -g intelephense' ;;
+  csharp|dotnet)       LSP=csharp-lsp;        LSP_BIN=csharp-ls;     LSP_INSTALL="" ;;
+  swift)               LSP=swift-lsp;         LSP_BIN=sourcekit-lsp; LSP_INSTALL="" ;;
+  c|cpp|c++)           LSP=clangd-lsp;        LSP_BIN=clangd
+                       LSP_INSTALL='apt-get install -y clangd' ;;
+  lua)                 LSP=lua-lsp;           LSP_BIN=lua-language-server;    LSP_INSTALL="" ;;
   *) echo "ERREUR : stack inconnue : $STACK" >&2
      echo "Valeurs : none typescript python go rust java kotlin php csharp swift cpp lua" >&2
      exit 1 ;;
@@ -578,8 +590,37 @@ SH
 [ -f .claude/install-plugins.sh ] && chmod +x .claude/install-plugins.sh
 
 # Un plugin par ligne : ce script se lit dans une textarea, pas dans un editeur.
-PLUGIN_LINES=$(printf '  %s \\\n' "${PLUGIN_IDS[@]}")
+PLUGIN_LINES=$(printf '    %s \\\n' "${PLUGIN_IDS[@]}")
 PLUGIN_LINES=${PLUGIN_LINES% \\}
+
+# Le serveur de langage se telecharge en parallele des plugins : seul il peut
+# depasser la minute, et le setup script doit tenir sous les cinq. Ces deux
+# fragments sont interpolees tels quels dans le heredoc ci-dessous — leurs $
+# ne sont donc pas reevalues.
+LSP_LAUNCH="" LSP_WAIT=""
+if [ -n "$LSP" ] && [ -n "$LSP_INSTALL" ]; then
+  LSP_LAUNCH="# --- $LSP_BIN : absent de l'image de base ---
+# L'image cloud fournit les compilateurs, pas les serveurs de langage. Sans ce
+# binaire, le plugin $LSP est installe mais inerte : aucun diagnostic apres
+# edition. En arriere-plan, pour ne pas serialiser avec les plugins.
+(
+  $LSP_INSTALL
+) >/tmp/$LSP_BIN-setup.log 2>&1 &
+lsp_pid=\$!
+"
+  LSP_WAIT="wait \"\$lsp_pid\" || { echo \"echec $LSP_BIN :\" >&2; tail -3 /tmp/$LSP_BIN-setup.log >&2; }
+if command -v $LSP_BIN >/dev/null || [ -x /usr/local/bin/$LSP_BIN ]; then
+  echo \"$LSP_BIN present.\"
+else
+  echo \"$LSP_BIN absent — le plugin $LSP restera inerte.\" >&2
+fi
+"
+elif [ -n "$LSP" ]; then
+  LSP_LAUNCH="# TODO : installer $LSP_BIN. Le plugin $LSP est declare, mais sans ce binaire
+# il reste inerte — et aucune installation en une commande n'est connue pour la
+# stack $STACK a travers l'allowlist reseau. Ajoute-la ici, puis recolle.
+"
+fi
 
 write .claude/cloud-setup.sh <<SH
 #!/usr/bin/env bash
@@ -606,25 +647,29 @@ write .claude/cloud-setup.sh <<SH
 
 set -u
 
+$LSP_LAUNCH
+# --- plugins Claude Code ---
 # Le setup script tourne en root, avec un PATH plus maigre que celui de la
 # session : retrouve le binaire s'il n'y est pas.
 command -v claude >/dev/null || {
   c=\$(ls -1 /opt/*/bin/claude /usr/local/bin/claude 2>/dev/null | head -1)
   [ -n "\${c:-}" ] && PATH="\$(dirname "\$c"):\$PATH" && export PATH
 }
-command -v claude >/dev/null || {
-  echo "claude introuvable dans le PATH — aucun plugin installe." >&2; exit 0; }
 
-$([ "$UI" = true ] && echo 'claude plugin marketplace add pbakaus/impeccable || true
-' || true)
-for p in \\
+if command -v claude >/dev/null; then
+$([ "$UI" = true ] && echo '  claude plugin marketplace add pbakaus/impeccable || true' || true)
+  for p in \\
 $PLUGIN_LINES
-do
-  echo "-> \$p"
-  claude plugin install "\$p" || echo "   echec : \$p" >&2
-done
+  do
+    echo "-> \$p"
+    claude plugin install "\$p" || echo "   echec : \$p" >&2
+  done
+else
+  echo "claude introuvable dans le PATH — aucun plugin installe." >&2
+fi
 
-# Toujours 0 : un plugin manquant degrade l'outillage, il ne doit pas empecher
+$LSP_WAIT
+# Toujours 0 : un outil manquant degrade l'outillage, il ne doit pas empecher
 # la session de demarrer.
 exit 0
 SH

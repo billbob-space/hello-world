@@ -90,7 +90,10 @@ une VM neuve, le `--if-needed` ne rattrape jamais rien : l'outillage est
 réinstallé à chaque fois et n'est jamais utilisé.
 
 Le seul point d'accroche assez tôt est le **setup script de l'environnement**,
-qui tourne avant le lancement de Claude Code. `init.sh` en génère le contenu :
+qui tourne avant le lancement de Claude Code. `init.sh` en génère le contenu —
+les plugins, plus **le binaire du serveur LSP** correspondant à `stack` : l'image
+cloud fournit les compilateurs, jamais les serveurs de langage, et sans ce
+binaire le plugin est installé mais inerte.
 
 ```bash
 cat .claude/cloud-setup.sh     # à coller dans le champ "Setup script"
@@ -101,6 +104,10 @@ l'environnement → champ **Setup script**. Le résultat est figé dans un insta
 du disque, donc le script ne rejoue qu'après modification de l'environnement ou
 expiration du cache (~7 jours) — les sessions suivantes démarrent avec
 l'outillage déjà en place.
+
+Pour les stacks dont le serveur de langage ne s'installe pas en une commande à
+travers l'allowlist réseau, le script généré pose un `TODO` explicite plutôt
+qu'une commande inventée : complète-le avant de le coller.
 
 Cette configuration vit **hors du dépôt**, dans ton compte : `init.sh` ne peut
 pas la mettre à jour. Après un `./init.sh --force` qui change `stack` ou `ui`,
