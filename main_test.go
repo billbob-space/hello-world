@@ -17,7 +17,7 @@ func newMux(t *testing.T) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
 	mux.HandleFunc("GET /{$}", handleHome(page))
-	return mux
+	return withVersion(mux)
 }
 
 func get(t *testing.T, h http.Handler, path string, headers map[string]string) *httptest.ResponseRecorder {
@@ -66,12 +66,32 @@ func TestAccueilSansEnTeteResteLisible(t *testing.T) {
 // deploiement devient impossible.
 func TestAccueilAfficheLaVersion(t *testing.T) {
 	origine := version
-	version = "abcdef1"
+	version = "abcdef1234567890"
 	defer func() { version = origine }()
 
 	rec := get(t, newMux(t), "/", nil)
-	if !strings.Contains(rec.Body.String(), "abcdef1") {
-		t.Fatal("la page ne contient pas la version du binaire")
+	corps := rec.Body.String()
+	if !strings.Contains(corps, ">abcdef1<") {
+		t.Fatal("la page n'affiche pas la version raccourcie")
+	}
+	if !strings.Contains(corps, `title="abcdef1234567890"`) {
+		t.Fatal("la version complete devrait rester accessible en infobulle")
+	}
+}
+
+// Verifier un deploiement ne doit pas obliger a ouvrir la page : l'en-tete
+// porte la version sur toutes les reponses, healthcheck compris.
+func TestEnTeteDeVersionSurToutesLesReponses(t *testing.T) {
+	origine := version
+	version = "abcdef1234567890"
+	defer func() { version = origine }()
+
+	mux := newMux(t)
+	for _, chemin := range []string{"/", "/healthz"} {
+		rec := get(t, mux, chemin, nil)
+		if got := rec.Header().Get("X-App-Version"); got != version {
+			t.Fatalf("%s : X-App-Version = %q, attendu %q", chemin, got, version)
+		}
 	}
 }
 
