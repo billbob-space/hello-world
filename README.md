@@ -108,18 +108,34 @@ sa documentation recommande pour une CI générique :
 Le corps envoyé est `{}` : `dockhand` ne le lit pas, il relit le dépôt lui-même.
 Seule la signature compte.
 
-### Deux réglages obligatoires sur la stack
+### Le piège : `Force redeployment` est obligatoire
 
-`dockhand` ne redéploie **que s'il voit un commit nouveau** — sinon il répond
-`200` avec `{"success":true,"skipped":true}` et ne touche à rien. Comme l'image
-est publiée sur un tag fixe, sa documentation demande d'activer, sur la stack :
+`dockhand` ne redéploie **que s'il voit un changement** dans le dépôt, et ce
+qu'il regarde est plus étroit que sa documentation ne le laisse croire. Constaté
+par l'expérience sur ce dépôt :
 
-- **Re-pull images** — sans quoi le serveur redéploie l'image déjà présente ;
-- **Force redeployment** — sans quoi le déploiement est sauté.
+| Commit | Fichiers modifiés | Résultat |
+|---|---|---|
+| `2ec90f4` | `main.go`, `page.html`, `main_test.go` — à la racine | `No changes detected, skipping redeploy` |
+| `cb7035b` | `compose.yaml` | déploiement exécuté |
 
-Le workflow traite ce `skipped` comme un échec : une image publiée sans
-déploiement ne doit pas passer pour une construction verte. De même, un `403`
-est signalé explicitement comme une non-correspondance de secret.
+Des fichiers pourtant situés dans le répertoire du compose n'ont pas compté.
+Seule une modification du `compose.yaml` déclenche quelque chose.
+
+Or l'image est publiée sur le tag mutable `:main` : `compose.yaml` ne change
+donc jamais d'un commit applicatif à l'autre. **Sans `Force redeployment`,
+aucune modification de code n'est jamais déployée** — l'image est construite et
+publiée, le webhook répond `200`, et le serveur continue de servir la version
+précédente.
+
+Le réglage se trouve dans les *Deploy options* de la stack. Le workflow traite
+le `skipped` comme un échec : une image publiée sans déploiement ne doit pas
+passer pour une construction verte. De même, un `403` est signalé explicitement
+comme une non-correspondance de secret.
+
+`Re-pull images`, en revanche, n'est **pas** nécessaire : le `pull_policy:
+always` du `compose.yaml` couvre le même besoin, et le fait depuis le dépôt
+plutôt que depuis une case cochée sur le serveur.
 
 L'infrastructure (`compose.yaml`, `.github/workflows/build.yml`,
 `.dockerignore`) est générée par `./init.sh` depuis `app.yml` — ne pas l'éditer
