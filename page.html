@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hello-world</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa;
+    --card: #ffffff;
+    --ink: #1b1b18;
+    --muted: #6b6b63;
+    --line: #e6e5e0;
+    --accent: #b8552a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161614;
+      --card: #1f1f1c;
+      --ink: #f2f1ec;
+      --muted: #9d9c92;
+      --line: #2e2e29;
+      --accent: #e08a5f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    width: 100%;
+    max-width: 30rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 2rem;
+  }
+  h1 {
+    margin: 0 0 .25rem;
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+  }
+  p.lead { margin: 0 0 1.75rem; color: var(--muted); }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .6rem 1.25rem; }
+  dt { color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; }
+  dd {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .92rem;
+    overflow-wrap: anywhere;
+  }
+  dd.user { color: var(--accent); font-weight: 600; }
+  footer {
+    margin-top: 1.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .82rem;
+  }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hello, world.</h1>
+  <p class="lead">L'application tourne et répond derrière l'authentification Google.</p>
+  <dl>
+    <dt>Utilisateur</dt>
+    <dd class="user">{{.User}}</dd>
+    <dt>Hôte</dt>
+    <dd>{{.Host}}</dd>
+    <dt>Démarrée</dt>
+    <dd>{{.Started}}</dd>
+    <dt>Uptime</dt>
+    <dd>{{.Uptime}}</dd>
+  </dl>
+  <footer>Sonde de santé : <a href="/healthz">/healthz</a></footer>
+</main>
+</body>
+</html>

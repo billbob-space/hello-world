@@ -1,0 +1,34 @@
+# Genere par init.sh depuis app.yml — encode le contrat de billbob.ovh.
+# Pour changer une valeur : edite app.yml et relance ./init.sh --force.
+services:
+  hello-world:
+    image: ghcr.io/billbob-space/hello-world:main
+    container_name: hello-world
+    restart: unless-stopped
+    mem_limit: 128m
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.hello-world.rule=Host(`hello-world.apps.billbob.ovh`)"
+      - "traefik.http.routers.hello-world.entrypoints=websecure"
+      - "traefik.http.routers.hello-world.priority=100"
+      # forwardauth = authentification Google. La retirer expose l'app en clair.
+      - "traefik.http.routers.hello-world.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.hello-world.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hello-world.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+
+networks:
+  apps_net:
+    external: true

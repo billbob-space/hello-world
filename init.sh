@@ -216,8 +216,12 @@ if [ "$CHECK" = 1 ]; then
     && ok "script d'installation des plugins present" \
     || warn ".claude/install-plugins.sh absent ou non executable"
 
+  # Les deux motifs de jeton GitHub sont ecrits avec une classe d'un seul
+  # caractere — gh[p]_ — pour ne pas contenir le litteral qu'ils recherchent :
+  # sans cela ce script, lui-meme suivi par git, se detecterait comme fuite a
+  # chaque lancement. La detection est inchangee.
   if git ls-files -z 2>/dev/null | xargs -0 -r grep -lIE \
-       '(ghp_|github_pat_|xox[baprs]-|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY)' \
+       '(gh[p]_|github_pa[t]_|xox[baprs]-|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY)' \
        2>/dev/null | grep -q .; then
     bad "secret potentiel dans un fichier suivi"
   else
