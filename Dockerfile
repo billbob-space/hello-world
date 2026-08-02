@@ -9,8 +9,16 @@ COPY go.mod ./
 RUN go mod download
 
 COPY . .
+
+# Identifiant de la version deployee, affiche sur la page d'accueil : il rend
+# un deploiement verifiable d'un coup d'oeil. La CI passe le SHA du commit ;
+# une construction locale garde "dev".
+ARG VERSION=dev
+
 # CGO desactive : binaire statique, executable tel quel dans l'image finale.
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/hello-world .
+RUN CGO_ENABLED=0 go build -trimpath \
+      -ldflags="-s -w -X main.version=$VERSION" \
+      -o /out/hello-world .
 
 FROM alpine:3.21
 # Base alpine plutot que scratch : busybox y fournit wget, dont le healthcheck

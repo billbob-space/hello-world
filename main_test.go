@@ -61,6 +61,20 @@ func TestAccueilSansEnTeteResteLisible(t *testing.T) {
 	}
 }
 
+// La version affichee est ce qui permet de constater qu'un deploiement a
+// remplace la precedente : si elle disparait de la page, la validation d'un
+// deploiement devient impossible.
+func TestAccueilAfficheLaVersion(t *testing.T) {
+	origine := version
+	version = "abcdef1"
+	defer func() { version = origine }()
+
+	rec := get(t, newMux(t), "/", nil)
+	if !strings.Contains(rec.Body.String(), "abcdef1") {
+		t.Fatal("la page ne contient pas la version du binaire")
+	}
+}
+
 // L'identite arrive dans du HTML : une adresse forgee ne doit pas pouvoir
 // injecter de balise dans la page servie aux autres.
 func TestIdentiteEchappeeDansLeHTML(t *testing.T) {

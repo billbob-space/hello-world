@@ -357,6 +357,10 @@ jobs:
           tags: |
             ghcr.io/$ORG/$APP:main
             ghcr.io/$ORG/$APP:\${{ github.sha }}
+          # Identifie la version deployee ; le Dockerfile en fait ce qu'il veut,
+          # l'ignorer est sans consequence.
+          build-args: |
+            VERSION=\${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: taille de l'image
@@ -367,6 +371,24 @@ jobs:
           if [ "\$size" -gt 209715200 ]; then
             echo "::warning::image au-dela de 200 Mo — le serveur est a 92 % de disque"
           fi
+
+      # Le tag :main est mutable : une image reconstruite ne change pas une
+      # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne
+      # redeploie rien. C'est cet appel, apres publication, qui declenche le
+      # deploiement — et il vient apres pour que le serveur tire bien la
+      # nouvelle image, pas celle d'avant.
+      #
+      # L'URL est une URL de capacite : qui la connait declenche un
+      # deploiement. Elle vit dans un secret du depot, jamais dans ce fichier.
+      - name: declencher le deploiement
+        env:
+          WEBHOOK: \${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
+        run: |
+          if [ -z "\$WEBHOOK" ]; then
+            echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — image publiee, deploiement NON declenche"
+            exit 0
+          fi
+          curl -fsS --retry 3 --retry-delay 5 -X POST "\$WEBHOOK" && echo "deploiement declenche"
 YAML
 
 write .dockerignore <<'EOF'

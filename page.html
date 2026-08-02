@@ -58,6 +58,7 @@
     overflow-wrap: anywhere;
   }
   dd.user { color: var(--accent); font-weight: 600; }
+  dd.version { font-size: .8rem; color: var(--muted); }
   footer {
     margin-top: 1.75rem;
     padding-top: 1rem;
@@ -77,6 +78,8 @@
     <dd class="user">{{.User}}</dd>
     <dt>Hôte</dt>
     <dd>{{.Host}}</dd>
+    <dt>Version</dt>
+    <dd class="version">{{.Version}}</dd>
     <dt>Démarrée</dt>
     <dd>{{.Started}}</dd>
     <dt>Uptime</dt>

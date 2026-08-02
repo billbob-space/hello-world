@@ -28,6 +28,12 @@ L'image finale est une Alpine portant le binaire statique, environ 12 Mo.
 
 Tout autre chemin renvoie 404.
 
+La page affiche la **version déployée** : le SHA du commit, posé à la
+construction par `-ldflags "-X main.version=…"` depuis le `build-arg` `VERSION`.
+Une construction locale affiche `dev`. C'est ce qui permet de constater qu'un
+déploiement a bien remplacé la version précédente, sans se fier au seul journal
+du serveur.
+
 ## Identité de l'utilisateur
 
 L'application est derrière l'authentification Google de Traefik en palier
@@ -68,6 +74,26 @@ docker build -t hello-world .
 
 Le déploiement part de chaque fusion sur `main` : GitHub construit l'image, la
 publie sur GHCR, puis le serveur la récupère. Compter deux à trois minutes.
+
+## Déclenchement du déploiement
+
+Le tag `:main` est **mutable** : une image reconstruite ne change pas une ligne
+du `compose.yaml`. L'auto-sync de `dockhand`, qui ne redéploie que s'il voit un
+diff dans le répertoire de la stack, ne verrait donc jamais rien passer. C'est
+le dernier pas du workflow qui déclenche le déploiement, en appelant le webhook
+de la stack **après** la publication de l'image — l'ordre importe, sinon le
+serveur retire l'image précédente.
+
+L'URL de ce webhook est une *URL de capacité* : qui la connaît peut déclencher
+un déploiement. Elle n'est donc pas dans ce dépôt, mais dans un secret :
+
+| Secret du dépôt | Contenu |
+|---|---|
+| `DOCKHAND_DEPLOY_WEBHOOK` | l'URL de webhook de la stack dans `dockhand` |
+
+À poser dans *Settings → Secrets and variables → Actions → New repository
+secret*. Sans lui, le workflow publie l'image, émet un avertissement et
+n'appelle rien — la construction reste verte, mais **rien n'est déployé**.
 
 L'infrastructure (`compose.yaml`, `.github/workflows/build.yml`,
 `.dockerignore`) est générée par `./init.sh` depuis `app.yml` — ne pas l'éditer
