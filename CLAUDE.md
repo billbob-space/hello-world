@@ -72,22 +72,15 @@ S'y ajoutent, selon `app.yml` : le serveur **LSP** correspondant à `stack` — 
 te donne les erreurs du compilateur après chaque édition, pour zéro contexte —
 et, si `ui: true`, `frontend-design`, `playwright` et `impeccable`.
 
-**Déclarer un plugin ne l'installe pas.** Claude Code le signalera manquant tant
-qu'il n'a pas été récupéré. Une fois par machine ou par conteneur d'agent :
+### Un seul endroit installe : le setup script de l'environnement
 
-```bash
-./.claude/install-plugins.sh     # puis /reload-plugins dans une session ouverte
-```
-
-### En session cloud, ce script ne suffit pas
-
-Sur `claude.ai/code`, **Claude Code charge les plugins avant de les installer**.
-Le hook `SessionStart` qui lance `install-plugins.sh` s'exécute après ce
-chargement : les plugins finissent bien sur le disque, mais la session en cours
-ne les voit pas. Et `/reload-plugins` est une commande du terminal, absente du
-web — comme `/plugin`, `/resume` ou `/clear`. Chaque session cloud démarrant sur
-une VM neuve, le `--if-needed` ne rattrape jamais rien : l'outillage est
-réinstallé à chaque fois et n'est jamais utilisé.
+**Déclarer un plugin ne l'installe pas**, et aucun script du dépôt ne peut s'en
+charger. Sur `claude.ai/code`, **Claude Code charge les plugins avant de les
+installer** : un hook `SessionStart` s'exécute après ce chargement, donc les
+plugins atterriraient sur le disque sans jamais servir. Et `/reload-plugins` est
+une commande du terminal, absente du web — comme `/plugin`, `/resume` ou
+`/clear`. Chaque session cloud démarrant sur une VM neuve, le cas se
+représenterait à chaque fois.
 
 Le seul point d'accroche assez tôt est le **setup script de l'environnement**,
 qui tourne avant le lancement de Claude Code. `init.sh` en génère le contenu —
@@ -112,6 +105,29 @@ qu'une commande inventée : complète-le avant de le coller.
 Cette configuration vit **hors du dépôt**, dans ton compte : `init.sh` ne peut
 pas la mettre à jour. Après un `./init.sh --force` qui change `stack` ou `ui`,
 recolle le fichier. `./init.sh --check` signale l'écart entre les deux listes.
+
+### Le hook `SessionStart` ne fait que rapporter
+
+Puisqu'aucun hook ne peut installer à temps, celui du dépôt se contente de dire
+ce qui manque. `.claude/check-plugins.sh` s'exécute à chaque ouverture de
+session et écrit son rapport sur la sortie standard — donc dans ton contexte :
+
+```
+Outillage : 12/12 plugins installes.
+  gopls present — diagnostics go actifs.
+```
+
+Une ligne quand tout va bien ; sinon la liste des manquants et le geste qui
+répare. Il vérifie deux choses distinctes : le plugin présent dans le cache
+local, et — pour le LSP — **le binaire présent sur la machine**, les deux
+pouvant diverger. Lance-le à la main pour le voir tout de suite :
+
+```bash
+./.claude/check-plugins.sh
+```
+
+Un rapport qui annonce des manquants signifie que le setup script de ton
+environnement est absent, périmé, ou n'a pas encore rejoué.
 
 `.claude/settings.local.json` est ignoré par git : c'est là que vont tes
 préférences personnelles, jamais dans le fichier versionné. Et **jamais de bloc

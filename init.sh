@@ -101,14 +101,13 @@ printf '%s' "$PORT" | grep -qE '^[0-9]{2,5}$' || { echo "ERREUR : port invalide 
 #
 # Ces plugins sont declares dans .claude/settings.json, versionne, pour que tout
 # clone du depot — un autre humain, une session cloud, un agent en CI — parte
-# avec le meme outillage. Un plugin declare n'est PAS installe pour autant :
-# .claude/install-plugins.sh fait l'installation, a lancer une fois par machine.
+# avec le meme outillage. Un plugin declare n'est PAS installe pour autant.
 #
-# En session cloud (claude.ai/code), ce script arrive trop tard : Claude Code
-# charge les plugins avant de les installer, et /reload-plugins n'existe pas sur
-# le web. Le seul point d'accroche assez tot est le setup script de
-# l'environnement — d'ou .claude/cloud-setup.sh, genere ici pour etre colle dans
-# le champ correspondant sur claude.ai/code.
+# L'installation se fait en un seul endroit : le setup script de l'environnement
+# cloud, genere ici sous .claude/cloud-setup.sh et a coller sur claude.ai/code.
+# C'est le seul point d'accroche anterieur au chargement des plugins par Claude
+# Code — un hook, lui, s'execute apres, et /reload-plugins n'existe pas sur le
+# web. Le hook SessionStart se borne donc a un rapport : .claude/check-plugins.sh
 
 STACK=$(get stack none)
 UI=$(get ui false)
@@ -145,17 +144,6 @@ case "$STACK" in
   *) echo "ERREUR : stack inconnue : $STACK" >&2
      echo "Valeurs : none typescript python go rust java kotlin php csharp swift cpp lua" >&2
      exit 1 ;;
-esac
-
-# LSP_INSTALL vise le setup script cloud, qui tourne en root : d'ou le GOBIN
-# sous /usr/local/bin et l'apt-get. install-plugins.sh, lui, tourne sur une
-# machine ordinaire — reprendre ces commandes telles quelles echouerait a
-# chaque session. D'ou cette seconde table, renseignee uniquement la ou
-# l'installation aboutit sans privileges. Vide = avertissement, comme avant.
-case "$STACK" in
-  go|golang) LSP_INSTALL_USER='go install golang.org/x/tools/gopls@latest' ;;
-  rust)      LSP_INSTALL_USER='rustup component add rust-analyzer' ;;
-  *)         LSP_INSTALL_USER="" ;;
 esac
 
 # Socle : methode de travail, revue, docs a jour, git, securite. ~1 300 tokens
@@ -254,9 +242,9 @@ if [ "$CHECK" = 1 ]; then
   else
     warn ".claude/settings.json absent — lance ./init.sh pour l'outillage de l'agent"
   fi
-  [ -x .claude/install-plugins.sh ] \
-    && ok "script d'installation des plugins present" \
-    || warn ".claude/install-plugins.sh absent ou non executable"
+  [ -x .claude/check-plugins.sh ] \
+    && ok "rapport d'outillage present (hook SessionStart)" \
+    || warn ".claude/check-plugins.sh absent ou non executable"
 
   # Le setup script vit dans l'environnement cloud, hors du depot : rien ne le
   # resynchronise. Signale l'ecart, faute de pouvoir le corriger d'ici.
@@ -268,6 +256,12 @@ if [ "$CHECK" = 1 ]; then
     [ "$drift" = 0 ] \
       && ok "cloud-setup.sh aligne sur les ${#PLUGIN_IDS[@]} plugins declares" \
       || warn "cloud-setup.sh desynchronise — ./init.sh --force, puis recolle-le sur claude.ai/code"
+
+    # Sans cette ligne le setup script tourne, sort en 0, et n'installe rien :
+    # avant le premier lancement de Claude Code aucune marketplace n'existe.
+    grep -qF 'marketplace add anthropics/claude-plugins-official' .claude/cloud-setup.sh \
+      && ok "cloud-setup.sh declare la marketplace officielle" \
+      || bad "cloud-setup.sh n'enregistre pas anthropics/claude-plugins-official — il echouera en silence"
   else
     warn ".claude/cloud-setup.sh absent — les plugins resteront inertes en session cloud"
   fi
@@ -527,8 +521,8 @@ $ENABLED  },
         "hooks": [
           {
             "type": "command",
-            "command": "\"\$CLAUDE_PROJECT_DIR/.claude/install-plugins.sh\" --if-needed",
-            "timeout": 300
+            "command": "\"\$CLAUDE_PROJECT_DIR/.claude/check-plugins.sh\"",
+            "timeout": 10
           }
         ]
       }
@@ -537,64 +531,44 @@ $ENABLED  },
 }
 JSON
 
-# Bloc LSP du script d'installation. Construit ici plutot qu'en ligne dans le
-# heredoc : sa valeur y est inseree telle quelle, sans seconde expansion.
-#
-# LSP_CHECK entre dans tout_installe() : sans lui, le mode --if-needed du hook
-# sortirait des le premier conteneur ou les plugins sont la, et n'installerait
-# jamais le binaire manquant.
-LSP_CHECK="" LSP_BLOCK=""
-if [ -n "$LSP" ] && [ -n "$LSP_INSTALL_USER" ]; then
-  LSP_TOOL=${LSP_INSTALL_USER%% *}
-  LSP_CHECK="  command -v $LSP_BIN >/dev/null || return 1"
-  LSP_BLOCK=$(cat <<BLOCK
-
-# $LSP lance le serveur LSP, il ne le fournit pas : sans le binaire $LSP_BIN
-# sur la machine, le plugin s'installe mais reste inerte, sans rien dire.
-if command -v $LSP_BIN >/dev/null; then
-  echo "-> $LSP_BIN deja present"
-elif ! command -v $LSP_TOOL >/dev/null; then
-  echo "note : $LSP_TOOL absent du PATH — $LSP_BIN ne peut pas etre installe, le plugin $LSP restera inerte." >&2
-else
-  echo "-> $LSP_BIN (requis par $LSP)"
-  if $LSP_INSTALL_USER; then
-    command -v $LSP_BIN >/dev/null || echo "   note : $LSP_BIN installe mais hors du PATH — ajoute le repertoire de binaires de $LSP_TOOL au PATH." >&2
+# Fragment du rapport consacre au serveur de langage, interpole tel quel dans le
+# heredoc ci-dessous. Un plugin LSP peut etre installe et pourtant inerte :
+# Claude Code lance le binaire en clair, il doit exister sur la machine.
+REPORT_LSP=""
+if [ -n "$LSP" ]; then
+  if [ -n "$LSP_INSTALL" ]; then
+    LSP_HINT="sa commande d'installation est dans .claude/cloud-setup.sh."
   else
-    echo "   echec : $LSP_BIN" >&2
-    failed=1
+    LSP_HINT="aucune installation en une commande n'est connue — voir le TODO de .claude/cloud-setup.sh."
   fi
+  REPORT_LSP="
+# Si le plugin lui-meme manque, il est deja dans la liste ci-dessus : inutile de
+# le dire deux fois, et il serait faux de l'annoncer installe.
+case \" \$manquants \" in
+  *\" $LSP@claude-plugins-official \"*) ;;
+  *)
+    if command -v $LSP_BIN >/dev/null; then
+      echo \"  $LSP_BIN present — diagnostics $STACK actifs.\"
+    else
+      echo \"  $LSP_BIN ABSENT — $LSP est installe mais inerte : aucun diagnostic apres edition.\"
+      echo \"  -> $LSP_HINT\"
+    fi ;;
+esac"
 fi
-BLOCK
-)
-elif [ -n "$LSP" ]; then
-  LSP_BLOCK=$(cat <<BLOCK
 
-command -v $LSP_BIN >/dev/null || echo "note : $LSP_BIN absent du PATH — le plugin $LSP restera inactif tant qu'il n'est pas installe." >&2
-BLOCK
-)
-fi
-
-write .claude/install-plugins.sh <<SH
+write .claude/check-plugins.sh <<SH
 #!/usr/bin/env bash
 #
-# Genere par init.sh — installe les plugins declares dans .claude/settings.json.
+# Genere par init.sh — rapport d'outillage, lance par le hook SessionStart.
 #
-# Declarer un plugin ne l'installe pas : Claude Code le signale manquant tant
-# qu'il n'a pas ete recupere. Le stockage des plugins est local a la machine,
-# pas au depot : chaque conteneur d'agent repart donc de zero.
+# Il n'installe rien, et c'est delibere : un hook s'execute APRES que Claude
+# Code a charge ses plugins. Il arrive donc toujours trop tard pour reparer
+# quoi que ce soit — mais juste a temps pour dire ce qui manque. L'installation
+# appartient au setup script de l'environnement (.claude/cloud-setup.sh), seul
+# point d'accroche anterieur au lancement de Claude Code.
 #
-# Le hook SessionStart de .claude/settings.json lance ce script avec
-# --if-needed a chaque ouverture de session : le premier conteneur installe,
-# les suivants sortent sans rien faire. En session deja ouverte au moment de
-# l'installation, il reste a taper /reload-plugins — commande du terminal.
-#
-# EN SESSION CLOUD, CE SCRIPT NE SUFFIT PAS. Claude Code charge les plugins
-# avant de les installer : le hook s'execute apres, les plugins finissent bien
-# sur le disque mais la session en cours ne les voit pas, et /reload-plugins
-# n'existe pas sur le web. Chaque session cloud partant d'une VM neuve, le cas
-# se represente a chaque fois. Colle .claude/cloud-setup.sh dans le champ
-# "Setup script" de ton environnement sur claude.ai/code : il tourne avant le
-# lancement de Claude Code, et son resultat est mis en cache.
+# Sa sortie standard est injectee dans le contexte de l'agent : une ligne quand
+# tout va bien, le detail seulement quand il y a un trou.
 #
 # Pour changer la liste : edite stack/ui dans app.yml, puis ./init.sh --force
 
@@ -602,39 +576,30 @@ set -u
 
 PLUGINS="${PLUGIN_IDS[*]}"
 
-# --if-needed : sortie silencieuse si tout est deja la. C'est le mode du hook,
-# appele a chaque session — il ne doit ni bavarder ni echouer inutilement.
-IF_NEEDED=0
-[ "\${1:-}" = --if-needed ] && IF_NEEDED=1
-
-tout_installe() {
-  local etat="\$HOME/.claude/plugins/installed_plugins.json" p
-  [ -f "\$etat" ] || return 1
-  for p in \$PLUGINS; do
-    grep -q "\"\$p\"" "\$etat" || return 1
-  done
-$LSP_CHECK
-  return 0
-}
-
-[ "\$IF_NEEDED" = 1 ] && tout_installe && exit 0
-
-command -v claude >/dev/null || {
-  [ "\$IF_NEEDED" = 1 ] && exit 0
-  echo "claude introuvable dans le PATH — rien a faire." >&2; exit 1; }
-
-$([ "$UI" = true ] && echo 'claude plugin marketplace add pbakaus/impeccable || true
-' || true)
-failed=0
+# Un plugin installe = un repertoire non vide dans le cache local, range sous
+# <marketplace>/<nom>. installed_plugins.json n'est pas lu : ce manifeste
+# survit a un cache efface, et decrirait alors un outillage disparu.
+n=0 total=0 manquants=""
 for p in \$PLUGINS; do
-  echo "-> \$p"
-  claude plugin install "\$p" || { echo "   echec : \$p" >&2; failed=1; }
+  total=\$(( total + 1 ))
+  d="\$HOME/.claude/plugins/cache/\${p#*@}/\${p%@*}"
+  if [ -d "\$d" ] && [ -n "\$(ls -A "\$d" 2>/dev/null)" ]; then
+    n=\$(( n + 1 ))
+  else
+    manquants="\$manquants \$p"
+  fi
 done
-$LSP_BLOCK
-[ "\$failed" = 0 ] && echo "Termine." || echo "Termine avec des echecs." >&2
-exit \$failed
+
+echo "Outillage : \$n/\$total plugins installes."
+[ -n "\$manquants" ] && {
+  echo "  manquants :\$manquants"
+  echo "  -> colle .claude/cloud-setup.sh dans le champ Setup script de l'environnement : claude.ai/code, icone nuage, engrenage."
+}$REPORT_LSP
+
+# Toujours 0 : un rapport ne fait pas echouer l'ouverture d'une session.
+exit 0
 SH
-[ -f .claude/install-plugins.sh ] && chmod +x .claude/install-plugins.sh
+[ -f .claude/check-plugins.sh ] && chmod +x .claude/check-plugins.sh
 
 # Un plugin par ligne : ce script se lit dans une textarea, pas dans un editeur.
 PLUGIN_LINES=$(printf '    %s \\\n' "${PLUGIN_IDS[@]}")
@@ -677,13 +642,14 @@ write .claude/cloud-setup.sh <<SH
 # de l'environnement. Ce fichier n'est jamais execute par le depot ni par la CI.
 #
 # Pourquoi il existe. En session cloud, Claude Code charge les plugins AVANT de
-# les installer : le hook SessionStart de .claude/settings.json s'execute apres
-# ce chargement, et /reload-plugins n'existe pas sur le web. Les plugins
-# atterrissent donc sur le disque sans jamais servir — et comme chaque session
-# cloud demarre sur une VM neuve, le --if-needed du hook ne rattrape rien. Le
-# setup script, lui, tourne avant le lancement de Claude Code, et son resultat
-# est fige dans un instantane du disque : il ne rejoue qu'apres modification de
-# l'environnement ou expiration du cache (~7 jours).
+# les installer : un hook SessionStart s'execute apres ce chargement, et
+# /reload-plugins n'existe pas sur le web. Les plugins y atterriraient sur le
+# disque sans jamais servir — et comme chaque session cloud demarre sur une VM
+# neuve, le cas se represente a chaque fois. Ce script, lui, tourne avant le
+# lancement de Claude Code, et son resultat est fige dans un instantane du
+# disque : il ne rejoue qu'apres modification de l'environnement ou expiration
+# du cache (~7 jours). C'est le seul endroit qui installe l'outillage ; le hook
+# du depot ne fait que le verifier.
 #
 # Deux contraintes imposees par l'infrastructure cloud :
 #   - sortir en 0, sinon la session refuse de demarrer — d'ou les || true ;
@@ -697,23 +663,19 @@ set -u
 $LSP_LAUNCH
 # --- plugins Claude Code ---
 # Le setup script tourne en root, avec un PATH plus maigre que celui de la
-# session : retrouve le binaire s'il n'y est pas.
-command -v claude >/dev/null || {
-  c=\$(ls -1 /opt/*/bin/claude /usr/local/bin/claude 2>/dev/null | head -1)
-  [ -n "\${c:-}" ] && PATH="\$(dirname "\$c"):\$PATH" && export PATH
-}
+# session : le binaire vit dans l'image node embarquee par Claude Code.
+command -v claude >/dev/null || export PATH="/opt/node22/bin:\$PATH"
 
-if command -v claude >/dev/null; then
-$([ "$UI" = true ] && echo '  claude plugin marketplace add pbakaus/impeccable || true' || true)
-  for p in \\
+# Avant le premier lancement de Claude Code, aucune marketplace n'est
+# enregistree — pas meme l'officielle. La declarer ici separe un setup script
+# qui installe d'un qui echoue en silence.
+claude plugin marketplace add anthropics/claude-plugins-official || true
+$([ "$UI" = true ] && echo 'claude plugin marketplace add pbakaus/impeccable || true' || true)
+for p in \\
 $PLUGIN_LINES
-  do
-    echo "-> \$p"
-    claude plugin install "\$p" || echo "   echec : \$p" >&2
-  done
-else
-  echo "claude introuvable dans le PATH — aucun plugin installe." >&2
-fi
+do
+  claude plugin install "\$p" || echo "   echec : \$p" >&2
+done
 
 $LSP_WAIT
 # Toujours 0 : un outil manquant degrade l'outillage, il ne doit pas empecher
@@ -744,14 +706,15 @@ Assure-toi que cet outil existe dans l'image finale, sinon le conteneur sera
 declare malsain en permanence. Image sans shell : --health-cmd none.
 
 Outillage de l'agent : ${#PLUGIN_IDS[@]} plugins declares (stack $STACK, ui $UI).
-Ils ne sont pas installes pour autant.
+Declarer n'installe pas — un seul endroit installe :
 
-  En local     : ./.claude/install-plugins.sh   puis /reload-plugins
-  En cloud     : colle .claude/cloud-setup.sh dans le champ "Setup script" de
-                 ton environnement sur claude.ai/code (icone nuage, engrenage).
+  colle .claude/cloud-setup.sh dans le champ "Setup script" de ton
+  environnement sur claude.ai/code (icone nuage, engrenage).
 
-Le hook SessionStart ne suffit pas en cloud : Claude Code charge les plugins
-avant de les installer, et /reload-plugins n'existe pas sur le web.
+Un hook ne peut pas s'en charger : il s'execute apres que Claude Code a charge
+ses plugins, et /reload-plugins n'existe pas sur le web. Le hook SessionStart
+se contente donc de rapporter l'etat de l'outillage a chaque session, via
+.claude/check-plugins.sh — lance-le a la main pour le voir tout de suite.
 
 Si tu changes de technologie, corrige stack/ui dans app.yml et relance
 ./init.sh --force pour regenerer la liste — puis recolle le setup script.

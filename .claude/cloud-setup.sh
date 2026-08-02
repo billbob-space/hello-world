@@ -5,13 +5,14 @@
 # de l'environnement. Ce fichier n'est jamais execute par le depot ni par la CI.
 #
 # Pourquoi il existe. En session cloud, Claude Code charge les plugins AVANT de
-# les installer : le hook SessionStart de .claude/settings.json s'execute apres
-# ce chargement, et /reload-plugins n'existe pas sur le web. Les plugins
-# atterrissent donc sur le disque sans jamais servir — et comme chaque session
-# cloud demarre sur une VM neuve, le --if-needed du hook ne rattrape rien. Le
-# setup script, lui, tourne avant le lancement de Claude Code, et son resultat
-# est fige dans un instantane du disque : il ne rejoue qu'apres modification de
-# l'environnement ou expiration du cache (~7 jours).
+# les installer : un hook SessionStart s'execute apres ce chargement, et
+# /reload-plugins n'existe pas sur le web. Les plugins y atterriraient sur le
+# disque sans jamais servir — et comme chaque session cloud demarre sur une VM
+# neuve, le cas se represente a chaque fois. Ce script, lui, tourne avant le
+# lancement de Claude Code, et son resultat est fige dans un instantane du
+# disque : il ne rejoue qu'apres modification de l'environnement ou expiration
+# du cache (~7 jours). C'est le seul endroit qui installe l'outillage ; le hook
+# du depot ne fait que le verifier.
 #
 # Deux contraintes imposees par l'infrastructure cloud :
 #   - sortir en 0, sinon la session refuse de demarrer — d'ou les || true ;
@@ -33,15 +34,15 @@ lsp_pid=$!
 
 # --- plugins Claude Code ---
 # Le setup script tourne en root, avec un PATH plus maigre que celui de la
-# session : retrouve le binaire s'il n'y est pas.
-command -v claude >/dev/null || {
-  c=$(ls -1 /opt/*/bin/claude /usr/local/bin/claude 2>/dev/null | head -1)
-  [ -n "${c:-}" ] && PATH="$(dirname "$c"):$PATH" && export PATH
-}
+# session : le binaire vit dans l'image node embarquee par Claude Code.
+command -v claude >/dev/null || export PATH="/opt/node22/bin:$PATH"
 
-if command -v claude >/dev/null; then
-  claude plugin marketplace add pbakaus/impeccable || true
-  for p in \
+# Avant le premier lancement de Claude Code, aucune marketplace n'est
+# enregistree — pas meme l'officielle. La declarer ici separe un setup script
+# qui installe d'un qui echoue en silence.
+claude plugin marketplace add anthropics/claude-plugins-official || true
+claude plugin marketplace add pbakaus/impeccable || true
+for p in \
     superpowers@claude-plugins-official \
     mattpocock-skills@claude-plugins-official \
     code-review@claude-plugins-official \
@@ -54,13 +55,9 @@ if command -v claude >/dev/null; then
     frontend-design@claude-plugins-official \
     playwright@claude-plugins-official \
     impeccable@impeccable
-  do
-    echo "-> $p"
-    claude plugin install "$p" || echo "   echec : $p" >&2
-  done
-else
-  echo "claude introuvable dans le PATH — aucun plugin installe." >&2
-fi
+do
+  claude plugin install "$p" || echo "   echec : $p" >&2
+done
 
 wait "$lsp_pid" || { echo "echec gopls :" >&2; tail -3 /tmp/gopls-setup.log >&2; }
 if command -v gopls >/dev/null || [ -x /usr/local/bin/gopls ]; then
