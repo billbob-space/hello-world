@@ -35,11 +35,23 @@ var version = "dev"
 var startedAt = time.Now()
 
 type pageData struct {
-	User    string
-	Host    string
-	Version string
-	Started string
-	Uptime  string
+	User         string
+	Host         string
+	Version      string
+	VersionShort string
+	Started      string
+	Uptime       string
+}
+
+// shortVersion raccourcit un SHA de commit a sa forme usuelle. Quarante
+// caracteres sur une ligne de la page sont illisibles ; la valeur complete
+// reste dans l'attribut title et dans l'en-tete X-App-Version.
+func shortVersion() string {
+	const court = 7
+	if len(version) > court {
+		return version[:court]
+	}
+	return version
 }
 
 func main() {
@@ -57,7 +69,7 @@ func main() {
 	addr := ":" + env("PORT", "8080")
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           logging(mux),
+		Handler:           logging(withVersion(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
@@ -97,11 +109,12 @@ func handleHome(page *template.Template) http.HandlerFunc {
 			user = "inconnu"
 		}
 		data := pageData{
-			User:    user,
-			Host:    r.Host,
-			Version: version,
-			Started: startedAt.Format(time.RFC3339),
-			Uptime:  time.Since(startedAt).Truncate(time.Second).String(),
+			User:         user,
+			Host:         r.Host,
+			Version:      version,
+			VersionShort: shortVersion(),
+			Started:      startedAt.Format(time.RFC3339),
+			Uptime:       time.Since(startedAt).Truncate(time.Second).String(),
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -110,6 +123,16 @@ func handleHome(page *template.Template) http.HandlerFunc {
 			log.Printf("rendu de la page : %v", err)
 		}
 	}
+}
+
+// withVersion annonce la version deployee sur toutes les reponses, y compris
+// celle du healthcheck. Verifier un deploiement ne demande alors pas d'ouvrir
+// la page : l'en-tete suffit.
+func withVersion(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-App-Version", version)
+		next.ServeHTTP(w, r)
+	})
 }
 
 // logging trace chaque requete sur la sortie standard, sans l'identite de
