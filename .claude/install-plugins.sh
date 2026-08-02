@@ -36,6 +36,7 @@ tout_installe() {
   for p in $PLUGINS; do
     grep -q "\"$p\"" "$etat" || return 1
   done
+  command -v gopls >/dev/null || return 1
   return 0
 }
 
@@ -52,6 +53,20 @@ for p in $PLUGINS; do
   claude plugin install "$p" || { echo "   echec : $p" >&2; failed=1; }
 done
 
-command -v gopls >/dev/null || echo "note : gopls absent du PATH — le plugin gopls-lsp restera inactif tant qu'il n'est pas installe." >&2
+# gopls-lsp lance le serveur LSP, il ne le fournit pas : sans le binaire gopls
+# sur la machine, le plugin s'installe mais reste inerte, sans rien dire.
+if command -v gopls >/dev/null; then
+  echo "-> gopls deja present"
+elif ! command -v go >/dev/null; then
+  echo "note : go absent du PATH — gopls ne peut pas etre installe, le plugin gopls-lsp restera inerte." >&2
+else
+  echo "-> gopls (requis par gopls-lsp)"
+  if go install golang.org/x/tools/gopls@latest; then
+    command -v gopls >/dev/null || echo "   note : gopls installe mais hors du PATH — ajoute le repertoire de binaires de go au PATH." >&2
+  else
+    echo "   echec : gopls" >&2
+    failed=1
+  fi
+fi
 [ "$failed" = 0 ] && echo "Termine." || echo "Termine avec des echecs." >&2
 exit $failed

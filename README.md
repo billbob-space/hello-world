@@ -66,6 +66,43 @@ Construction de l'image, à l'identique de la CI :
 docker build -t hello-world .
 ```
 
+## Outillage de l'agent
+
+Les plugins sont déclarés dans `.claude/settings.json`, versionné. Le stockage
+des plugins étant local à la machine, chaque conteneur repart de zéro : le hook
+`SessionStart` lance `install-plugins.sh --if-needed` à chaque ouverture. En
+session cloud ce hook arrive trop tard — voir [`CLAUDE.md`](CLAUDE.md), qui
+détaille le setup script d'environnement à coller une fois.
+
+### La dépendance `gopls`
+
+`gopls-lsp` **lance** le serveur LSP, il ne le **fournit** pas. Sans le binaire
+`gopls`, le plugin s'installe sans erreur et reste inerte : plus de diagnostics
+du compilateur après édition, et rien qui l'annonce.
+
+`cloud-setup.sh` s'en charge côté cloud. Sur une machine ordinaire, c'est
+désormais `install-plugins.sh` qui le fait, quand `go` est présent :
+
+```bash
+go install golang.org/x/tools/gopls@latest
+```
+
+Deux détails qui comptent :
+
+- `go install` dépose le binaire dans `$(go env GOPATH)/bin`, souvent hors du
+  PATH — une installation réussie peut donc laisser le plugin tout aussi inerte.
+  Le script revérifie après coup et le signale.
+- La présence du binaire entre dans la condition de sortie de `--if-needed` :
+  sans cela, le hook sortirait dès que les plugins sont là et n'installerait
+  jamais un `gopls` manquant.
+
+Les commandes de la table `LSP_INSTALL` d'`init.sh` visent le setup script
+cloud, qui tourne **en root** (`GOBIN=/usr/local/bin`, `apt-get`). Les rejouer
+sur une machine sans privilèges échouerait à chaque session : `install-plugins.sh`
+puise donc dans une table distincte, renseignée pour les seules piles dont le
+serveur de langage s'installe sans root (`go`, `rust`). Les autres conservent le
+simple avertissement.
+
 ## Avant de pousser
 
 ```bash
