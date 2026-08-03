@@ -13,13 +13,6 @@ image_max_mb: 200
 log_max_size: 10m     # cap des journaux json-file, par service
 log_max_file: 3
 
-# Racine des points de montage cote hote. Un sous-repertoire par application :
-# un volume « donnees:/var/lib/app » declare par l'app « ramure » est monte
-# depuis /home/ubuntu/DockerConfig/My-Apps/ramure/donnees. Le cote hote
-# n'est jamais ecrit dans un app.yml — c'est ce qui rend la traversee de
-# repertoire impossible plutot que simplement interdite.
-host_data_root: /home/ubuntu/DockerConfig/My-Apps
-
 # Services partages par plusieurs applications. Ils vivent sur apps_net, sont
 # joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
 # aucun label Traefik, donc aucune URL. Une app declare sa dependance avec

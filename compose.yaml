@@ -22,8 +22,14 @@
 # service a Internet, ce sont ses labels Traefik, pas le reseau : un conteneur
 # sans label n'est joignable que par ses voisins.
 #
-# Le cote hote des points de montage n'est jamais ecrit a la main : il est
-# derive de host_data_root (fabrique.yml) et du nom du proprietaire.
+# Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
+# Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le
+# service partage qui le declare — et « docker compose up » le cree tout seul :
+# aucune action prealable sur l'hote, pour aucune app, jamais. Au premier
+# montage, Docker recopie dans le volume vide le contenu du repertoire tel qu'il
+# existe dans l'IMAGE : C'EST DONC LE DOCKERFILE QUI FIXE LE PROPRIETAIRE. Une
+# app en non-root doit creer son repertoire et le chown AVANT sa directive
+# USER, sinon le volume appartient a root et elle ne peut pas y ecrire.
 services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh

@@ -15,20 +15,23 @@ sont dans `fabrique.yml`.
 
 ```
 apps/<nom>/          une application : app.yml, Dockerfile, test.sh, PRODUCT.md, code
-compose.yaml         GÉNÉRÉ — la stack, un service par app activée
-fabrique.yml         valeurs communes : org, dépôt, registre, domaine, réseau, plafonds
+compose.yaml         GÉNÉRÉ — la stack entière : les trois sortes de services, et le
+                     bloc volumes: qui déclare les volumes nommés qu'ils montent
+fabrique.yml         valeurs communes : org, dépôt, registre, domaine, réseau, plafonds,
+                     et shared_services — les services partagés par plusieurs apps
 init.sh              le générateur
 ```
 
-Ce qui est **partagé** : la stack, la CI, le réseau, le domaine, l'outillage
-Claude Code. Ce qui **appartient à chaque app** : son code, son `Dockerfile`,
-son PRD, son URL, son palier d'authentification, ses tests.
+Ce qui est **partagé** : la stack, la CI, le réseau, le domaine, les services de
+`shared_services`, l'outillage Claude Code. Ce qui **appartient à chaque app** :
+son code, son `Dockerfile`, son PRD, son URL, son palier d'authentification, ses
+volumes, ses services annexes, ses tests.
 
 ## Démarrage
 
 ```bash
 ./init.sh                 # régénère compose.yaml, la CI et l'outillage
-./init.sh --check         # vérifie le dépôt, service par service
+./init.sh --check         # vérifie les manifestes, puis le dépôt service par service
 ./init.sh --list          # état des applications
 ./init.sh --add <nom>     # échafaude apps/<nom>/
 ./init.sh --dry-run       # montre ce qui changerait, sans rien écrire
@@ -84,6 +87,63 @@ décrit plus bas. Renseigne-les dès que tu as choisi ta technologie, puis relan
 est l'**union** de ce que demandent toutes les apps du dépôt — y compris les
 apps désactivées, dont il faut bien pouvoir écrire le code.
 
+### Quatre sections optionnelles : `volumes:`, `env:`, `needs:`, `services:`
+
+Elles n'ont **aucun équivalent en ligne de commande** : elles s'écrivent à la
+main dans `app.yml`. Une app qui n'en porte aucune produit exactement le bloc
+compose d'avant leur existence — les déclarer n'est jamais un passage obligé,
+c'est une demande explicite.
+
+```yaml
+volumes:
+  - donnees:/var/lib/ramure     # devient le volume nommé « ramure-donnees »
+  - cache:/var/cache/ramure     # jetable, et son nom le dit
+env: [LASTFM_API_KEY]           # des NOMS de variables, jamais de valeurs
+needs: [redis]                  # un service de shared_services (fabrique.yml)
+services:                       # services annexes, privés de cette app
+  - name: worker
+    image: ghcr.io/billbob-space/hello-world/ramure:main
+    memory: 64m
+    command: --mode worker
+    volumes:
+      - donnees:/var/lib/ramure # le MÊME volume que l'app : partage voulu
+```
+
+Le lecteur YAML d'`init.sh` est volontairement minimal — listes en ligne
+`[a, b]` ou en bloc `- a`, et des listes de mappings dont chaque élément peut
+porter une liste, mais pas un niveau de plus ; ni ancre, ni bloc multi-lignes :
+un parseur général serait ici une source de bogues muets. La contrepartie est
+qu'une **clé mal orthographiée n'est pas une erreur, elle est ignorée** : après
+avoir édité une de ces sections, relance `./init.sh` et relis ton bloc dans
+`compose.yaml` — c'est le seul endroit qui dise ce qui a vraiment été lu.
+
+**`env:` ne porte que des noms.** Un élément contenant un `=` est refusé à la
+génération, qui n'écrit alors aucun artefact : le dépôt est public, et un secret
+y entrerait par cette porte pour toujours. `init.sh` émet `- NOM=${NOM:-}`, dont
+la valeur vient de l'environnement du serveur. Le défaut vide est délibéré — un
+nom non défini côté serveur ferait sinon échouer le `compose up` de la stack
+entière —, mais il se paie : ta variable arrive **vide** au lieu de manquer, et
+c'est à ton app de traiter la chaîne vide comme une absence plutôt que de partir
+avec une clé d'API vide. Les noms attendus se déclarent aussi dans ton `README`.
+
+**`needs:` est vérifié à la génération.** Un nom qui ne correspond à aucun
+`shared_services` de `fabrique.yml` fait échouer `./init.sh` en listant les
+services déclarés : le partage oublié devient une erreur de génération, pas un
+`depends_on` pointant dans le vide ni une panne au démarrage. Ce que `depends_on`
+garantit s'arrête au **démarrage** du conteneur voisin, pas à sa disponibilité :
+ton app doit survivre à un `redis` qui n'accepte pas encore de connexion.
+
+**`services:` — des annexes privées de l'app.** `name` et `image` sont
+obligatoires : une annexe n'est pas construite pour elle-même par la CI, son
+image doit exister quelque part — le plus souvent celle de l'app,
+`.../<app>:main`, lancée avec une `command` différente. `memory` vaut `128m` par
+défaut, `command` est découpée sur les espaces et émise en forme exec, `volumes:`
+et `env:` obéissent aux mêmes règles que ci-dessus. Une annexe devient le service
+`<app>-<name>` — et **ses volumes appartiennent à l'app, pas à elle** :
+`donnees:/var/lib/ramure` dans le worker monte le même `ramure-donnees` que
+l'app. C'est ainsi qu'un worker partage les données de son service principal, et
+c'est la raison d'être du préfixe.
+
 ## Ajouter une application
 
 Deux commits, dans cet ordre : **construire d'abord, brancher ensuite.**
@@ -107,6 +167,126 @@ peut pas** casser la stack des autres.
 Si la nouvelle app introduit un langage absent du dépôt, recolle
 `.claude/cloud-setup.sh` dans le champ *Setup script* de ton environnement.
 
+## Les trois sortes de services — une seule est routée
+
+`compose.yaml` porte trois sortes de services dans un espace de noms **plat**, et
+une seule est joignable depuis Internet :
+
+| Service | D'où il vient | Labels Traefik |
+|---|---|---|
+| `<app>` | `apps/<app>/app.yml` | **oui** : un routeur, l'URL `https://<app>.apps.billbob.ovh`, le middleware d'authentification, `priority=100` |
+| `<app>-<nom>` | section `services:` du même `app.yml` | **aucun** |
+| `<nom>` | `shared_services` de `fabrique.yml` | **aucun** |
+
+**Ce qui expose un service à Internet, ce sont ses labels, pas le réseau.** Les
+trois sortes vivent sur `apps_net`, se joignent entre elles par leur nom de
+service et ne publient aucun port sur l'hôte. Un conteneur sans label n'a ni
+routeur ni URL : Traefik ignore jusqu'à son existence, seuls ses voisins
+l'atteignent. C'est assumé — un worker et un Redis n'ont besoin d'aucun
+cloisonnement réseau supplémentaire —, mais c'est aussi la **seule** frontière
+qui compte : un unique label de routage posé par erreur sur une annexe publierait
+une URL, et elle serait sans authentification puisque le middleware se pose dans
+le même bloc. `init.sh` n'en pose sur aucun service non routé, `--check` en fait
+un KO bloquant, et c'est la même raison qui interdit tout `LABEL traefik.*` dans
+un `Dockerfile`.
+
+L'espace de noms étant plat, `<app>`, `<app>-<nom>` et `<nom>` se disputent les
+mêmes noms de service et de conteneur. Une app nommée `redis` face à un
+`shared_services` nommé `redis` est un doublon de clé YAML : légal, silencieux,
+la dernière gagne et la première disparaît du déploiement sans un mot. `init.sh`
+refuse donc la collision au lieu de la générer.
+
+### `shared_services` — un exemplaire pour toute la fabrique
+
+Un service dont plusieurs apps ont besoin ne se duplique pas : il se déclare une
+fois dans `fabrique.yml`, avec les mêmes sections `volumes:` et `env:` qu'une
+app.
+
+```yaml
+shared_services:
+  - name: redis
+    image: valkey/valkey:8-alpine
+    memory: 128m
+    command: --maxmemory 96mb --maxmemory-policy allkeys-lru
+    volumes:
+      - donnees:/data            # volume nommé « redis-donnees »
+```
+
+Son `image` est tirée telle quelle : la CI ne construit que les `apps/<nom>/`. Le
+garde-fou de CI vérifie que **chaque** image du compose est tirable, celles des
+tiers comprises — un tag qui n'existe pas est refusé avant l'appel du webhook,
+pas découvert par un `compose up` qui emporte toute la stack. En revanche
+`fabrique.yml` est commun : le modifier fait **reconstruire toutes les apps** au
+prochain passage en CI, puisque plus rien ne garantit que les images publiées
+correspondent aux manifestes courants.
+
+**Le budget mémoire compte les trois sortes.** `memory_budget` plafonne la somme
+de tous les `mem_limit` : un worker à 64 Mo et un Redis à 128 Mo y pèsent autant
+qu'une app, parce que l'OOM killer ne fait pas la différence et que tout démarre
+d'un coup. `./init.sh --check` affiche la somme, le nombre de services et
+avertit au-delà du plafond.
+
+## Les volumes nommés — ce qui survit au redéploiement
+
+Le système de fichiers d'un conteneur est jeté à chaque déploiement : ce qui doit
+persister se déclare dans `volumes:`, et rien d'autre ne survit. La forme est
+`<nom>:<chemin conteneur>[:ro]` — le nom logique à gauche doit correspondre à
+`^[a-z0-9][a-z0-9-]*$`, le chemin à droite être absolu, `:ro` est le seul suffixe
+admis. `donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
+**`ramure-donnees`** : c'est le préfixe du propriétaire qui empêche deux apps de
+se marcher dessus, et deux propriétaires qui produiraient le même nom réel sont
+refusés. Un `/` à gauche est un bind mount, et il est refusé à la génération.
+
+**Ce que tu y gagnes : zéro action sur l'hôte, jamais, pour aucune app.**
+`docker compose up` crée le volume au premier démarrage et le conserve entre deux
+déploiements. Pas de `mkdir` sur le serveur avant une première mise en ligne, pas
+de `chown` manuel, pas de chemin d'hôte à valider — donc pas de premier
+déploiement qui échoue parce que personne n'a préparé le répertoire. C'est
+exactement ce que coûtait un bind mount : quand le répertoire source n'existe
+pas, Docker le crée **en root**, l'app tourne en non-root, elle n'y écrit jamais.
+
+**Le piège n'a pas disparu pour autant : il a déménagé dans ton `Dockerfile`.**
+Au premier montage, Docker recopie dans le volume vide le contenu du répertoire
+**tel qu'il existe dans l'image**, propriétaire compris — c'est donc l'image qui
+décide à qui appartient le volume. Répertoire absent de l'image, ou appartenant à
+root : le volume appartient à root, et ton app non-root ne peut pas y écrire. Le
+symptôme est « l'app démarre et perd tout » — jamais un message clair, juste des
+données qui ne s'écrivent pas. La parade tient en une ligne, **avant** `USER` :
+
+```dockerfile
+RUN mkdir -p /var/lib/ramure && chown 10001:10001 /var/lib/ramure
+USER 10001:10001
+```
+
+`./init.sh --check` relit ton `Dockerfile` et **avertit** — sans bloquer, un
+`chown` prenant des formes qu'un grep ne voit pas — quand un chemin monté n'y est
+jamais donné à personne. C'est le dernier moment où le piège se rattrape avant la
+production.
+
+**Sauvegarder, et effacer.** Un volume nommé ne s'ouvre pas avec un `cat` : son
+contenu passe par un conteneur jetable, lancé côté serveur.
+
+```bash
+docker run --rm -v ramure-donnees:/d -v "$PWD":/sortie alpine \
+  tar czf /sortie/ramure-donnees.tgz -C /d .
+```
+
+**Le disque du serveur est à 92 %**, et un volume, contrairement à un journal,
+n'a aucune borne : il grossit jusqu'à ce que la stack entière n'ait plus de place.
+Un volume de cache doit donc être **borné par ton code et jetable** — ce que ton
+app ne sait pas reconstruire n'a rien à y faire. Et la séparation entre ce qui se
+sauvegarde et ce qui s'efface doit se lire **dans les noms** : `donnees` se
+sauvegarde, `cache` se supprime. Celui qui fait de la place à trois heures du
+matin n'aura que ces noms pour décider, et `docker volume rm` est irréversible.
+
+Le reste est vérifié pour toi, à la génération comme au `--check` : le même nom
+deux fois dans une liste, ou deux volumes sur le même chemin conteneur — le
+second masquerait le premier — sont refusés ; le bloc `volumes:` de premier
+niveau du compose est généré et doit déclarer **exactement** les volumes montés,
+faute de quoi Docker traiterait le manquant comme un bind mount et ferait échouer
+le `compose up` de toute la stack. Une app désactivée ne contribue aucun volume,
+puisqu'aucun de ses services n'est émis.
+
 ## Le rayon de souffle
 
 Une seule stack, donc un seul `docker compose up`, atomique pour l'ensemble.
@@ -116,10 +296,11 @@ découlent, et c'est pour cela qu'ils existent :
 
 - `enabled` — une app entre dans le compose après son image, jamais avant ;
 - le garde-fou de CI — le webhook n'est appelé qu'après avoir vérifié que
-  **chaque** image du compose est tirable ; le pire cas devient « rien n'est
-  déployé » au lieu de « tout tombe » ;
-- `./init.sh --check` — vérification **par service**, jamais par recherche
-  globale dans le fichier.
+  **chaque** image du compose est tirable, celles des annexes et des services
+  partagés comprises ; le pire cas devient « rien n'est déployé » au lieu de
+  « tout tombe » ;
+- `./init.sh --check` — vérification **par service**, les trois sortes, jamais
+  par recherche globale dans le fichier.
 
 ## Ton outillage — les plugins Claude Code
 
@@ -247,8 +428,9 @@ une ligne, l'inverse expose des données.
 - **Le fichier Compose s'appelle `compose.yaml`**, à la racine. C'est le nom
   canonique de la Compose Spec, et le seul que `dockhand` ouvre côté serveur :
   un `docker-compose.yml` lui renvoie « Compose file not found » et le
-  déploiement s'arrête là. Il est **généré** et porte N services : ne l'édite
-  jamais à la main, `./init.sh --check` refuse un compose désynchronisé.
+  déploiement s'arrête là. Il est **généré** et porte N services des trois
+  sortes, plus le bloc `volumes:` de premier niveau : ne l'édite jamais à la
+  main, `./init.sh --check` refuse un compose désynchronisé.
 - **Le routage vit dans les labels du `compose.yaml`**, générés par
   `init.sh`. N'y touche pas : le middleware d'authentification et
   `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
@@ -262,31 +444,52 @@ une ligne, l'inverse expose des données.
   peut pas écraser puisqu'il porte un autre nom — donc **sans authentification**.
 - **Aucun secret** dans le dépôt ni dans l'image. Les valeurs sensibles sont
   injectées par l'infrastructure via l'environnement ; déclare les noms attendus
-  dans le `README`, jamais les valeurs.
+  dans `env:` et dans le `README`, jamais les valeurs — un `=` dans `env:` fait
+  échouer la génération, précisément pour que ce chemin reste fermé.
+- **Ce qui doit survivre au redéploiement vit dans un volume nommé**, déclaré
+  dans `volumes:`, et le `Dockerfile` `chown` son chemin avant `USER`. Le reste
+  du système de fichiers du conteneur est jeté à chaque déploiement.
 - **Écris les logs sur la sortie standard**, pas dans un fichier.
 - **L'app doit démarrer sans intervention** : pas de migration manuelle, pas de
   question interactive, pas de fichier à créer à la main.
 
 ## Ce qui ne t'appartient pas
 
-La topologie réseau, les bases de données partagées et les secrets vivent sur le
-serveur, hors de ce dépôt. Le réseau `apps_net` est déclaré `external: true` : il
-existe déjà côté serveur, ce dépôt ne le crée pas.
+Deux choses seulement restent hors de ce dépôt : les **valeurs** des secrets et
+la **topologie réseau** elle-même. Les valeurs sont injectées par
+l'infrastructure — tu n'écris que des noms, dans `env:` et dans ton `README`. Le
+réseau `apps_net` est déclaré `external: true` parce qu'il existe déjà côté
+serveur ; Traefik, le résolveur TLS, le DNS et la liste blanche des comptes
+vivent au même endroit, et rien de tout cela ne se configure ici.
+
+Une base de données, un cache, un volume persistant, un service annexe : **ce ne
+sont plus des décisions d'infrastructure.** `shared_services`, `services:` et
+`volumes:` les font entrer dans le contrat — tu les déclares, `./init.sh` les
+génère, le déploiement les crée. Ce qui reste hors d'atteinte est ce qui
+supposerait un geste sur l'hôte ou une porte vers l'extérieur : un port publié,
+un montage depuis un chemin de l'hôte, une exposition sans authentification. Si
+tu as besoin de l'un de ceux-là, **écris-le dans le `README` et arrête-toi** ; la
+décision se prend côté serveur.
 
 Quand tu travailles sur une app, **les fichiers des autres apps ne t'appartiennent
 pas non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.claude/`,
-`go.work`. Tu changes `apps/<nom>/app.yml` et tu relances `./init.sh`.
-
-Si tu as besoin de quelque chose que le contrat ne prévoit pas — une base de
-données, un cache, un volume persistant, un port supplémentaire — **écris-le
-dans le `README` et arrête-toi**. C'est une décision d'infrastructure, elle se
-prend côté serveur.
+`go.work`. Tu changes `apps/<nom>/app.yml` — ou `fabrique.yml` si c'est un
+service partagé, en sachant qu'il est commun à toutes les apps — et tu relances
+`./init.sh`.
 
 ## Avant de pousser
 
 ```bash
 ./init.sh --check
 ```
+
+Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, noms de
+service —, parce qu'un `app.yml` faux ne pourrait produire qu'un « compose
+désynchronisé » dont le vrai motif serait perdu ; puis il compare chaque artefact
+dérivé à ce qu'`init.sh` écrirait aujourd'hui ; puis il relit le compose
+**service par service**, les trois sortes, et vérifie que le bloc `volumes:`
+déclare exactement les volumes montés. Les avertissements — un `chown` qu'il ne
+trouve pas, un budget mémoire dépassé — ne bloquent pas ; les KO, si.
 
 Le même contrôle tourne en CI, en verrou de tous les autres jobs : avec une
 stack partagée, un compose faux fusionné casserait toutes les apps à la fois.

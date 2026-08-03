@@ -24,10 +24,15 @@
 # n'ont pas d'equivalent en ligne de commande, et une app qui n'en porte aucune
 # produit exactement le meme bloc compose qu'avant leur existence :
 #
-#   volumes:   points de montage « <sous-repertoire>:<chemin conteneur>[:ro] ».
-#              Le cote hote n'est jamais ecrit a la main : il est derive de
-#              host_data_root (fabrique.yml) + le nom de l'app. La traversee de
-#              repertoire est donc impossible, pas seulement interdite.
+#   volumes:   VOLUMES NOMMES Docker : « <nom>:<chemin conteneur>[:ro] ». <nom>
+#              est le nom LOGIQUE du volume, jamais un chemin ni un
+#              sous-repertoire ; le volume reel s'appelle <proprietaire>-<nom>
+#              et « docker compose up » le cree seul. Les bind mounts ne sont
+#              pas supportes : Docker creerait en ROOT un repertoire hote
+#              absent, l'app tourne en non-root, et le symptome serait « elle
+#              demarre et perd tout ». Un volume vide, lui, recoit une copie du
+#              repertoire tel qu'il est dans l'IMAGE — c'est le Dockerfile qui
+#              fixe le proprietaire, et l'hote n'a rien a preparer.
 #   env:       NOMS des variables a passer depuis l'hote — jamais de valeurs.
 #              Un element contenant un « = » est refuse : le depot est public.
 #   needs:     services partages de fabrique.yml dont l'app depend. Un nom non
@@ -36,9 +41,9 @@
 #   services:  services annexes propres a l'app — « name », « image », et au
 #              choix « memory », « command », « volumes », « env ».
 #
-# fabrique.yml gagne de son cote deux cles : host_data_root (racine des points
-# de montage cote hote) et shared_services (services partages par plusieurs
-# applications : un Redis commun, un Directus).
+# fabrique.yml gagne de son cote une cle : shared_services (services partages
+# par plusieurs applications : un Redis commun, un Directus). Elle porte les
+# memes sections volumes: et env: qu'une app.
 #
 # Le compose genere porte donc TROIS sortes de services, et une seule est
 # routee : <app> (labels Traefik, authentification, priority=100),
@@ -263,17 +268,6 @@ IMAGE_MAX_MB=$(fab image_max_mb 200)
 LOG_MAX_SIZE=$(fab log_max_size 10m)
 LOG_MAX_FILE=$(fab log_max_file 3)
 
-# Racine des points de montage cote hote. Le cote hote d'un volume n'est JAMAIS
-# ecrit dans un manifeste : il est derive de cette racine et du nom du
-# proprietaire. C'est ce qui rend la traversee de repertoire impossible par
-# construction — un app.yml ne peut pas nommer un chemin hors de son sous-arbre.
-HOST_DATA_ROOT=$(fab host_data_root /home/ubuntu/DockerConfig/My-Apps)
-HOST_DATA_ROOT=${HOST_DATA_ROOT%/}
-case "$HOST_DATA_ROOT" in
-  /*) ;;
-  *) echo "ERREUR : fabrique.yml — host_data_root doit etre un chemin absolu (recu : $HOST_DATA_ROOT)" >&2; exit 1 ;;
-esac
-
 # --- applications ---------------------------------------------------------------
 
 valid_name() {  # label DNS : ni tiret en tete ni tiret en queue
@@ -292,26 +286,38 @@ valid_svc_name() {  # nom d'un service annexe ou partage : meme regle qu'une app
 # deux appelants en font ce qu'ils veulent : la generation en meurt avec un
 # message explicite, --check en fait une ligne KO parmi les autres. Une seule
 # implementation, donc pas de divergence possible entre les deux chemins.
-VERR="" HOST_SPEC=""
+VERR="" VOL_NAME="" VOL_PATH="" VOL_SPEC=""
 
-check_volume() {  # check_volume <proprietaire> <spec> — pose HOST_SPEC
-  local owner="$1" spec="$2" sub rest cpath mode
-  VERR="" HOST_SPEC=""
+# Les points de montage sont des VOLUMES NOMMES Docker, et rien d'autre. Un bind
+# mount dont le repertoire source n'existe pas est cree par Docker EN ROOT ;
+# l'app tourne en non-root et ne peut donc pas y ecrire. Le symptome est « l'app
+# demarre et perd tout », sans erreur claire, et la seule parade est une action
+# manuelle sur l'hote avant chaque premier deploiement. Un volume nomme n'a pas
+# ce defaut : au premier montage, Docker y recopie le contenu du repertoire tel
+# qu'il existe dans l'IMAGE — proprietaire compris. C'est donc le Dockerfile qui
+# decide, et « docker compose up » cree le volume tout seul : zero action sur
+# l'hote, pour aucune app, jamais.
+check_volume() {  # check_volume <proprietaire> <spec> — pose VOL_NAME, VOL_PATH, VOL_SPEC
+  local owner="$1" spec="$2" name rest cpath mode
+  VERR="" VOL_NAME="" VOL_PATH="" VOL_SPEC=""
   case "$spec" in
     *:*) ;;
-    *) VERR="volume '$spec' invalide : forme attendue <sous-repertoire>:<chemin conteneur>[:ro]"; return 1 ;;
+    *) VERR="volume '$spec' invalide : forme attendue <nom>:<chemin conteneur>[:ro] — le chemin de montage dans le conteneur manque."; return 1 ;;
   esac
-  sub="${spec%%:*}"; rest="${spec#*:}"
+  name="${spec%%:*}"; rest="${spec#*:}"
   cpath="${rest%%:*}"
   if [ "$cpath" = "$rest" ]; then mode=""; else mode="${rest#*:}"; fi
 
-  if ! printf '%s' "$sub" | grep -qE '^[a-z0-9][a-z0-9._-]*$'; then
-    VERR="volume '$spec' invalide : le sous-repertoire '$sub' doit correspondre a ^[a-z0-9][a-z0-9._-]*\$ — ni /, ni .., ni chemin absolu, ni chaine vide. Le cote hote est toujours derive de $HOST_DATA_ROOT/$owner/ et ne s'ecrit pas a la main."
+  # Un '/' a gauche, c'est un bind mount : refuse, et pour une raison precise.
+  case "$name" in
+    */*)
+      VERR="volume '$spec' invalide : '$name' contient un '/'. Les bind mounts ne sont PAS supportes ici : si le repertoire hote n'existe pas, Docker le cree EN ROOT, l'app tourne en non-root, elle ne peut plus y ecrire — elle demarre et perd tout, sans erreur claire, et il faut une action manuelle sur l'hote avant chaque premier deploiement. Ecris un nom logique de volume nomme : '<nom>:$cpath'."
+      return 1 ;;
+  esac
+  if ! printf '%s' "$name" | grep -qE '^[a-z0-9][a-z0-9-]*$'; then
+    VERR="volume '$spec' invalide : le nom '$name' doit correspondre a ^[a-z0-9][a-z0-9-]*\$ — minuscules, chiffres et tirets seulement, donc ni point, ni '..', ni chemin absolu, ni chaine vide. C'est un nom LOGIQUE, pas un sous-repertoire : le volume reel s'appellera '$owner-<nom>'."
     return 1
   fi
-  case "$sub" in
-    *..*) VERR="volume '$spec' invalide : '..' interdit dans le sous-repertoire — la traversee de repertoire est impossible par construction."; return 1 ;;
-  esac
   case "$cpath" in
     /*) ;;
     *) VERR="volume '$spec' invalide : le chemin conteneur '$cpath' doit etre absolu (commencer par /)."; return 1 ;;
@@ -323,8 +329,46 @@ check_volume() {  # check_volume <proprietaire> <spec> — pose HOST_SPEC
     ""|ro) ;;
     *) VERR="volume '$spec' invalide : ':$mode' — le seul suffixe autorise est ':ro'."; return 1 ;;
   esac
-  HOST_SPEC="$HOST_DATA_ROOT/$owner/$sub:$cpath${mode:+:$mode}"
+  VOL_NAME="$owner-$name"
+  VOL_PATH="$cpath"
+  VOL_SPEC="$VOL_NAME:$cpath${mode:+:$mode}"
   return 0
+}
+
+# Registre des volumes emis : nom reel -> proprietaire. Deux proprietaires
+# differents produisant le meme nom reel — « foo » + « bar-baz » et « foo-bar » +
+# « baz » donnent tous deux « foo-bar-baz » — partageraient un volume sans le
+# savoir. Un meme proprietaire qui reutilise un nom, lui, partage volontairement
+# ses donnees entre son service principal et une annexe : c'est la raison d'etre
+# de la notion de proprietaire, et ce n'est pas une erreur.
+declare -A VOL_OWNER=()
+
+check_volume_list() {  # check_volume_list <proprietaire> <etiquette> <specs> — imprime les problemes
+  local owner="$1" label="$2" specs="$3" v
+  local -A seen_name=() seen_path=()
+  [ -n "$specs" ] || return 0
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    if ! check_volume "$owner" "$v"; then printf '%s %s\n' "$label" "$VERR"; continue; fi
+    if [ -n "${seen_name[$VOL_NAME]+x}" ]; then
+      printf "%s volume '%s' declare deux fois dans la meme liste — le volume reel '%s' serait monte deux fois\n" \
+        "$label" "${v%%:*}" "$VOL_NAME"
+    else
+      seen_name[$VOL_NAME]=1
+    fi
+    if [ -n "${seen_path[$VOL_PATH]+x}" ]; then
+      printf "%s deux volumes montes sur le meme chemin conteneur '%s' — le second masquerait le premier\n" \
+        "$label" "$VOL_PATH"
+    else
+      seen_path[$VOL_PATH]=1
+    fi
+    if [ -n "${VOL_OWNER[$VOL_NAME]+x}" ] && [ "${VOL_OWNER[$VOL_NAME]}" != "$owner" ]; then
+      printf "%s collision de nom de volume : '%s' est deja produit par le proprietaire '%s' — les deux monteraient le meme volume sans le savoir\n" \
+        "$label" "$VOL_NAME" "${VOL_OWNER[$VOL_NAME]}"
+    else
+      VOL_OWNER[$VOL_NAME]="$owner"
+    fi
+  done <<<"$specs"
 }
 
 check_env_name() {  # check_env_name <element> — env: est une liste de NOMS
@@ -446,6 +490,7 @@ mem_to_mb() {  # 128m -> 128, 1g -> 1024
 collect_problems() {
   local a i n p name svc img mem v e d
   declare -A owner_of=()
+  VOL_OWNER=()
 
   for e in "${SHARED_ERRS[@]-}"; do
     [ -n "$e" ] && printf '%s\n' "$e"
@@ -469,10 +514,7 @@ collect_problems() {
   for (( i = 0; i < n; i++ )); do
     name=$(map_one "$SHARED_RECORDS" "$i" name)
     [ -n "$name" ] || continue
-    while IFS= read -r v; do
-      [ -n "$v" ] || continue
-      check_volume "$name" "$v" || printf "[%s] %s\n" "$name" "$VERR"
-    done < <(map_all "$SHARED_RECORDS" "$i" volumes)
+    check_volume_list "$name" "[$name]" "$(map_all "$SHARED_RECORDS" "$i" volumes)"
     while IFS= read -r e; do
       [ -n "$e" ] || continue
       check_env_name "$e" || printf "[%s] %s\n" "$name" "$VERR"
@@ -484,10 +526,7 @@ collect_problems() {
     load_app "$a"
     p="[$a]"
 
-    for v in "${A_VOLUMES[@]-}"; do
-      [ -n "$v" ] || continue
-      check_volume "$a" "$v" || printf '%s %s\n' "$p" "$VERR"
-    done
+    check_volume_list "$a" "$p" "$(printf '%s\n' "${A_VOLUMES[@]-}")"
     for e in "${A_ENV[@]-}"; do
       [ -n "$e" ] || continue
       check_env_name "$e" || printf '%s %s\n' "$p" "$VERR"
@@ -522,10 +561,9 @@ collect_problems() {
       mem=$(map_one "$A_SERVICES" "$i" memory); mem=${mem:-128m}
       printf '%s' "$mem" | grep -qE '^[0-9]+[bkmgBKMG]?$' \
         || printf "%s services '%s' : memory invalide '%s'\n" "$p" "$name" "$mem"
-      while IFS= read -r v; do
-        [ -n "$v" ] || continue
-        check_volume "$a" "$v" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
-      done < <(map_all "$A_SERVICES" "$i" volumes)
+      # Le proprietaire des volumes d'une annexe est l'APP : c'est ce qui permet
+      # a un worker de monter le meme volume nomme que son service principal.
+      check_volume_list "$a" "$p services '$name' :" "$(map_all "$A_SERVICES" "$i" volumes)"
       while IFS= read -r e; do
         [ -n "$e" ] || continue
         check_env_name "$e" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
@@ -655,8 +693,44 @@ emit_volumes() {  # emit_volumes <proprietaire> <specs, une par ligne>
     [ -n "$v" ] || continue
     check_volume "$owner" "$v" || { echo "ERREUR : $owner — $VERR" >&2; exit 1; }
     if [ "$first" = 1 ]; then printf '    volumes:\n'; first=0; fi
-    printf '      - %s\n' "$HOST_SPEC"
+    printf '      - %s\n' "$VOL_SPEC"
   done <<<"$specs"
+}
+
+# Tous les volumes nommes references par le compose, dans l'ordre d'emission et
+# dedoublonnes. Sert au bloc volumes: de premier niveau, que la Compose Spec
+# exige : un volume monte mais non declare la est traite comme un bind mount et
+# fait echouer le « compose up » de toute la stack. Les apps desactivees n'y
+# figurent pas, puisque leurs services ne sont pas emis.
+collect_volume_names() {
+  local a n i name v
+  for a in "${APPS[@]-}"; do
+    [ -n "$a" ] || continue
+    load_app "$a"
+    [ "$A_ENABLED" = true ] || continue
+    for v in "${A_VOLUMES[@]-}"; do
+      [ -n "$v" ] || continue
+      check_volume "$a" "$v" && printf '%s\n' "$VOL_NAME"
+    done
+    n=$(map_count "$A_SERVICES")
+    for (( i = 0; i < n; i++ )); do
+      name=$(map_one "$A_SERVICES" "$i" name)
+      [ -n "$name" ] || continue
+      while IFS= read -r v; do
+        [ -n "$v" ] || continue
+        check_volume "$a" "$v" && printf '%s\n' "$VOL_NAME"
+      done < <(map_all "$A_SERVICES" "$i" volumes)
+    done
+  done
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    [ -n "$name" ] || continue
+    while IFS= read -r v; do
+      [ -n "$v" ] || continue
+      check_volume "$name" "$v" && printf '%s\n' "$VOL_NAME"
+    done < <(map_all "$SHARED_RECORDS" "$i" volumes)
+  done
 }
 
 emit_env() {  # emit_env <noms, un par ligne>
@@ -853,8 +927,14 @@ emit_compose() {
 # service a Internet, ce sont ses labels Traefik, pas le reseau : un conteneur
 # sans label n'est joignable que par ses voisins.
 #
-# Le cote hote des points de montage n'est jamais ecrit a la main : il est
-# derive de host_data_root (fabrique.yml) et du nom du proprietaire.
+# Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
+# Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le
+# service partage qui le declare — et « docker compose up » le cree tout seul :
+# aucune action prealable sur l'hote, pour aucune app, jamais. Au premier
+# montage, Docker recopie dans le volume vide le contenu du repertoire tel qu'il
+# existe dans l'IMAGE : C'EST DONC LE DOCKERFILE QUI FIXE LE PROPRIETAIRE. Une
+# app en non-root doit creer son repertoire et le chown AVANT sa directive
+# USER, sinon le volume appartient a root et elle ne peut pas y ecrire.
 services:
 YAML
   local a
@@ -863,6 +943,25 @@ YAML
     if [ "$A_ENABLED" = true ]; then service_block; aux_services_block; else disabled_note; fi
   done
   shared_services_block
+
+  # Bloc de premier niveau : chaque volume monte plus haut doit etre declare ici.
+  # Il est OMIS entierement si aucun service n'en monte — une app sans volume
+  # produit alors le meme compose qu'avant l'existence de cette section.
+  local vols
+  vols=$(collect_volume_names | awk '!vu[$0]++')
+  if [ -n "$vols" ]; then
+    cat <<YAML
+
+# Volumes nommes montes par les services ci-dessus. Docker les cree au premier
+# « compose up » et les conserve entre deux deploiements. Leur contenu initial,
+# proprietaire compris, est celui du repertoire dans l'image : rien n'est a
+# preparer sur l'hote, mais le Dockerfile doit chown le chemin avant son USER.
+volumes:
+YAML
+    local v
+    while IFS= read -r v; do [ -n "$v" ] && printf '  %s:\n' "$v"; done <<<"$vols"
+  fi
+
   cat <<YAML
 
 networks:
@@ -1458,12 +1557,18 @@ ui: $ui
 # --- Quatre sections OPTIONNELLES. Absentes, elles n'ecrivent pas une ligne
 # --- dans compose.yaml. Decommente celles dont tu as besoin.
 
-# Points de montage sur l'hote : <sous-repertoire>:<chemin conteneur>[:ro]
-# Le cote hote n'est PAS a ecrire ici : il est derive de host_data_root
-# (fabrique.yml) et du nom de l'app. Le volume ci-dessous serait monte depuis
-# $HOST_DATA_ROOT/$a/donnees. Le sous-repertoire doit correspondre a
-# ^[a-z0-9][a-z0-9._-]*\$ — donc ni /, ni .., ni chemin absolu : la traversee de
-# repertoire est impossible, pas seulement interdite. Seul suffixe admis : :ro
+# Volumes NOMMES Docker : <nom>:<chemin conteneur>[:ro]
+# <nom> est le nom LOGIQUE du volume, pas un chemin ni un sous-repertoire : il
+# doit correspondre a ^[a-z0-9][a-z0-9-]*\$. Le volume reel s'appelle
+# « $a-<nom> » — celui ci-dessous serait « $a-donnees » — et
+# « docker compose up » le cree tout seul : rien a preparer sur l'hote. Les bind
+# mounts sont refuses : un repertoire hote absent serait cree EN ROOT et l'app,
+# qui tourne en non-root, ne pourrait pas y ecrire. Seul suffixe admis : :ro
+#
+# ATTENTION — le proprietaire du volume vient de ton Dockerfile : au premier
+# montage, Docker recopie dans le volume vide le repertoire tel qu'il existe
+# dans l'IMAGE. Cree-le et donne-le a ton utilisateur AVANT la directive USER :
+#   RUN mkdir -p /var/lib/$a && chown 10001:10001 /var/lib/$a
 # volumes:
 #   - donnees:/var/lib/$a
 #   - cache:/var/cache/$a:ro
@@ -1482,7 +1587,9 @@ ui: $ui
 # « $a-<name> », sans AUCUN label Traefik : il n'a pas d'URL, seuls ses voisins
 # du reseau le joignent, par ce nom. « name » et « image » sont obligatoires ;
 # « memory » (defaut 128m), « command », « volumes » et « env » sont libres.
-# Ses volumes sont montes sous la racine de l'app, pas la sienne.
+# Ses volumes portent le nom de l'APP, pas le sien : « donnees:/data » ici monte
+# le meme volume « $a-donnees » que la section volumes: ci-dessus. C'est ainsi
+# qu'un worker partage les donnees de son service principal.
 # services:
 #   - name: worker
 #     image: $REGISTRY/$ORG/$REPO/$a:main
@@ -1650,21 +1757,37 @@ service_yaml() {  # service_yaml <fichier> <nom> — le bloc du service
   ' "$1"
 }
 
-SANS_AUTH=() ROUTES_PARASITES=()
+SANS_AUTH=() ROUTES_PARASITES=() COMPOSE_VOL_REFS=()
+
+compose_volumes_decl() {  # noms declares par le bloc volumes: de premier niveau
+  awk '
+    /^volumes:[[:space:]]*$/ { v=1; next }
+    /^[^[:space:]#]/         { v=0 }
+    v && /^  [^[:space:]#]/  { n=$0; sub(/^  /,"",n); sub(/:.*$/,"",n); print n }
+  ' "$1"
+}
 
 # Points de montage d'un bloc de service, verifies dans CE bloc — pas par un
 # grep global sur le fichier, qui ne saurait pas a qui appartient la ligne.
+# Deux choses, et elles ne sont pas de meme nature : la partie gauche doit etre
+# un NOM de volume et non un chemin — un bind mount ici serait cree en root et
+# rendrait le volume inaccessible a une app non-root — et ce nom doit vivre dans
+# l'espace de nom de son proprietaire.
 check_block_volumes() {  # check_block_volumes <service> <proprietaire> <bloc>
-  local svc="$1" owner="$2" blk="$3" p="[$1]" v n=0 ko=0 prefix="$HOST_DATA_ROOT/$2/"
+  local svc="$1" owner="$2" blk="$3" p="[$1]" v n=0 ko=0 name
   while IFS= read -r v; do
     [ -n "$v" ] || continue
     n=$(( n + 1 ))
-    case "$v" in
-      "$prefix"*) ;;
-      *) bad "$p volume hors racine : '$v' — le cote hote doit etre sous $prefix"; ko=1 ;;
+    name="${v%%:*}"
+    case "$name" in
+      */*|.|..|"")
+        bad "$p BIND MOUNT dans le compose genere : '$v' — seuls les volumes nommes sont admis. Un repertoire hote absent serait cree EN ROOT et l'app, qui tourne en non-root, ne pourrait pas y ecrire."
+        ko=1; continue ;;
     esac
-    case "$v" in
-      *..*) bad "$p volume contenant '..' : '$v' — traversee de repertoire"; ko=1 ;;
+    COMPOSE_VOL_REFS+=("$name")
+    case "$name" in
+      "$owner"-?*) ;;
+      *) bad "$p volume '$name' hors de l'espace de nom de '$owner' — attendu '$owner-<nom>'"; ko=1 ;;
     esac
   done < <(awk '
       /^[[:space:]]*volumes:[[:space:]]*$/ { inv = 1; next }
@@ -1672,7 +1795,7 @@ check_block_volumes() {  # check_block_volumes <service> <proprietaire> <bloc>
       { inv = 0 }
     ' <<<"$blk")
   [ "$n" -eq 0 ] && return 0
-  [ "$ko" -eq 0 ] && ok "$p $n point(s) de montage, tous sous $prefix"
+  [ "$ko" -eq 0 ] && ok "$p $n volume(s) nomme(s), tous prefixes '$owner-'"
   return 0
 }
 
@@ -1816,6 +1939,24 @@ check_app_files() {
         && ok "$p $tool semble present dans l'image" \
         || warn "$p health_cmd utilise '$tool' : verifie qu'il existe dans l'image finale"
     fi
+    # Le proprietaire d'un volume nomme vient de l'IMAGE : au premier montage,
+    # Docker recopie dans le volume vide le repertoire tel qu'il existe dans
+    # l'image, droits compris. Si le Dockerfile n'a pas cree ce repertoire et ne
+    # l'a pas donne a l'utilisateur non root AVANT sa directive USER, le volume
+    # appartient a root et l'app ne peut pas y ecrire. C'est un avertissement et
+    # non une erreur — le chown peut prendre des formes que ce grep ne voit pas —
+    # mais c'est le dernier moment ou le piege est encore rattrapable : apres, il
+    # se manifeste en production par des donnees qui ne s'ecrivent pas.
+    local vv
+    for vv in "${A_VOLUMES[@]-}"; do
+      [ -n "$vv" ] || continue
+      check_volume "$APP" "$vv" || continue
+      if grep -i 'chown' "$d/Dockerfile" | grep -qF -- "$VOL_PATH"; then
+        ok "$p volume '$VOL_NAME' : $VOL_PATH est chown dans le Dockerfile"
+      else
+        warn "$p volume '$vv' : aucun chown de $VOL_PATH dans $d/Dockerfile — le volume nomme herite du proprietaire du repertoire dans l'image ; sans « mkdir -p $VOL_PATH && chown <uid>:<uid> $VOL_PATH » avant la directive USER, le volume appartiendra a root et l'app non-root ne pourra pas y ecrire"
+      fi
+    done
   elif [ "$A_ENABLED" = true ]; then
     bad "$p $d/Dockerfile absent — l'app est activee mais rien ne peut la construire"
   else
@@ -1907,6 +2048,28 @@ if [ "$CHECK" = 1 ]; then
       ok "$COMPOSE couvre exactement les services attendus (apps activees, annexes, partages)"
     else
       bad "ecart entre les manifestes et les services de $COMPOSE — lance ./init.sh"
+    fi
+
+    # Le bloc volumes: de premier niveau doit declarer EXACTEMENT les volumes
+    # montes par les services, ni plus ni moins. Un volume monte mais non
+    # declare fait echouer le « compose up » de toute la stack ; un volume
+    # declare mais monte par personne cree un volume orphelin sur l'hote et
+    # signale surtout que le compose ne correspond plus aux manifestes.
+    vdecl=$(compose_volumes_decl "$COMPOSE" | LC_ALL=C sort -u)
+    vref=$(printf '%s\n' "${COMPOSE_VOL_REFS[@]-}" | grep -v '^$' | LC_ALL=C sort -u || true)
+    if [ "$vdecl" = "$vref" ]; then
+      if [ -z "$vref" ]; then
+        ok "aucun volume monte, aucun bloc volumes: de premier niveau"
+      else
+        ok "bloc volumes: de premier niveau — $(printf '%s\n' "$vref" | wc -l | tr -d ' ') volume(s), exactement ceux montes par les services"
+      fi
+    else
+      for v in $(comm -13 <(printf '%s\n' "$vdecl") <(printf '%s\n' "$vref")); do
+        bad "volume '$v' monte par un service mais absent du bloc volumes: de premier niveau — docker le traiterait comme un bind mount et le « compose up » de TOUTE la stack echouerait"
+      done
+      for v in $(comm -23 <(printf '%s\n' "$vdecl") <(printf '%s\n' "$vref")); do
+        bad "volume '$v' declare au premier niveau mais monte par aucun service — lance ./init.sh"
+      done
     fi
 
     if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
@@ -2083,13 +2246,6 @@ memory_budget: $MEMORY_BUDGET   # plafond de la somme des mem_limit
 image_max_mb: $IMAGE_MAX_MB
 log_max_size: $LOG_MAX_SIZE     # cap des journaux json-file, par service
 log_max_file: $LOG_MAX_FILE
-
-# Racine des points de montage cote hote. Un sous-repertoire par application :
-# un volume « donnees:/var/lib/app » declare par l'app « ramure » est monte
-# depuis $HOST_DATA_ROOT/ramure/donnees. Le cote hote
-# n'est jamais ecrit dans un app.yml — c'est ce qui rend la traversee de
-# repertoire impossible plutot que simplement interdite.
-host_data_root: $HOST_DATA_ROOT
 
 # Services partages par plusieurs applications. Ils vivent sur $NETWORK, sont
 # joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
