@@ -383,8 +383,19 @@ func (s *Serveur) palmares(w http.ResponseWriter, r *http.Request) {
 	// Un palmares vide n'est pas une panne : c'est ce qui arrive sur les genres
 	// que le role 3 couvre mal, et le PRD impose alors "un etat vide explicite
 	// plutot qu'un classement trompeur" (§14).
+	//
+	// Mais le message doit dire LA VRAIE raison. Il accusait la couverture par
+	// genre y compris quand la source d'appreciation est totalement absente —
+	// un diagnostic faux, qui laisse croire a un defaut de catalogue la ou il
+	// s'agit d'une fonction non configuree. Les deux cas n'appellent pas la
+	// meme action : le premier est une fatalite, le second se corrige en
+	// posant une cle.
 	if len(classe) == 0 {
-		s.vide(w, "Aucun album assez apprécié parmi les artistes affichés. Le classement a besoin de la source d'appréciation, qui ne couvre pas tous les genres.")
+		if s.sources.lastfm == nil {
+			s.vide(w, "Le palmarès a besoin de la source d'appréciation, qui n'est pas configurée sur ce déploiement. La discographie de chaque artiste reste consultable depuis sa fiche.")
+			return
+		}
+		s.vide(w, "Aucun album assez apprécié parmi les artistes affichés — la source d'appréciation ne couvre pas tous les genres.")
 		return
 	}
 	s.ok(w, classe, b)

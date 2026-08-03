@@ -49,12 +49,26 @@
   --nuit:      #071a24;  /* le papier du cyanotype */
   --sous-bois: #0c2733;  /* les panneaux, un cran au-dessus */
   --taillis:   #10303d;  /* les surfaces posees sur un panneau */
-  --vitre:     #1a4150;  /* les filets et les bordures */
+  --vitre:     #2f6577;  /* les filets et bordures decoratives */
 
-  /* ── l'encre ── */
-  --craie:   #e7efe9;  /* le specimen expose — blanc verdi, jamais #fff */
-  --lichen:  #8ca79a;  /* le texte secondaire, teinte de specimen seche */
-  --brume:   #56736f;  /* le tertiaire, les graduations */
+  /* --trait porte de l'INFORMATION, pas de la decoration : les cernes sont
+     l'echelle d'affinite et les liens sont la parente. La SC 1.4.11 leur impose
+     3:1, contrairement a une bordure de panneau. L'ancien --vitre les tracait a
+     1.62:1 puis .cerne les attenuait encore de moitie — l'element declare « de
+     signature » etait litteralement l'objet le moins visible de l'ecran. */
+  --trait:     #57889a;  /* 4.56:1 sur --nuit */
+
+  /* ── l'encre ──
+     Trois niveaux, et TOUS les trois passent AA (4.5:1) sur les trois fonds.
+     L'ancien --brume (#56736f) plafonnait a 3.04:1 sur --sous-bois : il portait
+     l'audience de la fiche, les annees d'album, les etiquettes de champ — huit
+     echecs mesures pour un seul jeton. Le relever oblige a relever --lichen
+     aussi, sans quoi les deux niveaux se rejoignent et la hierarchie de lecture
+     disparait. Ecarts de luminance retenus : craie/lichen 1.64x, lichen/brume
+     1.73x — l'oeil distingue les trois, et le lecteur de contraste aussi. */
+  --craie:   #e7efe9;  /* le specimen expose — 15.16:1 sur --nuit */
+  --lichen:  #a9c4ba;  /* le secondaire —  9.55:1 */
+  --brume:   #7e9a94;  /* le tertiaire  —  5.87:1, plancher assume */
 
   /* ── les deux accents ── */
   --seve:     #d9a24b;  /* le centre, et rien d'autre */
@@ -233,7 +247,9 @@ button, input, select { font: inherit; color: inherit; }
   gap: .55rem;
   padding: 0 .75rem;
   background: rgba(7, 26, 36, .82);
-  border: 1px solid var(--vitre);
+  /* --trait et non --vitre : la bordure d'un champ de saisie est ce qui le
+     designe comme zone de saisie, donc elle releve de la SC 1.4.11. */
+  border: 1px solid var(--trait);
   border-radius: 2px;
   transition: border-color var(--duree-courte);
 }
@@ -399,6 +415,14 @@ button, input, select { font: inherit; color: inherit; }
 .tuile:hover .tuile__nom,
 .tuile:focus-visible .tuile__nom { opacity: 1; transform: translateY(0); }
 
+/* Sans survol — donc sur tout ecran tactile — le nom ne se revelait JAMAIS :
+   le mur d'accueil se reduisait a des photographies anonymes sur l'appareil
+   ou l'ecoute a reellement lieu. La §07 veut que « chaque tuile soit une
+   action explicite : planter cet artiste » ; sans nom, elle ne l'est pas. */
+@media (hover: none) {
+  .tuile__nom { opacity: 1; transform: translateY(0); }
+}
+
 /* Le voile assombrit le mur sous le bandeau pour que le titre reste lisible
    quelle que soit la pochette qui passe derriere. */
 .mur__voile {
@@ -414,9 +438,15 @@ button, input, select { font: inherit; color: inherit; }
   pointer-events: none;
 }
 
+/* Le bandeau flotte AU-DESSUS du mur, donc sa surface vide interceptait les
+   clics : 5 tuiles sur 28 en 1440 et 4 sur 10 en 390 etaient inatteignables,
+   captees par le titre ou par l'en-tete lui-meme. Le voile portait deja
+   pointer-events: none ; le bandeau, non. On rend la surface transparente aux
+   clics et on la restitue aux seuls enfants interactifs. */
 .bandeau {
   position: relative;
   z-index: 2;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   gap: clamp(.9rem, 2.2vh, 1.5rem);
@@ -452,6 +482,7 @@ button, input, select { font: inherit; color: inherit; }
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 1rem 1.5rem;
+  pointer-events: auto;   /* la recherche et le tri restent cliquables */
 }
 .bandeau__recherche { flex: 1 1 20rem; min-width: 0; max-width: 32rem; }
 
@@ -514,12 +545,13 @@ button, input, select { font: inherit; color: inherit; }
    position d'une branche sur ces anneaux est son affinite. */
 .cerne {
   fill: none;
-  stroke: var(--vitre);
+  stroke: var(--trait);
   stroke-width: 1;
-  opacity: .5;
+  /* Pas d'opacite : elle diviserait le contraste que --trait vient d'etablir.
+     Un anneau qu'on ne voit pas ne peut pas porter l'affinite. */
   vector-effect: non-scaling-stroke;
 }
-.cerne--jalon { stroke-dasharray: 2 7; opacity: .75; }
+.cerne--jalon { stroke-dasharray: 2 7; stroke-width: 1.25; }
 
 .legende__coeur { fill: var(--seve); }
 
@@ -544,7 +576,7 @@ button, input, select { font: inherit; color: inherit; }
 .cernes-legende p {
   display: flex;
   flex-direction: column;
-  font-size: .5625rem;
+  font-size: .6875rem;   /* 11 px : 9 px etait illisible */
   font-weight: 600;
   letter-spacing: .18em;
   text-transform: uppercase;
@@ -560,7 +592,7 @@ button, input, select { font: inherit; color: inherit; }
    passent SOUS les pastilles, qui sont opaques : la jonction est structurelle,
    elle ne depend d'aucun calcul de raccourcissement qui pourrait se tromper. */
 .lien {
-  stroke: var(--vitre);
+  stroke: var(--trait);
   fill: none;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
@@ -701,7 +733,7 @@ button, input, select { font: inherit; color: inherit; }
 .lignee__greffe {
   flex: none;
   width: 18px; height: 1px;
-  background: var(--vitre);
+  background: var(--trait);
   position: relative;
 }
 .lignee__greffe::after {
@@ -709,7 +741,7 @@ button, input, select { font: inherit; color: inherit; }
   position: absolute;
   left: 50%; top: -2px;
   width: 1px; height: 5px;
-  background: var(--vitre);
+  background: var(--trait);
 }
 
 .camera-outils {
@@ -725,14 +757,20 @@ button, input, select { font: inherit; color: inherit; }
 }
 
 /* ── Les etats d'ecran (F-36, F-38) ── */
+/* fixed et non absolute : le bloc n'est plus enfant du canevas, il se superpose
+   a l'ecran courant quel qu'il soit — accueil comme exploration. C'est ce qui
+   lui permet d'exister sur le chemin d'entree, ou aucun arbre n'a encore
+   pousse. z-index sous le bandeau flottant (60) mais au-dessus de la fiche (25)
+   et des panneaux fermes. */
 .etat-ecran {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: rgba(7, 26, 36, .88);
-  z-index: 18;
+  background: rgba(7, 26, 36, .92);
+  backdrop-filter: blur(2px);
+  z-index: 40;
 }
 .etat-ecran__boite {
   max-width: 26rem;
@@ -781,6 +819,10 @@ button, input, select { font: inherit; color: inherit; }
   border: 1px solid var(--vitre);
   overflow: hidden;
 }
+
+/* Le bouton de repli lateral n'existe que sur grand ecran : sur ecran etroit,
+   la poignee de la fiche joue deja ce role. */
+.fiche__replier { display: none; }
 
 .fiche__poignee {
   display: flex;
@@ -982,7 +1024,7 @@ button, input, select { font: inherit; color: inherit; }
 .album__type {
   text-transform: uppercase;
   letter-spacing: .1em;
-  font-size: .625rem;
+  font-size: .6875rem;   /* 11 px : 10 px passait sous le plancher lisible */
 }
 
 .album__neuf {
@@ -1244,11 +1286,26 @@ button, input, select { font: inherit; color: inherit; }
   .fiche[data-replie="oui"] { transform: translateX(calc(100% + 1rem)); }
 
   .fiche__replier {
+    display: inline-flex;
     position: absolute;
     top: 1rem;
     right: calc(23rem + 1.6rem);
     z-index: 26;
+    background: rgba(12, 39, 51, .92);
+    backdrop-filter: blur(10px);
+    transition: right var(--duree-promotion) var(--deplacement);
   }
+  /* Repliee, la fiche sort par la droite : le bouton la suit jusqu'au bord,
+     et son chevron s'inverse pour annoncer le sens de l'action. */
+  .fiche[data-replie="oui"] ~ .fiche__replier,
+  .fiche__replier[aria-expanded="false"] { right: 1rem; }
+  .fiche__replier[aria-expanded="false"] svg { transform: scaleX(-1); }
+
+  /* Les commandes de cadrage se degagent du panneau quand il est ouvert.
+     Elles vivaient integralement DESSOUS : zoom et retour au cadrage neutre
+     etaient inatteignables a la souris, ce que la F-17 interdit. */
+  .camera-outils { right: calc(23rem + 2rem); transition: right var(--duree-promotion) var(--deplacement); }
+  body[data-fiche="repliee"] .camera-outils { right: 1rem; }
 
   .panneau {
     width: min(42rem, calc(100vw - 3rem));

@@ -50,7 +50,11 @@
      vide : c'est le moment ou le produit doit donner envie." (§07)         -->
 <section class="accueil" id="accueil" aria-labelledby="titre-accueil" hidden>
 
-  <div class="mur" id="mur" role="list" aria-label="Artistes à planter"></div>
+  <!-- Pas de role="list" : il imposerait role="listitem" aux enfants, ce qui
+       ecraserait le role natif des <button> et priverait le lecteur d'ecran de
+       l'information qu'ils sont activables (WCAG 4.1.2). Un groupe de boutons
+       se decrit par un group, pas par une liste. -->
+  <div class="mur" id="mur" role="group" aria-label="Artistes à planter"></div>
   <div class="mur__voile" aria-hidden="true"></div>
 
   <header class="bandeau">
@@ -84,7 +88,10 @@
 
 <!-- ═══ ÉTAT B — le canevas ══════════════════════════════════════════════ -->
 <section class="exploration" id="exploration" aria-labelledby="titre-exploration" hidden>
-  <h2 class="lecteur-seul" id="titre-exploration">Arbre de parenté</h2>
+  <!-- h1 et non h2 : le seul autre h1 du document vit dans #accueil, qui est
+       `hidden` en exploration — le document se retrouvait donc sans titre de
+       niveau 1. Les deux ne sont jamais exposes ensemble. -->
+  <h1 class="lecteur-seul" id="titre-exploration">Arbre de parenté</h1>
 
   <!-- La barre d'outils. Sur ecran etroit elle s'empile sous la recherche ;
        sur ecran large elle flotte au-dessus du canevas. Meme DOM, deux
@@ -186,20 +193,18 @@
       </button>
     </div>
 
-    <!-- Les etats de l'ecran : attente, vide, panne. Trois blocs distincts et
-         non un seul parametre, parce que la F-36 en fait trois messages
-         differents dont un seul propose de reessayer. -->
-    <div class="etat-ecran" id="etat-ecran" hidden>
-      <div class="etat-ecran__boite">
-        <p class="etat-ecran__titre" id="etat-titre"></p>
-        <p class="etat-ecran__texte" id="etat-texte"></p>
-        <div class="etat-ecran__actions">
-          <button type="button" class="bouton bouton--plein" id="etat-reessayer" hidden>Réessayer</button>
-          <button type="button" class="bouton" id="etat-retour" hidden>Revenir à l'accueil</button>
-        </div>
-      </div>
-    </div>
+
   </div>
+
+  <!-- Le repli de la fiche sur ecran large. La CSS le positionnait deja
+       (.fiche__replier) mais l'element n'existait dans aucun fichier : la fiche
+       etait donc impossible a fermer au-dessus de 900 px, et elle recouvrait
+       integralement les commandes de cadrage — zoom et retour au cadrage neutre
+       devenaient inatteignables a la souris, ce que la F-17 interdit. -->
+  <button type="button" class="bouton bouton--icone fiche__replier" id="fiche-replier"
+          aria-expanded="true" aria-controls="fiche-corps" aria-label="Replier la fiche">
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M8 4l6 6-6 6"/></svg>
+  </button>
 
   <!-- La fiche du centre. Panneau lateral flottant sur large, ancre en bas sur
        etroit — meme element, deux dispositions. -->
@@ -265,6 +270,28 @@
     </div>
   </aside>
 </section>
+<!-- Les etats de l'ecran : attente, vide, panne.
+     Ce bloc est un enfant direct de <main>, et surtout PAS de la section
+     d'exploration. Il y a vecu, et c'etait un defaut bloquant : tant qu'aucun
+     arbre n'avait pousse, la section restait `hidden`, la regle
+     `[hidden] { display: none !important }` l'emportait, et la boite d'etat
+     etait rendue avec une hauteur de zero. Consequence : planter un nom
+     inconnu depuis l'accueil ne produisait STRICTEMENT RIEN — ni message, ni
+     attente, ni annonce. C'est-a-dire la totalite des premieres sessions et
+     des liens partages, alors que la F-36 et la F-38 sont marquees critiques.
+     Pose ici, il se superpose a l'ecran courant quel qu'il soit, et l'accueil
+     reste visible derriere lui — ce qui donne tout son sens au bouton de
+     sortie. -->
+  <div class="etat-ecran" id="etat-ecran" hidden>
+    <div class="etat-ecran__boite">
+      <p class="etat-ecran__titre" id="etat-titre"></p>
+      <p class="etat-ecran__texte" id="etat-texte"></p>
+      <div class="etat-ecran__actions">
+        <button type="button" class="bouton bouton--plein" id="etat-reessayer" hidden>Réessayer</button>
+        <button type="button" class="bouton" id="etat-retour" hidden>Revenir à l'accueil</button>
+      </div>
+    </div>
+  </div>
 </main>
 
 <!-- ═══ Panneaux ════════════════════════════════════════════════════════

@@ -171,17 +171,34 @@ function urlImage(brute) {
 }
 
 // fond pose une image de fond validee, ou retombe sur le repli deterministe.
-function fond(element, image, nom, { initialesSiVide = false } = {}) {
+//
+// La validation de l'URL ne suffit PAS. Une adresse parfaitement formee dont le
+// chargement echoue — reseau coupe, hote injoignable, 404 — laissait une boite
+// teintee vide : le repli graphique deterministe n'etait jamais rendu, alors que
+// la §11 exige qu'"aucune illustration manquante ne laisse un vide". On sonde
+// donc le chargement reel, et on retombe sur les initiales quand il echoue.
+function fond(element, image, nom, { initialesSiVide = false, surEchec } = {}) {
   const url = urlImage(image);
-  if (url) {
-    element.style.backgroundImage = `url("${url}")`;
-    element.textContent = "";
-    return true;
-  }
-  element.style.backgroundImage = "none";
-  element.style.background = teinteRepli(nom);
-  if (initialesSiVide) element.textContent = initiales(nom);
-  return false;
+
+  const repli = () => {
+    element.style.backgroundImage = "none";
+    element.style.background = teinteRepli(nom);
+    if (initialesSiVide) element.textContent = initiales(nom);
+    surEchec?.();
+  };
+
+  if (!url) { repli(); return false; }
+
+  element.style.backgroundImage = `url("${url}")`;
+  element.textContent = "";
+
+  // La sonde ne coute pas un second telechargement : le navigateur sert la
+  // meme entree de cache que la propriete background-image.
+  const sonde = new Image();
+  sonde.onerror = repli;
+  sonde.src = url;
+
+  return true;
 }
 
 // ═══ Annonces aux technologies d'assistance ════════════════════════════
@@ -729,6 +746,9 @@ function montreArbre(arbre, { anime = false, empile = false } = {}) {
   if (!etat.lignee.length) etat.lignee = [];
 
   cacheEtat();
+  // La plantation a abouti : le champ peut etre vide sans rien faire perdre.
+  const champRecherche = $("graine");
+  if (champRecherche.value) { champRecherche.value = ""; $("effacer").hidden = true; }
   basculeVers("exploration");
   rend({ anime });
   rendLignee();
@@ -1512,13 +1532,17 @@ function rendMur() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "tuile";
-    b.setAttribute("role", "listitem");
     b.setAttribute("aria-label", `Planter ${a.nom}`);
     if (!reduit) b.style.setProperty("--retard", `${Math.min(i * 22, 700)}ms`);
 
     const image = document.createElement("span");
     image.className = urlImage(a.image) ? "tuile__image" : "tuile__repli";
-    fond(image, a.image, a.nom, { initialesSiVide: true });
+    fond(image, a.image, a.nom, {
+      initialesSiVide: true,
+      // La classe suit le resultat REEL du chargement, pas la validite de
+      // l'adresse : sans cela une pochette injoignable laisse une tuile vide.
+      surEchec: () => { image.className = "tuile__repli"; },
+    });
     b.appendChild(image);
 
     const nom = document.createElement("span");
@@ -1550,10 +1574,31 @@ function basculeFiche(force) {
   $("fiche-bascule").setAttribute("aria-expanded", String(!replie));
   $("fiche-bascule").setAttribute("aria-label", replie ? "Déplier la fiche" : "Replier la fiche");
 
-  // Le recalcul attend la fin de la transition pour mesurer la hauteur reelle ;
-  // en mouvement reduit, elle est deja finie.
-  if (mouvementReduit()) rend();
-  else setTimeout(rend, 40);
+  // L'etat est publie sur <body> pour que la CSS degage les commandes de
+  // cadrage du panneau sur grand ecran.
+  document.body.dataset.fiche = replie ? "repliee" : "ouverte";
+  $("fiche-replier")?.setAttribute("aria-expanded", String(!replie));
+  $("fiche-replier")?.setAttribute("aria-label", replie ? "Déplier la fiche" : "Replier la fiche");
+
+  // Le recalcul attend la FIN de la transition pour mesurer la hauteur reelle.
+  // Un delai fixe de 40 ms mesurait le panneau en plein mouvement : la variable
+  // --place-fiche valait 142 px pendant que la fiche en occupait 523, et le
+  // noeud central se retrouvait cache derriere sa propre fiche.
+  if (mouvementReduit()) { rend(); return; }
+
+  const panneau = $("fiche");
+  let fait = false;
+  const fini = () => {
+    if (fait) return;
+    fait = true;
+    panneau.removeEventListener("transitionend", surFin);
+    rend();
+  };
+  const surFin = (e) => { if (e.target === panneau && e.propertyName === "transform") fini(); };
+  panneau.addEventListener("transitionend", surFin);
+  // Filet : transitionend ne part pas si la transition est annulee ou si la
+  // propriete ne change pas.
+  setTimeout(fini, 560);
 }
 
 // ═══ Bascule entre les deux états d'écran ══════════════════════════════
@@ -1615,6 +1660,7 @@ function montreEtat(genre, titre, texte, { reessayer } = {}) {
     $("etat-texte").textContent = "L'arbre pousse…";
     $("etat-reessayer").hidden = true;
     $("etat-retour").hidden = true;
+    annonce("L'arbre pousse…");
     return;
   }
 
@@ -1622,6 +1668,12 @@ function montreEtat(genre, titre, texte, { reessayer } = {}) {
   boite.dataset.genre = genre;
   $("etat-titre").textContent = titre;
   $("etat-texte").textContent = texte;
+
+  // Sans ceci, la region role="alert" de la page n'etait JAMAIS alimentee :
+  // alerte() existait sans aucun appelant, et aucune panne, aucun etat vide,
+  // aucune session expiree n'etait annoncee. Un utilisateur au lecteur d'ecran
+  // ne pouvait pas savoir que sa recherche avait echoue.
+  alerte(`${titre}. ${texte}`);
 
   // LE point de la F-36 : seule une panne propose de reessayer. Sur un vide,
   // reessayer ne changerait rien et enfermerait l'utilisateur dans une boucle.
@@ -1639,6 +1691,7 @@ function montreEtat(genre, titre, texte, { reessayer } = {}) {
 
 function cacheEtat() {
   $("etat-ecran").hidden = true;
+  $("alerte").textContent = "";
 }
 
 // ═══ La recherche ══════════════════════════════════════════════════════
@@ -1747,8 +1800,14 @@ function installeRecherche() {
       else if (champ.value.trim()) {
         // Sans suggestion choisie, on plante le texte saisi : c'est ce qui
         // declenche la correspondance stricte puis le rattrapage (F-03).
+        //
+        // Le champ n'est PAS vide ici. Il l'etait, et combine a un etat d'erreur
+        // qui ne s'affichait pas, cela produisait le pire enchainement du
+        // produit : le nom mal orthographie disparaissait, aucun message
+        // n'apparaissait, et l'utilisateur n'avait plus rien a corriger. On ne
+        // vide qu'une fois l'arbre reellement obtenu.
         const nom = champ.value.trim();
-        ferme(); champ.value = ""; effacer.hidden = true; champ.blur();
+        ferme(); champ.blur();
         mesure("plante");
         chargeEtMontre({ graine: nom });
       }
@@ -2031,6 +2090,7 @@ function installeCommandes() {
   $("lecteur").addEventListener("ended", () => joue(pisteCourante + 1));
 
   $("fiche-bascule").onclick = () => basculeFiche();
+  $("fiche-replier").onclick = () => basculeFiche();
 
   $("tri").onchange = (e) => {
     ecritReglage("triMur", e.target.value);
