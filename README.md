@@ -2,7 +2,7 @@
 
 Un dépôt, plusieurs applications, **une seule stack dockhand** sur
 `billbob.ovh`. Chaque application a son code, son PRD, son URL et son palier
-d'authentification ; toutes sont déployées ensemble.
+d'exposition ; toutes sont déployées ensemble.
 
 Le contrat que doit respecter chaque application est dans
 [`CLAUDE.md`](CLAUDE.md). Ce fichier-ci décrit la fabrique elle-même.
@@ -69,6 +69,22 @@ Trois garde-fous en découlent :
 Le pire cas est donc « rien n'est déployé », jamais « tout tombe ». Un
 déploiement refusé se lit dans les journaux du workflow, pas sur le site.
 
+## Comment on travaille
+
+Une branche dès la première modification, nommée `<app>/<sujet>` — ou
+`fabrique/<sujet>` pour l'infrastructure —, puis un commit par étape vérifiée.
+
+```bash
+./init.sh --branche cadran/fuseaux-multiples   # nom validé, départ depuis origin/main
+./init.sh --pret                               # cette étape est-elle committable ?
+```
+
+Deux hooks générés font respecter la règle plutôt que de l'écrire : l'un refuse
+toute édition tant que HEAD est sur `main`, l'autre refuse de terminer sur un
+arbre de travail sale. L'agent `greffier` enchaîne les trois gestes — brancher,
+vérifier, committer et pousser — et se lance en tâche de fond. Le détail est
+dans [`CLAUDE.md`](CLAUDE.md).
+
 ## Le contrôle avant de pousser
 
 ```bash
@@ -76,7 +92,7 @@ déploiement refusé se lit dans les journaux du workflow, pas sur le site.
 ```
 
 Il vérifie, **service par service** et non par recherche globale dans le
-fichier : l'authentification conforme à l'`exposure` de chaque app, la règle
+fichier : le middleware conforme à l'`exposure` de chaque app, la règle
 `Host()`, `priority=100`, le port, la mémoire, le `container_name`, le
 `pull_policy`, le nommage de l'image, les journaux bornés, l'absence de `ports:`.
 Puis, en croisé : l'unicité des noms de service, des hostnames et des

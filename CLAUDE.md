@@ -1,7 +1,7 @@
 # Contrat de déploiement — billbob.ovh
 
 Ce dépôt est une **fabrique** : il héberge plusieurs applications, chacune avec
-son code, son PRD, son URL et son palier d'authentification, toutes déployées
+son code, son PRD, son URL et son palier d'exposition, toutes déployées
 ensemble dans **une seule stack dockhand**. Les règles ci-dessous sont imposées
 par l'infrastructure : les enfreindre ne provoque pas une erreur claire, mais un
 déploiement qui échoue en silence.
@@ -22,7 +22,7 @@ init.sh              le générateur
 
 Ce qui est **partagé** : la stack, la CI, le réseau, le domaine, l'outillage
 Claude Code. Ce qui **appartient à chaque app** : son code, son `Dockerfile`,
-son PRD, son URL, son palier d'authentification, ses tests.
+son PRD, son URL, son palier d'exposition, ses tests.
 
 ## Démarrage
 
@@ -52,7 +52,7 @@ port: 8080                 # port d'écoute dans le conteneur, HTTP en clair
 memory: 128m               # limite mémoire du conteneur
 health_path: /healthz      # chemin HTTP renvoyant 200 quand l'app est prête
 health_cmd: wget --spider -q http://localhost:8080/healthz
-exposure: private          # private | google — voir plus bas
+exposure: private          # private | google | public — voir plus bas
 stack: none                # langage principal — active son serveur LSP
 ui: false                  # true si l'app sert une interface web
 ```
@@ -106,6 +106,87 @@ peut pas** casser la stack des autres.
 
 Si la nouvelle app introduit un langage absent du dépôt, recolle
 `.claude/cloud-setup.sh` dans le champ *Setup script* de ton environnement.
+
+## Comment on travaille : branche, puis commits par étapes
+
+**Jamais de modification directe sur `main`.** Une branche s'ouvre dès la
+**première** modification, et elle est nommée `<app>/<sujet>` — ou
+`fabrique/<sujet>` pour ce qui touche `init.sh`, `fabrique.yml`, la CI, le
+contrat ou l'outillage. Le préfixe dit quel périmètre est en jeu, donc quel
+rayon de souffle, avant même d'ouvrir le diff.
+
+```bash
+./init.sh --branche cadran/fuseaux-multiples
+./init.sh --branche fabrique/garde-fous-git
+```
+
+Le nom est validé avant la création : préfixe connu, sujet en minuscules. La
+branche part de `origin/main`, jamais du HEAD courant — greffée sur une autre
+branche de travail, elle traînerait ses commits dans sa PR.
+
+**Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque
+commit :
+
+```bash
+./init.sh --pret     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
+```
+
+`--pret` ne relance que les apps réellement modifiées depuis la base : sur une
+fabrique qui grandit, tout relancer à chaque commit coûterait plus que ça ne
+rapporte. Chaque commit est ainsi relisable seul et ne casse rien — c'est ce qui
+rend la relecture simple, et c'est le seul intérêt de committer souvent. On
+pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ensemble
+cohérent.
+
+### Deux garde-fous, parce qu'une règle écrite s'oublie
+
+| Hook | Ce qu'il fait |
+|---|---|
+| `.claude/garde-branche.sh` (`PreToolUse`) | refuse toute édition tant que HEAD est sur `main`, et donne la commande exacte |
+| `.claude/garde-commit.sh` (`Stop`) | refuse de terminer sur un arbre de travail sale |
+
+Ils sont générés par `init.sh` comme le reste de `.claude/`, et `--check` refuse
+qu'ils divergent de leur générateur. Aucun des deux ne dépend de `jq` ni de
+`python` : un garde-fou qui ne démarre pas sur une machine dépouillée ne garde
+rien.
+
+Le garde-fou de branche n'ouvre pas la branche à ta place : le nom doit dire le
+sujet, et seul celui qui édite le connaît.
+
+### L'agent `greffier`
+
+Les trois gestes — brancher, vérifier, committer et pousser — se délèguent :
+
+```
+Agent(subagent_type: "greffier")   # lançable en tâche de fond
+```
+
+Il est restreint à `Bash`, `Read` et `Grep`. **L'absence d'outil d'édition n'est
+pas un détail de configuration** : c'est ce qui garantit qu'un agent lancé en
+fond ne peut pas modifier le dépôt pendant que tu travailles dessus. Si
+`./init.sh --pret` échoue, il s'arrête et rapporte — réparer n'est pas son rôle.
+Il ne réécrit jamais l'histoire (`--force`, `--amend`, `rebase`, `reset --hard`,
+`merge` lui sont interdits) et n'ouvre pas de pull request.
+
+**Le registre des agents est lu au démarrage de la session.** Un agent ajouté en
+cours de session n'est donc invocable qu'à la session suivante — exactement le
+même piège que les plugins, et pour la même raison. En attendant, sa séquence
+s'exécute à la main, elle tient en quatre commandes.
+
+### La pull request se lit en trente secondes
+
+Un corps de PR n'est pas un compte rendu. Il sert à décider **s'il faut relire,
+et par où commencer** : une phrase sur ce que fait le changement, trois à cinq
+puces sur ce qui compte, ce qui a été vérifié en chiffres, et les points
+d'attention avant fusion. Le reste encombre.
+
+`.github/pull_request_template.md`, généré, en donne la forme — remplis ses
+sections, ne les invente pas.
+
+Le raisonnement détaillé, lui, va dans les **messages de commit**, où il reste
+attaché au changement qu'il explique et survit à la fusion. C'est aussi ce qui
+rend le découpage en étapes payant : quatre commits bien décrits valent mieux
+qu'un long corps de PR que personne ne relira.
 
 ## Le rayon de souffle
 
@@ -206,23 +287,25 @@ préférences personnelles, jamais dans le fichier versionné. Et **jamais de bl
 `env` dans `.claude/settings.json`** : il est public par construction, y poser un
 jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
 
-## Les deux paliers d'authentification
+## Les trois paliers d'exposition
 
-Chaque application est **toujours derrière une authentification Google**,
-appliquée par Traefik avant qu'une requête ne l'atteigne. Deux paliers existent,
-choisis app par app par `exposure` dans son `app.yml` — deux applications de la
-fabrique peuvent parfaitement ne pas avoir le même :
+Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
+et appliqué par Traefik avant que la requête ne parvienne au conteneur. Le choix
+se fait app par app — deux applications de la fabrique peuvent parfaitement ne
+pas avoir le même :
 
 | `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
 |---|---|---|---|
 | `private` *(défaut)* | `forwardauth` | **Uniquement les comptes de la liste blanche** du serveur | Tout ce qui touche à de l'administration, de l'infra, un shell, ou des données personnelles |
 | `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | Une app dont la surface ne touche que des API tierces ou du contenu non sensible, ou dont les données sont strictement cloisonnées par utilisateur |
+| `public` | `public` | **Tout le monde, sans authentification** | Une app destinée à des gens qui n'ont pas de compte, dont rien de sensible ne vit côté serveur |
 
-**Il n'existe pas de troisième palier.** L'exposition publique sans
-authentification n'est pas disponible ; ne cherche pas à la configurer.
+Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte
+Google, le second n'exige rien.
 
-Dans les deux cas, l'identité de l'utilisateur connecté arrive dans l'en-tête
-HTTP **`X-Forwarded-User`** (son adresse e-mail), posé par Traefik.
+En `private` et `google`, l'identité de l'utilisateur connecté arrive dans
+l'en-tête HTTP **`X-Forwarded-User`** (son adresse e-mail). Traefik le **réécrit
+à chaque requête**, il n'est donc pas usurpable.
 
 **Ne code pas de système de comptes.** Si tu dois cloisonner des données par
 utilisateur, `X-Forwarded-User` est la **seule** source d'identité admissible —
@@ -231,8 +314,34 @@ requête, cookie applicatif). En palier `google`, ce cloisonnement n'est pas
 optionnel : n'importe qui peut se connecter, donc chaque utilisateur ne doit
 voir que ses propres données.
 
-Si tu hésites entre les deux paliers, prends `private` : c'est réversible en
-une ligne, l'inverse expose des données.
+### Ce que `public` implique — à lire avant de le choisir
+
+Aucune authentification n'a lieu, **donc Traefik ne pose ni n'écrase
+`X-Forwarded-User`**. L'en-tête devient entièrement contrôlé par le client :
+n'importe qui peut l'envoyer avec la valeur qu'il veut. Une app qui le lirait
+sur ce palier croirait identifier un utilisateur en lisant une valeur forgée.
+`./init.sh --check` **refuse** une app qui lit `X-Forwarded-User` en
+`exposure: public`.
+
+Il en découle quatre contraintes, non négociables :
+
+- **Pas d'état par utilisateur côté serveur** — ni compte, ni session, ni
+  données nominatives. Ce qui est propre à un visiteur reste sur son appareil
+  (`localStorage`, `IndexedDB`).
+- **Rien de sensible ne transite** — clés d'API tierces comprises. Tout ce que
+  le navigateur reçoit est, par construction, public.
+- **Le rate-limit n'est pas une protection** — le palier en pose un (50 req/s
+  par IP, rafale 100), mais l'app doit encaisser du trafic non sollicité :
+  robots d'indexation, scanners, curieux.
+- **L'URL finira par être trouvée.** Ne compte jamais sur le fait qu'elle n'est
+  pas publiée.
+
+La stack étant unique, une app publique voisine d'apps privées ne les expose
+pas : chaque routeur porte son propre middleware, et `--check` le vérifie
+service par service.
+
+Si tu hésites entre deux paliers, prends le plus fermé : `private` se desserre
+en une ligne, l'inverse a déjà exposé les données.
 
 ## Règles impératives
 
@@ -250,7 +359,7 @@ une ligne, l'inverse expose des données.
   déploiement s'arrête là. Il est **généré** et porte N services : ne l'édite
   jamais à la main, `./init.sh --check` refuse un compose désynchronisé.
 - **Le routage vit dans les labels du `compose.yaml`**, générés par
-  `init.sh`. N'y touche pas : le middleware d'authentification et
+  `init.sh`. N'y touche pas : le middleware du palier d'exposition et
   `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
   catch-all de capter l'URL et de servir un 404 silencieux. Ton bloc est un
   parmi N : une erreur dedans fait échouer le déploiement de toutes les apps.
