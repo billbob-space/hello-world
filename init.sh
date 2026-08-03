@@ -254,11 +254,20 @@ render() {
   local t r; t=$(cat)
   while [ $# -gt 1 ]; do
     # Depuis bash 5.2, « & » dans le remplacement de ${var//motif/rempl} rappelle
-    # le texte matche, comme dans sed : sans cette protection, un « 2>&1 » du
-    # fragment injecte devient « 2>__CLE__1 » et le script genere ne s'analyse
-    # meme plus. Le backslash est protege d'abord, sinon il mangerait le suivant.
-    r=${2//\\/\\\\}
-    r=${r//&/\\&}
+    # le texte matche, comme dans sed : sans protection, un « 2>&1 » du fragment
+    # injecte devient « 2>__CLE__1 » et le script genere ne s'analyse meme plus.
+    # Le backslash est protege d'abord, sinon il mangerait le suivant.
+    #
+    # Mais AVANT 5.2 ce rappel n'existe pas : le « \ » y reste litteral et produit
+    # « 2>\&1 \& ». Echapper inconditionnellement casse donc .claude/cloud-setup.sh
+    # sur tout bash <= 5.1 (Ubuntu 22.04 : 5.1.16) — constate, et refuse ensuite
+    # par ./init.sh --check. D'ou le test de version.
+    r=$2
+    if [ "${BASH_VERSINFO[0]}" -gt 5 ] \
+       || { [ "${BASH_VERSINFO[0]}" -eq 5 ] && [ "${BASH_VERSINFO[1]}" -ge 2 ]; }; then
+      r=${r//\\/\\\\}
+      r=${r//&/\\&}
+    fi
     t="${t//$1/$r}"
     shift 2
   done
