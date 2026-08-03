@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RAMURE — plante un nom, saute de branche en branche</title>
+<meta name="description" content="Exploration généalogique de la musique : un artiste au centre, ses parents musicaux en orbite, leurs héritiers autour d'eux.">
+<meta name="theme-color" content="#071A24">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="ramure.css">
+<!-- La ramure : deux bois de cerf, qui sont aussi un arbre et sa lignée. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23071A24'/%3E%3Cg stroke='%23E7EFE9' stroke-width='1.6' fill='none' stroke-linecap='round'%3E%3Cpath d='M16 29V15'/%3E%3Cpath d='M16 19l-6-5M16 19l6-5M16 24l-4-3M16 24l4-3'/%3E%3Cpath d='M10 14L7 8M10 14l-4-1M22 14l3-6M22 14l4-1'/%3E%3C/g%3E%3Ccircle cx='16' cy='12' r='2.5' fill='%23D9A24B'/%3E%3C/svg%3E">
+</head>
+<body data-etat="chargement">
+
+<a class="evitement" href="#principal">Aller au contenu principal</a>
+
+<!-- Le champ de recherche est UNIQUE dans le document, et se deplace entre le
+     bandeau d'accueil et la barre d'outils selon la disposition. La §07 en fait
+     une contrainte structurante : "les deux variantes d'un meme controle ne
+     doivent jamais coexister — deux champs de recherche simultanes produiraient
+     des requetes en double et deux commandes portant le meme intitule
+     desorienteraient la navigation assistee". Un seul noeud deplace est la
+     seule facon d'en etre certain, plutot qu'un noeud masque par media query. -->
+<div class="recherche" id="recherche" role="search">
+  <label class="recherche__etiquette" for="graine">Nom d'artiste</label>
+  <div class="recherche__champ">
+    <svg class="recherche__loupe" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/>
+    </svg>
+    <input id="graine" name="graine" type="search" autocomplete="off" spellcheck="false"
+           placeholder="Plante un nom…"
+           role="combobox" aria-expanded="false" aria-autocomplete="list"
+           aria-controls="suggestions" aria-describedby="recherche-aide">
+    <button type="button" class="recherche__effacer" id="effacer" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+      <span class="lecteur-seul">Effacer la recherche</span>
+    </button>
+  </div>
+  <p class="lecteur-seul" id="recherche-aide">
+    Utilise les flèches haut et bas pour parcourir les propositions, Entrée pour planter, Échap pour fermer.
+  </p>
+  <ul class="suggestions" id="suggestions" role="listbox" aria-label="Propositions d'artistes" hidden></ul>
+</div>
+
+<main id="principal">
+
+<!-- ═══ ÉTAT A — l'accueil ═══════════════════════════════════════════════
+     "L'ecran d'entree ne doit jamais etre un champ de recherche seul sur fond
+     vide : c'est le moment ou le produit doit donner envie." (§07)         -->
+<section class="accueil" id="accueil" aria-labelledby="titre-accueil" hidden>
+
+  <div class="mur" id="mur" role="list" aria-label="Artistes à planter"></div>
+  <div class="mur__voile" aria-hidden="true"></div>
+
+  <header class="bandeau">
+    <div class="bandeau__identite">
+      <h1 class="marque" id="titre-accueil">
+        <span class="marque__mot">Ramure</span>
+      </h1>
+      <p class="marque__cri">Plante un nom, saute de branche en branche.</p>
+    </div>
+
+    <div class="bandeau__outils">
+      <div class="bandeau__recherche" id="hote-recherche-accueil"></div>
+      <div class="bandeau__tri">
+        <label class="tri__etiquette" for="tri">Trier le mur</label>
+        <div class="tri__groupe">
+          <select id="tri" class="tri__choix"></select>
+          <button type="button" class="bouton bouton--fantome" id="rebattre-mur" hidden>
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              <path d="M4 8a6 6 0 0 1 10-3l2 2M16 12a6 6 0 0 1-10 3l-2-2"/>
+              <path d="M16 3v4h-4M4 17v-4h4"/>
+            </svg>
+            Retirer au hasard
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <p class="accueil__etat" id="accueil-etat" role="status" hidden></p>
+</section>
+
+<!-- ═══ ÉTAT B — le canevas ══════════════════════════════════════════════ -->
+<section class="exploration" id="exploration" aria-labelledby="titre-exploration" hidden>
+  <h2 class="lecteur-seul" id="titre-exploration">Arbre de parenté</h2>
+
+  <!-- La barre d'outils. Sur ecran etroit elle s'empile sous la recherche ;
+       sur ecran large elle flotte au-dessus du canevas. Meme DOM, deux
+       dispositions — jamais deux exemplaires. -->
+  <div class="barre" id="barre">
+    <div class="barre__rang barre__rang--principal">
+      <button type="button" class="bouton bouton--icone" id="quitter">
+        <!-- "Les actions de retour sont distinguees" (§12) : quitter
+             l'exploration et remonter d'un cran dans la lignee sont deux
+             actions differentes. Icone maison ici, chevron dans la lignee. -->
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <path d="M3 9l7-6 7 6M5 8v8h10V8"/>
+        </svg>
+        <span class="lecteur-seul">Revenir à l'accueil</span>
+      </button>
+
+      <div class="barre__recherche" id="hote-recherche-barre"></div>
+
+      <div class="barre__actions">
+        <button type="button" class="bouton" id="rebattre">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path d="M4 8a6 6 0 0 1 10-3l2 2M16 12a6 6 0 0 1-10 3l-2-2"/>
+            <path d="M16 3v4h-4M4 17v-4h4"/>
+          </svg>
+          <span class="bouton__texte">Rebattre</span>
+        </button>
+        <button type="button" class="bouton" id="ouvrir-palmares">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path d="M6 17h8M10 13v4M5 3h10v4a5 5 0 0 1-10 0z"/><path d="M5 5H3v2a3 3 0 0 0 2 2M15 5h2v2a3 3 0 0 1-2 2"/>
+          </svg>
+          <span class="bouton__texte">Palmarès</span>
+        </button>
+        <button type="button" class="bouton" id="ouvrir-collection">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path d="M5 3h10v14l-5-4-5 4z"/>
+          </svg>
+          <span class="bouton__texte">Collection</span>
+        </button>
+        <button type="button" class="bouton bouton--icone" id="ouvrir-reglages">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M15.7 4.3l-1.4 1.4M5.7 14.3l-1.4 1.4"/>
+          </svg>
+          <span class="lecteur-seul">Réglages</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- La lignee : "affichee en permanence, chaque ancetre cliquable" (§07).
+         Rendue comme une tige greffee — chaque ancetre est un noeud sur le
+         bois, separe par une cicatrice de greffe. -->
+    <nav class="lignee" id="lignee" aria-label="Lignée parcourue" hidden></nav>
+  </div>
+
+  <!-- Le canevas. tabindex pour que le clavier puisse y entrer et s'en servir
+       pour zoomer et deplacer sans souris. -->
+  <div class="canevas" id="canevas">
+    <svg id="scene" class="scene" role="application"
+         aria-label="Arbre de parenté musicale, navigable au clavier"
+         tabindex="0">
+      <defs id="defs"></defs>
+      <g id="camera">
+        <g id="cernes" aria-hidden="true"></g>
+        <g id="liens" aria-hidden="true"></g>
+        <g id="noeuds"></g>
+      </g>
+    </svg>
+
+    <!-- La legende des cernes. Elle vit HORS de la scene : un libelle pose sur
+         un anneau finit toujours derriere un noeud, et la §11 interdit qu'un
+         nom soit masque. aria-hidden parce qu'elle double une information deja
+         portee par la position des noeuds, que le lecteur d'ecran atteint par
+         leur intitule. -->
+    <div class="cernes-legende" aria-hidden="true">
+      <svg viewBox="0 0 34 34" focusable="false">
+        <circle cx="17" cy="17" r="15" class="cerne cerne--jalon"/>
+        <circle cx="17" cy="17" r="8" class="cerne cerne--jalon"/>
+        <circle cx="17" cy="17" r="2.5" class="legende__coeur"/>
+      </svg>
+      <p>Proche<span>Lointain</span></p>
+    </div>
+
+    <div class="camera-outils" role="group" aria-label="Cadrage">
+      <button type="button" class="bouton bouton--icone" id="zoom-plus">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 5v10M5 10h10"/></svg>
+        <span class="lecteur-seul">Rapprocher</span>
+      </button>
+      <button type="button" class="bouton bouton--icone" id="zoom-moins">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 10h10"/></svg>
+        <span class="lecteur-seul">Éloigner</span>
+      </button>
+      <!-- "Un retour au cadrage neutre est propose des que la vue a ete
+           modifiee" (§11) : le bouton n'existe pas tant qu'elle ne l'a pas ete. -->
+      <button type="button" class="bouton bouton--icone" id="recadrer" hidden>
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <path d="M3 7V4h3M17 7V4h-3M3 13v3h3M17 13v3h-3"/><circle cx="10" cy="10" r="2.5"/>
+        </svg>
+        <span class="lecteur-seul">Revenir au cadrage neutre</span>
+      </button>
+    </div>
+
+    <!-- Les etats de l'ecran : attente, vide, panne. Trois blocs distincts et
+         non un seul parametre, parce que la F-36 en fait trois messages
+         differents dont un seul propose de reessayer. -->
+    <div class="etat-ecran" id="etat-ecran" hidden>
+      <div class="etat-ecran__boite">
+        <p class="etat-ecran__titre" id="etat-titre"></p>
+        <p class="etat-ecran__texte" id="etat-texte"></p>
+        <div class="etat-ecran__actions">
+          <button type="button" class="bouton bouton--plein" id="etat-reessayer" hidden>Réessayer</button>
+          <button type="button" class="bouton" id="etat-retour" hidden>Revenir à l'accueil</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- La fiche du centre. Panneau lateral flottant sur large, ancre en bas sur
+       etroit — meme element, deux dispositions. -->
+  <aside class="fiche" id="fiche" aria-labelledby="fiche-nom" hidden>
+    <button type="button" class="fiche__poignee" id="fiche-bascule"
+            aria-expanded="true" aria-controls="fiche-corps"
+            aria-label="Replier la fiche">
+      <span class="fiche__poignee-barre" aria-hidden="true"></span>
+      <!-- Repliee sur ecran etroit, la fiche ne laisse voir que sa poignee :
+           elle doit donc dire de qui elle parle. aria-hidden car l'intitule
+           accessible du bouton est deja pose par aria-label, et l'y ajouter
+           produirait « Broadcast Déplier la fiche ». -->
+      <span class="fiche__poignee-nom" id="fiche-poignee-nom" aria-hidden="true"></span>
+    </button>
+
+    <div class="fiche__corps" id="fiche-corps">
+      <header class="fiche__tete">
+        <div class="fiche__portrait" id="fiche-portrait" aria-hidden="true"></div>
+        <div class="fiche__identite">
+          <h3 class="fiche__nom" id="fiche-nom"></h3>
+          <p class="fiche__audience" id="fiche-audience"></p>
+          <ul class="genres" id="fiche-genres" aria-label="Genres"></ul>
+        </div>
+      </header>
+
+      <p class="fiche__bio" id="fiche-bio"></p>
+
+      <div class="fiche__actions">
+        <button type="button" class="bouton bouton--plein" id="garder">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 3h10v14l-5-4-5 4z"/></svg>
+          <span class="bouton__texte" id="garder-texte">Garder</span>
+        </button>
+        <button type="button" class="bouton" id="lecteur-bascule">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" id="lecteur-icone"><path d="M6 4l10 6-10 6z"/></svg>
+          <span class="bouton__texte" id="lecteur-texte">Écouter un extrait</span>
+        </button>
+        <button type="button" class="bouton" id="partager">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="15" cy="5" r="2"/><circle cx="5" cy="10" r="2"/><circle cx="15" cy="15" r="2"/>
+            <path d="M6.8 9L13.2 6M6.8 11l6.4 3"/>
+          </svg>
+          <span class="bouton__texte">Partager</span>
+        </button>
+        <a class="bouton bouton--lien" id="lien-ecoute" href="#" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path d="M8 4H4v12h12v-4M12 3h5v5M17 3l-7 7"/>
+          </svg>
+          <span class="bouton__texte" id="lien-ecoute-texte">Ouvrir</span>
+        </a>
+      </div>
+
+      <p class="lecteur-piste" id="lecteur-piste" hidden></p>
+
+      <section class="disco" aria-labelledby="disco-titre">
+        <div class="disco__tete">
+          <h4 class="disco__titre" id="disco-titre">Discographie</h4>
+          <!-- "Le filtre est masque s'il n'y a rien a filtrer" (F-22) -->
+          <div class="filtres" id="filtres" role="group" aria-label="Filtrer par type de sortie" hidden></div>
+        </div>
+        <ol class="disco__liste" id="disco-liste"></ol>
+        <p class="disco__etat" id="disco-etat" hidden></p>
+      </section>
+    </div>
+  </aside>
+</section>
+</main>
+
+<!-- ═══ Panneaux ════════════════════════════════════════════════════════
+     <dialog> natif : le piege du focus, la fermeture par Echap et l'inertage
+     du reste de la page sont fournis par le navigateur, donc corrects. Sur
+     ecran etroit, la CSS les fait glisser depuis le bas (§07). -->
+
+<dialog class="panneau" id="panneau-collection" aria-labelledby="collection-titre">
+  <header class="panneau__tete">
+    <h2 class="panneau__titre" id="collection-titre">Collection</h2>
+    <button type="button" class="bouton bouton--icone panneau__fermer" data-fermer>
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      <span class="lecteur-seul">Fermer la collection</span>
+    </button>
+  </header>
+  <div class="panneau__corps" id="collection-corps"></div>
+</dialog>
+
+<dialog class="panneau" id="panneau-palmares" aria-labelledby="palmares-titre">
+  <header class="panneau__tete">
+    <h2 class="panneau__titre" id="palmares-titre">Palmarès de l'arbre</h2>
+    <button type="button" class="bouton bouton--icone panneau__fermer" data-fermer>
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      <span class="lecteur-seul">Fermer le palmarès</span>
+    </button>
+  </header>
+  <p class="panneau__chapeau">Les meilleurs albums de tous les artistes affichés.</p>
+  <div class="filtres" id="palmares-filtres" role="group" aria-label="Filtrer par type de sortie"></div>
+  <div class="panneau__corps" id="palmares-corps"></div>
+</dialog>
+
+<dialog class="panneau" id="panneau-reglages" aria-labelledby="reglages-titre">
+  <header class="panneau__tete">
+    <h2 class="panneau__titre" id="reglages-titre">Réglages</h2>
+    <button type="button" class="bouton bouton--icone panneau__fermer" data-fermer>
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      <span class="lecteur-seul">Fermer les réglages</span>
+    </button>
+  </header>
+  <div class="panneau__corps">
+    <div class="champ">
+      <label class="champ__etiquette" for="service">Service d'écoute</label>
+      <select id="service" class="champ__choix"></select>
+      <p class="champ__aide">Tous les liens d'écoute de l'application mènent à ce service.</p>
+    </div>
+    <div class="champ">
+      <p class="champ__etiquette">Diagnostic</p>
+      <p class="champ__aide" id="diagnostic-resume"></p>
+      <button type="button" class="bouton" id="exporter-journal">Exporter le journal de session</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Les annonces aux technologies d'assistance. "Le changement de centre est
+     annonce [...] c'est la seule facon de savoir que l'ecran a change sans le
+     voir" (§12). -->
+<p class="lecteur-seul" id="annonce" role="status" aria-live="polite"></p>
+<p class="lecteur-seul" id="alerte" role="alert"></p>
+
+<!-- Bandeaux transitoires : mise a jour disponible (F-42), session expiree
+     (F-41), correction orthographique (F-03). -->
+<div class="bandeau-flottant" id="bandeau-flottant" hidden>
+  <p class="bandeau-flottant__texte" id="bandeau-flottant-texte"></p>
+  <button type="button" class="bouton bouton--plein" id="bandeau-flottant-action" hidden></button>
+  <button type="button" class="bouton bouton--icone" id="bandeau-flottant-fermer">
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5 5l10 10M15 5L5 15"/></svg>
+    <span class="lecteur-seul">Fermer ce message</span>
+  </button>
+</div>
+
+<audio id="lecteur" preload="none"></audio>
+
+<script src="ramure.js" type="module"></script>
+</body>
+</html>

@@ -90,6 +90,12 @@ services:
     networks: [apps_net]
   # <<< hello-world
 
+  # >>> ramure — DESACTIVEE (enabled: false dans apps/ramure/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< ramure
+
 networks:
   apps_net:
     external: true

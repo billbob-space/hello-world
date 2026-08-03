@@ -1,0 +1,1293 @@
+/* RAMURE — la planche de cyanotype.
+ *
+ * Direction visuelle. Le vocabulaire du produit est arboricole : ramure,
+ * graine, planter, branche, heritier, elaguer, vivier. Son monde n'est donc
+ * pas celui du streaming mais celui du RELEVE BOTANIQUE — la planche
+ * d'herbier, la coupe de tronc, le schema de greffe.
+ *
+ * D'ou le cyanotype : les planches d'Anna Atkins, milieu du XIXe, ou le
+ * specimen apparait en blanc fantome sur un papier bleu de Prusse. La
+ * correspondance est litterale — fond sombre, noeuds pales, traits fins — et
+ * elle donne un sombre SATURE, bleu-vert, la ou un gris neutre aurait fait un
+ * canevas d'application parmi d'autres.
+ *
+ * Deux accents seulement, chacun avec exactement une fonction :
+ *   la seve   — l'ambre du centre, et rien d'autre ;
+ *   le bourgeon — la pousse neuve, signal de nouveaute (F-23), et rien d'autre.
+ * Tout le reste du produit se dit en craie et en lichen.
+ *
+ * L'element de signature est LES CERNES : les anneaux concentriques poses au
+ * sol du canevas, comme sur une coupe de tronc. La position d'une branche sur
+ * ces anneaux EST son affinite. La F-09 — "l'affinite se lit sans texte" —
+ * cesse d'etre une intention pour devenir une lecture.
+ */
+
+/* ═══ Les polices ══════════════════════════════════════════════════════
+   Servies par l'application elle-meme, jamais par un tiers : aucune requete
+   ne sort vers un domaine externe, et la N-11 (demarrage hors-ligne) tient
+   sans dependance a un CDN. */
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/fraunces.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ── la planche ── */
+  --nuit:      #071a24;  /* le papier du cyanotype */
+  --sous-bois: #0c2733;  /* les panneaux, un cran au-dessus */
+  --taillis:   #10303d;  /* les surfaces posees sur un panneau */
+  --vitre:     #1a4150;  /* les filets et les bordures */
+
+  /* ── l'encre ── */
+  --craie:   #e7efe9;  /* le specimen expose — blanc verdi, jamais #fff */
+  --lichen:  #8ca79a;  /* le texte secondaire, teinte de specimen seche */
+  --brume:   #56736f;  /* le tertiaire, les graduations */
+
+  /* ── les deux accents ── */
+  --seve:     #d9a24b;  /* le centre, et rien d'autre */
+  --bourgeon: #79d2a6;  /* la sortie recente, et rien d'autre */
+  --ecorce:   #c4705c;  /* la panne — seul rouge du produit */
+
+  --deplacement: cubic-bezier(.22, .61, .36, 1);
+  --duree-promotion: 480ms;
+  --duree-courte: 180ms;
+
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* La graisse optique de Fraunces : le wonk et la douceur de la fonte
+     variable ne sont pas exposes par ce fichier woff2, on module donc la
+     graisse seule. */
+  --hauteur-poignee: 3.25rem;
+}
+
+/* ═══ Socle ═══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* L'attribut hidden doit gagner contre TOUTE regle de classe.
+ *
+ * Sa declaration native est `[hidden] { display: none }`, d'une specificite de
+ * (0,1,0) : n'importe quelle classe posant un `display` la bat. Le produit
+ * masque et demasque beaucoup d'elements par cet attribut — la fiche, la
+ * lignee, les filtres, le bouton « reessayer », le bandeau flottant — et tous
+ * portent une classe avec `display: flex` ou `grid`. Sans cette ligne, ils
+ * restent tous visibles en permanence : un bandeau vide flotte au bas de
+ * l'ecran, la croix d'effacement apparait dans un champ vide, et le bouton
+ * « reessayer » s'affiche sur un etat vide — ce que la F-36 interdit
+ * explicitement.
+ *
+ * Une seule ligne, et le seul !important du fichier. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--nuit);
+  color: var(--craie);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  overflow: hidden;               /* le canevas et le mur tiennent l'ecran */
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;      /* pas de rebond qui recharge la page */
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+button, input, select { font: inherit; color: inherit; }
+
+/* Le focus est toujours visible (§12), et il l'est en seve : c'est la seule
+   autre chose du produit qui porte cette couleur, donc il ne se confond avec
+   aucun etat. */
+:focus-visible {
+  outline: 2px solid var(--seve);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+.lecteur-seul {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Le lien d'evitement (§12). */
+.evitement {
+  position: fixed;
+  top: .5rem; left: .5rem;
+  z-index: 100;
+  padding: .6rem 1rem;
+  background: var(--seve);
+  color: var(--nuit);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 3px;
+  transform: translateY(-200%);
+  transition: transform var(--duree-courte) var(--deplacement);
+}
+.evitement:focus { transform: translateY(0); }
+
+#principal { height: 100%; }
+
+/* ═══ Boutons ═════════════════════════════════════════════════════════
+   Les cibles font 44 px de haut au minimum, y compris les commandes de zoom
+   et les boutons d'icone : §12, "les cibles tactiles respectent une taille
+   minimale". C'est le minimum confortable, au-dessus des 24 px du critere
+   WCAG 2.2 AA. */
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 44px;
+  padding: .5rem .9rem;
+  background: transparent;
+  color: var(--craie);
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: .875rem;
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duree-courte), border-color var(--duree-courte), color var(--duree-courte);
+}
+.bouton:hover:not(:disabled) { background: var(--taillis); border-color: var(--lichen); }
+.bouton:disabled { opacity: .45; cursor: not-allowed; }
+
+.bouton svg {
+  width: 18px; height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bouton--icone { min-width: 44px; padding: .5rem; justify-content: center; }
+.bouton--plein {
+  background: var(--craie);
+  color: var(--nuit);
+  border-color: var(--craie);
+  font-weight: 600;
+}
+.bouton--plein:hover:not(:disabled) { background: #fff; border-color: #fff; }
+.bouton--fantome { border-color: transparent; color: var(--lichen); }
+.bouton--fantome:hover { color: var(--craie); }
+
+/* L'etat "garde" : le signet est plein, en seve. Jamais la couleur seule —
+   l'icone change aussi de remplissage, et l'intitule passe de "Garder" a
+   "Gardé" (§12, "ne repose jamais sur la couleur seule"). */
+.bouton[data-garde="oui"] {
+  background: var(--seve);
+  border-color: var(--seve);
+  color: var(--nuit);
+}
+.bouton[data-garde="oui"] svg { fill: currentColor; }
+
+/* ═══ Recherche ═══════════════════════════════════════════════════════ */
+
+.recherche { position: relative; width: 100%; }
+.recherche__etiquette {
+  display: block;
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--brume);
+  margin-bottom: .35rem;
+}
+
+.recherche__champ {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: 0 .75rem;
+  background: rgba(7, 26, 36, .82);
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  transition: border-color var(--duree-courte);
+}
+.recherche__champ:focus-within { border-color: var(--seve); }
+
+.recherche__loupe {
+  width: 18px; height: 18px; flex: none;
+  fill: none; stroke: var(--lichen); stroke-width: 1.5; stroke-linecap: round;
+}
+
+.recherche__champ input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  color: var(--craie);
+}
+.recherche__champ input::placeholder { color: var(--brume); }
+.recherche__champ input::-webkit-search-cancel-button { display: none; }
+
+.recherche__effacer {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 32px; min-height: 32px;
+  background: none; border: none; cursor: pointer;
+  color: var(--lichen);
+}
+.recherche__effacer:hover { color: var(--craie); }
+.recherche__effacer svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  z-index: 40;
+  max-height: min(22rem, 50vh);
+  overflow-y: auto;
+  background: var(--sous-bois);
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  box-shadow: 0 24px 48px -20px rgba(0, 0, 0, .8);
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .5rem .75rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(26, 65, 80, .5);
+}
+.suggestion:last-child { border-bottom: none; }
+.suggestion[aria-selected="true"],
+.suggestion:hover { background: var(--taillis); }
+
+.suggestion__vignette {
+  width: 34px; height: 34px; flex: none;
+  border-radius: 50%;
+  background: var(--taillis) center/cover no-repeat;
+  border: 1px solid var(--vitre);
+}
+.suggestion__nom { font-size: .9375rem; }
+
+/* ═══ ÉTAT A — l'accueil ══════════════════════════════════════════════ */
+
+.accueil { position: relative; height: 100%; overflow: hidden; }
+
+/* Le mur : "occupe toute la hauteur disponible sans defilement ; le nombre de
+   colonnes s'adapte a la largeur" (F-05). La grille remplit exactement la
+   fenetre ; le script calcule combien de tuiles y tiennent et n'en demande
+   pas une de plus — une tuile hors champ couterait une image chargee pour
+   rien. */
+.mur {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--colonnes, 6), 1fr);
+  grid-auto-rows: 1fr;
+  gap: 2px;
+}
+
+.tuile {
+  position: relative;
+  overflow: hidden;
+  background: var(--sous-bois);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  /* L'apparition progressive de la F-05, neutralisable par la preference de
+     mouvement reduit (§11). Le decalage est pose par le script. */
+  animation: pousse 620ms var(--deplacement) backwards;
+  animation-delay: var(--retard, 0ms);
+}
+
+@keyframes pousse {
+  from { opacity: 0; transform: scale(1.06); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.tuile__image {
+  position: absolute;
+  inset: 0;
+  background: var(--taillis) center/cover no-repeat;
+  /* La planche de cyanotype : les pochettes sont virees au bleu, comme un
+     tirage. Elles reprennent leur couleur au survol — le mur entier devient
+     alors une reponse au geste, pas une decoration.
+     Le filtre seul ne suffit pas : une photo sur fond blanc reste blanche
+     apres virage, et le mur part alors en damier clair/sombre qui rend le
+     bandeau illisible. Le voile pose par ::after compresse la plage vers le
+     bas, ce qu'aucune fonction de filter ne fait proprement. */
+  filter: sepia(.6) hue-rotate(152deg) saturate(1.45) contrast(.92) brightness(.88);
+  transition: filter 420ms var(--deplacement), transform 620ms var(--deplacement);
+}
+.tuile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--nuit);
+  opacity: .42;
+  pointer-events: none;
+  transition: opacity 420ms var(--deplacement);
+}
+
+.tuile:hover .tuile__image,
+.tuile:focus-visible .tuile__image {
+  filter: none;
+  transform: scale(1.045);
+}
+.tuile:hover::after,
+.tuile:focus-visible::after { opacity: 0; }
+
+/* Le repli d'illustration : "un repli graphique deterministe et stable tient
+   la place, sans provoquer de decalage a l'arrivee de l'image" (§11). Les
+   initiales sur une teinte derivee du nom — donc identique d'une session a
+   l'autre pour un meme artiste. */
+.tuile__repli {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-size: clamp(1.5rem, 4vw, 2.6rem);
+  font-weight: 500;
+  color: rgba(231, 239, 233, .28);
+  background: linear-gradient(155deg, var(--taillis), var(--nuit));
+}
+
+.tuile__nom {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 1.6rem .7rem .55rem;
+  background: linear-gradient(to top, rgba(7, 26, 36, .95), transparent);
+  font-size: .8125rem;
+  font-weight: 500;
+  text-align: left;
+  color: var(--craie);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 260ms, transform 260ms var(--deplacement);
+}
+.tuile:hover .tuile__nom,
+.tuile:focus-visible .tuile__nom { opacity: 1; transform: translateY(0); }
+
+/* Le voile assombrit le mur sous le bandeau pour que le titre reste lisible
+   quelle que soit la pochette qui passe derriere. */
+.mur__voile {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(52%, 24rem);
+  background: linear-gradient(to bottom,
+    rgba(7, 26, 36, .97) 0%,
+    rgba(7, 26, 36, .93) 34%,
+    rgba(7, 26, 36, .62) 62%,
+    rgba(7, 26, 36, .2) 84%,
+    transparent 100%);
+  pointer-events: none;
+}
+
+.bandeau {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(.9rem, 2.2vh, 1.5rem);
+  padding: clamp(1.1rem, 3vw, 2rem);
+  max-width: 58rem;
+}
+
+/* La marque. Fraunces en graisse moyenne, tres large interlettrage : le
+   lettrage d'une etiquette de specimen, pas un logo de start-up. */
+.marque {
+  font-family: var(--serif);
+  font-size: clamp(2.1rem, 5.2vw, 3.5rem);
+  font-weight: 500;
+  line-height: .95;
+  letter-spacing: .005em;
+  text-transform: uppercase;
+}
+.marque__mot { display: inline-block; }
+
+.marque__cri {
+  margin-top: .45rem;
+  font-size: clamp(.9375rem, 1.6vw, 1.0625rem);
+  color: var(--lichen);
+  max-width: 40ch;
+}
+
+.bandeau__outils {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.5rem;
+}
+.bandeau__recherche { flex: 1 1 20rem; min-width: 0; max-width: 32rem; }
+
+.bandeau__tri { flex: 0 1 auto; }
+.tri__etiquette {
+  display: block;
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--brume);
+  margin-bottom: .35rem;
+}
+.tri__groupe { display: flex; gap: .5rem; align-items: center; }
+
+.tri__choix, .champ__choix {
+  min-height: 44px;
+  padding: .5rem 2rem .5rem .75rem;
+  background: rgba(7, 26, 36, .82);
+  color: var(--craie);
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 8l5 5 5-5' fill='none' stroke='%238ca79a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .5rem center;
+  background-size: 18px;
+}
+.tri__choix option, .champ__choix option { background: var(--sous-bois); }
+
+.accueil__etat {
+  position: absolute;
+  left: 50%; bottom: 2rem;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: .7rem 1.1rem;
+  background: var(--sous-bois);
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  color: var(--lichen);
+  font-size: .875rem;
+  text-align: center;
+}
+
+/* ═══ ÉTAT B — l'exploration ══════════════════════════════════════════ */
+
+.exploration { position: relative; height: 100%; }
+
+.canevas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;    /* les gestes sont geres par le script (§11) */
+}
+
+.scene { width: 100%; height: 100%; display: block; cursor: grab; }
+.scene[data-deplace="oui"] { cursor: grabbing; }
+
+/* ── Les cernes : l'element de signature ──
+   Anneaux concentriques poses au sol, comme sur une coupe de tronc. La
+   position d'une branche sur ces anneaux est son affinite. */
+.cerne {
+  fill: none;
+  stroke: var(--vitre);
+  stroke-width: 1;
+  opacity: .5;
+  vector-effect: non-scaling-stroke;
+}
+.cerne--jalon { stroke-dasharray: 2 7; opacity: .75; }
+
+.legende__coeur { fill: var(--seve); }
+
+/* La legende des cernes : le seul endroit ou l'encodage de l'affinite est
+   nomme. Elle est posee dans un coin du canevas plutot que sur les anneaux
+   eux-memes, ou elle finirait derriere un noeud (§11). */
+.cernes-legende {
+  position: absolute;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .6rem;
+  background: rgba(12, 39, 51, .82);
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.cernes-legende svg { width: 30px; height: 30px; flex: none; }
+.cernes-legende p {
+  display: flex;
+  flex-direction: column;
+  font-size: .5625rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--seve);
+  line-height: 1.5;
+}
+.cernes-legende span { color: var(--brume); }
+
+/* ── Les liens ──
+   "Les liens rejoignent leurs deux extremites. Un trait qui s'arrete avant sa
+   cible donne l'impression d'un noeud detache — defaut particulierement
+   visible sur grand ecran." (§11) Les traits partent donc du centre exact et
+   passent SOUS les pastilles, qui sont opaques : la jonction est structurelle,
+   elle ne depend d'aucun calcul de raccourcissement qui pourrait se tromper. */
+.lien {
+  stroke: var(--vitre);
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.lien--heritier { stroke-dasharray: 3 4; }
+
+/* ── Les noeuds ── */
+.noeud { cursor: pointer; }
+.noeud:focus { outline: none; }
+
+.noeud__halo {
+  fill: none;
+  stroke: var(--seve);
+  stroke-width: 2;
+  opacity: 0;
+  vector-effect: non-scaling-stroke;
+  transition: opacity var(--duree-courte);
+}
+.noeud:hover .noeud__halo,
+.noeud:focus-visible .noeud__halo { opacity: .9; }
+
+.noeud__pastille {
+  stroke: var(--vitre);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  transition: stroke var(--duree-courte);
+}
+.noeud:hover .noeud__pastille { stroke: var(--craie); }
+
+/* Le centre porte la seve, et il est le seul. */
+.noeud--centre .noeud__pastille { stroke: var(--seve); stroke-width: 2.5; }
+
+.noeud__nom {
+  fill: var(--craie);
+  font-family: var(--sans);
+  /* Pose par le script a partir du rayon des pastilles : un libelle de taille
+     fixe deborde largement un noeud reduit sur petit ecran. */
+  font-size: var(--taille-libelle, 13px);
+  font-weight: 500;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  /* Le contour a la couleur du papier : c'est ce qui garantit qu'un nom reste
+     lisible meme si un trait passe derriere lui, a tout niveau de zoom
+     (§11, "un nom n'est jamais masque"). */
+  stroke: var(--nuit);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+.noeud--centre .noeud__nom {
+  font-family: var(--serif);
+  font-size: calc(var(--taille-libelle, 13px) * 1.45);
+  font-weight: 600;
+}
+.noeud--heritier .noeud__nom {
+  font-size: calc(var(--taille-libelle, 13px) * .82);
+  fill: var(--lichen);
+}
+
+/* Le signal de nouveaute (F-23) : une pousse, en bourgeon. Une forme ET une
+   couleur, jamais la couleur seule. */
+.noeud__pousse { fill: var(--bourgeon); stroke: var(--nuit); stroke-width: 1; }
+
+/* La transition de promotion (§11). Le noeud choisi reste visible en continu
+   pendant qu'il rejoint le centre ; la generation precedente s'efface SUR
+   PLACE, elle ne se deplace pas. */
+.noeud { transition: transform var(--duree-promotion) var(--deplacement); }
+.noeud--efface {
+  animation: efface-sur-place var(--duree-promotion) var(--deplacement) forwards;
+  pointer-events: none;
+}
+@keyframes efface-sur-place {
+  to { opacity: 0; }
+}
+.noeud--parait { animation: parait 320ms var(--deplacement) backwards; }
+@keyframes parait {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── La barre d'outils ── */
+.barre {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.barre__rang {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+/* flex-basis explicite : sans elle, le champ cede toute sa place aux boutons
+   et l'invite se retrouve tronquee a « Planter u ». */
+.barre__recherche { flex: 1 1 12rem; min-width: 8rem; }
+.barre__recherche .recherche__etiquette { display: none; }
+.barre__actions { display: flex; gap: .4rem; flex: none; }
+
+/* ── La lignee, rendue comme une tige greffee ──
+   Chaque ancetre est un noeud sur le bois ; entre eux, une cicatrice de
+   greffe. C'est le second device botanique du produit, et il porte une vraie
+   information : la profondeur du parcours se voit d'un coup d'oeil. */
+.lignee {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: .15rem 0;
+}
+.lignee::-webkit-scrollbar { display: none; }
+
+.lignee__noeud {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 36px;
+  padding: .25rem .6rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--lichen);
+  font-size: .8125rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duree-courte), border-color var(--duree-courte);
+}
+.lignee__noeud:hover { color: var(--craie); border-color: var(--vitre); }
+.lignee__noeud[aria-current="true"] {
+  color: var(--seve);
+  cursor: default;
+  font-weight: 600;
+}
+
+/* La cicatrice de greffe : un trait de bois entre deux ancetres. */
+.lignee__greffe {
+  flex: none;
+  width: 18px; height: 1px;
+  background: var(--vitre);
+  position: relative;
+}
+.lignee__greffe::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: -2px;
+  width: 1px; height: 5px;
+  background: var(--vitre);
+}
+
+.camera-outils {
+  position: absolute;
+  right: 1rem;
+  display: flex;
+  gap: .35rem;
+  z-index: 15;
+}
+.camera-outils .bouton {
+  background: rgba(12, 39, 51, .9);
+  backdrop-filter: blur(6px);
+}
+
+/* ── Les etats d'ecran (F-36, F-38) ── */
+.etat-ecran {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(7, 26, 36, .88);
+  z-index: 18;
+}
+.etat-ecran__boite {
+  max-width: 26rem;
+  text-align: center;
+  padding: 1.8rem;
+  background: var(--sous-bois);
+  border: 1px solid var(--vitre);
+  border-radius: 3px;
+}
+.etat-ecran__titre {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: .5rem;
+}
+.etat-ecran[data-genre="panne"] .etat-ecran__titre { color: var(--ecorce); }
+.etat-ecran__texte { color: var(--lichen); font-size: .9375rem; }
+.etat-ecran__actions {
+  display: flex;
+  gap: .5rem;
+  justify-content: center;
+  margin-top: 1.3rem;
+  flex-wrap: wrap;
+}
+
+/* L'attente : une pousse qui grandit, pas un disque qui tourne. */
+.etat-ecran[data-genre="attente"] .etat-ecran__boite { background: none; border: none; }
+.pousse-attente {
+  width: 40px; height: 40px;
+  margin: 0 auto 1rem;
+  border: 1px solid var(--vitre);
+  border-top-color: var(--seve);
+  border-radius: 50%;
+  animation: tourne 900ms linear infinite;
+}
+@keyframes tourne { to { transform: rotate(360deg); } }
+
+/* ═══ La fiche ════════════════════════════════════════════════════════ */
+
+.fiche {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  background: var(--sous-bois);
+  border: 1px solid var(--vitre);
+  overflow: hidden;
+}
+
+.fiche__poignee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--vitre);
+  cursor: pointer;
+  flex: none;
+}
+.fiche__poignee-barre {
+  width: 36px; height: 3px;
+  border-radius: 2px;
+  background: var(--vitre);
+  transition: background var(--duree-courte);
+}
+.fiche__poignee:hover .fiche__poignee-barre { background: var(--lichen); }
+
+/* Chaque enfant direct doit pouvoir devenir plus etroit que son contenu,
+   sinon un titre d'album long pousse la colonne au-dela du panneau et se fait
+   couper net au lieu d'etre abrege. */
+.fiche__corps > * { min-width: 0; }
+
+.fiche__corps {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.fiche__tete { display: flex; gap: .9rem; align-items: flex-start; }
+
+.fiche__portrait {
+  width: 72px; height: 72px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--taillis) center/cover no-repeat;
+  border: 1px solid var(--vitre);
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  color: rgba(231, 239, 233, .3);
+}
+
+.fiche__identite { min-width: 0; flex: 1; }
+.fiche__nom {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.fiche__audience {
+  margin-top: .25rem;
+  font-size: .8125rem;
+  color: var(--brume);
+  font-variant-numeric: tabular-nums;
+}
+
+.genres { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem; }
+.genre {
+  padding: .12rem .45rem;
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--lichen);
+}
+
+.fiche__bio { font-size: .875rem; color: var(--lichen); line-height: 1.6; }
+
+.fiche__actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+.lecteur-piste {
+  font-size: .8125rem;
+  color: var(--lichen);
+  padding: .5rem .7rem;
+  background: var(--taillis);
+  border-left: 2px solid var(--seve);
+}
+
+/* ── Discographie ── */
+.disco__tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--vitre);
+  margin-bottom: .7rem;
+}
+.disco__titre {
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  color: var(--brume);
+  font-weight: 600;
+}
+
+.filtres { display: flex; flex-wrap: wrap; gap: .25rem; }
+.filtre {
+  min-height: 32px;
+  padding: .2rem .55rem;
+  background: none;
+  border: 1px solid var(--vitre);
+  border-radius: 2px;
+  color: var(--lichen);
+  font-size: .75rem;
+  cursor: pointer;
+}
+.filtre:hover { color: var(--craie); }
+.filtre[aria-pressed="true"] {
+  background: var(--craie);
+  border-color: var(--craie);
+  color: var(--nuit);
+  font-weight: 600;
+}
+
+.disco__liste { display: flex; flex-direction: column; gap: .3rem; }
+
+/* min-width sur TOUTE la chaine, jusqu'au li.
+   Un element flex a `min-width: auto` par defaut, ce qui l'empeche de devenir
+   plus etroit que son contenu. Un titre long ne s'abrege alors pas : il pousse
+   la ligne au-dela du panneau, et le texte est coupe net par l'overflow au lieu
+   d'etre suivi de points de suspension. Il faut le poser a chaque niveau —
+   en oublier un seul suffit a retablir le debordement. */
+.disco__liste > li { min-width: 0; }
+
+.album {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .4rem;
+  min-width: 0;
+  border-radius: 2px;
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--duree-courte);
+}
+.album:hover { background: var(--taillis); }
+
+.album__pochette {
+  width: 44px; height: 44px;
+  flex: none;
+  background: var(--taillis) center/cover no-repeat;
+  border: 1px solid var(--vitre);
+}
+.album__texte { min-width: 0; flex: 1; overflow: hidden; }
+.album__titre {
+  font-size: .875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.album__meta {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .75rem;
+  color: var(--brume);
+  margin-top: .1rem;
+}
+
+/* L'appreciation se lit comme une barre, pas comme un nombre : c'est le
+   principe "montrer, pas expliquer" (§02) applique a la discographie. Les
+   albums non evalues n'ont pas de barre du tout — l'absence de mesure se
+   distingue ainsi d'une mauvaise note (F-21). */
+.album__jauge {
+  width: 34px; height: 3px;
+  flex: none;
+  background: var(--vitre);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.album__jauge span {
+  display: block;
+  height: 100%;
+  background: var(--craie);
+}
+
+.album__type {
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: .625rem;
+}
+
+.album__neuf {
+  color: var(--bourgeon);
+  font-size: .625rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+}
+.album__neuf::before {
+  content: "";
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--bourgeon);
+}
+
+.disco__etat, .panneau__vide {
+  font-size: .875rem;
+  color: var(--lichen);
+  padding: .9rem;
+  border: 1px dashed var(--vitre);
+  border-radius: 2px;
+  text-align: center;
+}
+.disco__etat[data-genre="panne"] { border-style: solid; border-color: var(--ecorce); color: var(--ecorce); }
+
+/* ═══ Panneaux ════════════════════════════════════════════════════════ */
+
+.panneau {
+  background: var(--sous-bois);
+  color: var(--craie);
+  border: 1px solid var(--vitre);
+  padding: 0;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panneau::backdrop { background: rgba(3, 12, 17, .78); backdrop-filter: blur(3px); }
+.panneau:not([open]) { display: none; }
+
+.panneau__tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem .8rem;
+  border-bottom: 1px solid var(--vitre);
+  flex: none;
+}
+.panneau__titre { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+.panneau__chapeau { padding: .8rem 1.1rem 0; color: var(--lichen); font-size: .875rem; }
+.panneau .filtres { padding: .8rem 1.1rem 0; }
+.panneau__corps { padding: 1.1rem; overflow-y: auto; flex: 1; min-height: 0; }
+
+/* Une entree de collection porte son contexte de decouverte (F-30). */
+.garde {
+  display: flex;
+  gap: .8rem;
+  padding: .6rem;
+  border-bottom: 1px solid rgba(26, 65, 80, .5);
+}
+.garde:last-child { border-bottom: none; }
+
+.garde__vignette {
+  width: 52px; height: 52px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--taillis) center/cover no-repeat;
+  border: 1px solid var(--vitre);
+}
+.garde__texte { flex: 1; min-width: 0; }
+.garde__nom { font-size: .9375rem; font-weight: 500; }
+
+/* Le chemin parcouru — F-30 : "la collection montre le chemin parcouru
+   jusqu'a chaque artiste, pas seulement le nom". Rendu dans la meme grammaire
+   que la lignee : des noms separes par une cicatrice de greffe. */
+.garde__chemin {
+  font-size: .75rem;
+  color: var(--brume);
+  margin-top: .2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.garde__chemin span::after { content: " ⋅ "; color: var(--vitre); }
+.garde__chemin span:last-child::after { content: ""; }
+
+.garde__date { font-size: .6875rem; color: var(--brume); margin-top: .15rem; }
+.garde__actions { display: flex; flex-direction: column; gap: .3rem; flex: none; }
+
+.champ { margin-bottom: 1.4rem; }
+.champ__etiquette {
+  display: block;
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--brume);
+  margin-bottom: .4rem;
+  font-weight: 600;
+}
+.champ__aide { font-size: .8125rem; color: var(--lichen); margin-top: .4rem; }
+
+/* ═══ Bandeau flottant ════════════════════════════════════════════════ */
+
+.bandeau-flottant {
+  position: fixed;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  max-width: min(34rem, calc(100vw - 2rem));
+  padding: .6rem .6rem .6rem 1rem;
+  background: var(--taillis);
+  border: 1px solid var(--vitre);
+  border-radius: 3px;
+  box-shadow: 0 20px 44px -18px rgba(0, 0, 0, .9);
+  animation: monte 300ms var(--deplacement);
+}
+@keyframes monte {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.bandeau-flottant__texte { font-size: .875rem; flex: 1; }
+.bandeau-flottant[data-genre="alerte"] { border-color: var(--ecorce); }
+
+/* ═══ Disposition étroite (défaut) ════════════════════════════════════
+   §07 : recherche en barre dediee permanente, lignee sous la recherche,
+   fiche ancree en bas, panneaux glissant depuis le bas. */
+
+.barre {
+  top: 0; left: 0; right: 0;
+  padding: max(.6rem, env(safe-area-inset-top)) .6rem .6rem;
+  background: linear-gradient(to bottom, var(--nuit) 72%, transparent);
+}
+
+/* Sur ecran etroit la rangee principale passe a la ligne : la recherche garde
+   sa largeur utile et les actions descendent d'un cran, reparties sur toute la
+   largeur. Sans ce retour a la ligne, les six commandes debordent a droite et
+   la derniere sort de l'ecran — inatteignable a la souris comme au doigt. */
+.barre__rang--principal { flex-wrap: wrap; }
+.barre__recherche { flex: 1 1 10rem; }
+.barre__actions {
+  flex: 1 1 100%;
+  justify-content: space-between;
+  gap: .3rem;
+}
+.barre__actions .bouton__texte { display: none; }
+.barre__actions .bouton { flex: 1 1 auto; min-width: 44px; padding: .5rem; justify-content: center; }
+
+/* Les commandes de cadrage se posent juste au-dessus de la fiche, quelle que
+   soit sa hauteur reelle — repliee ou depliee. La variable est ecrite par le
+   script, qui seul connait cette hauteur. */
+.camera-outils { bottom: calc(var(--place-fiche, 4rem) + .75rem); }
+.cernes-legende { bottom: calc(var(--place-fiche, 4rem) + .75rem); }
+
+.fiche {
+  left: 0; right: 0; bottom: 0;
+  max-height: 62vh;
+  border-width: 1px 0 0;
+  border-radius: 10px 10px 0 0;
+  transition: transform var(--duree-promotion) var(--deplacement);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Repliee, la fiche laisse depasser sa poignee — assez pour porter le nom du
+   centre. C'est ce qui permet au canevas d'occuper l'ecran sur telephone tout
+   en gardant la fiche a un geste. Le risque du panneau ancre est de manger la
+   moitie de l'ecran par defaut : le canevas est alors ecrase, et le canevas
+   EST le produit. */
+.fiche[data-replie="oui"] { transform: translateY(calc(100% - var(--hauteur-poignee) - env(safe-area-inset-bottom))); }
+.fiche[data-replie="oui"] .fiche__corps { overflow: hidden; }
+
+.fiche__poignee {
+  flex-direction: column;
+  gap: .3rem;
+  padding: .5rem .8rem;
+}
+.fiche__poignee-nom {
+  font-family: var(--serif);
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--craie);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Depliee, le nom est deja dans le titre de la fiche : le repeter dans la
+   poignee ferait un doublon a l'ecran comme au lecteur d'ecran. */
+.fiche:not([data-replie="oui"]) .fiche__poignee-nom { display: none; }
+
+.panneau {
+  width: 100%;
+  max-width: 100%;
+  margin: auto auto 0;
+  border-width: 1px 0 0;
+  border-radius: 10px 10px 0 0;
+  max-height: 88vh;
+  animation: glisse 300ms var(--deplacement);
+}
+@keyframes glisse {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ═══ Disposition large ═══════════════════════════════════════════════
+   §07 : recherche integree a une barre d'outils flottante, lignee dans la
+   barre, fiche en panneau lateral flottant repliable, panneaux en fenetre
+   modale centree, canevas qui se recale sur l'espace restant. */
+
+@media (min-width: 900px) {
+  .barre {
+    top: 1rem;
+    left: 1rem;
+    right: auto;
+    width: min(46rem, calc(100vw - 2rem));
+    padding: .6rem;
+    background: rgba(12, 39, 51, .92);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--vitre);
+    border-radius: 3px;
+  }
+  .barre__actions .bouton__texte { display: inline; }
+  .barre__actions .bouton { min-width: 0; padding: .5rem .8rem; justify-content: flex-start; }
+
+  .camera-outils { bottom: 1rem; right: 1rem; }
+
+  /* Le canevas se recale sur l'espace restant quand la fiche est ouverte : la
+     variable est posee par le script, qui connait la largeur reelle du
+     panneau. Une marge est reservee pour que les libelles et les grappes
+     d'heritiers ne soient jamais rognes (§11). */
+  .fiche {
+    top: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    left: auto;
+    width: 23rem;
+    max-height: none;
+    border-radius: 3px;
+    border-width: 1px;
+    transition: transform var(--duree-promotion) var(--deplacement);
+  }
+  .fiche__poignee { display: none; }
+
+  /* Sur grand ecran, le repli se fait vers la droite plutot que vers le bas. */
+  .fiche[data-replie="oui"] { transform: translateX(calc(100% + 1rem)); }
+
+  .fiche__replier {
+    position: absolute;
+    top: 1rem;
+    right: calc(23rem + 1.6rem);
+    z-index: 26;
+  }
+
+  .panneau {
+    width: min(42rem, calc(100vw - 3rem));
+    margin: auto;
+    border-width: 1px;
+    border-radius: 3px;
+    animation: parait-modale 220ms var(--deplacement);
+  }
+  @keyframes parait-modale {
+    from { opacity: 0; transform: scale(.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .garde { align-items: center; }
+  .garde__actions { flex-direction: row; }
+}
+
+/* L'apercu au survol, sur ecran large uniquement (§07). "Survoler une branche
+   en montre un apercu SANS REMPLACER le profil du centre" (F-19) : c'est une
+   bulle a cote du noeud, pas une substitution dans la fiche. */
+.apercu {
+  position: absolute;
+  z-index: 22;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .7rem;
+  background: rgba(12, 39, 51, .96);
+  border: 1px solid var(--vitre);
+  border-radius: 3px;
+  box-shadow: 0 14px 30px -14px rgba(0, 0, 0, .9);
+  max-width: 17rem;
+  animation: parait 140ms;
+}
+.apercu__nom { font-size: .875rem; font-weight: 500; }
+.apercu__meta { font-size: .75rem; color: var(--brume); }
+@media (max-width: 899px), (hover: none) {
+  .apercu { display: none; }
+}
+
+/* ═══ Mouvement réduit ════════════════════════════════════════════════
+   "Toutes les animations sont NEUTRALISEES, pas simplement accelerees : la
+   promotion s'applique immediatement, sans delai residuel, et les apparitions
+   progressives deviennent instantanees. Un utilisateur sensible au mouvement
+   ne doit jamais attendre plus longtemps qu'un autre." (§11)
+
+   D'ou 0.01ms et non une duree courte : le script lit lui aussi la preference
+   et court-circuite l'attente de fin d'animation, sans quoi la promotion
+   garderait un delai residuel que ce bloc ne peut pas retirer. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tuile { animation: none; }
+  .tuile__image { transition: none; }
+}
+
+/* Le mode contraste eleve : les filets pales ne suffisent plus, on remonte
+   toutes les bordures a la craie. */
+@media (prefers-contrast: more) {
+  :root { --vitre: #6d8f9c; --brume: #9fbdb2; }
+  .cerne { opacity: .8; }
+}
