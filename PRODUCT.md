@@ -44,7 +44,9 @@ passer une application sans authentification.
   modifiées sont reconstruites, puis un unique appel de webhook fait récupérer
   la stack entière. Deux à trois minutes.
 - Traefik applique l'authentification Google avant que la requête n'atteigne un
-  conteneur, et pose `X-Forwarded-User`. Deux paliers, choisis par application.
+  conteneur, et pose `X-Forwarded-User`. Trois paliers, choisis par application,
+  du privé sur liste blanche au public anonyme — ce dernier sans en-tête
+  d'identité, donc sans donnée personnelle possible.
 - Les manifestes sont plats et lus par `sed` : lancer `./init.sh` n'exige rien
   d'installé. C'est délibéré — un générateur qui demande à être installé n'est
   pas lançable dans la CI qu'il génère.
@@ -56,7 +58,7 @@ Ce que la fabrique décide :
 | Objet | Source |
 |---|---|
 | Nom, URL, conteneur, routeur, image d'une app | le répertoire `apps/<nom>/` |
-| Port, mémoire, santé, palier d'authentification | `apps/<nom>/app.yml` |
+| Port, mémoire, santé, palier d'exposition | `apps/<nom>/app.yml` |
 | Organisation, dépôt, registre, domaine, réseau, plafonds | `fabrique.yml` |
 
 Ce qu'elle ne fait pas, et ne doit pas faire :

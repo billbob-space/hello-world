@@ -8,6 +8,8 @@
 #   ./init.sh --app NOM ...   applique les options ci-dessous a cette app
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
+#   ./init.sh --branche NOM   cree la branche de travail, et son entree de journal
+#   ./init.sh --pret          verifie que l'etape en cours est committable
 #
 # Options — elles ne valent que pour l'app ciblee par --add ou --app :
 #
@@ -15,7 +17,7 @@
 #   --memory X          limite memoire du conteneur          (defaut 128m)
 #   --health CHEMIN     chemin HTTP de sante                 (defaut /healthz)
 #   --health-cmd CMD    commande de healthcheck, ou "none"   (defaut : wget)
-#   --exposure T        private | google                     (defaut private)
+#   --exposure T        private | google | public            (defaut private)
 #   --stack S           langage principal, active son LSP    (defaut none)
 #   --ui / --no-ui      l'app sert une interface web         (defaut no)
 #   --enable / --disable  presente dans le compose, ou non   (defaut : enable)
@@ -65,14 +67,15 @@
 # Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
 # TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
-# il est la source de verite, edite a la main ou par --app.
+# il est la source de verite, edite a la main ou par --app. Il en va de meme des
+# entrees de journal/ : echafaudees une fois, ecrites a la main ensuite.
 #
 # Le script ne genere NI Dockerfile NI code applicatif : le choix de la
 # technologie appartient a l'agent. Voir CLAUDE.md.
 
 set -euo pipefail
 
-CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0
+CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0 BRANCHE="" PRET=0 FUSIONNEES=0
 declare -A SET=()
 
 while [ $# -gt 0 ]; do
@@ -81,6 +84,9 @@ while [ $# -gt 0 ]; do
     --list)        LIST=1 ;;
     --dry-run)     DRYRUN=1 ;;
     --force)       FORCE=1 ;;
+    --branche)     BRANCHE="$2"; shift ;;
+    --pret)        PRET=1 ;;
+    --branches-fusionnees) FUSIONNEES=1 ;;
     --add)         ADD="$2"; TARGET="$2"; shift ;;
     --app)         TARGET="$2"; shift ;;
     --port)        SET[port]="$2";        shift ;;
@@ -125,6 +131,31 @@ yget() {  # yget <fichier> <cle> <defaut>
   v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
   v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
   printf '%s' "${v:-$d}"
+}
+
+# ylist lit une section en liste — la seule forme imbriquee que ce parseur
+# connaisse, et elle lui a ete ajoutee pour volumes: uniquement. La section se
+# ferme des qu'une ligne reprend en colonne 0 : c'est ce qui evite de lire les
+# cles suivantes comme des elements. Les lignes vides et les commentaires a
+# l'interieur sont sautes.
+ylist() {  # ylist <fichier> <cle> — un element par ligne
+  local f="$1" k="$2" v
+  [ -f "$f" ] || return 0
+  tr -d '\r' < "$f" | awk -v k="$k" '
+    $0 ~ "^" k ":[[:space:]]*$"        { inside = 1; next }
+    inside && /^[^[:space:]#]/         { inside = 0 }
+    inside && /^[[:space:]]*#/         { next }
+    inside && /^[[:space:]]*$/         { next }
+    inside && /^[[:space:]]*-[[:space:]]*/ {
+      sub(/^[[:space:]]*-[[:space:]]*/, "")
+      sub(/[[:space:]]+#.*$/, "")
+      sub(/[[:space:]]+$/, "")
+      if (length($0)) print
+    }
+  ' | while IFS= read -r v; do
+        v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
+        printf '%s\n' "$v"
+      done
 }
 
 fab() { yget fabrique.yml "$1" "$2"; }
@@ -706,16 +737,71 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
   mapfile -t A_NEEDS   < <(ylist "apps/$APP/app.yml" needs)
   A_SERVICES=$(ymaps "apps/$APP/app.yml" services)
 
+  # A_MW_NOTE est le commentaire pose juste au-dessus du label middlewares dans
+  # compose.yaml : celui qui lit le compose doit savoir ce que le palier garantit
+  # sans avoir a ouvrir app.yml.
   case "$A_EXPOSURE" in
-    private) A_MW=forwardauth ;;       # whitelist de comptes Google
-    google)  A_MW=forwardauth-open ;;  # tout compte Google authentifie
-    *) echo "ERREUR : $APP — exposure doit valoir 'private' ou 'google' (recu : $A_EXPOSURE)" >&2; exit 1 ;;
+    private) A_MW=forwardauth       # whitelist de comptes Google
+             A_MW_NOTE="      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair." ;;
+    google)  A_MW=forwardauth-open  # tout compte Google authentifie
+             A_MW_NOTE="      # forwardauth-open = tout compte Google, login obligatoire
+      # (exposure google). La retirer exposerait l'app en clair." ;;
+    public)  A_MW=public            # anonyme : AUCUNE authentification
+             A_MW_NOTE="      # public = AUCUNE authentification (exposure public). Acces anonyme,
+      # rate-limit seul. Ne pas confondre avec forwardauth-open, qui exige un
+      # compte Google. X-Forwarded-User n'est PAS pose sur ce palier." ;;
+    *) echo "ERREUR : $APP — exposure doit valoir 'private', 'google' ou 'public' (recu : $A_EXPOSURE)" >&2; exit 1 ;;
   esac
   printf '%s' "$A_PORT"   | grep -qE '^[0-9]{2,5}$'        || { echo "ERREUR : $APP — port invalide : $A_PORT" >&2; exit 1; }
   printf '%s' "$A_MEMORY" | grep -qE '^[0-9]+[bkmgBKMG]?$' || { echo "ERREUR : $APP — memory invalide : $A_MEMORY" >&2; exit 1; }
   case "$A_HEALTH_PATH" in /*) ;; *) echo "ERREUR : $APP — health_path doit commencer par / (recu : $A_HEALTH_PATH)" >&2; exit 1 ;; esac
   case "$A_UI"      in true|false) ;; *) echo "ERREUR : $APP — ui doit valoir true ou false (recu : $A_UI)" >&2; exit 1 ;; esac
   case "$A_ENABLED" in true|false) ;; *) echo "ERREUR : $APP — enabled doit valoir true ou false (recu : $A_ENABLED)" >&2; exit 1 ;; esac
+
+  # volumes: — « <nom>:<chemin conteneur>[:ro] ». Le nom logique est prefixe par
+  # celui de l'app pour donner le nom reel du volume : c'est ce prefixe qui
+  # empeche deux apps de se marcher dessus sans avoir a se concerter.
+  A_VOLUMES=() A_VOL_NOMS=() A_VOL_CHEMINS=()
+  local v nom reste chemin mode
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    nom=${v%%:*}; reste=${v#*:}
+    case "$nom" in
+      "" |*/*) echo "ERREUR : $APP — volume '$v' : la partie gauche est un NOM de volume, pas un chemin d'hote. Un bind mount demanderait une action manuelle sur le serveur — c'est precisement ce que les volumes nommes suppriment." >&2; exit 1 ;;
+    esac
+    printf '%s' "$nom" | grep -qE '^[a-z0-9][a-z0-9-]*$' \
+      || { echo "ERREUR : $APP — volume '$v' : nom invalide '$nom' — minuscules, chiffres et tirets." >&2; exit 1; }
+    [ "$reste" = "$v" ] \
+      && { echo "ERREUR : $APP — volume '$v' : forme attendue <nom>:<chemin conteneur>[:ro]." >&2; exit 1; }
+    chemin=${reste%%:*}; mode=${reste#*:}
+    [ "$mode" = "$reste" ] && mode=""
+    case "$chemin" in /*) ;; *) echo "ERREUR : $APP — volume '$v' : le chemin conteneur doit etre absolu." >&2; exit 1 ;; esac
+    case "$mode" in ""|ro) ;; *) echo "ERREUR : $APP — volume '$v' : ':ro' est le seul suffixe admis (recu : ':$mode')." >&2; exit 1 ;; esac
+    A_VOL_NOMS+=("$APP-$nom")
+    A_VOL_CHEMINS+=("$chemin")
+    A_VOLUMES+=("$APP-$nom:$chemin${mode:+:$mode}")
+  done < <(ylist "apps/$APP/app.yml" volumes)
+}
+
+# Deux apps peuvent produire le meme nom reel — « ramure » avec « donnees-x » et
+# « ramure-donnees » avec « x » donnent tous deux « ramure-donnees-x ». Le cas
+# est rare, mais il ferait partager un volume a deux apps sans que ni l'une ni
+# l'autre ne l'ait demande. Une passe dediee, parce que load_app ne voit qu'une
+# app a la fois.
+check_volume_noms() {
+  local a n; declare -A vu=()
+  for a in "${APPS[@]}"; do
+    load_app "$a"
+    [ "$A_ENABLED" = true ] || continue
+    for n in "${A_VOL_NOMS[@]}"; do
+      if [ -n "${vu[$n]+x}" ]; then
+        echo "ERREUR : le volume '$n' est produit par '${vu[$n]}' et par '$a'. Renomme-le dans l'un des deux app.yml : deux apps partageraient un volume sans l'avoir demande." >&2
+        exit 1
+      fi
+      vu[$n]="$a"
+    done
+  done
 }
 
 mem_to_mb() {  # 128m -> 128, 1g -> 1024
@@ -972,11 +1058,20 @@ render() {
   local t r; t=$(cat)
   while [ $# -gt 1 ]; do
     # Depuis bash 5.2, « & » dans le remplacement de ${var//motif/rempl} rappelle
-    # le texte matche, comme dans sed : sans cette protection, un « 2>&1 » du
-    # fragment injecte devient « 2>__CLE__1 » et le script genere ne s'analyse
-    # meme plus. Le backslash est protege d'abord, sinon il mangerait le suivant.
-    r=${2//\\/\\\\}
-    r=${r//&/\\&}
+    # le texte matche, comme dans sed : sans protection, un « 2>&1 » du fragment
+    # injecte devient « 2>__CLE__1 » et le script genere ne s'analyse meme plus.
+    # Le backslash est protege d'abord, sinon il mangerait le suivant.
+    #
+    # Mais AVANT 5.2 ce rappel n'existe pas : le « \ » y reste litteral et produit
+    # « 2>\&1 \& ». Echapper inconditionnellement casse donc .claude/cloud-setup.sh
+    # sur tout bash <= 5.1 (Ubuntu 22.04 : 5.1.16) — constate, et refuse ensuite
+    # par ./init.sh --check. D'ou le test de version.
+    r=$2
+    if [ "${BASH_VERSINFO[0]}" -gt 5 ] \
+       || { [ "${BASH_VERSINFO[0]}" -eq 5 ] && [ "${BASH_VERSINFO[1]}" -ge 2 ]; }; then
+      r=${r//\\/\\\\}
+      r=${r//&/\\&}
+    fi
     t="${t//$1/$r}"
     shift 2
   done
@@ -1192,8 +1287,7 @@ $health
       - "traefik.http.routers.$APP.rule=Host(\`$APP.$DOMAIN\`)"
       - "traefik.http.routers.$APP.entrypoints=$ENTRYPOINT"
       - "traefik.http.routers.$APP.priority=100"
-      # $A_MW = authentification Google (exposure $A_EXPOSURE). La retirer
-      # exposerait l'app en clair.
+$A_MW_NOTE
       - "traefik.http.routers.$APP.middlewares=$A_MW,$SECURITY_HEADERS"
       - "traefik.http.routers.$APP.tls.certresolver=$CERT_RESOLVER"
       - "traefik.http.services.$APP.loadbalancer.server.port=$A_PORT"
@@ -1473,7 +1567,22 @@ jobs:
               # images publiees correspondent aux Dockerfile courants.
               apps="$toutes"
             else
-              liste=$(printf '%s\n' "$changed" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u)
+              # Un repertoire sous apps/ n'est une application que s'il porte un
+              # app.yml : c'est la definition qu'applique discover_apps, et la
+              # seule qui vaille. Un chemin ne suffit pas. Sans ce filtre, un
+              # fichier depose sous apps/<nom>/ avant que l'application n'existe
+              # — une specification, une note — fait reclamer a la CI le test.sh
+              # et le Dockerfile d'une app qui n'est pas encore ecrite, et le
+              # job echoue sur un repertoire de documentation.
+              # Le filtre porte sur l'arbre APRES le commit : une app ajoutee
+              # dans ce meme commit a deja son app.yml et reste donc detectee,
+              # ce qui fait bien construire sa premiere image.
+              # Un if, et non « [ -f ] && printf » : l'etape tourne sous set -e,
+              # un test faux ferait sortir la boucle en code 1 et echouer le job.
+              liste=$(printf '%s\n' "$changed" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+                        | while IFS= read -r a; do
+                            if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
+                          done)
               if [ -n "$liste" ]; then
                 apps="[$(printf '%s\n' "$liste" | sed 's/.*/"&"/' | paste -sd, -)]"
               else
@@ -1554,10 +1663,18 @@ jobs:
           # cache de couches des autres.
           context: apps/${{ matrix.app }}
           file: apps/${{ matrix.app }}/Dockerfile
-          # Chargee dans le demon local, pas poussee : sans cela il n'y a rien a
-          # inspecter avant la publication.
-          load: true
-          tags: __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:ci
+          # Sur une pull request on construit sans publier : la validation du
+          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
+          push: ${{ github.event_name != 'pull_request' }}
+          # ... mais l'image doit alors entrer dans le demon local, sinon
+          # l'etape suivante n'a rien a inspecter sur une pull request : sans
+          # publication, l'image reste dans le cache de buildx, invisible a
+          # « docker image inspect ». push et load s'excluent — jamais vrais
+          # ensemble ici, c'est la meme condition inversee.
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: |
+            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
+            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:${{ github.sha }}
           # Rattache le paquet au depot : ses permissions suivent alors celles
           # du depot, et un seul identifiant de lecture couvre toutes les apps.
           labels: |
@@ -1570,60 +1687,43 @@ jobs:
           # paralleles se disputent un cache unique et s'evincent l'une l'autre.
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
-
-      - name: aucun LABEL traefik.* dans l'image de ${{ matrix.app }}
+      # Deux controles sur l'image finie, la seule chose que le serveur tirera.
+      # Sur une pull request elle vient de « load », sur main du registre.
+      - name: labels et taille de l'image
         run: |
           set -euo pipefail
-          image=__REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:ci
-          # L'INSPECTION DOIT REUSSIR POUR QUE CE CONTROLE VEUILLE DIRE QUELQUE
-          # CHOSE. Un « || true » pose sur le tube couvre aussi l'echec de
-          # « docker image inspect » lui-meme : image absente, demon injoignable,
-          # tag mal orthographie — la sortie est vide, et une etape qui n'a RIEN
-          # inspecte passe au vert. C'est un controle de securite : il echoue
-          # ferme, sinon il ne sert a rien.
-          if ! cles=$(docker image inspect "$image" \
-                        --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}'); then
-            echo "::error::docker image inspect a echoue sur $image — les labels de l'image n'ont PAS pu etre verifies, et une image non inspectee ne peut pas etre publiee"
-            exit 1
-          fi
-          echo "labels de l'image :"; printf '%s\n' "$cles"
-          # Le grep est INSENSIBLE A LA CASSE, comme celui que ./init.sh --check
-          # passe sur le Dockerfile : Docker n'abaisse pas la casse des cles de
-          # label, et Traefik lit ses labels sans y prendre garde. Un
-          # « LABEL Traefik.enable » herite d'une image de base passerait sinon un
-          # controle et pas l'autre — le trou est du cote de celui qui publie.
-          graves=$(printf '%s\n' "$cles" | grep -iE '^traefik\.' || true)
-          if [ -n "$graves" ]; then
-            printf '::error::LABEL traefik grave dans l image : %s\n' $graves
-            echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, portant un autre nom que celui de compose.yaml — donc SANS authentification. Retire-le du Dockerfile, ou change d'image de base : ce label n'est pas ecrasable depuis le compose."
-            exit 1
-          fi
-          echo "aucun label traefik.* — ni ecrit dans le Dockerfile, ni herite de l'image de base"
-
-      - name: publier ${{ matrix.app }}
-        uses: docker/build-push-action@v6
-        with:
-          context: apps/${{ matrix.app }}
-          file: apps/${{ matrix.app }}/Dockerfile
-          # Sur une pull request on construit sans publier : la validation du
-          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
-            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/__ORG__/__REPO__
-          build-args: |
-            VERSION=${{ github.sha }}
-          # Tout vient du cache de l'etape de construction : rien n'est
-          # reconstruit, et surtout pas une image differente de celle qui vient
-          # d'etre inspectee.
-          cache-from: type=gha,scope=${{ matrix.app }}
-      - name: taille de l'image
-        if: github.event_name != 'pull_request'
-        run: |
           image=__REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
-          docker pull "$image"
+          if [ "${{ github.event_name }}" != pull_request ]; then
+            docker pull "$image"
+          fi
+
+          # Le contrat interdit tout LABEL traefik.* dans un Dockerfile, et
+          # --check le verifie. Mais il lit le Dockerfile, ou un label HERITE
+          # d'une image de base n'apparait pas. Docker fusionne pourtant les
+          # labels de l'image dans ceux du conteneur : le routeur ainsi publie
+          # porte un autre nom que celui du compose, donc le compose ne peut
+          # pas l'ecraser — il vivrait SANS middleware d'authentification.
+          # L'image construite est le seul endroit ou un label herite se voit.
+          # L'inspection est isolee du filtre, et c'est tout l'interet : dans
+          # « inspect | grep ... || true », le « || true » couvre le PIPELINE
+          # ENTIER. Une inspection en echec — image absente, tag mal forme,
+          # demon indisponible — rendait alors une liste vide, indiscernable
+          # d'une image saine, et le garde-fou annoncait « aucun label » en
+          # sortant en succes. Un controle de securite qui echoue en ouvert est
+          # pire que pas de controle : il rassure. Ici l'affectation echoue sous
+          # « set -e » et l'etape s'arrete ; le « || true » ne couvre plus que
+          # grep, dont le code 1 signifie « aucune correspondance », seul cas
+          # ou l'absence de resultat est une bonne nouvelle.
+          labels=$(docker image inspect "$image" \
+                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}')
+          graves=$(printf '%s\n' "$labels" | grep -iE '^traefik\.' || true)
+          if [ -n "$graves" ]; then
+            printf '::error::LABEL traefik grave dans l image ${{ matrix.app }} : %s\n' $graves
+            echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, sans authentification. Retire-le du Dockerfile, ou change d image de base : ce label n est pas ecrasable depuis le compose."
+            exit 1
+          fi
+          echo "aucun label traefik.* — ni ecrit dans le Dockerfile, ni herite de l image de base"
+
           size=$(docker image inspect "$image" --format '{{.Size}}')
           echo "Image ${{ matrix.app }} : $((size / 1024 / 1024)) Mo"
           if [ "$size" -gt $((__IMAGE_MAX_MB__ * 1024 * 1024)) ]; then
@@ -1797,6 +1897,29 @@ __ENABLED__  },
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-branche.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-commit.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
@@ -1878,6 +2001,260 @@ fi
 # Toujours 0 : un rapport ne fait pas echouer l'ouverture d'une session.
 exit 0
 SH
+}
+
+emit_garde_branche() {
+  render __BASE__ "$BASE" <<'SH'
+#!/usr/bin/env bash
+#
+# Genere par init.sh — hook PreToolUse : refuse d'ecrire directement sur __BASE__.
+#
+# La fabrique ouvre une branche des la PREMIERE modification. Une regle ecrite
+# dans CLAUDE.md s'oublie ; un hook, lui, s'execute. Il ne cree pas la branche
+# lui-meme : le nom doit dire le sujet, et seul celui qui edite le connait.
+#
+# Aucune dependance : ni jq ni python. Un garde-fou qui ne demarre pas sur une
+# machine depouillee ne garde rien.
+
+set -u
+BASE="__BASE__"
+
+entree=$(cat)
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+racine=$(git rev-parse --show-toplevel)
+courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "$courante" = "$BASE" ] || exit 0
+
+# Un fichier hors du depot ne concerne pas cette regle : le hook n'a pas a
+# bloquer l'edition d'un brouillon ou d'une note personnelle. Chemin illisible
+# = on protege, par defaut.
+cible=$(printf '%s' "$entree" | sed -nE 's/.*"file_path"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' | head -1)
+case "$cible" in
+  "$racine"/*) ;;
+  "")          ;;
+  *) exit 0 ;;
+esac
+
+raison="Modification refusee : HEAD est sur $BASE.\n\nLa fabrique ouvre une branche des la premiere modification, nommee <app>/<sujet> — ou fabrique/<sujet> pour init.sh, la CI, le contrat ou l'outillage.\n\n  ./init.sh --branche <app>/<sujet>\n\nPuis recommence cette modification."
+
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$raison"
+exit 0
+SH
+}
+
+emit_garde_commit() {
+  render __BASE__ "$BASE" <<'SH'
+#!/usr/bin/env bash
+#
+# Genere par init.sh — hook Stop : refuse de terminer sur un arbre de travail
+# sale.
+#
+# Committer a chaque etape verifiee est ce qui evite la PR de mille lignes que
+# personne ne relit vraiment. Le hook ne committe pas a votre place : il refuse
+# seulement de laisser du travail non enregistre derriere lui.
+
+set -u
+BASE="__BASE__"
+
+entree=$(cat)
+
+# Garde anti-boucle. Quand ce hook a deja bloque et que la main est revenue,
+# stop_hook_active vaut true : bloquer de nouveau ferait tourner en rond. En cas
+# de doute on laisse passer — se tromper dans ce sens ne coute qu'un rappel
+# manque, se tromper dans l'autre bloque la session.
+case "$entree" in *'"stop_hook_active"'*true*) exit 0 ;; esac
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+cd "$(git rev-parse --show-toplevel)" 2>/dev/null || exit 0
+
+courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "$courante" = "$BASE" ] && exit 0
+
+sale=$(git status --porcelain 2>/dev/null)
+[ -n "$sale" ] || exit 0
+n=$(printf '%s\n' "$sale" | grep -c . || true)
+
+raison="$n fichier(s) non committe(s) sur $courante.\n\nLa fabrique committe a chaque etape verifiee, pour que la relecture se fasse commit par commit plutot qu'en bloc a la fin.\n\n  ./init.sh --pret                    # l'etape est-elle committable ?\n  git add -A && git commit\n  git push -u origin $courante\n\nL'agent greffier fait ces trois gestes d'un coup. Si ce travail ne doit deliberement pas etre committe, dis-le explicitement."
+
+printf '{"decision":"block","reason":"%s"}\n' "$raison"
+exit 0
+SH
+}
+
+emit_pr_template() {
+  cat <<'MD'
+<!-- Une pull request se lit en trente secondes. Elle sert a decider s'il faut
+     relire et par ou commencer — le raisonnement, lui, vit dans les messages de
+     commit, ou il reste attache au changement qu'il explique. -->
+
+<!-- Une phrase : ce que ce changement fait. -->
+
+## Ce qui compte
+
+<!-- Trois a cinq puces, la plus importante en premier. Ce qu'un relecteur doit
+     savoir pour juger — pas la liste de ce qui a ete fait, le diff la montre
+     deja. Mets en gras le mot qui porte l'idee de chaque puce. -->
+
+## Verifie
+
+<!-- Une ou deux lignes : ce qui a ete lance, et le resultat. Des nombres
+     plutot que des adjectifs. -->
+
+## Avant de fusionner
+
+<!-- Supprime cette section s'il n'y a rien a signaler. Sinon : points
+     d'attention, gestes cote serveur, ce qui n'est pas couvert par la CI. -->
+MD
+}
+
+emit_analyste() {
+  render __DETECTE__ "$JOURNAL_DETECTE" __ACTION__ "$JOURNAL_ACTION" __MODE__ "$JOURNAL_MODE" <<'MD'
+---
+name: analyste
+description: Relit journal/ — le journal des anomalies de la fabrique — et en tire un plan d'amelioration ordonne. A lancer periodiquement, ou quand on se demande ou poser le prochain garde-fou. Ne modifie rien.
+tools: Bash, Read, Grep
+---
+
+Tu relis le journal des anomalies de la fabrique et tu en tires un plan. Tu ne
+repares rien et tu n'ecris aucun fichier : tu rends ton plan dans ta reponse.
+C'est ce qui te rend lancable en tache de fond sans risque pour le depot.
+
+## Ce que tu lis
+
+`journal/*.md`, une entree par branche. Chaque anomalie porte deux champs a
+vocabulaire ferme, faits pour etre agreges :
+
+    Detecte par   __DETECTE__
+    Action        __ACTION__
+
+L'entree entiere en porte un troisieme, dans son en-tete :
+
+    Mode          __MODE__
+
+`Detecte par` est **ordonne par cout croissant**. Une anomalie rattrapee par le
+compilateur n'a rien coute ; la meme rattrapee par l'utilisateur a coute un
+aller-retour, et une rattrapee en production a coute davantage. C'est la
+grandeur qui porte le plus d'information du journal.
+
+## Ce que tu produis
+
+**1. La distribution.** Compte les anomalies par `Detecte par` et par `Action` :
+
+    sed -nE 's/^\*\*Detecte par\*\* — `([^`]+)`.*/\1/p' journal/*.md | sort | uniq -c | sort -rn
+    sed -nE 's/^\*\*Action\*\* — `([^`]+)`.*/\1/p'      journal/*.md | sort | uniq -c | sort -rn
+
+Le motif est ancre en debut de ligne et prend le **premier** groupe entre
+apostrophes inverses, pas le dernier : la prose qui suit le jeton en contient
+souvent d'autres. Un `grep | sort | uniq` sur la ligne entiere ne marche pas non
+plus, pour la meme raison. Verifie ton total : la somme doit egaler le nombre de
+`^### ` dans les memes fichiers, sinon ton extraction laisse des anomalies de
+cote.
+
+Ce qui compte n'est pas le total mais **jusqu'ou la distribution glisse vers la
+droite**. Une masse sur `utilisateur` et `production` dit que les garde-fous
+laissent passer ; une masse sur `compilateur`, `test` et `CI` dit qu'ils
+tiennent, quel que soit le nombre d'anomalies.
+
+**2. Les recurrences.** Une meme cause qui revient sur plusieurs branches vaut
+plus qu'une anomalie spectaculaire isolee. Cite les entrees qui la portent.
+
+**3. Le plan.** Trois a six actions, la plus rentable en premier. Pour chacune :
+ce qu'elle change, quelles anomalies elle aurait evitees, et ou elle vit —
+`CLAUDE.md`, `init.sh`, `.claude/`, ou une facon de travailler.
+
+Groupe par `Action` : les `contrat` se corrigent ensemble, les `garde-fou`
+aussi. Les `arbitrage` ne sont pas des actions — ce sont des questions a poser a
+l'humain : liste-les a part, telles quelles.
+
+**4. Ce que le journal ne dit pas.** Les entrees en `Mode : retrospective` sont
+reconstituees, donc incompletes du cote des anomalies mineures. Recense-les
+d'abord, et rends la distribution en deux colonnes — total, et hors
+retrospective :
+
+    grep -l '^Mode : `retrospective`' journal/*.md
+
+Ne les cherche pas en prose : « retrospectiv|reconstitu » matche aussi le titre
+d'une anomalie qui *parle* d'une reconstitution sans en etre une. Dis quelle
+part du corpus elles pesent plutot que de conclure sur elles.
+
+## Ce que tu ne fais jamais
+
+- ecrire ou modifier un fichier, ouvrir une branche, committer ;
+- compter une entree en `Mode : retrospective` comme une mesure fiable ;
+- proposer un garde-fou pour une anomalie deja rattrapee par le compilateur ou
+  par un test : elle ne coute rien, le garde-fou couterait plus.
+MD
+}
+
+emit_greffier() {
+  render __APPS__ "${APPS[*]}" __BASE__ "$BASE" <<'MD'
+---
+name: greffier
+description: Enregistre dans git le travail en cours de la fabrique — ouvre la branche au bon nom si besoin, verifie que l'etape est committable, committe et pousse. A lancer des qu'une etape verifiee est terminee, ou quand l'arbre de travail est sale. Ne modifie jamais le code.
+tools: Bash, Read, Grep
+model: haiku
+---
+
+Tu es le greffier de la fabrique : tu tiens son journal git. Tu n'ecris pas de
+code, tu enregistres celui des autres. Sois rapide — peu de commandes, aucune
+exploration inutile.
+
+## La sequence, dans cet ordre
+
+**1. Regarde.** `git status --porcelain` et `git rev-parse --abbrev-ref HEAD`.
+Si rien n'est modifie, arrete-toi et dis « rien a enregistrer ». N'invente pas
+de travail.
+
+**2. La branche.** Si HEAD est sur `__BASE__`, il faut une branche dediee :
+
+    ./init.sh --branche <prefixe>/<sujet>
+
+Le prefixe est l'app touchee — parmi : __APPS__ — ou `fabrique` si le
+changement porte sur `init.sh`, `fabrique.yml`, `compose.yaml`, `.github/`,
+`.claude/` ou la documentation racine. Si plusieurs apps sont touchees a la
+fois, c'est un changement transverse : prefixe `fabrique`.
+
+Le sujet fait deux a quatre mots en minuscules separes par des tirets, et dit
+**ce que le changement fait**, pas quels fichiers il touche. Lis le diff pour
+le trouver. Si HEAD est deja sur une branche dediee, garde-la.
+
+**3. Verifie.** `./init.sh --pret`. **S'il echoue, tu t'arretes la.** Tu ne
+committes pas, tu ne poussses pas : tu rapportes exactement les lignes en echec.
+Un commit qui casse quelque chose rend la relecture plus dure, pas plus simple.
+
+Un cas revient souvent : `journal : ... est encore le gabarit nu`. L'entree de
+journal de la branche n'a pas ete ecrite, et tu n'as pas d'outil d'edition pour
+le faire — c'est voulu. Rapporte-le tel quel, en nommant le fichier : seul celui
+qui a fait le travail connait les anomalies qu'il a rencontrees.
+
+**4. Committe.** `git add -A`, puis un message dans le style du depot :
+
+- une premiere ligne de 72 caracteres au plus, en francais **sans accents**,
+  de la forme `perimetre : ce que fait le changement` — le perimetre est le nom
+  de l'app ou `fabrique`, `outillage`, `ci`, `doc` ;
+- un corps qui dit **pourquoi**, et ce que ca evite, quand ce n'est pas evident
+  a la lecture du diff. Pas de liste de fichiers : le diff les montre deja ;
+- termine par les lignes d'attribution que ton prompt systeme impose.
+
+Lis le diff (`git diff --staged`) avant d'ecrire le message. Un message exact
+est la moitie de la valeur d'un commit.
+
+**5. Pousse.** `git push -u origin <branche>`. En cas d'echec reseau, reessaie
+jusqu'a quatre fois en doublant l'attente : 2 s, 4 s, 8 s, 16 s.
+
+**6. Rapporte** en trois lignes : la branche, le SHA court et la premiere ligne
+du message, le nombre de fichiers.
+
+## Ce que tu ne fais jamais
+
+- committer ou pousser sur `__BASE__` ;
+- `--force`, `--amend`, `rebase`, `reset --hard`, `merge`, supprimer une branche —
+  tu ajoutes a l'histoire, tu ne la reecris pas ;
+- ouvrir une pull request : elle vient a la fin, et ce n'est pas ton geste ;
+- modifier un fichier de code. Si `--pret` echoue, ce n'est pas a toi de
+  reparer : rapporte et arrete-toi.
+MD
 }
 
 emit_cloud_setup() {
@@ -1984,12 +2361,20 @@ emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
     .claude/settings.json)        emit_settings ;;
     .claude/check-plugins.sh)     emit_check_plugins ;;
     .claude/cloud-setup.sh)       emit_cloud_setup ;;
+    .claude/garde-branche.sh)     emit_garde_branche ;;
+    .claude/garde-commit.sh)      emit_garde_commit ;;
+    .claude/agents/greffier.md)   emit_greffier ;;
+    .claude/agents/analyste.md)   emit_analyste ;;
+    .github/pull_request_template.md) emit_pr_template ;;
     go.work)                      emit_gowork ;;
   esac
 }
 
-DERIVES=(compose.yaml .github/workflows/build.yml .claude/settings.json
-         .claude/check-plugins.sh .claude/cloud-setup.sh go.work)
+DERIVES=(compose.yaml .github/workflows/build.yml .github/pull_request_template.md
+         .claude/settings.json
+         .claude/check-plugins.sh .claude/cloud-setup.sh
+         .claude/garde-branche.sh .claude/garde-commit.sh
+         .claude/agents/greffier.md .claude/agents/analyste.md go.work)
 
 # --- --add ----------------------------------------------------------------------
 
@@ -2035,7 +2420,7 @@ port: $port
 memory: $memory
 health_path: $health_path
 health_cmd: $health_cmd
-exposure: $exposure
+exposure: $exposure          # private | google | public — voir CLAUDE.md
 # Outillage de l'agent, sans effet sur le deploiement :
 stack: $stack
 ui: $ui
@@ -2126,7 +2511,7 @@ EOF
   cat > "$dir/README.md" <<EOF
 # $a
 
-URL : https://$a.$DOMAIN — authentification : \`$exposure\`.
+URL : https://$a.$DOMAIN — palier d'exposition : \`$exposure\`.
 
 ## Ce que fait cette application
 
@@ -2250,6 +2635,387 @@ apply_target_options() {
 # --- services partages : lus une fois, pour tous les modes -----------------------
 
 load_shared
+# --- la branche de travail ------------------------------------------------------
+#
+# Convention : <app>/<sujet>, ou fabrique/<sujet> pour ce qui touche init.sh, la
+# CI, le contrat ou l'outillage. Le prefixe dit quel perimetre est en jeu — donc
+# quel rayon de souffle — avant meme d'ouvrir le diff.
+#
+# Une exception, subie et non choisie : le harnais cloud assigne des branches
+# claude/<sujet>. Voir la validation plus bas.
+
+BASE=$(fab base_branch main)
+PREFIXE_HARNAIS=claude
+
+apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+  {
+    git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
+    git status --porcelain 2>/dev/null | cut -c4- || true
+  } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+    | while IFS= read -r a; do
+        # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
+        # ferait sortir la boucle en code 1, donc la substitution de commande,
+        # donc le script entier — et --pret s'arreterait sans rien dire.
+        if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
+      done
+}
+
+# --- le journal des anomalies ---------------------------------------------------
+#
+# Une entree par branche, ouverte avec elle et remplie au fil du travail. Ecrite
+# a chaud, elle retient les anomalies mineures ; reconstituee a la fin, elle ne
+# garde que les spectaculaires — or ce sont les mineures qui disent ou le
+# contrat a un trou.
+#
+# La branche donne le nom du fichier, ce qui rend l'entree retrouvable sans
+# index : fabrique/journal-des-anomalies -> journal/<date>-fabrique-journal-des-anomalies.md
+# La date est figee a la creation, donc on retrouve par suffixe, jamais par date.
+
+# Trois champs sont a vocabulaire ferme, parce que le lecteur du journal peut
+# etre un agent qui en tire des plans d'amelioration : en prose libre, « moi »,
+# « la critique impeccable » et « le compilateur » ne s'agregent pas, et la
+# distribution que le journal promet n'est pas calculable. Constate sur les deux
+# premieres entrees, ou treize valeurs ont donne six categories informelles —
+# aucune conforme au gabarit qui les demandait.
+#
+# DETECTE est ordonne par cout croissant : plus une anomalie est rattrapee tard,
+# plus elle a coute. L'agregat utile est « jusqu'ou la distribution glisse vers
+# la droite », pas un simple decompte.
+#
+# MODE porte sur l'entree entiere, pas sur une anomalie. Il vaut « chaud » quand
+# l'entree a ete remplie au fil du travail, « retrospective » quand elle a ete
+# reconstituee apres coup — auquel cas les anomalies mineures manquent, et
+# l'analyste doit s'interdire d'en tirer une mesure. Ce champ existe parce que
+# cette consigne reposait sur une phrase en prose : le seul moyen de trouver les
+# entrees concernees etait un grep sur « retrospectiv|reconstitu », qui matchait
+# aussi le titre d'une anomalie *parlant* d'une reconstitution sans en etre une.
+# Un vocabulaire suggere n'est pas un vocabulaire — la lecon de l'anomalie 4 de
+# fabrique/journal-des-anomalies, rejouee un cran au-dessus.
+#
+# Les etiquettes de DETECTE et ACTION s'ecrivent sans accents — « Detecte par »,
+# pas « Detecte par » accentue — comme tout le markdown genere par ce fichier. Le
+# motif de verification reste ainsi en ASCII pur, insensible a la locale, et la
+# prose accentuee vit dans Symptome et Cause qui ne sont pas verifies.
+#
+# PERIMETRE fait exception et porte ses accents : le gabarit l'emettait en ASCII,
+# et les trois auteurs sur trois l'ont reecrit « Perimetre » accentue. Un
+# vocabulaire que personne n'ecrit comme il est genere n'est pas tenable ; le
+# gabarit suit donc l'usage. Le motif reste insensible a la locale parce qu'il
+# compare des octets litteraux, pas des classes de caracteres.
+
+JOURNAL_DIR=journal
+JOURNAL_MARQUEUR=REMPLIS-MOI   # present = gabarit nu ; retire = entree ecrite
+JOURNAL_DETECTE='compilateur|test|CI|relecture|auteur|utilisateur|production'
+JOURNAL_ACTION='rien|contrat|garde-fou|outillage|comportement|arbitrage'
+JOURNAL_MODE='chaud|retrospective'
+JOURNAL_PERIMETRE_VIDE='<apps touchees, ou fabrique>'   # le gabarit, tel quel
+
+journal_slug() { printf '%s' "${1//\//-}"; }
+
+journal_entree() {  # journal_entree <branche> — le chemin de l'entree, ou vide
+  local m
+  m=$(ls "$JOURNAL_DIR"/*-"$(journal_slug "$1")".md 2>/dev/null | head -1)
+  printf '%s' "$m"
+}
+
+journal_ouvre() {  # journal_ouvre <branche> — cree l'entree si elle n'existe pas
+  local br="$1" f
+  f=$(journal_entree "$br")
+  [ -n "$f" ] && { ok "journal : entree existante ($f)"; return 0; }
+
+  mkdir -p "$JOURNAL_DIR"
+  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$(journal_slug "$br").md"
+  render __BRANCHE__ "$br" __DATE__ "$(date -u +%Y-%m-%d)" __MARQUEUR__ "$JOURNAL_MARQUEUR" \
+         __PERIMETRE__ "$JOURNAL_PERIMETRE_VIDE" \
+    > "$f" <<'MD'
+# __DATE__ — __BRANCHE__
+
+<!-- __MARQUEUR__ : retire ce commentaire quand l'entree dit quelque chose.
+
+     Une anomalie par bloc, ecrite quand tu la rencontres.
+
+     Deux champs sont a vocabulaire ferme et ./init.sh --check les verifie. Ce
+     n'est pas de la bureaucratie : le lecteur de ce journal peut etre un agent
+     qui en tire des plans d'amelioration, et « moi » ou « le compilateur » ne
+     s'agregent pas. La prose va dans Symptome et Cause, qui sont libres.
+
+     Detecte par — qui a rattrape l'anomalie, du moins cher au plus cher :
+
+       compilateur   immediat, cout nul
+       test          avant meme de lancer
+       CI            avant la fusion
+       relecture     humaine ou outillee, avant livraison
+       auteur        en cours de travail, apres coup
+       utilisateur   apres livraison : un aller-retour, et un garde-fou manquant
+       production    apres deploiement
+
+     Action — ce que l'anomalie devrait changer :
+
+       rien          reparee, rien a en tirer
+       contrat       CLAUDE.md dit quelque chose de faux, ou ne dit rien
+       garde-fou     init.sh --check, --pret, ou un hook devrait le voir
+       outillage     un plugin, un LSP, un agent manque
+       comportement  facon de travailler, aucun artefact a changer
+       arbitrage     demande une decision humaine, pas un correctif
+
+     Une session sans anomalie est une entree valide — ecris « Aucune anomalie »
+     et retire ce commentaire. Une entree vide et une entree jamais ouverte ne
+     disent pas la meme chose.
+
+     Deux champs d'en-tete sont verifies eux aussi :
+
+     Perimetre — les apps touchees, ou « fabrique ». Sur une branche claude/*,
+     dont le prefixe est impose par le harnais et ne dit rien du perimetre,
+     c'est le SEUL endroit ou se lit le rayon de souffle. Remplis-le tot.
+
+     Mode — `chaud` si cette entree est remplie au fil du travail, valeur par
+     defaut et cas normal puisque --branche l'ouvre en meme temps que la
+     branche ; `retrospective` si elle est reconstituee apres coup. Une entree
+     retrospective ne garde que les anomalies spectaculaires : l'analyste la
+     lit, mais s'interdit d'en tirer une mesure. Mentir ici ne coute rien a qui
+     ecrit et fausse tout ce qui se calcule ensuite. -->
+
+Branche : `__BRANCHE__`
+Périmètre : __PERIMETRE__
+Mode : `chaud`
+
+## Anomalies
+
+### 1. <ce qui a mal tourne, en une ligne>
+
+**Symptome** — ce qui a ete observe.
+
+**Cause** — ce qui l'a produit.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — pourquoi, en une ligne.
+MD
+  ok "journal : entree ouverte ($f)"
+}
+
+# journal_entete <fichier> — verifie les deux champs d'en-tete de l'entree. Un
+# bad par manquement, retour non nul si l'un cloche.
+#
+# Partage entre --check, qui ne juge que les entrees suivies par git, et --pret,
+# qui juge celle de la branche courante alors qu'elle est encore non suivie : un
+# controle qui ne vaudrait qu'en --check n'arriverait qu'apres le commit qu'il
+# aurait du empecher.
+journal_entete() {
+  local e="$1" faute=0
+  grep -qE "^Mode *: *\`($JOURNAL_MODE)\`" "$e" \
+    || { bad "$e : champ 'Mode' absent ou hors vocabulaire — $JOURNAL_MODE"; faute=1; }
+  grep -qF "$JOURNAL_PERIMETRE_VIDE" "$e" \
+    && { bad "$e : 'Périmètre' est reste au gabarit — sur une branche claude/*, c'est le seul endroit ou se lit le rayon de souffle"; faute=1; }
+  grep -qE '^Périmètre *: *[^[:space:]]' "$e" \
+    || { bad "$e : champ 'Périmètre' absent"; faute=1; }
+  return "$faute"
+}
+
+if [ -n "$BRANCHE" ]; then
+  discover_apps
+  prefixe=${BRANCHE%%/*}; sujet=${BRANCHE#*/}
+
+  if [ "$prefixe" = "$BRANCHE" ]; then
+    echo "ERREUR : '$BRANCHE' n'a pas de prefixe." >&2
+    echo "Attendu : <app>/<sujet>, ou fabrique/<sujet> pour l'infrastructure." >&2
+    echo "Apps disponibles : ${APPS[*]}" >&2
+    exit 1
+  fi
+
+  # Le harnais cloud assigne lui-meme le nom de la branche, sous la forme
+  # claude/<sujet>, et interdit de pousser ailleurs. Ce prefixe ne dit rien du
+  # perimetre — c'est sa limite, pas une faute : la branche n'a pas choisi son
+  # nom. Le refuser rendait --branche inutilisable en session cloud, donc
+  # empechait d'y ouvrir l'entree de journal. Il est accepte pour rejoindre une
+  # branche existante, jamais pour en creer une : personne ne choisit ce prefixe.
+  connu=0
+  [ "$prefixe" = fabrique ] && connu=1
+  for a in "${APPS[@]}"; do [ "$a" = "$prefixe" ] && connu=1; done
+  if [ "$prefixe" = "$PREFIXE_HARNAIS" ]; then
+    if git show-ref --verify --quiet "refs/heads/$BRANCHE"; then
+      connu=1
+    else
+      echo "ERREUR : le prefixe '$PREFIXE_HARNAIS' est celui du harnais cloud, qui l'assigne lui-meme." >&2
+      echo "Il ne se choisit pas : pour une branche neuve, prends <app>/<sujet> ou fabrique/<sujet>." >&2
+      echo "Apps disponibles : ${APPS[*]}" >&2
+      exit 1
+    fi
+  fi
+  if [ "$connu" = 0 ]; then
+    echo "ERREUR : prefixe '$prefixe' inconnu." >&2
+    echo "Attendu : <app>/<sujet>, ou fabrique/<sujet> pour l'infrastructure." >&2
+    echo "Apps disponibles : ${APPS[*]}" >&2
+    exit 1
+  fi
+
+  printf '%s' "$sujet" | grep -qE '^[a-z0-9][a-z0-9-]*$' || {
+    echo "ERREUR : sujet '$sujet' invalide — minuscules, chiffres et tirets." >&2; exit 1; }
+
+  if git show-ref --verify --quiet "refs/heads/$BRANCHE"; then
+    git switch "$BRANCHE"
+    ok "branche existante : $BRANCHE"
+  else
+    # Partir de la base a jour plutot que du HEAD courant : une branche greffee
+    # sur une autre branche de travail traine ses commits dans sa PR.
+    git fetch origin "$BASE" >/dev/null 2>&1 || warn "origin/$BASE non joignable, depart depuis HEAD"
+    if git show-ref --verify --quiet "refs/remotes/origin/$BASE"; then
+      git switch -c "$BRANCHE" "origin/$BASE"
+    else
+      git switch -c "$BRANCHE"
+    fi
+    ok "branche creee : $BRANCHE"
+  fi
+  # L'entree s'ouvre avec la branche : c'est le seul moment ou le geste est
+  # gratuit, et le seul qui permette d'ecrire les anomalies a chaud.
+  journal_ouvre "$BRANCHE"
+  exit 0
+fi
+
+# --- --pret : cette etape est-elle committable ? --------------------------------
+#
+# Le point de passage avant chaque commit. Un commit qui casse quelque chose
+# rend la relecture plus dure, pas plus simple : c'est tout l'interet de
+# committer par etapes verifiees plutot qu'au kilometre.
+
+if [ "$PRET" = 1 ]; then
+  courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  echo "Etape en cours — branche $courante"
+
+  if [ "$courante" = "$BASE" ]; then
+    bad "sur $BASE : le travail doit vivre sur une branche dediee (./init.sh --branche <app>/<sujet>)"
+  else
+    ok "branche dediee"
+  fi
+
+  if "$0" --check >/tmp/.pret-check.$$ 2>&1; then
+    ok "contrat respecte"
+  else
+    bad "./init.sh --check echoue :"
+    grep -E 'KO' /tmp/.pret-check.$$ | sed 's/^/      /' || true
+  fi
+  rm -f /tmp/.pret-check.$$
+
+  # Le journal se verifie ici et pas seulement en CI : rendu a la relecture de
+  # la PR, le detail des anomalies est deja perdu. Le gabarit nu ne compte pas —
+  # sans ce second test, le geste deviendrait une case a cocher vide.
+  if [ "$courante" != "$BASE" ]; then
+    entree=$(journal_entree "$courante")
+    if [ -z "$entree" ]; then
+      bad "journal : aucune entree pour $courante (./init.sh --branche $courante l'ouvre)"
+    elif grep -q "$JOURNAL_MARQUEUR" "$entree"; then
+      bad "journal : $entree est encore le gabarit nu — ecris-y les anomalies de cette branche"
+    elif ! journal_entete "$entree"; then
+      : # journal_entete a deja dit ce qui manque
+    else
+      ok "journal : $entree"
+    fi
+  fi
+
+  # Seules les apps reellement touchees depuis la base : sur une fabrique qui
+  # grandit, tout relancer a chaque commit couterait plus que ca ne rapporte.
+  touchees=$(apps_touchees)
+  if [ -z "$touchees" ]; then
+    ok "aucune app modifiee — pas de test a lancer"
+  else
+    for a in $touchees; do
+      if [ ! -x "apps/$a/test.sh" ]; then
+        bad "[$a] test.sh absent ou non executable"
+      elif "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
+        ok "[$a] tests verts"
+      else
+        bad "[$a] tests en echec :"
+        tail -15 /tmp/.pret-test.$$ | sed 's/^/      /'
+      fi
+      rm -f /tmp/.pret-test.$$
+    done
+  fi
+
+  echo
+  [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s) — ne committe pas en l'etat."; exit 1; }
+  echo "Etape verifiee. Tu peux committer."
+  exit 0
+fi
+
+# --- --branches-fusionnees : ce qui peut partir, et ce qui ne le peut pas -------
+#
+# Une session cloud ouvre des branches et ne peut pas en fermer : le relais git
+# du harnais refuse la suppression de refs (HTTP 403 sur git-receive-pack), et
+# le serveur MCP GitHub expose create_branch sans son inverse. Les branches
+# fusionnees s'accumulent donc sans que rien ne le signale. Cette commande ne
+# supprime rien — elle n'en a pas le droit — elle dit QUOI supprimer, ce qui est
+# la partie qu'on ne peut pas faire de tete.
+#
+# Le critere n'est pas l'appartenance a l'ascendance de la base : sur ce depot
+# il s'est trompe dans les deux sens. Il a classe « non fusionnees » trois
+# branches simplement ecrasees en un commit (squash), dont le contenu etait bel
+# et bien dans main ; et il n'a rien dit d'une branche dont la PR etait fusionnee
+# mais qui portait cinq commits ecrits APRES, jamais repris. C'est l'equivalence
+# de patch — git cherry, qui compare les patch-id — qui repond juste dans les
+# deux cas. Un commit de fusion n'a pas de patch-id et git cherry l'ignore :
+# c'est correct, « merge branch main » n'apporte rien que main n'ait deja.
+
+if [ "$FUSIONNEES" = 1 ]; then
+  git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*" >/dev/null 2>&1 \
+    || warn "origin non joignable — l'etat ci-dessous peut etre perime"
+
+  # La branche sur laquelle on travaille est exclue : elle peut etre fusionnee
+  # et servir malgre tout a l'etape en cours — c'est le cas normal d'une session
+  # cloud, dont le nom de branche est impose et reutilise d'une PR a la suivante.
+  courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+  fusionnees=() vivantes=() ignoree=""
+  for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do
+    b=${ref#origin/}
+    [ "$b" = "$BASE" ] && continue
+    [ "$b" = HEAD ] && continue
+    [ "$b" = "$courante" ] && { ignoree="$b"; continue; }
+    # git cherry n'imprime que les commits absents de la base : « + » pour un
+    # patch inedit, « - » pour un patch deja present sous un autre sha.
+    if [ -z "$(git cherry "origin/$BASE" "$ref" 2>/dev/null | grep '^+' || true)" ]; then
+      fusionnees+=("$b")
+    else
+      vivantes+=("$b:$(git cherry "origin/$BASE" "$ref" 2>/dev/null | grep -c '^+' || echo '?')")
+    fi
+  done
+
+  [ -n "$ignoree" ] && { echo "-- ignoree"; warn "$ignoree — branche courante"; echo; }
+  echo "-- fusionnees dans $BASE — supprimables"
+  if [ ${#fusionnees[@]} -eq 0 ]; then
+    echo "  (aucune)"
+  else
+    for b in "${fusionnees[@]}"; do ok "$b"; done
+  fi
+
+  echo
+  echo "-- a regarder — patchs absents de $BASE"
+  if [ ${#vivantes[@]} -eq 0 ]; then
+    echo "  (aucune)"
+  else
+    for v in "${vivantes[@]}"; do warn "${v%:*} — ${v##*:} patch(s) inedit(s)"; done
+    echo
+    # Le titre de cette section dit « a regarder » et non « non fusionnees »,
+    # parce que l'equivalence de patch ne sait pas voir un contenu REECRIT. Un
+    # travail repris a un autre chemin, ou refait a la main, produit un patch
+    # different : la branche est signalee ici alors que son contenu est bien
+    # dans la base. La commande ne peut pas trancher ce cas — elle le remonte
+    # plutot que de proposer une suppression qu'elle ne sait pas justifier.
+    echo "  Un patch inedit ne veut pas dire un travail perdu : un contenu repris"
+    echo "  a un autre chemin, ou refait a la main, produit un patch different."
+    echo "  Compare avant de conclure :  git log --oneline origin/$BASE..origin/<branche>"
+  fi
+
+  if [ ${#fusionnees[@]} -gt 0 ]; then
+    echo
+    echo "Depuis une machine dont l'acces git n'est pas contraint :"
+    echo
+    for b in "${fusionnees[@]}"; do echo "  git push origin --delete $b"; done
+    echo
+    echo "Une suppression ne perd rien : ces patchs sont dans $BASE, et GitHub"
+    echo "sait restaurer une branche pendant 90 jours."
+  fi
+  exit 0
+fi
 
 # --- --list ---------------------------------------------------------------------
 
@@ -2417,10 +3183,25 @@ check_service() {
   # « middlewares=forwardauth-open,... » et une app declaree private passerait
   # au vert avec l'authentification ouverte a tout compte Google.
   if has "traefik.http.routers.$APP.middlewares=$A_MW,$SECURITY_HEADERS"; then
-    ok "$p auth $A_MW (exposure $A_EXPOSURE)"
+    ok "$p palier $A_EXPOSURE -> $A_MW"
   else
-    bad "$p SANS AUTHENTIFICATION CONFORME — middleware $A_MW attendu"
+    bad "$p PALIER NON CONFORME — middleware $A_MW attendu (exposure $A_EXPOSURE)"
     SANS_AUTH+=("$APP")
+  fi
+
+  # Palier public : faute d'authentification, Traefik ne pose NI n'ecrase
+  # X-Forwarded-User. L'en-tete passe donc sous le controle du client, qui peut
+  # y mettre l'adresse de son choix : une app qui le lit croit identifier un
+  # utilisateur en lisant une valeur forgee. Bloquant, pas cosmetique.
+  # -i : Node, Go et consorts normalisent les en-tetes en minuscules.
+  if [ "$A_EXPOSURE" = public ]; then
+    warn "$p palier public — accessible SANS authentification"
+    if git ls-files -z "apps/$APP" 2>/dev/null | grep -zvE '\.md$' \
+         | xargs -0 -r grep -liI 'x-forwarded-user' 2>/dev/null | grep -q .; then
+      bad "$p lit X-Forwarded-User en exposure public — en-tete forgeable par n'importe qui"
+    else
+      ok "$p aucune lecture de X-Forwarded-User"
+    fi
   fi
 
   has "traefik.http.routers.$APP.priority=100"                      && ok "$p priority=100"          || bad "$p priority=100 absent — 404 silencieux garanti"
@@ -2487,6 +3268,18 @@ check_app_files() {
     grep -qi 'traefik\.' "$d/Dockerfile" \
       && bad "$p LABEL traefik.* dans le Dockerfile — publierait une route SANS authentification" \
       || ok "$p aucun label traefik dans le Dockerfile"
+    # Un volume nomme herite du proprietaire du repertoire TEL QU'IL EXISTE dans
+    # l'image. Si le chemin monte n'y existe pas, Docker le cree en root, et une
+    # app tournant en USER non root ne peut pas y ecrire : elle demarre, puis
+    # perd tout, sans erreur claire. C'est le Dockerfile qui fixe ces droits,
+    # avant USER — nulle part ailleurs. Avertissement et non refus : le chemin
+    # peut etre prepare par une forme que ce grep ne reconnait pas.
+    local c
+    for c in "${A_VOL_CHEMINS[@]}"; do
+      grep -qE "(mkdir|chown)[^\n]*$c" "$d/Dockerfile" \
+        && ok "$p $c prepare dans le Dockerfile" \
+        || warn "$p $c est monte mais n'est ni cree ni chown dans le Dockerfile — le volume naitrait en root, l'app non root ne pourrait pas y ecrire"
+    done
     # une image sans shell ne peut pas executer un healthcheck CMD-SHELL
     if grep -qiE '^[[:space:]]*FROM .*(scratch|distroless)' "$d/Dockerfile" && [ "$A_HEALTH_CMD" != none ]; then
       bad "$p image sans shell (scratch/distroless) mais health_cmd defini — mets 'none' ou change de base"
@@ -2682,6 +3475,8 @@ if [ "$CHECK" = 1 ]; then
   echo
   echo "-- applications"
   for a in "${APPS[@]}"; do check_app_files "$a"; done
+  check_volume_noms
+  ok "noms de volumes distincts entre apps"
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.
@@ -2724,7 +3519,7 @@ if [ "$CHECK" = 1 ]; then
   # reorganisation incomplete — le risque propre a une fabrique qui deplace des
   # applications. Boucle `for` et non tube : bad() doit rester dans ce shell.
   morts=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     for cible in $(grep -oE '\]\([^)#:]+\.md\)' "$src" | sed -E 's/^\]\((.*)\)$/\1/'); do
       [ -f "$(dirname "$src")/$cible" ] || { bad "lien mort : $src -> $cible"; morts=$((morts+1)); }
@@ -2756,7 +3551,7 @@ if [ "$CHECK" = 1 ]; then
   # generateur produit un fichier plausible mais inanalysable, qui echouerait
   # silencieusement au demarrage d'une session cloud. bash -n le voit tout de
   # suite, et coute une milliseconde.
-  for s in .claude/check-plugins.sh .claude/cloud-setup.sh apps/*/test.sh; do
+  for s in .claude/check-plugins.sh .claude/cloud-setup.sh .claude/garde-*.sh apps/*/test.sh; do
     [ -f "$s" ] || continue
     bash -n "$s" 2>/dev/null && ok "$s analysable" || bad "$s : erreur de syntaxe shell"
   done
@@ -2779,7 +3574,41 @@ if [ "$CHECK" = 1 ]; then
     bad ".claude/cloud-setup.sh absent — les plugins resteraient inertes en session cloud"
   fi
 
-  # 6. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
+  # 6. Journal des anomalies. Une entree suivie par git est une entree livree :
+  # elle doit dire quelque chose. Une entree non suivie est un travail en cours,
+  # et ne se juge pas — c'est ce qui laisse --check vert entre l'ouverture de la
+  # branche et le premier commit, sans rien relacher en CI, ou tout est suivi.
+  echo
+  echo "-- journal"
+  if [ -d "$JOURNAL_DIR" ]; then
+    mauvaises=0 total=0 anomalies=0
+    for e in "$JOURNAL_DIR"/[0-9]*.md; do
+      [ -f "$e" ] || continue
+      git ls-files --error-unmatch "$e" >/dev/null 2>&1 || continue
+      total=$((total+1))
+      faute=0
+      grep -q "$JOURNAL_MARQUEUR" "$e" && { bad "$e : gabarit nu committe"; faute=1; }
+      grep -q '^## Anomalies' "$e" || { bad "$e : section '## Anomalies' absente"; faute=1; }
+      journal_entete "$e" || faute=1
+
+      # Chaque anomalie doit porter ses deux champs fermes. Compter les titres et
+      # les champs valides suffit : un jeton hors vocabulaire ne matche pas, donc
+      # le compte tombe — pas besoin d'analyser le document.
+      n=$(grep -c '^### ' "$e" || true)
+      d=$(grep -cE "^\*\*Detecte par\*\* — \`($JOURNAL_DETECTE)\`" "$e" || true)
+      a=$(grep -cE "^\*\*Action\*\* — \`($JOURNAL_ACTION)\`" "$e" || true)
+      [ "$d" -eq "$n" ] || { bad "$e : $d/$n champ(s) 'Detecte par' valide(s) — $JOURNAL_DETECTE"; faute=1; }
+      [ "$a" -eq "$n" ] || { bad "$e : $a/$n champ(s) 'Action' valide(s) — $JOURNAL_ACTION"; faute=1; }
+
+      anomalies=$((anomalies+n))
+      [ "$faute" = 0 ] || mauvaises=$((mauvaises+1))
+    done
+    [ "$mauvaises" -eq 0 ] && ok "$total entree(s), $anomalies anomalie(s), champs agregeables"
+  else
+    warn "aucun journal/ — la premiere ./init.sh --branche l'ouvrira"
+  fi
+
+  # 7. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
   # caractere — gh[p]_ — pour que ce script, lui-meme suivi par git, ne se
   # detecte pas comme fuite a chaque lancement.
   echo
@@ -2807,9 +3636,9 @@ if [ "$CHECK" = 1 ]; then
 
   echo
   if [ ${#SANS_AUTH[@]} -gt 0 ]; then
-    printf '\033[41;97m  %d APPLICATION(S) SANS AUTHENTIFICATION CONFORME  \033[0m\n' "${#SANS_AUTH[@]}"
+    printf '\033[41;97m  %d APPLICATION(S) AU PALIER NON CONFORME  \033[0m\n' "${#SANS_AUTH[@]}"
     for a in "${SANS_AUTH[@]}"; do printf '    %s -> https://%s.%s\n' "$a" "$a" "$DOMAIN"; done
-    echo "  Le contrat n'a pas de palier public. Ne pousse pas."
+    echo "  Le compose ne pose pas le middleware declare dans app.yml. Ne pousse pas."
     echo
   fi
   if [ ${#ROUTAGE_OUVERT[@]} -gt 0 ]; then
@@ -2846,6 +3675,10 @@ discover_apps
 [ ${#APPS[@]} -gt 0 ] || { echo "ERREUR : aucune app sous apps/ — ./init.sh --add <nom>" >&2; exit 1; }
 
 apply_target_options
+# Avant d'ecrire quoi que ce soit : une collision de noms de volumes doit
+# arreter la generation, pas seulement --check. Un compose ou deux apps
+# partagent un volume est deja ecrit quand --check le dit.
+check_volume_noms
 compute_tooling
 
 # Un manifeste invalide ne doit pas produire un compose « plausible mais faux » :
@@ -2965,7 +3798,7 @@ for f in "${DERIVES[@]}"; do
   mv "$tmp" "$f"
   ok "$f"
 done
-chmod +x .claude/check-plugins.sh
+chmod +x .claude/check-plugins.sh .claude/garde-branche.sh .claude/garde-commit.sh
 
 IGNORES=('.claude/settings.local.json' '.env' '.env.*' '*.log')
 # `go build` sans -o depose son binaire dans le repertoire courant, sous le nom
