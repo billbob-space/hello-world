@@ -161,28 +161,46 @@ argument tel quel ; elle est émise en forme exec, **entière**, et `volumes:` e
 l'app. C'est ainsi qu'un worker partage les données de son service principal, et
 c'est la raison d'être du préfixe.
 
-**`command:` n'est pas une porte dérobée vers les secrets.** Elle est validée
-comme `env:`, ici comme dans `shared_services`, et **en entier** : écrite en
-liste, elle est recollée en argv avant d'être relue. Un contrôle qui ne verrait
-que le premier élément laisserait passer tout le reste — et le compose n'en
-publierait que ce premier mot, la commande partant tronquée sans un mot d'alerte.
-Tout jeton dont la clé évoque un secret et qui porte une **valeur littérale** fait
-échouer la génération, sous les trois formes `--clé valeur`, `--clé=valeur` et
-`CLÉ=valeur` : `requirepass`, `password`, `passwd`, `secret`, `token`, `api-key`,
-`secret-key`, `private-key`, `auth-token`… Sans ce contrôle,
-`command: --requirepass p4ssw0rd` écrivait la valeur en clair dans `fabrique.yml`
-**et** dans `compose.yaml`, deux fichiers suivis par git — par la porte même que
-`env:` ferme.
+**Les secrets n'ont qu'une porte, et elle regarde le résultat.** Aucun contrôle
+n'est plus attaché à un champ. Il y en a eu un, sur `command:`, et il a été
+contourné trois fois de suite : `["sh", "-c", "… --requirepass X"]` — un seul
+jeton, sans tiret ni `=`, donc ignoré —, puis `--requirepass -X`, où la valeur
+était prise pour une option, puis `health_cmd`, qui n'entrait pas par `command:`
+du tout. La leçon n'était pas qu'il manquait une règle de plus : un contrôle par
+**nom de clé** a autant de trous que le manifeste a de champs, et un de plus à
+chaque champ ajouté.
 
-Ces mots sont reconnus **entiers**, sur une frontière de tiret, de souligné ou de
-point, et jamais en sous-chaîne : `key` et `auth` seuls ne déclenchent rien. Sans
-cet ancrage, `--notify-keyspace-events Ex` — l'option de l'image même donnée en
-exemple plus bas —, `--tls-key-file /certs/k.pem`, qui est un chemin, et
-`--auth-host=trust` seraient refusés, sans échappatoire et avec un message qui
-renvoie vers `env:` pour une valeur qui n'est pas un secret. Les formes sans
-valeur littérale restent admises, `--maxmemory 96mb` comme
-`--requirepass ${REDIS_PASSWORD}` : un secret passe par `env:` et par
-l'environnement du serveur, jamais par une valeur écrite ici.
+Avant d'écrire quoi que ce soit — et de nouveau dans `--check` —, `init.sh`
+**scanne les fichiers produits et les manifestes** : `compose.yaml`,
+`fabrique.yml`, `apps/*/app.yml`. Il y cherche un motif, et un seul :
+`<mot-secret><séparateur><valeur littérale>`, où le mot est `requirepass`,
+`password`, `passwd`, `secret`, `token`, `api-key`, `secret-key`, `private-key`,
+`access-key`, `auth-token`… ou le `://utilisateur:motdepasse@` d'une URL, et où
+le séparateur est l'espace, `=` ou `:`. **Une valeur commençant par `-` compte
+comme une valeur** : c'est précisément par là qu'on est passé la dernière fois.
+`command:`, `health_cmd`, `sh -c` et la porte que quelqu'un ouvrira demain sont
+couverts par le même contrôle, parce qu'il regarde **ce qui est écrit** et non
+par où c'est entré. L'échec nomme le **fichier et la ligne**, et ne réimprime
+jamais la valeur.
+
+Deux formes restent admises, et ce sont les deux bonnes : `${VAR}` et `$(...)`,
+dont la valeur est injectée par l'infrastructure — `--requirepass
+${REDIS_PASSWORD}` —, et un **chemin**, forme du secret monté en fichier —
+`--password-file /run/secrets/pw`. Refuser le second pousserait à écrire le
+secret en clair à la place. Les faux positifs sont évités par la **frontière
+gauche** et non par une liste d'exceptions : le mot doit ouvrir la ligne en clé
+YAML, ou être collé à la ponctuation d'une option ou d'un identifiant. `key` et
+`auth` seuls ne déclenchent donc rien, et `--notify-keyspace-events Ex`,
+`--tls-key-file /certs/k.pem`, `--auth-host=trust` passent — là où le contrôle
+par champ, lui, refusait `--password-file /run/secrets/pw` : un faux positif qui
+poussait à faire pire.
+
+`command:` n'a donc plus de validation propre. Elle reste lue **en entier** :
+écrite en liste, elle est recollée en argv avant d'être émise — un lecteur qui ne
+verrait que le premier élément publierait une commande tronquée, sans un mot
+d'alerte — et une liste en ligne est découpée **en tenant compte des
+guillemets**, sans quoi `["postgres", "-c", "a=x,y"]` partirait avec deux
+guillemets orphelins dans son argv.
 
 ## Ajouter une application
 
@@ -192,12 +210,23 @@ Deux commits, dans cet ordre : **construire d'abord, brancher ensuite.**
 ./init.sh --add ma-nouvelle-app --stack go --exposure private
 # écris apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
 ./init.sh --check
-git add apps/ma-nouvelle-app && git commit    # commit 1 : la CI publie l'image
+git add apps/ma-nouvelle-app compose.yaml .github .gitignore .claude go.work
+git commit                                    # commit 1 : la CI publie l'image
 
 ./init.sh --app ma-nouvelle-app --enable      # une fois l'image publiée
 ./init.sh --check
 git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2 : le déploiement
 ```
+
+**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`.**
+`--add` réécrit `compose.yaml` (le bloc commenté de l'app désactivée), le
+workflow (le nom de l'app entre dans la liste des images à construire) et
+`.gitignore` (le binaire de l'app) ; s'il introduit un langage ou un `ui: true`
+nouveau, `.claude/` ; et dès que le module Go existe, `go.work`. N'ajouter que
+`apps/<nom>` produit un commit **désynchronisé** : le job `contrat` échoue en
+CI sur « compose.yaml désynchronisé des manifestes », avant même la
+construction. Le commit 2, lui, ne touche que `app.yml` et `compose.yaml` :
+`--enable` ne réécrit rien d'autre.
 
 Le chemin en un seul commit fonctionne aussi — la construction précède le
 garde-fou dans la même exécution — mais la séquence en deux commits fait
@@ -574,8 +603,9 @@ sont **plus** des décisions d'infrastructure. `shared_services`, `services:` et
 génère, le déploiement les crée. Ne demande pas dans un `README` ce que tu peux
 écrire dans un manifeste.
 
-Restent hors de ce dépôt exactement cinq choses, et elles ne se traitent pas de
-la même façon. **Un fait** — tu vis avec :
+De ce que ton travail sur une app peut rencontrer, cinq choses restent hors de
+ce dépôt, et elles ne se traitent pas de la même façon. **Un fait** — tu vis
+avec :
 
 | Hors du dépôt | Pourquoi |
 |---|---|
@@ -599,6 +629,14 @@ qu'une réponse qui ne viendra pas ; la réponse est dans la colonne de droite.
 | un **bind mount** depuis un chemin de l'hôte | Docker créerait le répertoire absent **en root** et ton app non-root n'y écrirait jamais ; refusé à la génération | un **volume nommé** dans `volumes:` — créé par `docker compose up`, zéro action sur l'hôte |
 | une **exposition sans authentification** | il n'existe pas de troisième palier | `private` ou `google`, et `X-Forwarded-User` pour cloisonner par utilisateur |
 
+Ces cinq-là sont celles que **le code d'une app** rencontre. Elles ne sont pas
+tout ce qui vit hors du dépôt : le **réglage une fois pour toutes** de la
+fabrique elle-même y vit aussi — l'accès en lecture aux paquets GHCR, les deux
+secrets `DOCKHAND_*` du dépôt GitHub, l'option *Force redeployment* de la stack
+`dockhand`, et l'enregistrement DNS du sous-domaine. Ils ne se posent pas app
+par app, et le [`README`](README.md) les documente ; n'écris pas de demande
+pour eux.
+
 Quand tu travailles sur une app, **les fichiers des autres apps ne t'appartiennent
 pas non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.claude/`,
 `go.work`. Tu changes `apps/<nom>/app.yml` — ou `fabrique.yml` si c'est un
@@ -611,8 +649,8 @@ service partagé, en sachant qu'il est commun à toutes les apps — et tu relan
 ./init.sh --check
 ```
 
-Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, noms de
-service —, parce qu'un `app.yml` faux ne pourrait produire qu'un « compose
+Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`,
+noms de service —, parce qu'un `app.yml` faux ne pourrait produire qu'un « compose
 désynchronisé » dont le vrai motif serait perdu ; puis il compare chaque artefact
 dérivé à ce qu'`init.sh` écrirait aujourd'hui ; puis il relit le compose
 **service par service**, les trois sortes — dont le `traefik.enable=false` de

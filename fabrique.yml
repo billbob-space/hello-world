@@ -22,11 +22,24 @@ log_max_file: 3
 # est une erreur de generation, pas une panne au demarrage.
 #
 # « command » s'ecrit en scalaire — decoupee sur les espaces — ou en LISTE, en
-# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas. Une
-# valeur litterale sur une cle qui evoque un secret (« --requirepass p4ssw0rd »)
-# est refusee a la generation : declare le NOM dans env: et ecris
-# « --requirepass ${REDIS_PASSWORD} ». Les mots-cles sont reconnus entiers, donc
-# « --notify-keyspace-events Ex » ou « --tls-key-file /certs/k.pem » passent.
+# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas.
+#
+# Un secret ne se declare pas ici, et aucune syntaxe ne le fait passer : avant
+# d'ecrire quoi que ce soit, init.sh scanne ce fichier, les apps/*/app.yml et le
+# compose qu'il vient de produire. Une cle qui evoque un secret — requirepass,
+# password, token, api-key, ou des identifiants dans une URL — suivie d'une
+# VALEUR LITTERALE arrete la generation ; le message nomme le fichier et la
+# ligne, sans jamais reimprimer la valeur. Le scan lit le RESULTAT et non les
+# champs : « sh -c », health_cmd et command: y passent de la meme facon.
+#
+# Deux formes restent admises, et ce sont les deux bonnes :
+#   « --requirepass ${REDIS_PASSWORD} »   le NOM va dans env:, la valeur est
+#                                         injectee par l'infrastructure ;
+#   « --password-file /run/secrets/pw »   un CHEMIN, forme du secret monte en
+#                                         fichier cote serveur.
+# Une option qui ne porte pas de secret passe telle quelle :
+# « --notify-keyspace-events Ex », « --tls-key-file /certs/k.pem »,
+# « --auth-host=trust ».
 #
 # Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
 #

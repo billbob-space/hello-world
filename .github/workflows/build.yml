@@ -174,11 +174,24 @@ jobs:
         run: |
           set -euo pipefail
           image=ghcr.io/billbob-space/hello-world/${{ matrix.app }}:ci
-          echo "labels de l'image : $(docker image inspect "$image" --format '{{json .Config.Labels}}')"
-          # Les cles seules, une par ligne : rien a analyser, donc pas de jq.
-          graves=$(docker image inspect "$image" \
-                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' \
-                   | grep -E '^traefik\.' || true)
+          # L'INSPECTION DOIT REUSSIR POUR QUE CE CONTROLE VEUILLE DIRE QUELQUE
+          # CHOSE. Un « || true » pose sur le tube couvre aussi l'echec de
+          # « docker image inspect » lui-meme : image absente, demon injoignable,
+          # tag mal orthographie — la sortie est vide, et une etape qui n'a RIEN
+          # inspecte passe au vert. C'est un controle de securite : il echoue
+          # ferme, sinon il ne sert a rien.
+          if ! cles=$(docker image inspect "$image" \
+                        --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}'); then
+            echo "::error::docker image inspect a echoue sur $image — les labels de l'image n'ont PAS pu etre verifies, et une image non inspectee ne peut pas etre publiee"
+            exit 1
+          fi
+          echo "labels de l'image :"; printf '%s\n' "$cles"
+          # Le grep est INSENSIBLE A LA CASSE, comme celui que ./init.sh --check
+          # passe sur le Dockerfile : Docker n'abaisse pas la casse des cles de
+          # label, et Traefik lit ses labels sans y prendre garde. Un
+          # « LABEL Traefik.enable » herite d'une image de base passerait sinon un
+          # controle et pas l'autre — le trou est du cote de celui qui publie.
+          graves=$(printf '%s\n' "$cles" | grep -iE '^traefik\.' || true)
           if [ -n "$graves" ]; then
             printf '::error::LABEL traefik grave dans l image : %s\n' $graves
             echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, portant un autre nom que celui de compose.yaml — donc SANS authentification. Retire-le du Dockerfile, ou change d'image de base : ce label n'est pas ecrasable depuis le compose."

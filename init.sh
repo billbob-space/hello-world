@@ -45,6 +45,15 @@
 # par plusieurs applications : un Redis commun, un Directus). Elle porte les
 # memes sections volumes: et env: qu'une app.
 #
+# LES SECRETS N'ONT QU'UNE PORTE, ET ELLE REGARDE LE RESULTAT. Avant d'ecrire
+# quoi que ce soit, et de nouveau dans --check, init.sh scanne fabrique.yml, les
+# apps/*/app.yml et le compose qu'il vient de produire : une cle qui evoque un
+# secret suivie d'une valeur litterale arrete tout, en nommant le fichier et la
+# ligne sans reimprimer la valeur. Aucun champ n'est privilegie — command:,
+# health_cmd, « sh -c » et la porte que quelqu'un ouvrira demain passent par le
+# meme controle. Restent admis : « ${NOM} », dont la valeur est injectee par
+# l'infrastructure, et un CHEMIN vers un secret monte en fichier.
+#
 # Le compose genere porte donc TROIS sortes de services, et une seule est
 # routee : <app> (labels de routage, authentification, priority=100),
 # <app>-<nom> (annexe prive) et <nom> (partage). Les deux dernieres ne portent
@@ -161,10 +170,20 @@ ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
       if (length(s) >= 2 && f == l && (f == "\"" || f == Q)) s = substr(s, 2, length(s) - 2)
       return s
     }
-    function flow(v,   n, i, parts, e) {
+    function flow(v,   n, i, c, q, cur, e) {
       sub(/^\[/, "", v); sub(/\]$/, "", v)
-      n = split(v, parts, ",")
-      for (i = 1; i <= n; i++) { e = clean(parts[i]); if (e != "") print e }
+      # Le decoupage TIENT COMPTE DES GUILLEMETS. Un split naif sur la virgule
+      # coupe « "a,b" » en plein milieu et laisse deux guillemets ORPHELINS, qui
+      # entrent litteralement dans la valeur, donc dans le conteneur.
+      n = length(v); q = ""; cur = ""
+      for (i = 1; i <= n; i++) {
+        c = substr(v, i, 1)
+        if (q != "") { cur = cur c; if (c == q) q = "" }
+        else if (c == "\"" || c == Q) { q = c; cur = cur c }
+        else if (c == ",") { e = clean(cur); if (e != "") print e; cur = "" }
+        else cur = cur c
+      }
+      e = clean(cur); if (e != "") print e
     }
     /^[ \t]*$/ { next }
     {
@@ -201,10 +220,21 @@ ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>
       if (length(s) >= 2 && f == l && (f == "\"" || f == Q)) s = substr(s, 2, length(s) - 2)
       return s
     }
-    function flow(key, v,   n, i, parts, e) {
+    function flow(key, v,   n, i, c, q, cur, e) {
       sub(/^\[/, "", v); sub(/\]$/, "", v)
-      n = split(v, parts, ",")
-      for (i = 1; i <= n; i++) { e = clean(parts[i]); if (e != "") print idx "\t" key "\t" e }
+      # Meme decoupage que dans ylist, et pour la meme raison : sans tenir compte
+      # des guillemets, « command: ["postgres", "-c", "a=x,y"] » devient trois
+      # arguments dont deux portent un guillemet orphelin — et le argv reellement
+      # lance par le conteneur cesse alors de correspondre a ce qui est ecrit.
+      n = length(v); q = ""; cur = ""
+      for (i = 1; i <= n; i++) {
+        c = substr(v, i, 1)
+        if (q != "") { cur = cur c; if (c == q) q = "" }
+        else if (c == "\"" || c == Q) { q = c; cur = cur c }
+        else if (c == ",") { e = clean(cur); if (e != "") print idx "\t" key "\t" e; cur = "" }
+        else cur = cur c
+      }
+      e = clean(cur); if (e != "") print idx "\t" key "\t" e
     }
     function pair(t,   kk, vv) {
       if (t !~ /^[A-Za-z_][A-Za-z0-9_]*:/) return
@@ -383,31 +413,12 @@ check_volume_list() {  # check_volume_list <proprietaire> <etiquette> <specs> �
   done <<<"$specs"
 }
 
-# command: n'est pas une porte derobee vers les secrets. env: refuse deja toute
-# valeur litterale ; sans ce controle, « command: --requirepass p4ssw0rd » place
-# la meme valeur en clair dans fabrique.yml ET dans compose.yaml, deux fichiers
-# suivis par git. On refuse donc toute cle qui evoque un secret des qu'elle porte
-# une valeur litterale — les formes sans valeur, elles, restent admises.
-#
-# Chaque alternative est ANCREE sur une frontiere de mot : debut ou fin de cle,
-# tiret, souligne, point. Une alternative NUE comme « auth » ou « key » matcherait
-# en sous-chaine et refuserait des options parfaitement legitimes —
-# « --notify-keyspace-events Ex » (Valkey/Redis, l'image donnee en exemple plus
-# bas), « --tls-key-file /certs/k.pem » (un chemin, pas un secret),
-# « --auth-host=trust » (PostgreSQL). Le refus est bloquant et sans echappatoire,
-# et son message renvoie vers env: : un faux positif interdirait donc une
-# configuration valide en proposant un remede qui n'a aucun sens pour une valeur
-# qui n'est pas un secret. « key » et « auth » ne sont pour cette raison jamais
-# reconnus seuls, mais uniquement soudes a un mot qui, lui, denonce un secret :
-# api-key, secret-key, private-key, auth-token, auth-pass…
-CMD_SECRET_RE='(^|[-_.])(requirepass|password|passwd|secret|token|api[-_.]?key|secret[-_.]?key|private[-_.]?key|access[-_.]?key|auth[-_.]?(token|pass|password|secret|key))($|[-_.])|(^|[-_.])pass$'
-
 # La commande telle qu'elle sera lancee, un argument par ligne. ymaps rend un
 # enregistrement PAR ELEMENT des que command: est ecrite en LISTE YAML — forme
 # en ligne « [a, b] » comme forme bloc « - a ». La lire avec map_one ne verrait
 # que le premier : la commande serait tronquee a son premier mot dans le compose,
-# en silence, et le controle des secrets ne porterait que sur ce mot-la. La forme
-# scalaire, elle, se decoupe sur les espaces comme une ligne de shell.
+# en silence. La forme scalaire, elle, se decoupe sur les espaces comme une ligne
+# de shell.
 CMD_ARGV=()
 cmd_argv() {  # cmd_argv <flux> <index> — pose CMD_ARGV
   local -a elems=()
@@ -420,34 +431,177 @@ cmd_argv() {  # cmd_argv <flux> <index> — pose CMD_ARGV
   fi
 }
 
-check_command() {  # check_command <argument...> — pose VERR
-  VERR=""
-  local key val t i
-  local -a toks=("$@")
-  [ "${#toks[@]}" -gt 0 ] || return 0
-  for (( i = 0; i < ${#toks[@]}; i++ )); do
-    t="${toks[$i]}"
-    val=""
-    case "$t" in
-      -*=*) key="${t%%=*}"; val="${t#*=}" ;;
-      -*)   key="$t"
-            # « --cle valeur » : le token suivant n'est une valeur que s'il
-            # n'est pas lui-meme une option.
-            if [ $(( i + 1 )) -lt ${#toks[@]} ]; then
-              case "${toks[$(( i + 1 ))]}" in -*) ;; *) val="${toks[$(( i + 1 ))]}" ;; esac
-            fi ;;
-      *=*)  key="${t%%=*}"; val="${t#*=}" ;;
-      *)    continue ;;
-    esac
-    key="${key#--}"; key="${key#-}"
-    printf '%s' "$key" | grep -qiE "$CMD_SECRET_RE" || continue
-    # Option sans valeur litterale : rien n'entre dans le depot.
-    [ -n "$val" ] || continue
-    # ${VAR} : la valeur est injectee par l'infrastructure au « compose up »,
-    # elle n'est pas dans le depot. C'est la forme prevue.
-    case "$val" in *'${'*|*'$('*) continue ;; esac
-    VERR="command : la cle '$key' porte une valeur litterale et son nom evoque un secret. La valeur — masquee ici — serait publiee : fabrique.yml comme compose.yaml sont suivis par git. env: est la porte prevue pour cela, il ne prend que le NOM de la variable et l'infrastructure injecte la valeur ; reference-la au besoin dans la commande sous la forme \${NOM}. Une option sans valeur litterale reste admise, par exemple « --maxmemory 96mb »."
-    return 1
+# --- les secrets : UNE SEULE PORTE, et elle regarde le RESULTAT ------------------
+#
+# Il n'y a plus de controle « par champ ». Il y en a eu un — sur command: — et il
+# a ete contourne trois fois de suite, chaque fois par une syntaxe que sa lecture
+# en jetons ne modelisait pas : « sh -c "… --requirepass X" » (un seul jeton, sans
+# tiret ni « = », donc ignore), « --requirepass -X » (une valeur prise pour une
+# option), puis health_cmd, qui n'entrait pas par command: du tout. La lecon n'est
+# pas qu'il manquait une regle de plus : c'est qu'un controle par NOM DE CHAMP a
+# autant de trous que le manifeste a de champs, et un de plus a chaque champ
+# ajoute.
+#
+# Ce scan-ci ne connait aucun champ. Il lit les FICHIERS PRODUITS ET LES
+# MANIFESTES — compose.yaml, fabrique.yml, apps/*/app.yml — et y cherche la seule
+# chose qui compte : « <mot-secret><separateur><valeur litterale> ». Il attrape
+# donc « sh -c », health_cmd, command:, un env: mal ecrit, et la porte que
+# quelqu'un ouvrira demain, parce qu'il regarde ce qui EST ECRIT et non par ou
+# c'est entre.
+#
+# Ce qui est EXEMPTE, et pourquoi :
+#   - « ${VAR} », « $(...) », « $VAR » : la valeur n'est pas dans le depot, elle
+#     est injectee au « compose up ». C'est la forme prevue, celle vers laquelle
+#     le message d'erreur renvoie.
+#   - une valeur qui est un CHEMIN (« /run/secrets/pw ») : c'est la forme
+#     recommandee du secret monte en fichier — « --password-file /run/secrets/pw ».
+#     La refuser pousserait a ecrire le secret en clair a la place.
+#
+# Ce qui compte comme valeur : tout le reste, y compris un jeton commencant par
+# « - ». C'est precisement par la qu'on est passe la derniere fois.
+#
+# Les faux positifs sont evites par la FRONTIERE GAUCHE, pas par une liste
+# d'exceptions : le mot-secret doit ouvrir la ligne en cle YAML (« password: X »)
+# ou etre colle a la ponctuation d'une option ou d'un identifiant
+# (« --requirepass », « POSTGRES_PASSWORD= », « "--api-key", »). « un secret dans
+# le depot », en prose, ne matche donc pas — et « key » et « auth » ne sont jamais
+# reconnus seuls, mais soudes a un mot qui denonce un secret : « --tls-key-file »,
+# « --notify-keyspace-events », « --auth-host=trust » restent admis.
+SECRET_WORD='(requirepass|password|passwd|secret|token|api[-_.]?key|secret[-_.]?key|private[-_.]?key|access[-_.]?key|auth[-_.]?(token|pass|key))'
+
+# scan_secrets <etiquette> — lit le texte a inspecter sur l'ENTREE STANDARD et
+# ecrit un probleme par ligne, « <etiquette>:<ligne> <message> ». N'imprime
+# JAMAIS la valeur trouvee : ce script ecrit dans un terminal, dans un journal de
+# CI, et sa sortie est recopiee dans des tickets.
+scan_secrets() {
+  LC_ALL=C awk -v F="$1" -v W="$SECRET_WORD" '
+    BEGIN {
+      Q  = sprintf("%c", 39)
+      QT = "[\"" Q "]"
+      # <separateur> : l espace, « = », « : » — et la ponctuation qui separe deux
+      # elements d une liste CITEE, par laquelle passe la forme exec du compose :
+      # « "--requirepass", "X" ».
+      SEP = "([ \t]*[=:][ \t]*|[ \t]+|" QT "[ \t]*,[ \t]*" QT ")"
+      # Frontiere gauche : la ponctuation d une option ou d un identifiant.
+      OPT = "[-_.,/[{(" Q "\"]" W SEP
+      # ... ou la cle en tete de ligne, forme « cle: valeur » d un manifeste.
+      KEY = "^[ \t]*(-[ \t]+)?" W "[ \t]*[=:][ \t]*"
+      # L URL a identifiants : « ://utilisateur:motdepasse@ ».
+      URL = "://[^:@/ \t]+:[^@/ \t]*@"
+      REM = " Un secret n entre pas dans ce depot : declare le NOM de la variable dans env: et reference-la sous la forme ${NOM}, ou monte le secret en fichier cote serveur et passe son CHEMIN (« /run/secrets/… »)."
+    }
+    function say(nr, kw, msg) {
+      if ((nr SUBSEP kw) in vu) return
+      vu[nr SUBSEP kw] = 1
+      printf "%s:%d %s\n", F, nr, msg
+    }
+    # La valeur qui suit le separateur — extraite pour etre QUALIFIEE, jamais
+    # imprimee.
+    function value(s,   v) {
+      v = s
+      sub("^" QT, "", v)
+      if (!match(v, "^[^ \t\"" Q "]+")) return ""
+      return substr(v, 1, RLENGTH)
+    }
+    function exempte(v) {
+      if (v == "") return 1                      # cle sans valeur : rien n entre
+      if (substr(v, 1, 1) == "$") return 1       # ${VAR}, $(...) : l infrastructure
+      if (substr(v, 1, 1) == "/") return 1       # un CHEMIN : secret monte en fichier
+      return 0
+    }
+    function mot(m) {  # le NOM de la cle, pour le message
+      sub(/^[ \t]*/, "", m); sub(/^-+[ \t]*/, "", m); sub(/^[^a-z0-9]/, "", m)
+      sub(/[^a-z0-9_.-].*$/, "", m)
+      return m
+    }
+    # Toute expansion — ${VAR}, $(...), $VAR — est remplacee par « $XXX » de MEME
+    # LONGUEUR. Les deux effets sont necessaires : la valeur reste exemptee, elle
+    # commence toujours par « $ » ; et un mot-secret ne peut plus etre lu A L
+    # INTERIEUR de l expansion. Sans cela « ${ADMIN_PASSWORD:-} », que emit_env
+    # ecrit pour CHAQUE nom declare, se lirait « password: -} » — une valeur
+    # litterale — et plus aucun env: ne passerait.
+    function masque(t,   out, n, i, j, k, c, d, cl) {
+      out = ""; n = length(t); i = 1
+      while (i <= n) {
+        c = substr(t, i, 1)
+        if (c == "$" && i < n) {
+          d = substr(t, i + 1, 1)
+          if (d == "{" || d == "(") {
+            cl = (d == "{") ? "}" : ")"
+            j = i + 2
+            while (j <= n && substr(t, j, 1) != cl) j++
+            if (j > n) j = n
+            out = out "$"
+            for (k = i + 1; k <= j; k++) out = out "X"
+            i = j + 1
+            continue
+          }
+          if (d ~ /[A-Za-z_]/) {
+            j = i + 1
+            while (j <= n && substr(t, j, 1) ~ /[A-Za-z0-9_]/) j++
+            out = out "$"
+            for (k = i + 1; k < j; k++) out = out "X"
+            i = j
+            continue
+          }
+        }
+        out = out c
+        i++
+      }
+      return out
+    }
+    function scan(t, nr,   lc, off, st, ln, kw, v, u) {
+      t  = masque(t)
+      lc = tolower(t)
+      off = 0
+      while (match(substr(lc, off + 1), URL)) {
+        st = off + RSTART; ln = RLENGTH
+        u = substr(t, st, ln); sub(/^:\/\/[^:]*:/, "", u); sub(/@$/, "", u)
+        if (!exempte(u))
+          say(nr, "url", "identifiants ecrits dans une URL (« ://utilisateur:motdepasse@ ») — le mot de passe y est une valeur litterale, non reimprimee ici." REM)
+        off = st + ln - 1
+      }
+      if (match(lc, KEY)) {
+        kw = mot(substr(lc, RSTART, RLENGTH))
+        v  = value(substr(t, RSTART + RLENGTH))
+        if (!exempte(v))
+          say(nr, kw, "la cle « " kw " » porte une valeur litterale et son nom evoque un secret — valeur non reimprimee ici." REM)
+      }
+      off = 0
+      while (match(substr(lc, off + 1), OPT)) {
+        st = off + RSTART; ln = RLENGTH
+        kw = mot(substr(lc, st, ln))
+        v  = value(substr(t, st + ln))
+        if (!exempte(v))
+          say(nr, kw, "la cle « " kw " » porte une valeur litterale et son nom evoque un secret — valeur non reimprimee ici." REM)
+        off = st + ln - 1
+      }
+    }
+    {
+      scan($0, NR)
+      # Une liste en BLOC ecrit l option et sa valeur sur DEUX lignes. On ne
+      # recolle que deux elements dont le PREMIER est une option (« - --requirepass ») :
+      # recoller deux elements quelconques ferait de « env: [- A_SECRET, - B] »
+      # une fausse alerte, alors que ce sont deux noms de variables.
+      it = $0; sub(/^[ \t]+/, "", it)
+      if (it ~ /^-[ \t]/) {
+        e = it; sub(/^-[ \t]*/, "", e)
+        if (pend != "") scan(pend " " e, pnr)
+        if (substr(e, 1, 1) == "-") { pend = e; pnr = NR } else pend = ""
+      } else pend = ""
+    }
+  '
+}
+
+# Les manifestes : fabrique.yml et les apps/*/app.yml decouverts. Le compose,
+# lui, est scanne par ses deux appelants — a la generation sur le texte QUI VA
+# ETRE ECRIT, dans --check sur le fichier produit.
+scan_manifests() {
+  local a
+  [ -f fabrique.yml ] && scan_secrets fabrique.yml < fabrique.yml
+  for a in "${APPS[@]-}"; do
+    [ -n "$a" ] || continue
+    [ -f "apps/$a/app.yml" ] && scan_secrets "apps/$a/app.yml" < "apps/$a/app.yml"
   done
   return 0
 }
@@ -614,9 +768,6 @@ collect_problems() {
     name=$(map_one "$SHARED_RECORDS" "$i" name)
     [ -n "$name" ] || continue
     check_volume_list "$name" "[$name]" "$(map_all "$SHARED_RECORDS" "$i" volumes)"
-    cmd_argv "$SHARED_RECORDS" "$i"
-    [ "${#CMD_ARGV[@]}" -eq 0 ] || check_command "${CMD_ARGV[@]}" \
-      || printf "[%s] %s\n" "$name" "$VERR"
     while IFS= read -r e; do
       [ -n "$e" ] || continue
       check_env_name "$e" || printf "[%s] %s\n" "$name" "$VERR"
@@ -666,9 +817,6 @@ collect_problems() {
       # Le proprietaire des volumes d'une annexe est l'APP : c'est ce qui permet
       # a un worker de monter le meme volume nomme que son service principal.
       check_volume_list "$a" "$p services '$name' :" "$(map_all "$A_SERVICES" "$i" volumes)"
-      cmd_argv "$A_SERVICES" "$i"
-      [ "${#CMD_ARGV[@]}" -eq 0 ] || check_command "${CMD_ARGV[@]}" \
-        || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
       while IFS= read -r e; do
         [ -n "$e" ] || continue
         check_env_name "$e" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
@@ -723,6 +871,20 @@ require_clean_manifests() {
   [ -n "$probs" ] || return 0
   echo "ERREUR : manifestes invalides — aucun artefact n'a ete genere." >&2
   while IFS= read -r l; do printf '  %s\n' "$l" >&2; done <<<"$probs"
+  exit 1
+}
+
+# Le scan des secrets, cote generation. Il porte sur les manifestes ET sur le
+# compose TEL QU'IL SERA ECRIT — pas sur celui qui est deja sur le disque, qui
+# est encore l'ancien : c'est le texte sortant du generateur qui doit etre
+# propre. Rien n'est ecrit tant qu'il n'a pas repondu, ni compose.yaml ni les
+# autres artefacts : un secret refuse ne laisse rien derriere lui.
+require_no_secrets() {
+  local fuites l
+  fuites=$( { scan_manifests; emit_compose | scan_secrets 'compose.yaml (genere)'; } )
+  [ -n "$fuites" ] || return 0
+  echo "ERREUR : valeur ressemblant a un secret — aucun artefact n'a ete genere." >&2
+  while IFS= read -r l; do printf '  %s\n' "$l" >&2; done <<<"$fuites"
   exit 1
 }
 
@@ -893,9 +1055,12 @@ emit_env() {  # emit_env <noms, un par ligne>
 }
 
 # Bloc commun aux services annexes et aux services partages : meme forme, meme
-# journalisation bornee, meme reseau — et AUCUN label de routage. C'est la seule
-# difference qui compte : un service sans label n'a pas d'URL, il n'est joignable
-# que par ses voisins du reseau, par son nom de service.
+# journalisation bornee, meme reseau — et UN SEUL label, « traefik.enable=false ».
+# C'est ce label, et non l'absence de label, qui retire du routage : avec
+# exposedByDefault, le DEFAUT de Traefik, un conteneur sans le moindre label
+# recoit quand meme un routeur, donc une URL, et sans authentification. Un
+# service non route n'a pas d'URL parce qu'il porte ce label ; il est alors
+# joignable de ses seuls voisins du reseau, par son nom de service.
 aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <argv, un par ligne> <volumes> <env> <legende>
   local svc="$1" owner="$2" image="$3" mem="$4" cmd="$5" vols="$6" envs="$7" legend="$8"
   cat <<YAML
@@ -928,13 +1093,12 @@ aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <argv, un 
       - "traefik.enable=false"
 YAML
   # La commande arrive deja decoupee, un argument par ligne : c'est la forme qui
-  # survit indifferemment a un scalaire et a une liste YAML. Elle est validee ici
-  # aussi, et pas seulement dans collect_problems : ce fichier ne doit jamais
-  # sortir du generateur avec un secret dedans.
+  # survit indifferemment a un scalaire et a une liste YAML. Elle n'a pas de
+  # validation propre — c'est le scan du compose PRODUIT, avant ecriture, qui
+  # refuse un secret, quelle que soit la syntaxe par laquelle il est arrive.
   local -a argv=()
   [ -z "$cmd" ] || mapfile -t argv <<<"$cmd"
   if [ "${#argv[@]}" -gt 0 ]; then
-    check_command "${argv[@]}" || { echo "ERREUR : $svc — $VERR" >&2; exit 1; }
     printf '    command: %s\n' "$(json_argv "${argv[@]}")"
   fi
   emit_volumes "$owner" "$vols"
@@ -1411,11 +1575,24 @@ jobs:
         run: |
           set -euo pipefail
           image=__REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:ci
-          echo "labels de l'image : $(docker image inspect "$image" --format '{{json .Config.Labels}}')"
-          # Les cles seules, une par ligne : rien a analyser, donc pas de jq.
-          graves=$(docker image inspect "$image" \
-                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' \
-                   | grep -E '^traefik\.' || true)
+          # L'INSPECTION DOIT REUSSIR POUR QUE CE CONTROLE VEUILLE DIRE QUELQUE
+          # CHOSE. Un « || true » pose sur le tube couvre aussi l'echec de
+          # « docker image inspect » lui-meme : image absente, demon injoignable,
+          # tag mal orthographie — la sortie est vide, et une etape qui n'a RIEN
+          # inspecte passe au vert. C'est un controle de securite : il echoue
+          # ferme, sinon il ne sert a rien.
+          if ! cles=$(docker image inspect "$image" \
+                        --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}'); then
+            echo "::error::docker image inspect a echoue sur $image — les labels de l'image n'ont PAS pu etre verifies, et une image non inspectee ne peut pas etre publiee"
+            exit 1
+          fi
+          echo "labels de l'image :"; printf '%s\n' "$cles"
+          # Le grep est INSENSIBLE A LA CASSE, comme celui que ./init.sh --check
+          # passe sur le Dockerfile : Docker n'abaisse pas la casse des cles de
+          # label, et Traefik lit ses labels sans y prendre garde. Un
+          # « LABEL Traefik.enable » herite d'une image de base passerait sinon un
+          # controle et pas l'autre — le trou est du cote de celui qui publie.
+          graves=$(printf '%s\n' "$cles" | grep -iE '^traefik\.' || true)
           if [ -n "$graves" ]; then
             printf '::error::LABEL traefik grave dans l image : %s\n' $graves
             echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, portant un autre nom que celui de compose.yaml — donc SANS authentification. Retire-le du Dockerfile, ou change d'image de base : ce label n'est pas ecrasable depuis le compose."
@@ -1897,8 +2074,11 @@ ui: $ui
 # label qui RETIRE du routage, et il n'a donc pas d'URL — seuls ses voisins du
 # reseau le joignent, par ce nom. « name » et « image » sont obligatoires ;
 # « memory » (defaut 128m), « command », « volumes » et « env » sont libres.
-# « command » est validee comme « env » : une valeur litterale sur une cle qui
-# evoque un secret (--requirepass, --api-key, PASSWORD=...) est refusee.
+# « command » n'a pas de validation propre : c'est le compose PRODUIT, plus ce
+# fichier-ci, que init.sh scanne avant d'ecrire. Une cle qui evoque un secret
+# suivie d'une valeur litterale arrete la generation, quelle que soit la syntaxe
+# par laquelle elle arrive. Ecris « \${NOM} » — le NOM va dans env: — ou le
+# CHEMIN d'un secret monte en fichier.
 # Ses volumes portent le nom de l'APP, pas le sien : « donnees:/data » ici monte
 # le meme volume « $a-donnees » que la section volumes: ci-dessus. C'est ainsi
 # qu'un worker partage les donnees de son service principal.
@@ -1996,9 +2176,15 @@ apps/$a echafaude. Il te reste a ecrire :
 Puis, dans cet ordre — construire d'abord, brancher ensuite :
 
   ./init.sh --check
-  git add apps/$a && git commit     # commit 1 : la CI publie l'image
+  git add apps/$a compose.yaml .github .gitignore .claude go.work
+  git commit                        # commit 1 : la CI publie l'image
   ./init.sh --app $a --enable       # une fois l'image publiee
   git add apps/$a/app.yml compose.yaml && git commit   # commit 2 : le deploiement
+
+Le commit 1 emporte les artefacts regeneres : --add vient de reecrire
+compose.yaml, le workflow et .gitignore — plus .claude/ si le langage ou ui:
+est nouveau, et go.work des que le module Go existe. N'ajouter que apps/$a
+fait echouer le job « contrat » sur « compose.yaml desynchronise ».
 
 Le healthcheck appellera : $health_cmd
 Assure-toi que cet outil existe dans l'image finale, sinon le conteneur sera
@@ -2027,10 +2213,24 @@ set_key() {  # set_key <fichier> <cle> <valeur> — preserve commentaires et ord
 apply_target_options() {
   [ -n "$TARGET" ] || return 0
   [ ${#SET[@]} -gt 0 ] || return 0
-  local f="apps/$TARGET/app.yml" k cur
+  local f="apps/$TARGET/app.yml" k cur tmp fuites l
   if [ ! -f "$f" ]; then
     [ "$DRYRUN" = 1 ] && { warn "$f n'existe pas — rien a modifier (--dry-run)"; return 0; }
     echo "ERREUR : $f introuvable — ./init.sh --add $TARGET" >&2; exit 1
+  fi
+  # Le manifeste QUI SERAIT ECRIT passe la porte AVANT de l'etre. Refuser plus
+  # loin serait une ligne trop tard : la valeur serait deja dans un fichier suivi
+  # par git, et le ok() ci-dessous l'aurait affichee. On applique donc les
+  # options a une COPIE — memes lignes, donc memes numeros de ligne dans le
+  # message — et on scanne celle-la. --dry-run compris : un apercu ne doit pas
+  # etaler la valeur qu'une generation refuserait.
+  tmp=$(mktemp); cp "$f" "$tmp"
+  for k in "${!SET[@]}"; do set_key "$tmp" "$k" "${SET[$k]}"; done
+  fuites=$(scan_secrets "$f" < "$tmp"); rm -f "$tmp"
+  if [ -n "$fuites" ]; then
+    echo "ERREUR : valeur ressemblant a un secret — $f n'a pas ete modifie, aucun artefact n'a ete genere." >&2
+    while IFS= read -r l; do printf '  %s\n' "$l" >&2; done <<<"$fuites"
+    exit 1
   fi
   for k in "${!SET[@]}"; do
     if [ "$DRYRUN" = 1 ]; then
@@ -2376,7 +2576,7 @@ if [ "$CHECK" = 1 ]; then
   if [ -n "$probs" ]; then
     while IFS= read -r l; do bad "$l"; nprobs=$(( nprobs + 1 )); done <<<"$probs"
   else
-    ok "volumes, env, needs, commandes, noms de service : fabrique.yml et apps/*/app.yml conformes"
+    ok "volumes, env, needs, noms de service : fabrique.yml et apps/*/app.yml conformes"
   fi
   # Ce qui n'est pas faux, mais ne fait pas ce que son auteur croit.
   show_warnings
@@ -2584,6 +2784,19 @@ if [ "$CHECK" = 1 ]; then
   # detecte pas comme fuite a chaque lancement.
   echo
   echo "-- secrets"
+  # Le meme scan qu'a la generation, sur les memes fichiers — mais ici sur le
+  # compose PRODUIT, celui qui est sur le disque et que git suit. Un compose
+  # edite a la main est donc couvert lui aussi, alors meme que la generation ne
+  # l'a jamais vu.
+  # « ; true » n'est pas decoratif : sans lui, un compose.yaml absent fait rendre
+  # 1 a la substitution, et set -e arrete --check ici meme — au milieu du
+  # rapport, sans total et sans les trois bandeaux rouges de la fin.
+  fuites=$( { scan_manifests; [ -f "$COMPOSE" ] && scan_secrets "$COMPOSE" < "$COMPOSE"; true; } )
+  if [ -n "$fuites" ]; then
+    while IFS= read -r l; do [ -n "$l" ] && bad "$l"; done <<<"$fuites"
+  else
+    ok "aucune valeur litterale sur une cle qui evoque un secret — $COMPOSE, fabrique.yml, apps/*/app.yml"
+  fi
   if git ls-files -z 2>/dev/null | xargs -0 -r grep -lIE \
        '(gh[p]_|github_pa[t]_|xox[baprs]-|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY)' \
        2>/dev/null | grep -q .; then
@@ -2636,8 +2849,12 @@ apply_target_options
 compute_tooling
 
 # Un manifeste invalide ne doit pas produire un compose « plausible mais faux » :
-# la fabrique s'arrete ici, avant d'ecrire quoi que ce soit.
+# la fabrique s'arrete ici, avant d'ecrire quoi que ce soit. Et un secret ne doit
+# pas entrer dans un fichier suivi par git : le scan porte sur le compose QUI VA
+# ETRE ECRIT, donc sur toutes les syntaxes a la fois, y compris --dry-run — dont
+# l'apercu afficherait sinon la valeur que la generation refuse.
 require_clean_manifests
+require_no_secrets
 show_warnings
 
 if [ ! -f fabrique.yml ] && [ "$DRYRUN" = 1 ]; then
@@ -2668,11 +2885,24 @@ log_max_file: $LOG_MAX_FILE
 # est une erreur de generation, pas une panne au demarrage.
 #
 # « command » s'ecrit en scalaire — decoupee sur les espaces — ou en LISTE, en
-# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas. Une
-# valeur litterale sur une cle qui evoque un secret (« --requirepass p4ssw0rd »)
-# est refusee a la generation : declare le NOM dans env: et ecris
-# « --requirepass \${REDIS_PASSWORD} ». Les mots-cles sont reconnus entiers, donc
-# « --notify-keyspace-events Ex » ou « --tls-key-file /certs/k.pem » passent.
+# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas.
+#
+# Un secret ne se declare pas ici, et aucune syntaxe ne le fait passer : avant
+# d'ecrire quoi que ce soit, init.sh scanne ce fichier, les apps/*/app.yml et le
+# compose qu'il vient de produire. Une cle qui evoque un secret — requirepass,
+# password, token, api-key, ou des identifiants dans une URL — suivie d'une
+# VALEUR LITTERALE arrete la generation ; le message nomme le fichier et la
+# ligne, sans jamais reimprimer la valeur. Le scan lit le RESULTAT et non les
+# champs : « sh -c », health_cmd et command: y passent de la meme facon.
+#
+# Deux formes restent admises, et ce sont les deux bonnes :
+#   « --requirepass \${REDIS_PASSWORD} »   le NOM va dans env:, la valeur est
+#                                         injectee par l'infrastructure ;
+#   « --password-file /run/secrets/pw »   un CHEMIN, forme du secret monte en
+#                                         fichier cote serveur.
+# Une option qui ne porte pas de secret passe telle quelle :
+# « --notify-keyspace-events Ex », « --tls-key-file /certs/k.pem »,
+# « --auth-host=trust ».
 #
 # Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
 #

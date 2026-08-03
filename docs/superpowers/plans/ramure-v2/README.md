@@ -10,20 +10,27 @@ couverture du PRD. Chaque PRP s'y réfère plutôt que de la recopier.
 
 ## Les neuf étapes
 
+Écrits à ce jour : **01 et 02**. Les sept autres sont *à venir* — leur ligne
+n'est pas cliquable tant que le fichier n'existe pas.
+
 | # | PRP | Livrable démontrable | Exigences |
 |---|---|---|---|
-| 01 | [Socle déployable](01-socle.md) | l'app répond sur son URL, image publiée, CI verte | contrat fabrique |
+| 01 | [Socle déployable](01-socle.md) | image publiée sur GHCR, CI verte — **pas encore branchée** : `enabled: false`, aucune réponse sur l'URL | contrat fabrique |
 | 02 | [Noyau d'appels](02-noyau-appels.md) | cache mutualisé, budget borné, noms stricts | N-03 à N-05, N-07, §09 |
-| 03 | [Sources de données](03-sources.md) | les quatre rôles pourvus, cascade de repli | §09, F-20, F-22, F-25, F-26 |
-| 04 | [L'arbre](04-arbre.md) | `/api/centre` complet, vide et panne distingués | F-08, F-15, F-16, F-36 à F-39 |
-| 05 | [Le canevas](05-canevas.md) | l'arbre s'affiche et se parcourt — **le MVP se voit** | F-09 à F-14, F-17 |
-| 06 | [Les écrans](06-ecrans.md) | accueil, recherche, fiche, discographie, lecteur | F-01 à F-07, F-19, F-21, F-24, F-34 |
-| 07 | [Identité et collection](07-identite-collection.md) | garder, replanter, cloisonner | F-28 à F-33, N-08 à N-10 |
-| 08 | [Parité et accessibilité](08-parite-accessibilite.md) | WCAG 2.2 AA, installation, mise à jour | §07, §12, N-11, N-12, F-41, F-42 |
-| 09 | [Recette et mise en ligne](09-recette-mise-en-ligne.md) | bout en bout sur réseau simulé, app en ligne | §13 |
+| 03 | `03-sources.md` *(à venir)* | les quatre rôles pourvus, cascade de repli | §09, F-20, F-22, F-25, F-26 |
+| 04 | `04-arbre.md` *(à venir)* | `/api/centre` complet, vide et panne distingués | F-08, F-15, F-16, F-36 à F-39 |
+| 05 | `05-canevas.md` *(à venir)* | l'arbre s'affiche et se parcourt — **le MVP se voit** | F-09 à F-14, F-17 |
+| 06 | `06-ecrans.md` *(à venir)* | accueil, recherche, fiche, discographie, lecteur | F-01 à F-07, F-19, F-21, F-24, F-34 |
+| 07 | `07-identite-collection.md` *(à venir)* | garder, replanter, cloisonner | F-28 à F-33, N-08 à N-10 |
+| 08 | `08-parite-accessibilite.md` *(à venir)* | WCAG 2.2 AA, installation, mise à jour | §07, §12, N-11, N-12, F-41, F-42 |
+| 09 | `09-recette-mise-en-ligne.md` *(à venir)* | bout en bout sur réseau simulé, **branchement** (`enabled: true`) et app en ligne | §13 |
 
 **Ordre :** strictement séquentiel de 01 à 09. Chaque PRP déclare en tête ce
 qu'il consomme des précédents, avec les signatures exactes.
+
+**Le branchement est la dernière tâche du PRP 09**, jamais avant : l'app naît
+`enabled: false` et n'entre dans `compose.yaml` qu'une fois son image publiée.
+Aucune étape antérieure ne rend `ramure-v2.apps.billbob.ovh` joignable.
 
 ---
 

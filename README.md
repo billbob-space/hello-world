@@ -45,12 +45,20 @@ Deux commits — **construire d'abord, brancher ensuite** :
 ./init.sh --add ma-nouvelle-app --stack go --exposure private
 # écrire apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
 ./init.sh --check
-git add apps/ma-nouvelle-app && git commit     # commit 1 : la CI publie l'image
+git add apps/ma-nouvelle-app compose.yaml .github .gitignore .claude go.work
+git commit                                     # commit 1 : la CI publie l'image
 
 ./init.sh --app ma-nouvelle-app --enable       # une fois l'image publiée
 ./init.sh --check
 git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit    # commit 2 : le déploiement
 ```
+
+Le commit 1 emporte **les artefacts régénérés** : `--add` réécrit `compose.yaml`,
+le workflow et `.gitignore` — plus `.claude/` si le langage ou `ui:` est nouveau,
+et `go.work` dès que le module Go existe. Ne committer que `apps/<nom>` fait
+échouer le job `contrat` sur « compose.yaml désynchronisé des manifestes ».
+Le commit 2 se limite à `app.yml` et `compose.yaml` : `--enable` ne touche rien
+d'autre.
 
 Une app naît `enabled: false`. La raison est dans la section suivante.
 
@@ -108,6 +116,13 @@ Puis, en croisé : l'unicité des noms de service, des hostnames et des
 correspondance exacte entre `apps/*/app.yml` et les services du compose, la
 mémoire totale engagée, les liens morts entre documents, l'outillage de l'agent,
 et l'absence de secret évident dans les fichiers suivis.
+
+Puis les secrets, par un scan des **fichiers produits** — `compose.yaml`,
+`fabrique.yml`, `apps/*/app.yml` — et non des champs : une clé qui évoque un
+secret suivie d'une valeur littérale est refusée, où qu'elle soit écrite. Le même
+scan tourne à la génération, qui n'écrit alors aucun artefact. `${VAR}` et un
+chemin vers un secret monté en fichier sont exemptés ; le message nomme le
+fichier et la ligne, sans jamais réimprimer la valeur.
 
 Les **avertissements** ne bloquent pas — un `chown` introuvable dans un
 `Dockerfile`, une clé inconnue ignorée dans une entrée `services:`, un budget
