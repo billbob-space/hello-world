@@ -538,16 +538,25 @@ se voit qu'après une demi-heure d'usage.
 
 **Ce que `monterEquipe` fait, dans l'ordre :**
 
-1. `local = lireClassement()` — jamais `null`, le PRP 08 le garantit.
-2. `modele = modeleEquipe(ctx, local)`. Si `null`, il ne pose **rien** et rend
-   quand même un `debrancher()` : l'écouteur est posé de toute façon, sans quoi
-   un enfant ouvrant `#/perso` avant la première réponse ne verrait jamais le
-   classement arriver.
-3. Il pose le bloc (chantier 2), puis l'écouteur :
-   `document.addEventListener(EVT_CLASSEMENT, surClassement)`.
-4. `surClassement` relit `lireClassement()`, recalcule le modèle et appelle
-   `majEquipe(bloc, modele)` — jamais un remontage complet : voir chantier 4.
-5. Il rend `() => document.removeEventListener(EVT_CLASSEMENT, surClassement)`.
+1. Il pose **toujours** le conteneur `<div class="equipe">` dans `hote`, même
+   vide. C'est l'ancre de toutes les mises à jour ultérieures : un conteneur créé
+   plus tard demanderait à `majEquipe` de savoir où l'insérer par rapport au bloc
+   du PRP 08, donc de connaître l'ordre des enfants d'un voisin.
+2. `local = lireClassement()` — jamais `null`, le PRP 08 le garantit.
+3. `modele = modeleEquipe(ctx, local)`, puis `majEquipe(equipe, modele)`. Un
+   modèle `null` laisse le conteneur vide : rien ne s'affiche, et la ligne d'état
+   du PRP 08 parle seule.
+4. Il pose l'écouteur : `document.addEventListener(EVT_CLASSEMENT, surClassement)`.
+   Il le pose **même quand le modèle est `null`**, sans quoi un enfant ouvrant
+   `#/perso` avant la première réponse ne verrait jamais le classement arriver.
+5. `surClassement` relit `lireClassement()`, recalcule le modèle et rappelle
+   `majEquipe(equipe, modele)` — jamais un remontage d'écran : voir chantier 4.
+6. Il rend `() => document.removeEventListener(EVT_CLASSEMENT, surClassement)`.
+
+Le montage et la mise à jour passent donc par **le même chemin de rendu**,
+`majEquipe`. C'est ce qui garantit qu'un cas traité à l'ouverture l'est aussi au
+rafraîchissement, et l'inverse : deux fonctions de rendu divergent au premier
+ajout de champ.
 
 **L'écouteur relit l'état, il ne lit pas `detail`.** `EVT_CLASSEMENT` porte
 `{ instantane, moi, statut }`, mais `synchroniser` a déjà écrit dans
@@ -592,17 +601,20 @@ entièrement, et le PRP 06 l'a explicitement laissée ici.
 un changement qu'on a vu arriver, jamais un changement qu'on découvre.
 
 ```js
-export function majEquipe(bloc, modele, options = {})
+export function majEquipe(equipe, modele, options = {})
+// equipe  : le <div class="equipe"> du chantier 2 — jamais le .bloc-equipe du PRP 08
 // options : { rouler, reduit }  — injectables, pour prouver la regle sans navigateur
 ```
 
 Quatre conditions, toutes nécessaires :
 
-1. **Le bloc était déjà monté et porte un rang.** Le point de départ est lu dans
-   `bloc.querySelector('.rang-position').dataset.rang`. Au **montage**, il n'y en a
-   pas : le rang est posé, pas animé. C'est ce qui évite d'animer l'ouverture de
+1. **Le conteneur portait déjà un rang.** Le point de départ est lu dans
+   `equipe.querySelector('.rang-position')?.dataset.rang`, **avant** que
+   `majEquipe` ne réécrive le contenu. Au premier appel — celui du montage — il
+   n'y en a pas : le rang est posé, pas animé. C'est ce qui évite d'animer l'ouverture de
    l'écran — arriver sur une page n'est pas grimper.
-2. **Le jour n'a pas changé.** `bloc.dataset.jour === modele.jour`. Le PRP 07 le
+2. **Le jour n'a pas changé.** `equipe.dataset.jour === modele.jour`, lu lui aussi
+   avant réécriture. Le PRP 07 le
    dit sans détour : *« À 00 h 00 heure de Paris, `programmees` augmente d'un jour
    de séance et toutes les `part` chutent […] Le PRP 09 ne doit pas animer un
    changement de position qu'il n'a pas causé. »* Un rang qui bouge parce que la
@@ -617,7 +629,7 @@ Quatre conditions, toutes nécessaires :
 
 ```js
 rouler(noeudRang, ancien, nouveau, { format: (n) => rangOrdinal(n) });
-bloc.classList.add(nouveau < ancien ? 'rang-monte' : 'rang-descend');
+equipe.classList.add(nouveau < ancien ? 'rang-monte' : 'rang-descend');
 // retire au premier `animationend`, sinon la classe collerait jusqu'au demontage
 ```
 
@@ -655,9 +667,11 @@ de lecture.
 **Critère d'acceptation.** `tests/equipe.test.js`, avec un `rouler` injecté qui
 enregistre ses appels : un montage suivi d'une `majEquipe` de rang 5 vers 3
 appelle `rouler(noeud, 5, 3, …)` et ajoute `rang-monte` ; la même mise à jour avec
-`bloc.dataset.jour` différent de `modele.jour` n'appelle pas `rouler` et pose le
+`equipe.dataset.jour` différent de `modele.jour` n'appelle pas `rouler` et pose le
 texte ; un rang inchangé n'ajoute aucune classe ; une position passant de `null`
-à `3` n'anime pas. À la main, dans un navigateur : le roulement se voit, puis
+à `3` n'anime pas ; et une `majEquipe` quelconque laisse intact un nœud témoin
+posé dans le `.bloc-equipe` à côté du `.equipe` — la preuve que le bloc du PRP 08
+n'est jamais emporté. À la main, dans un navigateur : le roulement se voit, puis
 avec `prefers-reduced-motion: reduce` le nombre est posé d'un coup et l'écran
 reste entièrement utilisable.
 

@@ -222,8 +222,9 @@ export const AIDE_RESSENTI = 'Tu peux fermer sans répondre.';
 export function estRessentiValide(valeur)             // -> boolean
 export function ressentisPourEnvoi(prog, ressentis)   // -> { [dateSeance]: cle } filtre
 export function empreinteRessentis(ressentis)         // -> '2026-08-03=correct', '' si vide
-export function monterRessenti(hote, dateISO, options = {})   // -> le <fieldset> pose
-// options : { surChoix, lire, ecrire } — injectables pour le test
+export function monterRessenti(hote, dateISO, { lire, ecrire, surChoix })  // -> le <fieldset> pose
+// lire et ecrire sont FOURNIS par l'appelant, jamais importes ici : c'est ce qui
+// laisse `ressenti.js` sans aucune dependance au stockage — voir chantier A.
 ```
 
 ```js
@@ -268,7 +269,7 @@ export function monterCoach(hote, ctx)                // l'ecran, au contrat du 
 
 | Nom | Ce que c'est, et pourquoi |
 |---|---|
-| `web/ressenti.js` | Le vocabulaire du ressenti et sa ligne d'émojis, dans un module à part. Ni `etat.js` (qui ne connaît aucun vocabulaire métier, `lireFaits` en est le précédent), ni `recompenses.js` (qui appartient au PRP 06 et n'a pas à porter une règle du lot 2), ni `classement.js` (qui décide *quand* on envoie, pas *ce que* le ressenti est). |
+| `web/ressenti.js` | Le vocabulaire du ressenti et sa ligne d'émojis, dans un module à part, **sans aucun import** hors de lui-même. Ni `etat.js` (qui ne connaît aucun vocabulaire métier, `lireFaits` en est le précédent), ni `recompenses.js` (qui appartient au PRP 06 et n'a pas à porter une règle du lot 2), ni `classement.js` (qui décide *quand* on envoie, pas *ce que* le ressenti est). |
 | `RESSENTIS`, `CLES_RESSENTI` | Les trois choix, une seule fois. `CLES_RESSENTI` est dérivé de `RESSENTIS`, jamais recopié : deux listes divergeraient au premier changement d'émoji. |
 | `ressentisPourEnvoi` | Le filtre qui garantit au serveur ce qu'il accepte. Il existe parce que le PRP 07 refuse `ressentis` **en bloc** : une entrée déformée ferait échouer aussi le classement de l'envoi. |
 | `empreinteRessentis` | Le pendant de `empreinte` (PRP 08) pour la seconde moitié du corps. Même principe : pas de hachage, une chaîne qui change dès que quelque chose change. |
@@ -277,6 +278,7 @@ export function monterCoach(hote, ctx)                // l'ecran, au contrat du 
 | `sansPrenom: true` sur une entrée d'`ECRANS` | L'exception minimale au verrou de prénom de `app.js`. Voir le chantier D : sans elle, le coach tombe sur l'écran de premier lancement d'un enfant. |
 | `MENTION_PUBLIQUE` | La phrase qui dit au coach que sa page est publique. Le PRD §13 écarte le mot de passe ; ne rien dire laisserait croire à une protection, ce qui est exactement le reproche fait au mot de passe. |
 | `messageCoach`, `PHRASES_COACH` | Les phrases de la page coach. Elles ne réutilisent pas `messageErreur` du PRP 08 : celles-là tutoient un enfant (« Réessaie quand tu en auras »), et il n'y a personne à tutoyer ici. |
+| `heureDuReleve` | L'heure du relevé, en clair. Elle ne réutilise pas `formaterFraicheur` (PRP 08) pour deux raisons : cette fonction rend une fraîcheur relative — « à l'instant », « hier » — quand la page coach affiche l'heure d'un relevé qu'elle vient de faire ; et l'importer entraînerait `vue-rejoindre.js`, donc `etat.js`, dans un écran dont la garantie est justement de ne rien lire du téléphone (chantier E). Le fuseau est `Europe/Paris`, celui du club, comme partout ailleurs (ossature §5). |
 | `tests/ressenti.test.js`, `tests/coach.test.js` | Deux fichiers, comme `seance.test.js` et `perso.test.js` : deux branches qui écrivent chacune dans son fichier fusionnent sans conflit. |
 
 ## Fichiers
@@ -330,8 +332,17 @@ export function effacerRessenti(dateISO)
 **`etat.js` ne connaît pas le vocabulaire.** Il n'accepte qu'une chaîne non vide,
 exactement comme pour les horodatages de `faits`. Les trois valeurs admises
 vivent dans `ressenti.js`, et c'est `ressentisPourEnvoi` qui garantit au serveur
-ce qu'il accepte. Faire dépendre `etat.js` de `ressenti.js` créerait un cycle —
-`ressenti.js` importe `etat.js`.
+ce qu'il accepte.
+
+**Et `ressenti.js` n'importe pas `etat.js` non plus** — c'est la décision de
+découpage la plus rentable de ce PRP, et elle se prend ici. `monterRessenti`
+reçoit `lire` et `ecrire` de son appelant (`recompenses.js`, chantier B) au lieu
+de les importer. Trois conséquences : le module se teste sans le double de
+`localStorage` ; il ne peut structurellement pas lire une autre clé que celle
+qu'on lui tend ; et `vue-coach.js` peut lui emprunter `RESSENTIS` — les mêmes
+émojis, les mêmes libellés — **sans emporter le moindre accès au stockage**, ce
+qui est exactement la garantie que le chantier E met sous test. C'est
+`classement.js`, qui importe déjà `etat.js`, qui appelle `lireRessentis()`.
 
 **`toutEffacer()` n'a pas une ligne à changer.** Il énumère `marcq.` (PRP 03) :
 « changer d'enfant » emporte déjà le ressenti. Une assertion l'épingle dans
@@ -407,8 +418,14 @@ ligne s'ajoute donc à `ouvrirPanneauDeFin`, après `carte.append(liste)` et ava
 la création du bouton :
 
 ```js
-monterRessenti(carte, dateISO, { surChoix: () => panneau.close() });
+monterRessenti(carte, dateISO, {
+  lire: lireRessentis, ecrire: ecrireRessenti, surChoix: () => panneau.close(),
+});
 ```
+
+`recompenses.js` importe déjà `lireFaits` de `etat.js` : les deux accès au
+stockage s'ajoutent à la même ligne d'import, et c'est ce module — qui connaît
+déjà le téléphone — qui les fournit, jamais `ressenti.js`.
 
 Le point d'accroche reste `EVT_SEANCE_COMPLETE` (PRP 04), consommé par
 `brancherRecompenses` (PRP 06). Ce PRP n'écoute rien lui-même : un second
@@ -423,8 +440,10 @@ jamais un péage »* — la question arrive dans un écran qui célèbre, pas da
 **L'interface :**
 
 ```js
-export function monterRessenti(hote, dateISO, options = {})
-// options : { surChoix = () => {}, lire = lireRessentis, ecrire = ecrireRessenti }
+export function monterRessenti(hote, dateISO, { lire, ecrire, surChoix })
+// lire()          -> { [dateISO]: cle }        fourni par l'appelant
+// ecrire(d, cle)  -> les ressentis a jour      fourni par l'appelant
+// surChoix()      appele apres l'ecriture, jamais avant
 // Pose un <fieldset class="ressenti"> : une <legend> QUESTION_RESSENTI, trois
 // <button type="button" class="choix-ressenti" data-ressenti="<cle>">, puis
 // AIDE_RESSENTI dans un <p class="aide">. Rend le <fieldset>.
@@ -654,12 +673,14 @@ export function messageCoach(statut, erreur)
   §11 : *« il affiche la dernière valeur connue et le dit »*), la page coach
   n'écrit rien dans `localStorage` — elle n'a pas d'enfant à qui appartenir, et
   un chiffre d'hier présenté au coach le 21 août est pire qu'une page qui dit
-  qu'elle n'a pas pu se rafraîchir. Elle affiche l'heure du relevé avec
-  `formaterFraicheur` (PRP 08) et rien de périmé.
+  qu'elle n'a pas pu se rafraîchir. Elle affiche `Relevé à 19 h 04`
+  (`heureDuReleve`) et rien de périmé.
 
-**Le service worker.** `COQUE` reçoit `/vue-coach.js` et `/ressenti.js`. `/api/`
-reste exclu du cache par le `fetch` du PRP 01 — **ne l'y remets pas** : un état de
-groupe resservi depuis le cache s'afficherait comme frais.
+**Le service worker, et pas une ligne de Go.** `COQUE` reçoit `/vue-coach.js` et
+`/ressenti.js`. Aucune route HTTP n'est ajoutée : le serveur sert tout `web/` à la
+racine depuis `//go:embed web` (PRP 03), et ajouter un module ne lui demande rien.
+`/api/` reste exclu du cache par le `fetch` du PRP 01 — **ne l'y remets pas** : un
+état de groupe resservi depuis le cache s'afficherait comme frais.
 
 **Ton et mouvement.** Aucun tutoiement — le PRD §10 fixe le ton pour des joueurs
 de 13-14 ans, il n'y a personne à tutoyer ici. Aucune animation : *« le
@@ -697,9 +718,14 @@ tient que si elle est vérifiée, pas seulement voulue.
 
 - aucune autre chaîne de chemin réseau que `CHEMIN_COACH` — pas de
   `/api/classement`, pas de `fetch('/` ailleurs ;
-- aucun import de `etat.js` : la page ne lit ni `lirePrenom`, ni `lireFaits`, ni
-  `lireClassement`, ni `lireRessentis`. Elle n'a **aucun** accès au téléphone de
-  qui que ce soit ;
+- aucun import de `etat.js`, **ni direct ni transitif** : les deux seuls modules
+  importés sont `web/vue-jour.js` (pour `dateEnToutesLettres`, qui n'importe que
+  `domaine.js`) et `web/ressenti.js` — dont seules `RESSENTIS` et
+  `CLES_RESSENTI` sont utilisées, jamais `monterRessenti`. La page ne lit donc
+  ni `lirePrenom`, ni `lireFaits`, ni `lireClassement`, ni `lireRessentis` :
+  elle n'a **aucun** accès au téléphone de qui que ce soit. C'est aussi la
+  raison pour laquelle `heureDuReleve` est écrite ici plutôt qu'empruntée à
+  `vue-rejoindre.js` ;
 - aucune occurrence de la sous-chaîne `prenom`, commentaires compris ;
 - aucun `innerHTML` : les pseudonymes viennent d'un champ public, ils s'affichent,
   ils ne s'interprètent pas.
