@@ -90,10 +90,46 @@ services:
     networks: [apps_net]
   # <<< hello-world
 
-  # >>> ramure — DESACTIVEE (enabled: false dans apps/ramure/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+  # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
+  ramure:
+    image: ghcr.io/billbob-space/hello-world/ramure:main
+    container_name: ramure
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.ramure.rule=Host(`ramure.apps.billbob.ovh`)"
+      - "traefik.http.routers.ramure.entrypoints=websecure"
+      - "traefik.http.routers.ramure.priority=100"
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.ramure.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.ramure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ramure.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
   # <<< ramure
 
 networks:

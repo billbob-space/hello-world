@@ -17,6 +17,7 @@ Le contrat que doit respecter chaque application est dans
 |---|---|---|---|
 | [`hello-world`](apps/hello-world/) | `hello-world.apps.billbob.ovh` | `private` | rend visible l'état du déploiement |
 | [`cadran`](apps/cadran/) | `cadran.apps.billbob.ovh` | `private` | l'heure du serveur, sur un cadran à aiguilles |
+| [`ramure`](apps/ramure/) | `ramure.apps.billbob.ovh` | `private` | l'arbre de parenté musicale, qu'on parcourt de branche en branche |
 
 ## Arborescence
 
