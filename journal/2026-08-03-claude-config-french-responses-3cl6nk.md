@@ -1,7 +1,8 @@
 # 2026-08-03 — claude/config-french-responses-3cl6nk
 
 Branche : `claude/config-french-responses-3cl6nk`
-Perimetre : fabrique — `CLAUDE.md` uniquement, aucune app touchee
+Périmètre : fabrique — `CLAUDE.md` uniquement, aucune app touchée
+Mode : `chaud`
 
 Ajout au contrat d'une section `Comment tu reponds` : francais, court, vulgarise
 pour un lecteur non technicien.
