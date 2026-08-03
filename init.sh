@@ -17,7 +17,7 @@
 #   --memory X          limite memoire du conteneur          (defaut 128m)
 #   --health CHEMIN     chemin HTTP de sante                 (defaut /healthz)
 #   --health-cmd CMD    commande de healthcheck, ou "none"   (defaut : wget)
-#   --exposure T        private | google                     (defaut private)
+#   --exposure T        private | google | public            (defaut private)
 #   --stack S           langage principal, active son LSP    (defaut none)
 #   --ui / --no-ui      l'app sert une interface web         (defaut no)
 #   --enable / --disable  presente dans le compose, ou non   (defaut : enable)
@@ -147,10 +147,21 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
   A_STACK=$(app_get "$APP" stack none)
   A_UI=$(app_get "$APP" ui false)
 
+  # A_MW_NOTE est le commentaire pose juste au-dessus du label middlewares dans
+  # compose.yaml : celui qui lit le compose doit savoir ce que le palier garantit
+  # sans avoir a ouvrir app.yml.
   case "$A_EXPOSURE" in
-    private) A_MW=forwardauth ;;       # whitelist de comptes Google
-    google)  A_MW=forwardauth-open ;;  # tout compte Google authentifie
-    *) echo "ERREUR : $APP — exposure doit valoir 'private' ou 'google' (recu : $A_EXPOSURE)" >&2; exit 1 ;;
+    private) A_MW=forwardauth       # whitelist de comptes Google
+             A_MW_NOTE="      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair." ;;
+    google)  A_MW=forwardauth-open  # tout compte Google authentifie
+             A_MW_NOTE="      # forwardauth-open = tout compte Google, login obligatoire
+      # (exposure google). La retirer exposerait l'app en clair." ;;
+    public)  A_MW=public            # anonyme : AUCUNE authentification
+             A_MW_NOTE="      # public = AUCUNE authentification (exposure public). Acces anonyme,
+      # rate-limit seul. Ne pas confondre avec forwardauth-open, qui exige un
+      # compte Google. X-Forwarded-User n'est PAS pose sur ce palier." ;;
+    *) echo "ERREUR : $APP — exposure doit valoir 'private', 'google' ou 'public' (recu : $A_EXPOSURE)" >&2; exit 1 ;;
   esac
   printf '%s' "$A_PORT"   | grep -qE '^[0-9]{2,5}$'        || { echo "ERREUR : $APP — port invalide : $A_PORT" >&2; exit 1; }
   printf '%s' "$A_MEMORY" | grep -qE '^[0-9]+[bkmgBKMG]?$' || { echo "ERREUR : $APP — memory invalide : $A_MEMORY" >&2; exit 1; }
@@ -254,11 +265,20 @@ render() {
   local t r; t=$(cat)
   while [ $# -gt 1 ]; do
     # Depuis bash 5.2, « & » dans le remplacement de ${var//motif/rempl} rappelle
-    # le texte matche, comme dans sed : sans cette protection, un « 2>&1 » du
-    # fragment injecte devient « 2>__CLE__1 » et le script genere ne s'analyse
-    # meme plus. Le backslash est protege d'abord, sinon il mangerait le suivant.
-    r=${2//\\/\\\\}
-    r=${r//&/\\&}
+    # le texte matche, comme dans sed : sans protection, un « 2>&1 » du fragment
+    # injecte devient « 2>__CLE__1 » et le script genere ne s'analyse meme plus.
+    # Le backslash est protege d'abord, sinon il mangerait le suivant.
+    #
+    # Mais AVANT 5.2 ce rappel n'existe pas : le « \ » y reste litteral et produit
+    # « 2>\&1 \& ». Echapper inconditionnellement casse donc .claude/cloud-setup.sh
+    # sur tout bash <= 5.1 (Ubuntu 22.04 : 5.1.16) — constate, et refuse ensuite
+    # par ./init.sh --check. D'ou le test de version.
+    r=$2
+    if [ "${BASH_VERSINFO[0]}" -gt 5 ] \
+       || { [ "${BASH_VERSINFO[0]}" -eq 5 ] && [ "${BASH_VERSINFO[1]}" -ge 2 ]; }; then
+      r=${r//\\/\\\\}
+      r=${r//&/\\&}
+    fi
     t="${t//$1/$r}"
     shift 2
   done
@@ -307,8 +327,7 @@ $health
       - "traefik.http.routers.$APP.rule=Host(\`$APP.$DOMAIN\`)"
       - "traefik.http.routers.$APP.entrypoints=$ENTRYPOINT"
       - "traefik.http.routers.$APP.priority=100"
-      # $A_MW = authentification Google (exposure $A_EXPOSURE). La retirer
-      # exposerait l'app en clair.
+$A_MW_NOTE
       - "traefik.http.routers.$APP.middlewares=$A_MW,$SECURITY_HEADERS"
       - "traefik.http.routers.$APP.tls.certresolver=$CERT_RESOLVER"
       - "traefik.http.services.$APP.loadbalancer.server.port=$A_PORT"
@@ -1131,7 +1150,7 @@ port: $port
 memory: $memory
 health_path: $health_path
 health_cmd: $health_cmd
-exposure: $exposure
+exposure: $exposure          # private | google | public — voir CLAUDE.md
 # Outillage de l'agent, sans effet sur le deploiement :
 stack: $stack
 ui: $ui
@@ -1174,7 +1193,7 @@ EOF
   cat > "$dir/README.md" <<EOF
 # $a
 
-URL : https://$a.$DOMAIN — authentification : \`$exposure\`.
+URL : https://$a.$DOMAIN — palier d'exposition : \`$exposure\`.
 
 ## Ce que fait cette application
 
@@ -1411,10 +1430,25 @@ check_service() {
   # « middlewares=forwardauth-open,... » et une app declaree private passerait
   # au vert avec l'authentification ouverte a tout compte Google.
   if has "traefik.http.routers.$APP.middlewares=$A_MW,$SECURITY_HEADERS"; then
-    ok "$p auth $A_MW (exposure $A_EXPOSURE)"
+    ok "$p palier $A_EXPOSURE -> $A_MW"
   else
-    bad "$p SANS AUTHENTIFICATION CONFORME — middleware $A_MW attendu"
+    bad "$p PALIER NON CONFORME — middleware $A_MW attendu (exposure $A_EXPOSURE)"
     SANS_AUTH+=("$APP")
+  fi
+
+  # Palier public : faute d'authentification, Traefik ne pose NI n'ecrase
+  # X-Forwarded-User. L'en-tete passe donc sous le controle du client, qui peut
+  # y mettre l'adresse de son choix : une app qui le lit croit identifier un
+  # utilisateur en lisant une valeur forgee. Bloquant, pas cosmetique.
+  # -i : Node, Go et consorts normalisent les en-tetes en minuscules.
+  if [ "$A_EXPOSURE" = public ]; then
+    warn "$p palier public — accessible SANS authentification"
+    if git ls-files -z "apps/$APP" 2>/dev/null | grep -zvE '\.md$' \
+         | xargs -0 -r grep -liI 'x-forwarded-user' 2>/dev/null | grep -q .; then
+      bad "$p lit X-Forwarded-User en exposure public — en-tete forgeable par n'importe qui"
+    else
+      ok "$p aucune lecture de X-Forwarded-User"
+    fi
   fi
 
   has "traefik.http.routers.$APP.priority=100"                      && ok "$p priority=100"          || bad "$p priority=100 absent — 404 silencieux garanti"
@@ -1642,9 +1676,9 @@ if [ "$CHECK" = 1 ]; then
 
   echo
   if [ ${#SANS_AUTH[@]} -gt 0 ]; then
-    printf '\033[41;97m  %d APPLICATION(S) SANS AUTHENTIFICATION CONFORME  \033[0m\n' "${#SANS_AUTH[@]}"
+    printf '\033[41;97m  %d APPLICATION(S) AU PALIER NON CONFORME  \033[0m\n' "${#SANS_AUTH[@]}"
     for a in "${SANS_AUTH[@]}"; do printf '    %s -> https://%s.%s\n' "$a" "$a" "$DOMAIN"; done
-    echo "  Le contrat n'a pas de palier public. Ne pousse pas."
+    echo "  Le compose ne pose pas le middleware declare dans app.yml. Ne pousse pas."
     echo
   fi
   [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s)."; exit 1; }
