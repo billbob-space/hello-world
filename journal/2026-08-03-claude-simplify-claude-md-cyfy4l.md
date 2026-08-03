@@ -85,3 +85,27 @@ contrat, celles dont la disparition aurait été la plus grave.
 **Action** — `comportement` — un contrôle anti-régression doit rendre le nombre de
 termes réellement comparés, pas seulement la liste des manquants. Sans ce compte,
 « rien ne manque » et « rien n'a été vérifié » s'affichent de la même façon.
+
+### 4. « Un titre en double est toujours un défaut » était faux, et le dépôt avait déjà le contre-exemple
+
+**Symptôme** — en écrivant le garde-fou issu de l'anomalie 1, j'allais refuser deux
+titres identiques **à n'importe quel niveau** dans un même document. Un relevé
+préalable sur tous les `.md` du dépôt a rendu un cas : `apps/hello-world/DESIGN.md`
+porte quatre fois `### Named Rules`. Le garde-fou aurait fait passer `--check` au
+rouge sur un fichier parfaitement correct — et, la CI étant le verrou de tous les
+autres jobs, aurait bloqué le dépôt entier sur un faux positif.
+
+**Cause** — j'avais généralisé depuis un seul cas. Dans `CLAUDE.md`, le doublon
+était deux **chapitres** revendiquant le même sujet ; dans `DESIGN.md`, c'est un
+**sous-titre** répété sous quatre parents différents — « Named Rules » des couleurs,
+de la typographie, des gabarits, des ombres — où la répétition est la structure même
+du document et ne crée aucune ambiguïté. Ce qui rend deux sections contradictoires
+n'est pas la répétition du texte, c'est le fait qu'elles soient au **même niveau**,
+donc frères, donc concurrents. Le garde-fou ne vérifie plus que le niveau 2.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — avant d'écrire un garde-fou, passer le motif sur
+l'ensemble du dépôt et regarder ce qu'il attrape déjà. Un contre-exemple légitime
+trouvé avant coûte cinq minutes ; trouvé après, il coûte une CI rouge sur du travail
+qui n'a rien fait de mal, et la confiance dans le contrôle avec.
