@@ -1,7 +1,7 @@
 # Contrat de déploiement — billbob.ovh
 
 Ce dépôt est une **fabrique** : il héberge plusieurs applications, chacune avec
-son code, son PRD, son URL et son palier d'authentification, toutes déployées
+son code, son PRD, son URL et son palier d'exposition, toutes déployées
 ensemble dans **une seule stack dockhand**. Les règles ci-dessous sont imposées
 par l'infrastructure : les enfreindre ne provoque pas une erreur claire, mais un
 déploiement qui échoue en silence.
@@ -22,7 +22,7 @@ init.sh              le générateur
 
 Ce qui est **partagé** : la stack, la CI, le réseau, le domaine, l'outillage
 Claude Code. Ce qui **appartient à chaque app** : son code, son `Dockerfile`,
-son PRD, son URL, son palier d'authentification, ses tests.
+son PRD, son URL, son palier d'exposition, ses tests.
 
 ## Démarrage
 
@@ -52,7 +52,7 @@ port: 8080                 # port d'écoute dans le conteneur, HTTP en clair
 memory: 128m               # limite mémoire du conteneur
 health_path: /healthz      # chemin HTTP renvoyant 200 quand l'app est prête
 health_cmd: wget --spider -q http://localhost:8080/healthz
-exposure: private          # private | google — voir plus bas
+exposure: private          # private | google | public — voir plus bas
 stack: none                # langage principal — active son serveur LSP
 ui: false                  # true si l'app sert une interface web
 ```
@@ -287,23 +287,25 @@ préférences personnelles, jamais dans le fichier versionné. Et **jamais de bl
 `env` dans `.claude/settings.json`** : il est public par construction, y poser un
 jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
 
-## Les deux paliers d'authentification
+## Les trois paliers d'exposition
 
-Chaque application est **toujours derrière une authentification Google**,
-appliquée par Traefik avant qu'une requête ne l'atteigne. Deux paliers existent,
-choisis app par app par `exposure` dans son `app.yml` — deux applications de la
-fabrique peuvent parfaitement ne pas avoir le même :
+Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
+et appliqué par Traefik avant que la requête ne parvienne au conteneur. Le choix
+se fait app par app — deux applications de la fabrique peuvent parfaitement ne
+pas avoir le même :
 
 | `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
 |---|---|---|---|
 | `private` *(défaut)* | `forwardauth` | **Uniquement les comptes de la liste blanche** du serveur | Tout ce qui touche à de l'administration, de l'infra, un shell, ou des données personnelles |
 | `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | Une app dont la surface ne touche que des API tierces ou du contenu non sensible, ou dont les données sont strictement cloisonnées par utilisateur |
+| `public` | `public` | **Tout le monde, sans authentification** | Une app destinée à des gens qui n'ont pas de compte, dont rien de sensible ne vit côté serveur |
 
-**Il n'existe pas de troisième palier.** L'exposition publique sans
-authentification n'est pas disponible ; ne cherche pas à la configurer.
+Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte
+Google, le second n'exige rien.
 
-Dans les deux cas, l'identité de l'utilisateur connecté arrive dans l'en-tête
-HTTP **`X-Forwarded-User`** (son adresse e-mail), posé par Traefik.
+En `private` et `google`, l'identité de l'utilisateur connecté arrive dans
+l'en-tête HTTP **`X-Forwarded-User`** (son adresse e-mail). Traefik le **réécrit
+à chaque requête**, il n'est donc pas usurpable.
 
 **Ne code pas de système de comptes.** Si tu dois cloisonner des données par
 utilisateur, `X-Forwarded-User` est la **seule** source d'identité admissible —
@@ -312,8 +314,34 @@ requête, cookie applicatif). En palier `google`, ce cloisonnement n'est pas
 optionnel : n'importe qui peut se connecter, donc chaque utilisateur ne doit
 voir que ses propres données.
 
-Si tu hésites entre les deux paliers, prends `private` : c'est réversible en
-une ligne, l'inverse expose des données.
+### Ce que `public` implique — à lire avant de le choisir
+
+Aucune authentification n'a lieu, **donc Traefik ne pose ni n'écrase
+`X-Forwarded-User`**. L'en-tête devient entièrement contrôlé par le client :
+n'importe qui peut l'envoyer avec la valeur qu'il veut. Une app qui le lirait
+sur ce palier croirait identifier un utilisateur en lisant une valeur forgée.
+`./init.sh --check` **refuse** une app qui lit `X-Forwarded-User` en
+`exposure: public`.
+
+Il en découle quatre contraintes, non négociables :
+
+- **Pas d'état par utilisateur côté serveur** — ni compte, ni session, ni
+  données nominatives. Ce qui est propre à un visiteur reste sur son appareil
+  (`localStorage`, `IndexedDB`).
+- **Rien de sensible ne transite** — clés d'API tierces comprises. Tout ce que
+  le navigateur reçoit est, par construction, public.
+- **Le rate-limit n'est pas une protection** — le palier en pose un (50 req/s
+  par IP, rafale 100), mais l'app doit encaisser du trafic non sollicité :
+  robots d'indexation, scanners, curieux.
+- **L'URL finira par être trouvée.** Ne compte jamais sur le fait qu'elle n'est
+  pas publiée.
+
+La stack étant unique, une app publique voisine d'apps privées ne les expose
+pas : chaque routeur porte son propre middleware, et `--check` le vérifie
+service par service.
+
+Si tu hésites entre deux paliers, prends le plus fermé : `private` se desserre
+en une ligne, l'inverse a déjà exposé les données.
 
 ## Règles impératives
 
@@ -331,7 +359,7 @@ une ligne, l'inverse expose des données.
   déploiement s'arrête là. Il est **généré** et porte N services : ne l'édite
   jamais à la main, `./init.sh --check` refuse un compose désynchronisé.
 - **Le routage vit dans les labels du `compose.yaml`**, générés par
-  `init.sh`. N'y touche pas : le middleware d'authentification et
+  `init.sh`. N'y touche pas : le middleware du palier d'exposition et
   `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
   catch-all de capter l'URL et de servir un 404 silencieux. Ton bloc est un
   parmi N : une erreur dedans fait échouer le déploiement de toutes les apps.
