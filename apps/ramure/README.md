@@ -108,9 +108,17 @@ chaud, **zéro**.
 
 **Un stockage persistant serait nécessaire pour que la collection survive à un
 redémarrage.** La collection (F-28 à F-33) et les réglages (F-25, F-06) sont
-partitionnés par `X-Forwarded-User` et tenus **en mémoire du processus** : la
-fabrique n'offre ni base de données ni volume persistant. Conséquences telles
-qu'elles sont aujourd'hui :
+partitionnés par `X-Forwarded-User` et tenus **en mémoire du processus**.
+
+> **La réserve est désormais à moitié levée.** La fabrique offre maintenant des
+> volumes nommés (`volumes:` dans `app.yml`, voir `../../CLAUDE.md`) : il n'y a
+> plus de décision d'infrastructure à prendre côté serveur. Ce qui reste est du
+> travail applicatif, et il n'est pas fait — `Collection` est une struct
+> concrète (`map` + `RWMutex`), sans interface derrière laquelle brancher une
+> persistance. Tant que ce chantier n'est pas mené, les conséquences ci-dessous
+> restent exactes.
+
+Conséquences telles qu'elles sont aujourd'hui :
 
 - un redémarrage du conteneur vide les collections **côté serveur** ;
 - le miroir `localStorage` du client les reconstitue à la reconnexion (F-33),
@@ -119,8 +127,10 @@ qu'elles sont aujourd'hui :
   un artiste gardé sur téléphone puis jamais rouvert sur cet appareil
   disparaîtrait du compte.
 
-Un volume persistant monté sur un chemin dédié, ou une base partagée, lèverait
-la réserve. **C'est une décision d'infrastructure, elle se prend côté serveur.**
+Le geste qui lève la réserve est maintenant entièrement dans ce dépôt : déclarer
+`volumes:` dans `app.yml`, créer et `chown` le chemin dans le `Dockerfile` avant
+`USER`, puis sérialiser la collection derrière une interface. **Ce n'est plus une
+demande d'infrastructure, c'est un chantier applicatif ouvert.**
 
 Rien d'autre : ni port supplémentaire, ni cache externe, ni réseau particulier.
 L'application a besoin d'un **accès HTTPS sortant** vers `api.deezer.com` et,

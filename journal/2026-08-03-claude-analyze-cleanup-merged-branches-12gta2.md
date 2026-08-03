@@ -197,3 +197,48 @@ suppression serait pire que celle qui s'abstient.
 partent sans discussion. `ax5jk8` et `xm5qvt` partent aussi, mais sur la foi des
 vérifications manuelles consignées aux anomalies 3 et 5 de cette entrée, pas sur
 celle de l'outil.
+
+### 9. Ajouter `volumes:` rendait faux un `README` qui n'était pas dans le périmètre
+
+**Symptôme** — `apps/ramure/README.md` affirmait « la fabrique n'offre ni base de
+données ni volume persistant » et « c'est une décision d'infrastructure, elle se
+prend côté serveur ». Les deux phrases deviennent fausses à la seconde où ce
+commit entre dans `main`.
+
+**Cause** — le contrat demande d'écrire dans le `README` ce que la fabrique ne
+prévoit pas. C'est un bon mécanisme, mais il crée une dette invisible : une
+demande satisfaite plus tard laisse derrière elle une prose qui affirme le
+contraire, et rien ne relie les deux. Le périmètre annoncé de l'étape était « la
+fabrique seulement » — j'ai failli m'y tenir littéralement et laisser le mensonge
+en place.
+
+**Detecte par** — `auteur` — en cherchant où la nouvelle capacité était réclamée,
+pour vérifier qu'elle répondait bien à une demande réelle. C'est la même lecture
+qui a montré que la demande allait cesser d'être vraie.
+
+**Action** — `garde-fou` — corrigé ici, mais le mécanisme reste sans filet :
+`--check` vérifie déjà qu'aucun lien entre documents n'est mort, il ne peut pas
+vérifier qu'une affirmation est encore vraie. Piste concrète : une section
+`Besoins d'infrastructure` pourrait porter un marqueur repris par `--check` avec
+la liste des capacités de la fabrique, pour signaler qu'une demande porte sur
+quelque chose qui existe désormais. Non fait — à arbitrer, le coût n'est pas
+évident.
+
+### 10. Le refus de collision de noms de volumes n'était branché nulle part
+
+**Symptôme** — `check_volume_noms` était écrite, testée dans ma tête, et jamais
+appelée. Le premier lancement l'a traversée sans rien vérifier.
+
+**Cause** — j'ai écrit la fonction au moment où j'écrivais la validation, dans le
+même mouvement, et je l'ai comptée comme faite. Une fonction définie ressemble
+beaucoup à une fonction appelée quand on relit son propre diff.
+
+**Detecte par** — `auteur` — en cherchant où la brancher pour la tester, pas en
+la testant : le test serait passé au vert sans rien exécuter si je ne m'étais pas
+posé la question du point d'appel.
+
+**Action** — `rien` — branchée à deux endroits, et c'est le choix qui compte :
+dans `--check`, et **avant l'écriture** dans la génération. Un compose où deux
+apps partagent un volume est déjà écrit quand `--check` le dit. Vérifiée ensuite
+sur une vraie collision fabriquée pour l'occasion (`cadran` + `x-y` contre
+`cadran-x` + `y`), pas seulement sur le cas nominal.

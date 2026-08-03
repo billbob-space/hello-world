@@ -57,6 +57,8 @@ health_cmd: wget --spider -q http://localhost:8080/healthz
 exposure: private          # private | google | public — voir plus bas
 stack: none                # langage principal — active son serveur LSP
 ui: false                  # true si l'app sert une interface web
+volumes:                   # optionnel — ce qui survit au redéploiement
+  - donnees:/var/lib/mon-app
 ```
 
 Édite-le puis relance `./init.sh`, ou passe les valeurs en options — elles ne
@@ -416,6 +418,54 @@ préférences personnelles, jamais dans le fichier versionné. Et **jamais de bl
 `env` dans `.claude/settings.json`** : il est public par construction, y poser un
 jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
 
+## Les volumes nommés — ce qui survit au redéploiement
+
+Le système de fichiers d'un conteneur est jeté à chaque déploiement. Ce qui doit
+persister se déclare dans `volumes:`, et **rien d'autre ne survit**. La forme est
+`<nom>:<chemin conteneur>[:ro]` : le nom logique à gauche en minuscules, chiffres
+et tirets, le chemin à droite absolu, `:ro` seul suffixe admis.
+
+`donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
+**`ramure-donnees`**. C'est le préfixe du propriétaire qui empêche deux apps de
+se marcher dessus sans s'être concertées, et deux apps qui produiraient le même
+nom réel sont refusées — à la génération, pas seulement à `--check`.
+
+**Un `/` à gauche est refusé.** Ce serait un bind mount, donc un chemin d'hôte à
+créer à la main sur le serveur avant le premier déploiement. Les volumes nommés
+existent précisément pour supprimer ce geste : `docker compose up` crée le volume
+seul et le conserve entre deux déploiements. **Aucune action sur l'hôte, jamais.**
+
+### Le piège : c'est le `Dockerfile` qui fixe les droits
+
+Un volume nommé hérite du propriétaire du répertoire **tel qu'il existe dans
+l'image**. Si le chemin monté n'y existe pas, Docker le crée en `root` — et ton
+app, qui tourne en `USER` non root, ne peut pas y écrire. Le symptôme est « l'app
+démarre et perd tout », sans erreur claire.
+
+Crée donc le répertoire et donne-le à ton utilisateur **avant `USER`** :
+
+```dockerfile
+RUN mkdir -p /var/lib/mon-app && chown 10001 /var/lib/mon-app
+USER app
+```
+
+`./init.sh --check` avertit quand un chemin monté n'est ni créé ni `chown` dans
+le `Dockerfile`. C'est un avertissement et non un refus : la préparation peut
+prendre une forme que le contrôle ne reconnaît pas.
+
+### `name:` — pourquoi le compose porte deux fois le même nom
+
+Compose préfixe les volumes de premier niveau par le nom du projet. Sans `name:`,
+le volume réel s'appellerait `<projet>_ramure-donnees`, et une commande de
+sauvegarde montant le nom court archiverait un volume **vide en sortant en
+succès**. `init.sh` émet donc `name:` sous chaque volume : ce qui est écrit dans
+`compose.yaml` est ce qui existe sur l'hôte.
+
+Corollaire à connaître avant d'ajouter un premier volume à une stack déjà en
+service : le nom devient **global à l'hôte**. Si d'autres stacks tournent sur le
+même serveur, un nom déjà pris serait partagé. Le préfixe par nom d'app rend la
+collision improbable, il ne la rend pas impossible.
+
 ## Les trois paliers d'exposition
 
 Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
@@ -521,7 +571,7 @@ pas non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.clau
 `go.work`. Tu changes `apps/<nom>/app.yml` et tu relances `./init.sh`.
 
 Si tu as besoin de quelque chose que le contrat ne prévoit pas — une base de
-données, un cache, un volume persistant, un port supplémentaire — **écris-le
+données, un cache partagé, un port supplémentaire — **écris-le
 dans le `README` et arrête-toi**. C'est une décision d'infrastructure, elle se
 prend côté serveur.
 

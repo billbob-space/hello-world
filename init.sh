@@ -91,6 +91,31 @@ yget() {  # yget <fichier> <cle> <defaut>
   printf '%s' "${v:-$d}"
 }
 
+# ylist lit une section en liste — la seule forme imbriquee que ce parseur
+# connaisse, et elle lui a ete ajoutee pour volumes: uniquement. La section se
+# ferme des qu'une ligne reprend en colonne 0 : c'est ce qui evite de lire les
+# cles suivantes comme des elements. Les lignes vides et les commentaires a
+# l'interieur sont sautes.
+ylist() {  # ylist <fichier> <cle> — un element par ligne
+  local f="$1" k="$2" v
+  [ -f "$f" ] || return 0
+  tr -d '\r' < "$f" | awk -v k="$k" '
+    $0 ~ "^" k ":[[:space:]]*$"        { inside = 1; next }
+    inside && /^[^[:space:]#]/         { inside = 0 }
+    inside && /^[[:space:]]*#/         { next }
+    inside && /^[[:space:]]*$/         { next }
+    inside && /^[[:space:]]*-[[:space:]]*/ {
+      sub(/^[[:space:]]*-[[:space:]]*/, "")
+      sub(/[[:space:]]+#.*$/, "")
+      sub(/[[:space:]]+$/, "")
+      if (length($0)) print
+    }
+  ' | while IFS= read -r v; do
+        v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
+        printf '%s\n' "$v"
+      done
+}
+
 fab() { yget fabrique.yml "$1" "$2"; }
 
 app_get() {  # app_get <app> <cle> <defaut> — l'option CLI ne vaut que pour --app
@@ -170,6 +195,50 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
   case "$A_HEALTH_PATH" in /*) ;; *) echo "ERREUR : $APP — health_path doit commencer par / (recu : $A_HEALTH_PATH)" >&2; exit 1 ;; esac
   case "$A_UI"      in true|false) ;; *) echo "ERREUR : $APP — ui doit valoir true ou false (recu : $A_UI)" >&2; exit 1 ;; esac
   case "$A_ENABLED" in true|false) ;; *) echo "ERREUR : $APP — enabled doit valoir true ou false (recu : $A_ENABLED)" >&2; exit 1 ;; esac
+
+  # volumes: — « <nom>:<chemin conteneur>[:ro] ». Le nom logique est prefixe par
+  # celui de l'app pour donner le nom reel du volume : c'est ce prefixe qui
+  # empeche deux apps de se marcher dessus sans avoir a se concerter.
+  A_VOLUMES=() A_VOL_NOMS=() A_VOL_CHEMINS=()
+  local v nom reste chemin mode
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    nom=${v%%:*}; reste=${v#*:}
+    case "$nom" in
+      "" |*/*) echo "ERREUR : $APP — volume '$v' : la partie gauche est un NOM de volume, pas un chemin d'hote. Un bind mount demanderait une action manuelle sur le serveur — c'est precisement ce que les volumes nommes suppriment." >&2; exit 1 ;;
+    esac
+    printf '%s' "$nom" | grep -qE '^[a-z0-9][a-z0-9-]*$' \
+      || { echo "ERREUR : $APP — volume '$v' : nom invalide '$nom' — minuscules, chiffres et tirets." >&2; exit 1; }
+    [ "$reste" = "$v" ] \
+      && { echo "ERREUR : $APP — volume '$v' : forme attendue <nom>:<chemin conteneur>[:ro]." >&2; exit 1; }
+    chemin=${reste%%:*}; mode=${reste#*:}
+    [ "$mode" = "$reste" ] && mode=""
+    case "$chemin" in /*) ;; *) echo "ERREUR : $APP — volume '$v' : le chemin conteneur doit etre absolu." >&2; exit 1 ;; esac
+    case "$mode" in ""|ro) ;; *) echo "ERREUR : $APP — volume '$v' : ':ro' est le seul suffixe admis (recu : ':$mode')." >&2; exit 1 ;; esac
+    A_VOL_NOMS+=("$APP-$nom")
+    A_VOL_CHEMINS+=("$chemin")
+    A_VOLUMES+=("$APP-$nom:$chemin${mode:+:$mode}")
+  done < <(ylist "apps/$APP/app.yml" volumes)
+}
+
+# Deux apps peuvent produire le meme nom reel — « ramure » avec « donnees-x » et
+# « ramure-donnees » avec « x » donnent tous deux « ramure-donnees-x ». Le cas
+# est rare, mais il ferait partager un volume a deux apps sans que ni l'une ni
+# l'autre ne l'ait demande. Une passe dediee, parce que load_app ne voit qu'une
+# app a la fois.
+check_volume_noms() {
+  local a n; declare -A vu=()
+  for a in "${APPS[@]}"; do
+    load_app "$a"
+    [ "$A_ENABLED" = true ] || continue
+    for n in "${A_VOL_NOMS[@]}"; do
+      if [ -n "${vu[$n]+x}" ]; then
+        echo "ERREUR : le volume '$n' est produit par '${vu[$n]}' et par '$a'. Renomme-le dans l'un des deux app.yml : deux apps partageraient un volume sans l'avoir demande." >&2
+        exit 1
+      fi
+      vu[$n]="$a"
+    done
+  done
 }
 
 mem_to_mb() {  # 128m -> 128, 1g -> 1024
@@ -335,6 +404,12 @@ $A_MW_NOTE
       - "traefik.http.services.$APP.loadbalancer.server.port=$A_PORT"
       - "traefik.docker.network=$NETWORK"
     networks: [$NETWORK]
+YAML
+  if [ ${#A_VOLUMES[@]} -gt 0 ]; then
+    printf '    volumes:\n'
+    printf '      - %s\n' "${A_VOLUMES[@]}"
+  fi
+  cat <<YAML
   # <<< $APP
 YAML
 }
@@ -360,11 +435,31 @@ emit_compose() {
 # toute la fabrique.
 services:
 YAML
-  local a
+  local a n tous=()
   for a in "${APPS[@]}"; do
     load_app "$a"
-    if [ "$A_ENABLED" = true ]; then service_block; else disabled_note; fi
+    if [ "$A_ENABLED" = true ]; then
+      service_block
+      for n in "${A_VOL_NOMS[@]}"; do tous+=("$n"); done
+    else
+      disabled_note
+    fi
   done
+
+  if [ ${#tous[@]} -gt 0 ]; then
+    cat <<YAML
+
+# « name: » n'est pas decoratif. Sans lui, Compose prefixe le volume par le nom
+# du projet : le volume documente ici ne serait pas le volume reel, et une
+# commande de sauvegarde montant le nom court archiverait un volume VIDE en
+# sortant en succes. Avec « name: », ce qui est ecrit est ce qui existe.
+volumes:
+YAML
+    for n in "${tous[@]}"; do
+      printf '  %s:\n    name: %s\n' "$n" "$n"
+    done
+  fi
+
   cat <<YAML
 
 networks:
@@ -1827,6 +1922,18 @@ check_app_files() {
     grep -qi 'traefik\.' "$d/Dockerfile" \
       && bad "$p LABEL traefik.* dans le Dockerfile — publierait une route SANS authentification" \
       || ok "$p aucun label traefik dans le Dockerfile"
+    # Un volume nomme herite du proprietaire du repertoire TEL QU'IL EXISTE dans
+    # l'image. Si le chemin monte n'y existe pas, Docker le cree en root, et une
+    # app tournant en USER non root ne peut pas y ecrire : elle demarre, puis
+    # perd tout, sans erreur claire. C'est le Dockerfile qui fixe ces droits,
+    # avant USER — nulle part ailleurs. Avertissement et non refus : le chemin
+    # peut etre prepare par une forme que ce grep ne reconnait pas.
+    local c
+    for c in "${A_VOL_CHEMINS[@]}"; do
+      grep -qE "(mkdir|chown)[^\n]*$c" "$d/Dockerfile" \
+        && ok "$p $c prepare dans le Dockerfile" \
+        || warn "$p $c est monte mais n'est ni cree ni chown dans le Dockerfile — le volume naitrait en root, l'app non root ne pourrait pas y ecrire"
+    done
     # une image sans shell ne peut pas executer un healthcheck CMD-SHELL
     if grep -qiE '^[[:space:]]*FROM .*(scratch|distroless)' "$d/Dockerfile" && [ "$A_HEALTH_CMD" != none ]; then
       bad "$p image sans shell (scratch/distroless) mais health_cmd defini — mets 'none' ou change de base"
@@ -1921,6 +2028,8 @@ if [ "$CHECK" = 1 ]; then
   echo
   echo "-- applications"
   for a in "${APPS[@]}"; do check_app_files "$a"; done
+  check_volume_noms
+  ok "noms de volumes distincts entre apps"
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.
@@ -2075,6 +2184,10 @@ discover_apps
 [ ${#APPS[@]} -gt 0 ] || { echo "ERREUR : aucune app sous apps/ — ./init.sh --add <nom>" >&2; exit 1; }
 
 apply_target_options
+# Avant d'ecrire quoi que ce soit : une collision de noms de volumes doit
+# arreter la generation, pas seulement --check. Un compose ou deux apps
+# partagent un volume est deja ecrit quand --check le dit.
+check_volume_noms
 compute_tooling
 
 if [ ! -f fabrique.yml ]; then
