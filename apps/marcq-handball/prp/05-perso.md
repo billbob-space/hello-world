@@ -11,7 +11,7 @@
 |---|---|
 | **Lot** | 1 |
 | **Branche** | `marcq-handball/perso` |
-| **Dépend de** | PRP 04 (`web/vue-seance.js` et ses libellés de date, la route `#/seance/<date>`), et par lui PRP 01 (la coque, `style.css`, `sw.js`), 02 (`domaine.js`, `programme.json`), 03 (`app.js`, le contrat d'écran, `etat.js`) |
+| **Dépend de** | PRP 04 (la route `#/seance/<date>` et `MOTIF_SEANCE`), et par lui PRP 01 (la coque, `sw.js`), 02 (`domaine.js`, `programme.json`), 03 (`app.js` et son contrat d'écran, `vue-jour.js`, les jetons de `style.css`) |
 | **Débloque** | PRP 06 (les compteurs de cet écran sont ceux qui roulent), PRP 09 (« L'équipe » s'ajoute sous le calendrier), PRP 11 (le bilan réutilise `formaterDuree` et `lignesVolume`) |
 | **Sections du PRD** | §7.5 « Ma progression », §9 (le volume est un récit, pas un rang ; les jours sans séance sont du repos), §6 lot 1 item 5, §10 (le ton), §11 (mobile d'abord) |
 
@@ -33,20 +33,22 @@ soit.
   recalculés depuis `programme.json`, jamais écrits dans le code.
 - Le modèle du calendrier rend **19 jours**, dont **7 séances** et **12 repos**,
   et aucune date ne manque entre `prog.debut` et `prog.fin`.
+- Chaque lien de jour de séance satisfait `MOTIF_SEANCE` du PRP 04 — le
+  calendrier ne peut donc pas mener à une route que le routeur ignore.
 - `./apps/marcq-handball/test.sh` est vert et `./init.sh --check` aussi.
-- Dans un navigateur, sur `#/perso` : un pourcentage en grand, une liste de
-  pastilles de volume, une grille de dix-neuf cases alignée sur le lundi ; l'onglet
-  « Ma progression » est actif ; l'onglet Réseau ne montre **aucune** requête
-  après le montage.
+- Dans un navigateur, sur `#/perso` : un pourcentage en grand, des pastilles de
+  volume, une grille de dix-neuf cases alignée sur le lundi, et l'onglet
+  « Ma progression » actif ; l'onglet Réseau ne montre **aucune** requête après
+  le montage.
 
 ## Périmètre
 
 **Dedans :** `web/vue-perso.js` en entier — le formatage des durées, les phrases
-de volume, le modèle de l'écran, puis le rendu DOM ; le style de l'écran perso
-dans `web/style.css` ; la route `#/perso` et son onglet dans `web/app.js` ;
-`/vue-perso.js` dans la coque du service worker ; `tests/perso.test.js` ; une
-assertion de `tests/vues.test.js` qui annonçait cet écran comme absent ; une
-section du `README.md`.
+de volume, le modèle de l'écran, puis son montage ; le style de l'écran dans
+`web/style.css` ; l'entrée `perso` dans `ECRANS` et l'onglet dans `LIENS` ;
+`/vue-perso.js` dans la coque du service worker ; `tests/perso.test.js` ; les
+deux assertions de `tests/vues.test.js` que les PRP 03 et 04 ont laissées en
+attente pour cet écran ; une section du `README.md`.
 
 **Dehors, et pourquoi :**
 
@@ -55,12 +57,13 @@ section du `README.md`.
   et l'écran s'arrête après le calendrier. **Aucune zone désactivée n'annonce le
   lot 2** — voir la décision 6 des interfaces.
 - **Les compteurs animés — PRP 06.** Rien ne roule ici : le pourcentage est posé
-  à sa valeur. Ce PRP pose l'attribut par lequel le PRP 06 le retrouvera, et rien
-  d'autre (PRD §10 : *« un compteur qui augmente ne saute jamais à sa valeur »*).
+  à sa valeur. Ce PRP pose les deux attributs par lesquels le PRP 06 retrouvera
+  les nombres, et rien d'autre (PRD §10 : *« un compteur qui augmente ne saute
+  jamais à sa valeur »*).
 - **Tout calcul de domaine — PRP 02.** Cet écran ne recompte rien : il appelle
   `progression`, `totauxAccomplis`, `calendrier` et `etatSeance`, et met en forme.
 - **Cocher — PRP 04.** Les cases du calendrier mènent à l'écran de séance ; elles
-  ne cochent pas. Un tap sur une case de 44 px, c'est une navigation, pas une
+  ne cochent pas. Un tap sur une case de calendrier est une navigation, pas une
   déclaration.
 
 ## Interfaces
@@ -73,28 +76,35 @@ progression(prog, aujourdhui, faits = {})     // -> { cochees, programmees, part
 totauxAccomplis(prog, faits = {})             // -> { cases, pompes, squats, burpees, abdos, gainage_s, min_course, fentes }
 calendrier(prog, aujourdhui, faits = {})      // -> [{ date, seance: Seance|null, statut }]  19 entrées
 etatSeance(prog, dateISO, aujourdhui, faits = {})  // -> { statut, cochable, total, coches } | null
-chargerProgramme(json)                        // -> Programme gelé
 // statut ∈ { 'faite', 'partielle', 'aujourd-hui', 'a-venir', 'manquee' } + 'repos' (calendrier seul)
 
-// web/vue-seance.js — PRP 04
-dateLongue(dateISO)                           // '2026-08-03' -> 'lundi 3 août'
+// web/vue-jour.js — PRP 03
+dateEnToutesLettres(dateISO)   // '2026-08-03' -> 'lundi 3 août'
+
+// web/vue-seance.js — PRP 04 (dans le test seulement)
+MOTIF_SEANCE                   // /^#\/seance\/(\d{4}-…)$/
 ```
 
+Le **contrat d'écran** du PRP 03, que ce PRP applique sans le modifier :
+
 ```js
-// web/app.js — PRP 03, le contrat d'écran
-// Un écran est une fonction (hote, ctx) => demontage | undefined.
-// ctx : { prog, aujourdhui, prenom, faits, route, aller(route), rafraichir() }
-// Le routeur vide `hote` avant chaque montage ; un écran ne mute jamais ctx.
-export const ECRANS = [{ nom, motif, monter }, …]
+// Un ecran est une fonction (hote, ctx) => demontage | undefined.
+// `hote` est <main id="ecran">, VIDE par le routeur avant chaque montage.
+// La valeur rendue ne sert qu'a ce qui deborde de `hote` — ce n'est pas le cas ici.
+ctx = { prog, aujourdhui, prenom, faits, route, aller(route), rafraichir() }
+// Regle 1 : un ecran ne mute JAMAIS ctx.
+// Regle 2 : un ecran n'en monte jamais un autre. Il pose un <a href="#/…">.
+export const ECRANS = [{ nom, motif, monter }, …]   // le premier motif qui correspond gagne
 export function choisirEcran(route)
 ```
 
 ```
-de web/style.css (PRP 01)   --papier --carte --encre --encre-douce --trait
-                            --signal --signal-lisible --fait --tap --pas
-                            --marge --rayon --texte --chiffres   ·   .tap  .dit
-de web/style.css (PRP 04)   .retour
-de web/sw.js (PRP 01/04)    const COQUE = [ … ]   ← ce PRP y ajoute une ligne
+Jetons et classes de web/style.css — PRP 01 et 03
+  --marcq-encre --marcq-encre-douce --marcq-fond --marcq-carte --marcq-accent
+  --marcq-sur-accent --marcq-danger --marcq-trait --marcq-tap (48px)
+  .ecran  .titre-ecran  .titre-bloc  .aide  .barre (un <progress>)  .lien-nav
+web/sw.js — PRP 01, complété par 03 et 04
+  la liste de coque, à laquelle ce PRP ajoute une ligne
 ```
 
 **Produit :**
@@ -105,13 +115,12 @@ export function formaterDuree(secondes)   // 45 -> '45 s' · 1425 -> '24 min' ·
 export function lignesVolume(totaux)      // -> [{ unite, phrase }] ; les unités à 0 sortent
 export function decalageInitial(dateISO)  // -> 0..6, cases vides avant le premier jour (lundi = 0)
 export const ETATS                        // { [statut]: { libelle, marque } }, les six du domaine
-export function modelePerso({ prog, aujourdhui, faits = {} })   // -> ModelePerso
-export function vuePerso({ prog, aujourdhui, faits = {} })      // -> HTMLElement détaché
-export function monterPerso(hote, ctx)    // le contrat d'écran du PRP 03
+export function modelePerso(ctx)          // -> ModelePerso
+export function monterPerso(hote, ctx)    // l'ecran, au contrat du PRP 03
 ```
 
 ```js
-// ModelePerso — tout ce que le rendu doit savoir, et rien de plus
+// ModelePerso — tout ce que le montage doit savoir, et rien de plus
 {
   titre: 'Ma progression',
   part:   { cochees, programmees, pourcent, echelle, phrase },
@@ -126,10 +135,11 @@ export function monterPerso(hote, ctx)    // le contrat d'écran du PRP 03
 ```
 
 ```
-route #/perso            posée dans ECRANS et dans LIENS (onglet « Ma progression »)
+route #/perso            une entrée dans ECRANS, un onglet dans LIENS (« Ma progression »)
 data-compteur            sur le pourcentage — l'accroche du PRP 06
 data-unite               sur chaque pastille de volume — l'accroche du PRP 06
-<section class="perso">  le conteneur où le PRP 09 ajoutera « L'équipe », APRÈS le calendrier
+<section class="ecran ecran-perso">   le conteneur où le PRP 09 ajoutera
+                                      « L'équipe », APRÈS le calendrier
 ```
 
 **Six noms ou décisions que ni l'ossature ni les PRP amont ne fixent — ils sont
@@ -148,18 +158,19 @@ définis ici et les PRP aval s'y tiennent :**
 4. **`.lu-seul`** — la classe du texte lu par les lecteurs d'écran et invisible à
    l'œil. Une case de calendrier montre un numéro et une marque ; elle doit
    *annoncer* « lundi 3 août · Endurance + Renforcement · faite · 8 sur 8 ». Un
-   `aria-label` sur un `<span>` sans rôle n'est pas fiable ; du texte l'est.
+   `aria-label` sur un `<span>` sans rôle n'est pas restitué partout ; du texte
+   l'est, et l'application n'a aucune classe de ce genre à ce jour.
 5. **`tests/perso.test.js`** — un fichier à part, comme `seance.test.js` du
    PRP 04 : deux branches qui écrivent chacune dans son fichier fusionnent sans
-   conflit.
+   conflit. Seules les **deux assertions** que les PRP amont ont explicitement
+   laissées en attente pour cet écran sont modifiées chez eux.
 6. **Aucune zone « L'équipe » désactivée.** Le PRD §7.5 met « L'équipe » après
    « Ma progression », et c'est là que le PRP 09 l'ajoutera. En attendant, rien —
    pas un bloc grisé, pas un « bientôt ». Trois raisons : le lot 2 est suspendu à
    une décision d'infrastructure (PRD §12.1), et une promesse affichée qu'on ne
    tient pas coûte plus qu'une absence ; un bloc grisé remet la comparaison dans
    le cadre de l'écran fait précisément pour *« se lire sans se comparer à
-   personne »* (§7.5) ; et le PRD §10 interdit tout ce qui s'interpose sans rien
-   rendre.
+   personne »* (§7.5) ; et le PRD §10 interdit ce qui s'interpose sans rien rendre.
 
 ## Fichiers
 
@@ -172,24 +183,23 @@ définis ici et les PRP aval s'y tiennent :**
   `apps/marcq-handball/README.md`
 - Tester : `apps/marcq-handball/tests/perso.test.js`,
   `apps/marcq-handball/tests/vues.test.js`, plus le contrôle à la main dans un
-  navigateur à la tâche 5 — la CI n'a pas de navigateur, et une grille de
-  dix-neuf cases qui déborde ne se voit qu'à l'écran.
+  navigateur à la tâche 5 — la CI n'a pas de navigateur, et une grille de sept
+  colonnes qui déborde ne se voit qu'à l'écran.
 
 ## La coupure qui structure ce PRP
 
-La même qu'au PRP 04, et pour la même raison :
+La même qu'à l'écran de séance, et pour la même raison :
 
 - **le modèle** — `formaterDuree`, `lignesVolume`, `decalageInitial`,
-  `modelePerso`. Fonctions pures : aucun DOM, aucune horloge, `aujourdhui` est
-  toujours un paramètre. Toutes les décisions y sont — quel chiffre, quelle
-  phrase, quel état, quel lien. `node --test` les prouve.
-- **le rendu** — `vuePerso`, `monterPerso`. Il pose le modèle dans le DOM et n'y
-  ajoute **aucune** décision, pas même un `Math.max` de garde.
+  `modelePerso`. Fonctions pures : aucun DOM, aucune horloge, `aujourdhui` arrive
+  par `ctx`. Toutes les décisions y sont — quel chiffre, quelle phrase, quel
+  état, quel lien. `node --test` les prouve.
+- **le montage** — `monterPerso`. Il pose le modèle dans le DOM et n'y ajoute
+  **aucune** décision, pas même un `Math.max` de garde.
 
-`vuePerso` rend un élément **détaché** et `monterPerso` l'accroche à l'hôte. Les
-deux existent parce que les PRP amont ne s'accordent pas sur la forme du routeur
-(voir « Points d'attention ») : le premier se monte n'importe où, le second
-respecte le contrat d'écran du PRP 03. Le PRP 11 réutilisera le premier.
+Un montage qui déciderait quoi que ce soit — « si le dénominateur est nul
+alors… » — serait une règle métier hors de portée des tests. Elle est toujours
+dans le modèle.
 
 ## La convention d'écriture, rappelée
 
@@ -207,9 +217,9 @@ ASCII.
 ```
 
 Le garde-fou `.claude/garde-branche.sh` refuse toute édition tant que HEAD est
-sur `main`. Les tâches s'exécutent **dans l'ordre** : chaque tâche complète le
-fichier de la précédente, et un import manquant fait échouer le fichier de test
-entier, pas une assertion.
+sur `main`. Les tâches s'exécutent **dans l'ordre** : chacune complète le fichier
+de la précédente, et un import manquant fait échouer le fichier de test entier,
+pas une assertion.
 
 ---
 
@@ -219,7 +229,7 @@ entier, pas une assertion.
 
 PRD §7.5 : *« volume cumulé accompli, en langage d'ado : "112 pompes, 165 squats,
 45 burpees, 2 h 10 de course" »*. Deux décisions de formatage s'y cachent, et
-elles sont à prendre ici parce qu'elles sont du texte, donc prouvables sans
+elles se prennent ici parce qu'elles sont du texte, donc prouvables sans
 navigateur : les répétitions restent des entiers, et les durées basculent en
 heures dès qu'elles se lisent mieux ainsi — « 2 h 10 », jamais « 130 min ».
 
@@ -242,6 +252,9 @@ import * as vue from '../web/vue-perso.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 const prog = chargerProgramme(JSON.parse(source('programme.json')));
+
+// Le contexte d'ecran du PRP 03, reduit a ce que cet ecran lit.
+const contexte = (aujourdhui, faits = {}) => ({ prog, aujourdhui, prenom: 'Lucas', faits });
 
 // Les identifiants d'une seance, et ceux du programme entier. Les scenarios
 // « tout coche » partent de la donnee, jamais d'une liste recopiee.
@@ -304,7 +317,7 @@ Créer `apps/marcq-handball/web/vue-perso.js` :
 // SOUS le calendrier, sans toucher a une ligne de ce fichier.
 //
 // Deux moities, comme a l'ecran de seance : un modele pur que node --test
-// prouve, puis un rendu qui n'ajoute aucune decision.
+// prouve, puis un montage qui n'ajoute aucune decision.
 
 // --- le langage d'ado -------------------------------------------------------
 
@@ -323,7 +336,7 @@ export function formaterDuree(secondes) {
   return reste === 0 ? `${heures} h` : `${heures} h ${String(reste).padStart(2, '0')}`;
 }
 
-// Le pluriel se pose ici et pas dans le rendu : c'est du texte, et le texte se
+// Le pluriel se pose ici et pas au montage : c'est du texte, et le texte se
 // prouve sans navigateur. Zero prend le singulier, comme en francais.
 function pluriel(n, mot) {
   return `${n} ${mot}${n > 1 ? 's' : ''}`;
@@ -391,7 +404,7 @@ Ajouter à la fin de `apps/marcq-handball/tests/perso.test.js` :
 
 ```js
 test('la part se mesure sur ce qui est programme a ce jour (PRD §9)', () => {
-  const m = vue.modelePerso({ prog, aujourdhui: '2026-08-05', faits: cocher(casesDe('2026-08-03')) });
+  const m = vue.modelePerso(contexte('2026-08-05', cocher(casesDe('2026-08-03'))));
   assert.equal(m.titre, 'Ma progression');
   assert.equal(m.part.cochees, 8);
   assert.equal(m.part.programmees, 16, 'les seances du 3 et du 5, pas les 53 cases du programme');
@@ -401,7 +414,7 @@ test('la part se mesure sur ce qui est programme a ce jour (PRD §9)', () => {
 });
 
 test('avant la premiere seance, la part ne divise pas par zero', () => {
-  const m = vue.modelePerso({ prog, aujourdhui: '2026-08-02' });
+  const m = vue.modelePerso(contexte('2026-08-02'));
   assert.equal(m.part.cochees, 0);
   assert.equal(m.part.programmees, 0);
   assert.equal(m.part.pourcent, 0);
@@ -410,7 +423,7 @@ test('avant la premiere seance, la part ne divise pas par zero', () => {
 });
 
 test('tout coche, le volume raconte le programme entier (PRD §8)', () => {
-  const m = vue.modelePerso({ prog, aujourdhui: '2026-08-21', faits: cocher(toutesLesCases) });
+  const m = vue.modelePerso(contexte('2026-08-21', cocher(toutesLesCases)));
   const phrases = m.volume.lignes.map((l) => l.phrase);
   assert.deepEqual(phrases.filter((p) => !p.endsWith('fentes')), [
     '226 pompes', '345 squats', '105 burpees', '210 abdos',
@@ -425,7 +438,7 @@ test('tout coche, le volume raconte le programme entier (PRD §8)', () => {
 });
 
 test('sans rien de coche, l ecran dit par ou ca commence', () => {
-  const m = vue.modelePerso({ prog, aujourdhui: '2026-08-03' });
+  const m = vue.modelePerso(contexte('2026-08-03'));
   assert.deepEqual(m.volume.lignes, []);
   assert.equal(m.volume.vide, 'Rien de coché pour l’instant. La première case ouvre le compteur.');
 });
@@ -439,13 +452,16 @@ Attendu : ÉCHEC, `# pass 4` et `# fail 4`, chacun sur
 
 - [ ] **Étape 3 — l'implémentation minimale**
 
-Ajouter en tête de `apps/marcq-handball/web/vue-perso.js`, **avant** le
-commentaire `// --- le langage d'ado` :
+Ajouter en tête de `apps/marcq-handball/web/vue-perso.js`, **sous** le
+commentaire d'en-tête et **avant** `// --- le langage d'ado` :
 
 ```js
 import { calendrier, etatSeance, progression, totauxAccomplis } from './domaine.js';
-import { dateLongue } from './vue-seance.js';
+import { dateEnToutesLettres } from './vue-jour.js';
 ```
+
+`dateEnToutesLettres` vient de l'écran du jour et n'est pas recopiée : deux tables
+de mois qui divergent est une panne bien plus sournoise qu'un import.
 
 Puis ajouter à la fin du fichier :
 
@@ -453,8 +469,9 @@ Puis ajouter à la fin du fichier :
 // --- le modele --------------------------------------------------------------
 
 // Il ne recalcule rien : il appelle le domaine (PRP 02) et met en forme. Le
-// calendrier est rempli a la tache 3.
-export function modelePerso({ prog, aujourdhui, faits = {} }) {
+// calendrier arrive a la tache 3.
+export function modelePerso(ctx) {
+  const { prog, aujourdhui, faits = {} } = ctx;
   const p = progression(prog, aujourdhui, faits);
   const lignes = lignesVolume(totauxAccomplis(prog, faits));
 
@@ -466,10 +483,10 @@ export function modelePerso({ prog, aujourdhui, faits = {} }) {
       pourcent: Math.round(p.part * 100),
       // <progress max="0"> est invalide. Avant la premiere seance l'echelle vaut
       // 1 et la barre est vide : exactement ce qu'il faut montrer, sans laisser
-      // le rendu decider quoi que ce soit.
+      // le montage decider quoi que ce soit.
       echelle: Math.max(1, p.programmees),
       phrase: p.programmees === 0
-        ? `Le programme commence ${dateLongue(prog.debut)}.`
+        ? `Le programme commence ${dateEnToutesLettres(prog.debut)}.`
         : `${pluriel(p.cochees, 'exercice')} sur ${p.programmees} programmés à ce jour.`,
     },
     volume: {
@@ -484,7 +501,7 @@ export function modelePerso({ prog, aujourdhui, faits = {} }) {
 ```
 
 `calendrier` et `etatSeance` sont importés dès maintenant : la tâche 3 les
-utilise, et un import ajouté seul ferait un commit qui ne compile rien.
+utilise, et un import ajouté seul ferait un commit qui ne prouve rien.
 
 - [ ] **Étape 4 — le relancer, vérifier qu'il passe**
 
@@ -513,11 +530,18 @@ son numéro, sa marque, son état en toutes lettres, et le lien vers sa séance.
 
 - [ ] **Étape 1 — écrire le test qui échoue**
 
-Ajouter à la fin de `apps/marcq-handball/tests/perso.test.js` :
+Ajouter l'import en tête de `apps/marcq-handball/tests/perso.test.js`, avec les
+autres :
+
+```js
+import { MOTIF_SEANCE } from '../web/vue-seance.js';
+```
+
+Puis ajouter à la fin du fichier :
 
 ```js
 test('le calendrier couvre les dix-neuf jours, jamais un trou (PRD §9)', () => {
-  const { jours } = vue.modelePerso({ prog, aujourdhui: '2026-08-10' }).calendrier;
+  const { jours } = vue.modelePerso(contexte('2026-08-10')).calendrier;
   assert.equal(jours.length, 19);
   assert.equal(jours[0].date, prog.debut);
   assert.equal(jours.at(-1).date, prog.fin);
@@ -527,7 +551,7 @@ test('le calendrier couvre les dix-neuf jours, jamais un trou (PRD §9)', () => 
 
 test('les quatre etats du PRD §7.5, plus les deux que le domaine distingue', () => {
   const faits = { ...cocher(casesDe('2026-08-03')), ...cocher(casesDe('2026-08-07').slice(0, 2)) };
-  const { jours } = vue.modelePerso({ prog, aujourdhui: '2026-08-10', faits }).calendrier;
+  const { jours } = vue.modelePerso(contexte('2026-08-10', faits)).calendrier;
   const par = (date) => jours.find((j) => j.date === date);
   assert.equal(par('2026-08-03').statut, 'faite');
   assert.equal(par('2026-08-05').statut, 'manquee');
@@ -544,14 +568,14 @@ test('les quatre etats du PRD §7.5, plus les deux que le domaine distingue', ()
 });
 
 test('chaque jour porte son compte, son lien et son nom lisible', () => {
-  const { jours } = vue.modelePerso({
-    prog, aujourdhui: '2026-08-10', faits: cocher(casesDe('2026-08-03')),
-  }).calendrier;
+  const { jours } = vue.modelePerso(contexte('2026-08-10', cocher(casesDe('2026-08-03')))).calendrier;
 
   const lundi = jours.find((j) => j.date === '2026-08-03');
   assert.equal(lundi.numero, 3);
   assert.equal(lundi.detail, '8 sur 8');
   assert.equal(lundi.href, '#/seance/2026-08-03');
+  // Le calendrier ne peut pas mener a une route que le routeur ignore.
+  assert.match(lundi.href, MOTIF_SEANCE);
   assert.equal(lundi.nom, 'lundi 3 août · Endurance + Renforcement · faite · 8 sur 8');
 
   const mardi = jours.find((j) => j.date === '2026-08-04');
@@ -565,17 +589,15 @@ test('la grille s aligne sur le lundi, quel que soit le jour de depart', () => {
   assert.equal(vue.decalageInitial('2026-08-05'), 2);
   assert.equal(vue.decalageInitial('2026-08-09'), 6, 'un dimanche ferme la semaine');
   // programme.json est editable : la saison suivante peut commencer un mercredi.
-  assert.equal(vue.modelePerso({ prog, aujourdhui: '2026-08-10' }).calendrier.decalage, 0);
+  assert.equal(vue.modelePerso(contexte('2026-08-10')).calendrier.decalage, 0);
 });
 
 test('la legende ne montre que les etats presents ce jour-la', () => {
-  const debut = vue.modelePerso({ prog, aujourdhui: '2026-08-03' }).calendrier;
+  const debut = vue.modelePerso(contexte('2026-08-03')).calendrier;
   assert.deepEqual(debut.legende.map((e) => e.libelle), ['aujourd’hui', 'à venir', 'repos']);
   assert.equal(debut.resume, '19 jours · 7 séances');
 
-  const fin = vue.modelePerso({
-    prog, aujourdhui: '2026-08-21', faits: cocher(toutesLesCases),
-  }).calendrier;
+  const fin = vue.modelePerso(contexte('2026-08-21', cocher(toutesLesCases))).calendrier;
   assert.deepEqual(fin.legende.map((e) => e.libelle), ['faite', 'repos']);
 });
 ```
@@ -583,9 +605,10 @@ test('la legende ne montre que les etats presents ce jour-la', () => {
 - [ ] **Étape 2 — le lancer, vérifier qu'il échoue**
 
 Lancer : `cd apps/marcq-handball && node --test tests/perso.test.js`
-Attendu : ÉCHEC, `# pass 8` et `# fail 5`. Le premier tombe sur
-`TypeError: Cannot destructure property 'jours' of '....calendrier' as it is undefined.`,
-celui du décalage sur `error: 'vue.decalageInitial is not a function'`.
+Attendu : ÉCHEC, `# pass 8` et `# fail 5`. Quatre tombent sur
+`TypeError: Cannot destructure property 'jours' of '....calendrier' as it is undefined.`
+ou `Cannot read properties of undefined (reading 'legende')` ; celui du décalage
+sur `error: 'vue.decalageInitial is not a function'`.
 
 - [ ] **Étape 3 — l'implémentation minimale**
 
@@ -632,19 +655,24 @@ function decrireJour(prog, jour, aujourdhui, faits) {
   };
 
   if (jour.seance === null) {
-    return { ...commun, href: null, detail: null, nom: `${dateLongue(jour.date)} · ${libelle}` };
+    return {
+      ...commun,
+      href: null,
+      detail: null,
+      nom: `${dateEnToutesLettres(jour.date)} · ${libelle}`,
+    };
   }
 
   // `calendrier` rend le statut, pas le compte. Plutot que de recompter les
   // cases ici, on interroge `etatSeance` — deja exportee par le domaine
-  // (ossature §5) — sur les sept jours de seance.
+  // (ossature §5) — sur les seuls jours de seance.
   const { coches, total } = etatSeance(prog, jour.date, aujourdhui, faits);
   const detail = `${coches} sur ${total}`;
   return {
     ...commun,
     href: `#/seance/${jour.date}`,
     detail,
-    nom: `${dateLongue(jour.date)} · ${jour.seance.titre} · ${libelle} · ${detail}`,
+    nom: `${dateEnToutesLettres(jour.date)} · ${jour.seance.titre} · ${libelle} · ${detail}`,
   };
 }
 
@@ -658,7 +686,7 @@ function legendeDe(jours) {
 }
 ```
 
-Puis, dans `modelePerso`, ajouter les deux constantes en tête du corps :
+Puis, dans `modelePerso`, ajouter les deux constantes sous celles qui existent :
 
 ```js
   const jours = calendrier(prog, aujourdhui, faits)
@@ -694,22 +722,22 @@ git push
 
 ---
 
-### Tâche 4 — Le rendu, et son style
+### Tâche 4 — Le montage, et son style
 
 **Fichiers :** Modifier `apps/marcq-handball/web/vue-perso.js` · Modifier `apps/marcq-handball/web/style.css` · Tester `apps/marcq-handball/tests/perso.test.js`
 
-Le modèle est complet : le rendu ne décide plus rien. Les trois tests qui suivent
-n'ont pas de navigateur, et n'en ont pas besoin — ils attrapent les trois fautes
-qui coûtent le plus et se voient le moins : du HTML composé à partir d'une donnée
-éditable, une classe posée qui n'existe dans aucune feuille, et une requête
-réseau sur un écran qui doit fonctionner hors ligne.
+Le modèle est complet : le montage ne décide plus rien. Les trois tests qui
+suivent n'ont pas de navigateur et n'en ont pas besoin — ils attrapent les trois
+fautes qui coûtent le plus et se voient le moins : du HTML composé à partir d'une
+donnée éditable, une classe posée qui n'existe dans aucune feuille, et une
+requête réseau sur un écran qui doit fonctionner hors ligne.
 
 - [ ] **Étape 1 — écrire le test qui échoue**
 
 Ajouter à la fin de `apps/marcq-handball/tests/perso.test.js` :
 
 ```js
-test('le rendu ne compose jamais de HTML a partir du programme', () => {
+test('le montage ne compose jamais de HTML a partir du programme', () => {
   // programme.json est une donnee editable a la main : un libelle contenant un
   // chevron casserait la page, ou pire.
   assert.equal(source('vue-perso.js').includes('innerHTML'), false, 'le texte passe par textContent');
@@ -728,18 +756,18 @@ test('toute classe posee par l ecran existe dans style.css', () => {
   }
   assert.ok(classes.size >= 12, 'la lecture de la source a echoue si le compte est bas');
   // Les classes construites par gabarit, que la lecture ci-dessus ne voit pas.
-  classes.add('jour').add('jour--hors').add('part-barre');
-  for (const statut of Object.keys(vue.ETATS)) classes.add(`jour--${statut}`);
+  classes.add('barre');
+  for (const statut of Object.keys(vue.ETATS)) classes.add(`jour-${statut}`);
   for (const classe of classes) {
     assert.ok(css.includes(`.${classe}`), `.${classe} manque dans style.css`);
   }
 });
 
 test('l ecran perso ne parle a personne et ne compare a personne', () => {
-  // PRD §11 : une seance se lit et se coche reseau coupe. PRD §7.5 : la
-  // comparaison est le second niveau, et c'est le lot 2 (PRP 09). Le controle
-  // porte sur la source entiere, commentaires compris — c'est ce qui le rend
-  // trivial a executer et impossible a contourner par megarde.
+  // PRD §11 : l'app reste utilisable reseau coupe, et cet ecran ne lit que le
+  // telephone. PRD §7.5 : la comparaison est le second niveau, donc le lot 2.
+  // Le controle porte sur la source entiere, commentaires compris — c'est ce qui
+  // le rend trivial a executer et impossible a contourner par megarde.
   const code = source('vue-perso.js');
   for (const interdit of ['fetch(', 'classement', 'podium']) {
     assert.equal(code.includes(interdit), false, `« ${interdit} » n appartient pas a cet ecran`);
@@ -752,14 +780,14 @@ test('l ecran perso ne parle a personne et ne compare a personne', () => {
 Lancer : `cd apps/marcq-handball && node --test tests/perso.test.js`
 Attendu : ÉCHEC, `# pass 15` et `# fail 1` — seul le test des classes tombe, sur
 `AssertionError [ERR_ASSERTION]: la lecture de la source a echoue si le compte est bas`
-(le rendu n'existe pas encore, aucune classe n'est posée).
+(le montage n'existe pas encore, aucune classe n'est posée).
 
 - [ ] **Étape 3 — l'implémentation minimale**
 
 Ajouter à la fin de `apps/marcq-handball/web/vue-perso.js` :
 
 ```js
-// --- le rendu ---------------------------------------------------------------
+// --- le montage -------------------------------------------------------------
 // Il pose le modele dans le DOM et n'y ajoute AUCUNE decision. Tout ce qui se
 // decide est au-dessus, et se prouve sans navigateur.
 
@@ -770,7 +798,7 @@ function el(balise, classe, texte) {
   const noeud = document.createElement(balise);
   if (classe) noeud.className = classe;
   // textContent et jamais innerHTML : le programme est une donnee editable a la
-  // main.
+  // main, un libelle contenant un chevron casserait la page.
   if (texte !== undefined) noeud.textContent = texte;
   return noeud;
 }
@@ -781,92 +809,100 @@ function lien(href, classe, texte) {
   return a;
 }
 
-// L'ecran, rendu detache : il ne connait ni #ecran ni le routeur. C'est ce qui
-// permet au PRP 11 de le monter ailleurs sans le toucher.
-export function vuePerso({ prog, aujourdhui, faits = {} }) {
-  const m = modelePerso({ prog, aujourdhui, faits });
+// La part accomplie, en grand : c'est le chiffre qu'on vient chercher.
+function blocPart(part) {
+  const bloc = el('div', 'part-perso');
 
-  const section = el('section', 'perso');
-  section.append(lien('#/', 'retour tap', 'Aujourd’hui'), el('h1', null, m.titre));
-
-  // La part, en grand : c'est le chiffre qu'on vient chercher.
-  const part = el('div', 'part');
-  const chiffre = el('p', 'part-chiffre', `${m.part.pourcent} %`);
+  const chiffre = el('p', 'chiffre-part', `${part.pourcent} %`);
   // Le PRP 06 fait rouler ce nombre au lieu de le poser d'un coup (PRD §10). Il
   // le retrouve par cet attribut, sans rien savoir de la structure de l'ecran.
-  chiffre.dataset.compteur = String(m.part.pourcent);
+  chiffre.dataset.compteur = String(part.pourcent);
+
+  // Une <progress> native, comme aux ecrans du jour et de seance : annoncee par
+  // les lecteurs d'ecran sans un attribut ARIA de plus.
+  const jauge = el('p', 'progression-perso');
   const barre = document.createElement('progress');
-  barre.className = 'part-barre';
-  barre.max = m.part.echelle;
-  barre.value = m.part.cochees;
-  part.append(chiffre, barre, el('p', 'part-phrase', m.part.phrase));
-  section.append(part);
+  barre.className = 'barre';
+  barre.max = part.echelle;
+  barre.value = part.cochees;
+  jauge.append(barre);
 
-  // Le volume accompli — la somme de ce qui a ete coche, pas le programme.
-  const volume = el('section', 'volume');
-  volume.append(el('h2', null, 'Ce que tu as fait'));
-  if (m.volume.vide) {
-    volume.append(el('p', 'dit', m.volume.vide));
-  } else {
-    const liste = el('ul', 'volume-liste');
-    for (const ligne of m.volume.lignes) {
-      const item = el('li', 'volume-item', ligne.phrase);
-      item.dataset.unite = ligne.unite;
-      liste.append(item);
-    }
-    volume.append(liste);
-  }
-  section.append(volume);
-
-  section.append(vueCalendrier(m.calendrier));
-  return section;
+  bloc.append(chiffre, jauge, el('p', 'phrase-part', part.phrase));
+  return bloc;
 }
 
-function vueCalendrier(cal) {
-  const bloc = el('section', 'calendrier');
-  bloc.append(el('h2', null, 'Le calendrier'), el('p', 'calendrier-resume', cal.resume));
+function blocVolume(volume) {
+  const bloc = el('section', 'volume-perso');
+  bloc.append(el('h2', 'titre-bloc', 'Ce que tu as fait'));
+
+  if (volume.vide !== null) {
+    bloc.append(el('p', 'aide', volume.vide));
+    return bloc;
+  }
+
+  const liste = el('ul', 'liste-volume');
+  for (const ligne of volume.lignes) {
+    const item = el('li', 'item-volume', ligne.phrase);
+    // La seconde accroche du PRP 06 : la ligne se retrouve par son unite, sans
+    // analyser le texte qu'elle affiche.
+    item.dataset.unite = ligne.unite;
+    liste.append(item);
+  }
+  bloc.append(liste);
+  return bloc;
+}
+
+function blocCalendrier(cal) {
+  const bloc = el('section', 'calendrier-perso');
+  bloc.append(
+    el('h2', 'titre-bloc', 'Le calendrier'),
+    el('p', 'resume-calendrier', cal.resume),
+  );
 
   // Les initiales n'apprennent rien a qui n'a pas la grille sous les yeux :
   // chaque case annonce deja sa date en toutes lettres.
-  const entete = el('div', 'cal-entete');
+  const entete = el('div', 'entete-calendrier');
   entete.setAttribute('aria-hidden', 'true');
-  for (const initiale of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) entete.append(el('span', null, initiale));
+  for (const initiale of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) {
+    entete.append(el('span', null, initiale));
+  }
   bloc.append(entete);
 
-  const grille = el('div', 'grille');
+  const grille = el('div', 'grille-calendrier');
   for (let i = 0; i < cal.decalage; i += 1) {
     // Les cases d'avant le premier jour alignent la grille sur la semaine ;
     // elles ne portent aucune information.
-    const vide = el('span', 'jour jour--hors');
+    const vide = el('span', 'jour-calendrier jour-hors');
     vide.setAttribute('aria-hidden', 'true');
     grille.append(vide);
   }
 
   for (const jour of cal.jours) {
-    const classe = `jour jour--${jour.statut}`;
-    // Un jour de seance est un lien — le calendrier est le chemin du rattrapage
-    // (PRD §6, lot 1 point 4). Un jour de repos n'est pas cliquable : il n'y a
-    // rien a ouvrir, et un lien mort se tape trois fois avant qu'on comprenne.
-    const case_ = jour.href === null ? el('span', classe) : lien(jour.href, classe);
+    const classe = `jour-calendrier jour-${jour.statut}`;
+    // Un jour de seance est un lien — le calendrier est l'autre chemin du
+    // rattrapage (PRD §6, lot 1 point 4). Un jour de repos n'est pas cliquable :
+    // il n'y a rien a ouvrir, et un lien mort se tape trois fois avant qu'on
+    // comprenne.
+    const cellule = jour.href === null ? el('span', classe) : lien(jour.href, classe);
 
-    const numero = el('span', 'jour-numero', String(jour.numero));
+    const numero = el('span', 'numero-jour', String(jour.numero));
     numero.setAttribute('aria-hidden', 'true');
-    const marque = el('span', 'jour-marque', jour.marque);
+    const marque = el('span', 'marque-jour', jour.marque);
     marque.setAttribute('aria-hidden', 'true');
     // Ce que l'oeil lit dans la couleur et la marque, le lecteur d'ecran le lit
     // ici. Un aria-label sur un <span> sans role n'est pas restitue partout ;
     // du texte l'est.
-    case_.append(numero, marque, el('span', 'lu-seul', jour.nom));
-    if (jour.estAujourdhui) case_.setAttribute('aria-current', 'date');
-    grille.append(case_);
+    cellule.append(numero, marque, el('span', 'lu-seul', jour.nom));
+    if (jour.estAujourdhui) cellule.setAttribute('aria-current', 'date');
+    grille.append(cellule);
   }
   bloc.append(grille);
 
-  const legende = el('ul', 'legende');
+  const legende = el('ul', 'legende-calendrier');
   for (const etat of cal.legende) {
-    const item = el('li', 'legende-item');
-    const marque = el('span', 'legende-marque', etat.marque);
-    marque.classList.add(`jour--${etat.statut}`);
+    const item = el('li', 'item-legende');
+    const marque = el('span', 'marque-legende', etat.marque);
+    marque.classList.add(`jour-${etat.statut}`);
     item.append(marque, el('span', null, etat.libelle));
     legende.append(item);
   }
@@ -874,10 +910,20 @@ function vueCalendrier(cal) {
   return bloc;
 }
 
-// Le contrat d'ecran du PRP 03 : (hote, ctx) => demontage | undefined. Rien a
-// demonter — aucun ecouteur ne deborde de `hote`, que le routeur vide.
+// L'ecran, au contrat du PRP 03. Rien a demonter : aucun ecouteur ne deborde de
+// `hote`, que le routeur vide avant chaque montage.
 export function monterPerso(hote, ctx) {
-  hote.append(vuePerso({ prog: ctx.prog, aujourdhui: ctx.aujourdhui, faits: ctx.faits }));
+  const m = modelePerso(ctx);
+  const section = el('section', 'ecran ecran-perso');
+  section.append(
+    el('h1', 'titre-ecran', m.titre),
+    blocPart(m.part),
+    blocVolume(m.volume),
+    blocCalendrier(m.calendrier),
+  );
+  // Le PRP 09 ajoutera « L'equipe » ici, apres le calendrier : le PRD §7.5 met
+  // la comparaison au second niveau, jamais avant.
+  hote.append(section);
 }
 ```
 
@@ -886,154 +932,135 @@ Ajouter à la fin de `apps/marcq-handball/web/style.css` :
 ```css
 /* ---- l'ecran perso --------------------------------------------------------
    « Ma progression » (PRD §7.5) : on se lit, on ne se compare pas. Un chiffre en
-   grand, le volume en pastilles, et dix-neuf jours qui tiennent sur un ecran de
-   telephone sans defilement horizontal. */
+   grand, le volume en pastilles, et dix-neuf jours qui tiennent sur la largeur
+   d'un telephone sans defilement horizontal. Les titres, la barre et le bloc
+   d'aide reutilisent les classes des ecrans precedents : une jumelle
+   divergerait. */
 
-.perso { max-width: 34rem; margin: 0 auto; }
+.ecran-perso { gap: 1.4rem; }
 
-.perso h2 {
-  margin: 0 0 var(--pas);
-  font-size: 1.125rem;
+.part-perso {
+  padding: 1rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 10px;
+  background: var(--marcq-carte);
 }
 
-.part {
-  padding: calc(var(--pas) * 2);
-  border: 1px solid var(--trait);
-  border-radius: var(--rayon);
-  background: var(--carte);
-}
-
-.part-chiffre {
+.chiffre-part {
   margin: 0;
-  font-family: var(--chiffres);
   font-size: clamp(2.5rem, 14vw, 3.5rem);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Une <progress> native : annoncee par les lecteurs d'ecran sans un attribut
-   ARIA de plus. `appearance: none` est ce qui rend ses deux pseudo-elements
-   stylables ; sans lui, la barre garde l'aspect du systeme et le contraste
-   n'est plus le notre. */
-.part-barre {
-  display: block;
-  width: 100%;
-  height: 10px;
-  margin: calc(var(--pas) * 1.5) 0 var(--pas);
-  -webkit-appearance: none;
-  appearance: none;
-  border: 0;
-  border-radius: 999px;
-  background: var(--trait);
-  color: var(--fait);
-  overflow: hidden;
-}
-.part-barre::-webkit-progress-bar { background: var(--trait); }
-.part-barre::-webkit-progress-value { background: var(--fait); }
-.part-barre::-moz-progress-bar { background: var(--fait); }
+.progression-perso { display: flex; align-items: center; margin: .6rem 0; }
 
-.part-phrase {
-  margin: 0;
-  color: var(--encre-douce);
-  font-family: var(--chiffres);
-  font-size: 0.875rem;
-}
+.phrase-part { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
 
-/* Le volume en pastilles : c'est une liste de choses a dire a table, pas un
-   tableau de bord. */
-.volume { margin-top: calc(var(--pas) * 4); }
-
-.volume-liste {
+/* Le volume en pastilles : une liste de choses a dire a table, pas un tableau
+   de bord. */
+.liste-volume {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pas);
+  gap: .5rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.volume-item {
-  padding: calc(var(--pas) * 0.75) calc(var(--pas) * 1.5);
-  border: 1px solid var(--trait);
+.item-volume {
+  padding: .35rem .8rem;
+  border: 1px solid var(--marcq-trait);
   border-radius: 999px;
-  background: var(--carte);
-  font-family: var(--chiffres);
-  font-size: 0.9375rem;
+  background: var(--marcq-carte);
+  font-size: .95rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.calendrier { margin-top: calc(var(--pas) * 4); }
-
-.calendrier-resume {
-  margin: 0 0 var(--pas);
-  color: var(--encre-douce);
-  font-family: var(--chiffres);
-  font-size: 0.875rem;
+.resume-calendrier {
+  margin: 0 0 .6rem;
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
 }
 
-.cal-entete,
-.grille {
+.entete-calendrier,
+.grille-calendrier {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
 
-.cal-entete {
+.entete-calendrier {
   margin-bottom: 4px;
-  color: var(--encre-douce);
-  font-family: var(--chiffres);
-  font-size: 0.75rem;
+  color: var(--marcq-encre-douce);
+  font-size: .75rem;
   text-align: center;
 }
 
 /* La hauteur ne descend jamais sous la zone de tap ; la largeur suit la
-   colonne — sept colonnes de 44 px ne tiennent pas sur un ecran tres etroit, et
-   aucune action de l'app ne depend de cette grille (voir « Points d'attention »
-   du PRP). */
-.jour {
+   colonne — sept colonnes de 48 px ne tiennent sur aucun telephone, et aucune
+   action de l'app ne depend de cette grille (voir « Points d'attention »). */
+.jour-calendrier {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: var(--tap);
+  min-height: var(--marcq-tap);
   padding: 2px;
   border: 1px solid transparent;
-  border-radius: var(--rayon);
+  border-radius: 8px;
   color: inherit;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.jour-numero { font-family: var(--chiffres); font-size: 0.875rem; line-height: 1; }
-.jour-marque { font-size: 0.75rem; line-height: 1; }
+.numero-jour { font-size: .875rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.marque-jour { font-size: .75rem; line-height: 1; }
 
-.jour--hors { visibility: hidden; }
-.jour--repos { color: var(--encre-douce); }
-.jour--a-venir { border-color: var(--trait); background: var(--carte); }
-.jour--manquee { border-style: dashed; border-color: var(--trait); color: var(--encre-douce); }
-.jour--partielle { border-color: var(--fait); background: var(--carte); color: var(--fait); }
-.jour--faite { border-color: var(--fait); background: var(--fait); color: var(--signal-lisible); }
-.jour--aujourd-hui {
-  border-color: var(--signal);
-  background: var(--carte);
-  box-shadow: inset 0 0 0 1px var(--signal);
+.jour-hors { visibility: hidden; }
+.jour-repos { color: var(--marcq-encre-douce); }
+.jour-a-venir { border-color: var(--marcq-trait); background: var(--marcq-carte); }
+.jour-manquee {
+  border-style: dashed;
+  border-color: var(--marcq-trait);
+  color: var(--marcq-encre-douce);
+}
+.jour-partielle {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-carte);
+  color: var(--marcq-accent);
+}
+.jour-faite {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-accent);
+  color: var(--marcq-sur-accent);
+}
+.jour-aujourd-hui {
+  border-color: var(--marcq-danger);
+  background: var(--marcq-carte);
+  box-shadow: inset 0 0 0 1px var(--marcq-danger);
   font-weight: 700;
 }
 
-.legende {
+.jour-calendrier:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+.legende-calendrier {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pas);
-  margin: calc(var(--pas) * 2) 0 0;
+  gap: .6rem;
+  margin: .8rem 0 0;
   padding: 0;
   list-style: none;
-  color: var(--encre-douce);
-  font-size: 0.8125rem;
+  color: var(--marcq-encre-douce);
+  font-size: .8125rem;
 }
 
-.legende-item { display: inline-flex; align-items: center; gap: 4px; }
+.item-legende { display: inline-flex; align-items: center; gap: .3rem; }
 
-.legende-marque {
+.marque-legende {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1041,11 +1068,11 @@ Ajouter à la fin de `apps/marcq-handball/web/style.css` :
   height: 1.5rem;
   border: 1px solid transparent;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: .75rem;
 }
 
 /* Lu par les lecteurs d'ecran, invisible a l'oeil. `display: none` le retirerait
-   aussi de leur restitution : ce qui doit etre annonce doit rester dans le flux,
+   aussi de leur restitution : ce qui doit etre annonce reste dans le flux,
    reduit a un pixel. */
 .lu-seul {
   position: absolute;
@@ -1076,19 +1103,47 @@ git push
 
 ---
 
-### Tâche 5 — L'écran entre dans l'app
+### Tâche 5 — L'écran entre dans le routeur
 
-**Fichiers :** Modifier `apps/marcq-handball/web/app.js` · Modifier `apps/marcq-handball/web/sw.js` · Modifier `apps/marcq-handball/tests/vues.test.js` · Modifier `apps/marcq-handball/README.md` · Tester `apps/marcq-handball/tests/perso.test.js`
+**Fichiers :** Modifier `apps/marcq-handball/web/app.js` · Modifier `apps/marcq-handball/tests/vues.test.js` · Modifier `apps/marcq-handball/web/sw.js` · Modifier `apps/marcq-handball/README.md` · Tester `apps/marcq-handball/tests/perso.test.js`
 
-Trois branchements, chacun invisible s'il manque : sans la route, l'écran
-n'existe pas ; sans l'onglet, il n'est joignable qu'en tapant son adresse ; sans
-l'entrée de coque, le premier passage hors ligne sur `#/perso` échoue — et rien
-ne le signale tant qu'on reste connecté.
+Le PRP 03 a laissé une assertion en attente — `choisirEcran('#/perso')` rend
+`null`, *« l'écran perso arrive au PRP 05 »* — et le PRP 04 a laissé la liste des
+écrans à `['reglages', 'seance', 'jour']`. C'est ici qu'elles changent. Trois
+branchements, chacun invisible s'il manque : sans la route, l'écran n'existe pas ;
+sans l'onglet, il n'est joignable qu'en tapant son adresse ; sans l'entrée de
+coque, le premier passage hors ligne sur `#/perso` échoue, et rien ne le signale
+tant qu'on reste connecté.
 
 - [ ] **Étape 1 — écrire le test qui échoue**
 
-Ajouter l'import en tête de `apps/marcq-handball/tests/perso.test.js`, sous celui
-de `vue-perso.js` :
+Dans `apps/marcq-handball/tests/vues.test.js`, test
+`le routeur connait les ecrans de ce lot, et rejette les autres`, remplacer :
+
+```js
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'jour']);
+```
+
+par :
+
+```js
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'jour']);
+```
+
+et, dans le même test, remplacer :
+
+```js
+  assert.equal(choisirEcran('#/perso'), null, 'l ecran perso arrive au PRP 05');
+```
+
+par :
+
+```js
+  assert.equal(choisirEcran('#/perso').nom, 'perso');
+```
+
+Ajouter l'import en tête de `apps/marcq-handball/tests/perso.test.js`, avec les
+autres :
 
 ```js
 import { choisirEcran } from '../web/app.js';
@@ -1103,62 +1158,54 @@ test('la route #/perso monte l ecran perso', () => {
 });
 
 test('l onglet « Ma progression » mene a l ecran', () => {
+  // PRD §7.5 nomme ce niveau « Ma progression » ; c'est ce mot qui va sur
+  // l'onglet, pas « Stats » ni « Moi ».
   const code = source('app.js');
   assert.match(code, /#\/perso/);
-  assert.match(code, /Ma progression/, 'PRD §7.5 nomme ce niveau « Ma progression »');
+  assert.match(code, /Ma progression/);
 });
 
 test('le service worker met l ecran perso en cache', () => {
   // PRD §11 : l'app reste utilisable reseau coupe. Sans cette entree, le premier
   // passage hors ligne sur un ecran jamais ouvert echoue.
-  assert.match(source('sw.js'), /'\/vue-perso\.js'/, 'ajoute /vue-perso.js au tableau COQUE');
+  assert.match(source('sw.js'), /'\/vue-perso\.js'/, 'ajoute /vue-perso.js a la liste de coque');
 });
-```
-
-Dans `apps/marcq-handball/tests/vues.test.js`, l'assertion posée par le PRP 03
-annonçait cet écran comme absent. La remplacer :
-
-```js
-  assert.equal(choisirEcran('#/perso'), null, 'l ecran perso arrive au PRP 05');
-```
-
-par :
-
-```js
-  assert.equal(choisirEcran('#/perso').nom, 'perso');
 ```
 
 - [ ] **Étape 2 — le lancer, vérifier qu'il échoue**
 
 Lancer : `cd apps/marcq-handball && node --test tests/perso.test.js tests/vues.test.js`
 Attendu : ÉCHEC, `# fail 4` :
-`TypeError: Cannot read properties of null (reading 'nom')` deux fois — une par
-fichier — puis
-`AssertionError [ERR_ASSERTION]: The input did not match the regular expression /#\/perso/`
-et `… /'\/vue-perso\.js'/`.
+- dans `perso.test.js`, `TypeError: Cannot read properties of null (reading 'nom')`,
+  puis deux `AssertionError [ERR_ASSERTION]: The input did not match the regular expression`
+  — `/#\/perso/` et `/'\/vue-perso\.js'/` ;
+- dans `vues.test.js`, l'écart de `deepEqual` sur la liste des écrans.
 
 - [ ] **Étape 3 — l'implémentation minimale**
 
-**`web/app.js`** — ajouter l'import sous ceux des autres vues :
+**`web/app.js`** — un import et deux lignes, exactement ce que le contrat du
+PRP 03 annonce. Compléter les imports :
 
 ```js
 import { monterPerso } from './vue-perso.js';
 ```
 
-puis l'entrée dans `ECRANS`, en tête du tableau — l'ordre est celui du premier
-motif qui correspond, et celui du jour accepte l'adresse sans ancre, donc il
-reste dernier :
+puis insérer l'entrée dans `ECRANS`, **entre `seance` et `jour`** :
 
 ```js
 export const ECRANS = [
-  { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
   { nom: 'reglages', motif: /^#\/reglages$/, monter: monterReglages },
+  { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
+  { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
   { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
 ];
 ```
 
-et l'onglet dans `LIENS`, entre le jour et les réglages — le PRD §7.5 met
-« Ma progression » juste après ce qu'on fait aujourd'hui :
+Les quatre motifs sont disjoints, l'ordre est donc sans conséquence — mais celui
+du jour reste **dernier** : c'est lui qui accepte l'adresse sans ancre.
+
+Et l'onglet dans `LIENS`, **entre le jour et les réglages** : le PRD §7.5 met
+« Ma progression » juste après ce qu'il y a à faire aujourd'hui.
 
 ```js
 const LIENS = [
@@ -1168,94 +1215,70 @@ const LIENS = [
 ];
 ```
 
-Si le PRP 04 a remplacé le tableau `ECRANS` par une fonction de routage à
-branches, l'entrée prend cette forme à la place, **avant** le cas par défaut, et
-`vuePerso` sert directement :
+Contrairement à la séance, cet écran **a** un onglet : il n'a pas de paramètre,
+il est le second niveau de lecture du PRD §7.5, et il doit être atteignable
+depuis n'importe où sans repasser par l'écran du jour.
 
-```js
-  // #/perso — « Ma progression » (PRD §7.5).
-  if (route === '/perso') {
-    afficher(vuePerso({ prog, aujourdhui: aujourdhui(), faits: lireFaits() }));
-    return;
-  }
+**`web/sw.js`** — ajouter `'/vue-perso.js'` à la liste de coque, après
+`'/vue-seance.js'`. La vérification des PRP 03 et 04, complétée d'une entrée :
+
+```bash
+cd /home/user/hello-world/apps/marcq-handball && manquants=0 && \
+for f in / /style.css /programme.json /app.js /etat.js /domaine.js \
+         /vue-prenom.js /vue-jour.js /vue-reglages.js /vue-seance.js /vue-perso.js; do \
+  grep -q "'$f'" web/sw.js || { echo "MANQUANT : $f"; manquants=1; }; \
+done; [ "$manquants" = 0 ] && echo OK
 ```
 
-Les deux formes marchent parce que le module exporte les deux points d'entrée ;
-n'en garder qu'une, celle que `app.js` utilise réellement.
+Un chemin **en trop** ferait échouer `cache.addAll`, donc l'installation entière,
+et le service worker n'activerait jamais ; `tests/coque.test.js` (PRP 01) vérifie
+que chaque chemin correspond à un fichier livré.
 
-**`web/sw.js`** — ajouter l'entrée à `COQUE`, qui devient :
-
-```js
-const COQUE = [
-  '/',
-  '/style.css',
-  '/app.js',
-  '/domaine.js',
-  '/etat.js',
-  '/vue-prenom.js',
-  '/vue-jour.js',
-  '/vue-seance.js',
-  '/vue-perso.js',
-  '/vue-reglages.js',
-  '/programme.json',
-];
-```
-
-Seule `/vue-perso.js` appartient à ce PRP ; les autres viennent des PRP 01, 03
-et 04, et cette liste est celle qui vaut au terme de ce PRP — chacun des fichiers
-qu'elle nomme existe. **Un chemin en trop ferait échouer `cache.addAll`, donc
-l'installation entière, et le service worker n'activerait jamais** ;
-`tests/coque.test.js` (PRP 01) vérifie que chaque chemin correspond à un fichier
-livré.
-
-**`apps/marcq-handball/README.md`** — ajouter la ligne au tableau des routes et
-la section qui suit :
+**`apps/marcq-handball/README.md`** — ajouter la ligne au tableau des écrans :
 
 ```markdown
-| `#/perso` | ma progression : la part, le volume accompli, le calendrier | `web/vue-perso.js` |
+| `#/perso` | ma progression : la part, le volume accompli, le calendrier |
+```
 
+puis la section qui suit, à la fin du fichier :
+
+````markdown
 ## L'écran « Ma progression »
 
 Trois choses, dans cet ordre (PRD §7.5) : la **part** des exercices accomplis
-parmi ceux **programmés à ce jour** — jamais sur les 53 du programme entier, sinon
-tout le monde est à 15 % le 5 août (PRD §9) ; le **volume cumulé accompli**, somme
-de ce qui a été coché, en langage d'ado (« 112 pompes, … 2 h 10 de course ») ; et
-le **calendrier des dix-neuf jours**, où les jours sans séance sont du repos et
-non un trou.
+parmi ceux **programmés à ce jour** — jamais sur les 53 du programme entier,
+sinon tout le monde est à 15 % le 5 août (PRD §9) ; le **volume cumulé
+accompli**, somme de ce qui a été coché, en langage d'ado (« 112 pompes, …
+2 h 10 de course ») ; et le **calendrier des dix-neuf jours**, où les jours sans
+séance sont du repos et non un trou.
 
-Les six états d'une case viennent du domaine et ne sont ni fusionnés ni inventés :
-`faite`, `commencée`, `aujourd’hui`, `à venir`, `manquée`, `repos`. Une case de
-séance ouvre sa séance ; une case de repos n'est pas cliquable.
+Les six états d'une case viennent du domaine et ne sont ni fusionnés ni
+inventés : `faite`, `commencée`, `aujourd’hui`, `à venir`, `manquée`, `repos`.
+Une case de séance ouvre sa séance ; une case de repos n'est pas cliquable.
 
 Le volume ne produit **aucun classement** (PRD §9) : il est déduit du programme,
 il classerait dans le même ordre que la régularité. La comparaison à l'équipe est
 le second niveau du §7.5 et arrive au lot 2, sous le calendrier.
-```
+````
 
 - [ ] **Étape 4 — le relancer, vérifier qu'il passe**
 
-Lancer : `cd apps/marcq-handball && node --test tests/perso.test.js` · Attendu :
-SUCCÈS, `# pass 19`, `# fail 0`.
+Lancer : `cd apps/marcq-handball && node --test tests/perso.test.js tests/vues.test.js`
+Attendu : SUCCÈS, `# pass 32`, `# fail 0` — 19 pour l'écran perso, 13 pour les
+écrans de l'entrée.
 
 Lancer : `./apps/marcq-handball/test.sh` · Attendu : SUCCÈS, `# fail 0` et
 `ok  github.com/billbob-space/hello-world/apps/marcq-handball`.
 
 Lancer : `./init.sh --check` · Attendu : SUCCÈS, aucun `KO`.
 
-Puis le contrôle à la main — la CI n'a pas de navigateur, et une grille de sept
-colonnes qui déborde ne se voit qu'à l'écran :
+Le parcours complet, dans un navigateur :
 
 ```bash
-cd apps/marcq-handball
-CGO_ENABLED=0 go build -trimpath -ldflags="-X main.version=essai" -o /tmp/mh .
-PORT=8199 /tmp/mh & pid=$!
-sleep 1
-echo 'ouvrir http://localhost:8199/#/perso'
+cd apps/marcq-handball && go run .
 ```
 
-Attendu, dans l'ordre :
-
-1. L'onglet « Ma progression » est présent et actif ; l'écran affiche un
+1. L'onglet « Ma progression » est présent, et le suivre affiche l'écran : un
    pourcentage en grand, la phrase « … exercices sur … programmés à ce jour. »,
    puis « Ce que tu as fait ».
 2. Sans rien de coché : « Rien de coché pour l’instant. La première case ouvre le
@@ -1268,16 +1291,13 @@ Attendu, dans l'ordre :
    « L », les deux dernières colonnes de la dernière ligne vides.
 5. Taper la case du 5 août ouvre `#/seance/2026-08-05` ; taper une case de repos
    ne fait rien et ne montre aucun curseur de lien.
-6. Le bouton retour du téléphone ramène à `#/perso`, puis à l'écran du jour.
-7. Outils de développement → Réseau, vider, puis remonter l'écran : **aucune
-   requête**. Cocher « Offline » et `F5` : l'écran revient — c'est
-   `/vue-perso.js` dans `COQUE`.
-8. Réglages du système → thème sombre : les six états restent distinguables, le
+6. Le bouton retour du navigateur ramène à `#/perso`, puis à l'écran du jour :
+   chaque écran est une entrée d'historique (PRP 03, règle 2).
+7. Outils de développement → Réseau, vider, puis changer d'onglet et revenir :
+   **aucune requête**. Cocher « Offline » et `F5` : l'écran revient — c'est
+   `/vue-perso.js` dans la liste de coque.
+8. Réglages du système → thème sombre : les six états restent distinguables et le
    texte des cases pleines reste lisible.
-
-```bash
-kill "$pid"
-```
 
 - [ ] **Étape 5 — committer**
 
@@ -1286,7 +1306,7 @@ kill "$pid"
 git add apps/marcq-handball/web/app.js apps/marcq-handball/web/sw.js \
         apps/marcq-handball/tests/perso.test.js apps/marcq-handball/tests/vues.test.js \
         apps/marcq-handball/README.md
-git commit -m "marcq-handball : l'ecran perso entre dans l'app"
+git commit -m "marcq-handball : l'ecran perso entre dans le routeur"
 git push
 ```
 
@@ -1304,69 +1324,55 @@ matin n'est ni « manquée » ni tout à fait « à venir » : elle est la seule
 puisse encore faire. Les fusionner produirait un calendrier qui ment dans les
 deux sens ; c'est l'unique écart avec la lettre du §7.5, et il est assumé ici.
 
-**`calendrier` ne porte pas le compte des cases.** Le brief de ce PRP demande que
-tout vienne de `totauxAccomplis` et `calendrier` ; or `calendrier` rend
+**`calendrier` ne porte pas le compte des cases.** Le périmètre de ce PRP veut
+que tout vienne de `totauxAccomplis` et `calendrier` ; or `calendrier` rend
 `{ date, seance, statut }` et le détail « 5 sur 8 » d'une case demande
 `{ coches, total }`. `modelePerso` appelle donc `etatSeance` — **déjà exportée
 par le domaine (ossature §5)** — sur les seuls jours de séance : c'est consommer
-une interface amont, pas dupliquer un calcul. Si le PRP 02 est un jour amendé pour
-que `calendrier` porte `coches` et `total`, `decrireJour` perd son appel et rien
-d'autre ne bouge.
-
-**Les PRP 03 et 04 ne décrivent pas le même routeur.** Le PRP 03 crée `app.js`
-avec `ECRANS`, `choisirEcran` et des écrans `(hote, ctx)` ; le PRP 04 décrit une
-fonction de routage à branches qui appelle `afficher(vueSeance({…}))` et
-consomme un `afficher` que le PRP 03 ne définit pas. Lis `app.js` **tel qu'il est**
-avant d'éditer, et pose la route dans la forme qui s'y trouve : les deux sont
-données à la tâche 5, et `vue-perso.js` exporte les deux points d'entrée pour
-que le choix ne coûte rien. Le test `choisirEcran('#/perso').nom` suppose la forme
-`ECRANS` — si `app.js` n'a pas ce tableau, remplace cette assertion par la
-lecture de source déjà présente (`assert.match(code, /#\/perso/)`) et dis-le dans
-le message de commit.
-
-**Les deux jeux de jetons CSS coexistent.** Le PRP 01 pose `--papier --carte
---encre --encre-douce --trait --signal --signal-lisible --fait --tap --pas
---marge --rayon --texte --chiffres` ; le PRP 03 en ajoute un second en
-`--marcq-*` dans un `:root` qui vient après. Les deux sont dans le fichier, aucun
-n'écrase l'autre. Ce PRP s'en tient au jeu du PRP 01, comme le PRP 04 : c'est
-celui que déclare le bloc « Produit » du socle, et celui qui porte la variante
-sombre. Ne renomme rien au passage — une couleur qui devient `var(--introuvable)`
-tombe en `inherit` sans une seule erreur en console.
-
-**Sept colonnes de 44 px ne tiennent sur aucun téléphone courant.** C'est
-géométrique : 7 × 44 + 6 × 4 = 332 px de grille, plus les deux marges du corps —
-36 px sur un écran de 360 px, soit 368 px pour 360 disponibles. La case garde
-donc toujours ses 44 px de **hauteur** et prend la largeur de sa colonne ; sur un
-écran très étroit elle descend vers 38 px de large. Aucune action de l'app n'en
-dépend : la séance du jour s'ouvre depuis l'écran du jour, et les séances
-voisines depuis le pied de l'écran de séance (PRP 04). Si tu changes cette
-grille, vérifie d'abord qu'aucun `overflow-x` n'apparaît sur le corps de la page :
-un défilement horizontal sur mobile est la panne la plus détestée et la moins
-signalée.
+une interface amont, pas dupliquer un calcul. Si le PRP 02 est un jour amendé
+pour que `calendrier` porte `coches` et `total`, `decrireJour` perd cet appel et
+rien d'autre ne bouge.
 
 **Le pourcentage peut reculer.** Le dénominateur grandit à chaque nouvelle séance
 programmée : quelqu'un à 100 % le 3 août au soir sera à 50 % le 5 au matin sans
-rien avoir décoché. C'est voulu (PRD §9, le classement mesure la régularité), mais
+rien avoir décoché. C'est voulu (PRD §9, le classement mesure la régularité) mais
 c'est contre-intuitif à l'écran — d'où la phrase « … sur N programmés à ce jour. »
 qui accompagne toujours le chiffre. Ne l'abrège pas en « … sur N » : c'est
 exactement ce qu'elle explique qui disparaîtrait.
 
-**`vue-perso.js` importe `vue-seance.js` pour `dateLongue`.** Deux conséquences :
-l'écran perso ne se charge pas si `/vue-seance.js` manque du cache hors ligne —
-il y est depuis le PRP 04 — et une renumérotation des exports de `vue-seance.js`
-casse cet écran. C'est le prix à payer pour ne pas avoir deux tables de mois dans
-l'application, et deux tables de mois qui divergent est une panne bien plus
-sournoise qu'un import.
+**Sept colonnes de 48 px ne tiennent sur aucun téléphone.** C'est géométrique :
+7 × 48 + 6 × 4 = 360 px de grille, plus les marges du corps. La case garde donc
+toujours sa hauteur de `--marcq-tap` et prend la largeur de sa colonne ; sur un
+écran de 360 px elle descend vers 40 px de large. Aucune action de l'app n'en
+dépend : la séance du jour s'ouvre depuis l'écran du jour, et les séances
+voisines depuis le pied de l'écran de séance (PRP 04). Si tu touches à cette
+grille, vérifie d'abord qu'aucun défilement horizontal n'apparaît sur le corps de
+la page — c'est la panne la plus détestée et la moins signalée sur mobile.
+
+**Deux jeux de jetons CSS coexistent dans `style.css`.** Le PRP 01 a posé
+`--papier --carte --encre --trait --signal --fait --tap --pas --rayon` ; le
+PRP 03 a posé `--marcq-*` dans un `:root` qui vient après, et c'est celui que les
+écrans utilisent — l'écran de séance comme celui-ci. Ne mélange pas les deux au
+milieu d'une règle : une couleur qui devient `var(--introuvable)` tombe en
+`inherit` sans une seule erreur en console, et la faute ne se voit qu'à l'œil, sur
+un écran qu'aucun test ne regarde.
+
+**`vue-perso.js` importe `vue-jour.js` pour `dateEnToutesLettres`.** Deux
+conséquences : l'écran perso ne se charge pas si `/vue-jour.js` manque de la
+coque hors ligne — il y est depuis le PRP 03 — et renommer cet export casse cet
+écran. C'est le prix à ne pas payer deux tables de mois dans l'application ; deux
+tables qui divergent est une panne bien plus sournoise qu'un import.
 
 **Les mots `fetch(`, `classement` et `podium` sont interdits dans la source**,
 commentaires compris, et un test le vérifie littéralement. Une phrase bien
 intentionnée du genre « pas de classement ici » ferait passer la suite au rouge.
-C'est le prix d'un contrôle qui ne demande ni analyseur syntaxique ni dépendance ;
-si tu dois parler du lot 2 dans un commentaire, dis « la comparaison aux autres ».
+C'est le prix d'un contrôle qui ne demande ni analyseur syntaxique ni
+dépendance ; si tu dois parler du lot 2 dans un commentaire, écris « la
+comparaison aux autres ».
 
 **`programme.json` reste éditable, et le §12.3 du PRD est encore ouvert.** La
 page 3 sur 3 de la note du coach manque : si elle ajoute des séances avant le
 17 août, le calendrier passe de dix-neuf cases à autant qu'il en faut, la légende
 et le résumé suivent, et **aucune ligne de cet écran ne bouge** — c'est ce que
-vérifient `decalageInitial`, le `resume` calculé et le test des dix-neuf jours,
-qui lit `prog.debut` et `prog.fin` plutôt que des dates écrites en dur.
+garantissent `decalageInitial`, le `resume` calculé et le test des dix-neuf
+jours, qui lit `prog.debut` et `prog.fin` plutôt que des dates écrites en dur.
