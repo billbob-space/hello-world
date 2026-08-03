@@ -1,38 +1,24 @@
 # Genere par init.sh depuis fabrique.yml et apps/*/app.yml.
 # NE PAS EDITER — ./init.sh --check refuse un compose desynchronise.
 #
-# Une seule stack dockhand : toutes les applications activees, leurs services
-# annexes et les services partages. Le rayon de souffle est commun : une erreur
-# dans un bloc fait echouer le deploiement de toute la fabrique.
+# Une seule stack dockhand. Le rayon de souffle est commun : une erreur dans un
+# bloc fait echouer le deploiement de toute la fabrique.
 #
-# TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
-# SEULE EST ROUTEE :
+# CE FICHIER NE PORTE QUE DES SERVICES D'APPLICATION, decrits par leur
+# apps/<app>/app.yml, et TOUS SONT ROUTES : chacun porte ses labels de ROUTAGE —
+# un routeur, une URL https://<app>.apps.billbob.ovh, un middleware
+# d'authentification Google et priority=100. Ils vivent sur le reseau apps_net
+# et se joignent entre eux par leur nom de service ; aucun ne publie de port
+# sur l'hote.
 #
-#   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
-#                  Seule sorte a porter des labels de ROUTAGE : un routeur, une
-#                  URL https://<app>.apps.billbob.ovh, un middleware
-#                  d'authentification Google et priority=100.
-#   <app>-<nom>    service annexe prive d'une application (section services:
-#                  de son app.yml). Un seul label : traefik.enable=false.
-#   <nom>          service partage par plusieurs applications (shared_services
-#                  dans fabrique.yml). Le meme unique label.
-#
-# Les trois vivent sur le meme reseau apps_net et se joignent entre elles par
-# leur nom de service ; aucune ne publie de port sur l'hote. Ce qui expose un
-# service a Internet, ce sont ses labels Traefik, pas le reseau — mais l'absence
-# de label n'est PAS une protection : avec exposedByDefault, qui est le DEFAUT,
-# un conteneur sans le moindre label recoit quand meme un routeur, donc une URL,
-# et sans middleware d'authentification. Seul traefik.enable=false l'en retire ;
-# c'est pourquoi il est pose sur chaque service non route ci-dessous.
-#
-# Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
-# Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le
-# service partage qui le declare — et « docker compose up » le cree tout seul :
-# aucune action prealable sur l'hote, pour aucune app, jamais. Au premier
-# montage, Docker recopie dans le volume vide le contenu du repertoire tel qu'il
-# existe dans l'IMAGE : C'EST DONC LE DOCKERFILE QUI FIXE LE PROPRIETAIRE. Une
-# app en non-root doit creer son repertoire et le chown AVANT sa directive
-# USER, sinon le volume appartient a root et elle ne peut pas y ecrire.
+# Deux autres sortes apparaitront ici des qu'un manifeste les declarera :
+# <app>-<nom>, annexe privee d'une app (section services: de son app.yml), et
+# <nom>, service partage (shared_services dans fabrique.yml). Elles ne sont pas
+# routees, et init.sh leur pose alors « traefik.enable=false » — c'est ce label,
+# et non l'absence de label, qui retire du routage : avec exposedByDefault, qui
+# est le DEFAUT de Traefik, un conteneur sans le moindre label recoit quand meme
+# un routeur, donc une URL, et sans authentification. Aucune n'est declaree a ce
+# jour : ce fichier ne contient donc, volontairement, aucun traefik.enable=false.
 services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh

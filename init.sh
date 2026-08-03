@@ -388,14 +388,43 @@ check_volume_list() {  # check_volume_list <proprietaire> <etiquette> <specs> �
 # la meme valeur en clair dans fabrique.yml ET dans compose.yaml, deux fichiers
 # suivis par git. On refuse donc toute cle qui evoque un secret des qu'elle porte
 # une valeur litterale — les formes sans valeur, elles, restent admises.
-CMD_SECRET_RE='(requirepass|password|passwd|secret|token|api[-_]?key|auth|key)'
+#
+# Chaque alternative est ANCREE sur une frontiere de mot : debut ou fin de cle,
+# tiret, souligne, point. Une alternative NUE comme « auth » ou « key » matcherait
+# en sous-chaine et refuserait des options parfaitement legitimes —
+# « --notify-keyspace-events Ex » (Valkey/Redis, l'image donnee en exemple plus
+# bas), « --tls-key-file /certs/k.pem » (un chemin, pas un secret),
+# « --auth-host=trust » (PostgreSQL). Le refus est bloquant et sans echappatoire,
+# et son message renvoie vers env: : un faux positif interdirait donc une
+# configuration valide en proposant un remede qui n'a aucun sens pour une valeur
+# qui n'est pas un secret. « key » et « auth » ne sont pour cette raison jamais
+# reconnus seuls, mais uniquement soudes a un mot qui, lui, denonce un secret :
+# api-key, secret-key, private-key, auth-token, auth-pass…
+CMD_SECRET_RE='(^|[-_.])(requirepass|password|passwd|secret|token|api[-_.]?key|secret[-_.]?key|private[-_.]?key|access[-_.]?key|auth[-_.]?(token|pass|password|secret|key))($|[-_.])|(^|[-_.])pass$'
 
-check_command() {  # check_command <commande> — pose VERR
+# La commande telle qu'elle sera lancee, un argument par ligne. ymaps rend un
+# enregistrement PAR ELEMENT des que command: est ecrite en LISTE YAML — forme
+# en ligne « [a, b] » comme forme bloc « - a ». La lire avec map_one ne verrait
+# que le premier : la commande serait tronquee a son premier mot dans le compose,
+# en silence, et le controle des secrets ne porterait que sur ce mot-la. La forme
+# scalaire, elle, se decoupe sur les espaces comme une ligne de shell.
+CMD_ARGV=()
+cmd_argv() {  # cmd_argv <flux> <index> — pose CMD_ARGV
+  local -a elems=()
+  CMD_ARGV=()
+  mapfile -t elems < <(map_all "$1" "$2" command)
+  if [ "${#elems[@]}" -le 1 ]; then
+    read -ra CMD_ARGV <<<"${elems[0]-}"
+  else
+    CMD_ARGV=("${elems[@]}")
+  fi
+}
+
+check_command() {  # check_command <argument...> — pose VERR
   VERR=""
-  local cmd="${1-}" key val t i
-  local -a toks=()
-  [ -n "$cmd" ] || return 0
-  read -ra toks <<<"$cmd"
+  local key val t i
+  local -a toks=("$@")
+  [ "${#toks[@]}" -gt 0 ] || return 0
   for (( i = 0; i < ${#toks[@]}; i++ )); do
     t="${toks[$i]}"
     val=""
@@ -473,8 +502,16 @@ shared_exists() {
 
 APPS=() APPS_ACTIVES=()
 
+# --add --dry-run n'ecrit pas apps/<nom>/app.yml : sans precaution, l'app ajoutee
+# reste invisible de tout ce qui suit, et l'apercu annonce « .claude/settings.json
+# inchange » alors que la meme commande sans --dry-run y ajouterait le serveur LSP
+# de la stack demandee. L'app est donc inscrite EN MEMOIRE, avec exactement les
+# valeurs que l'echafaudage aurait ecrites — app_get lit SET avant le fichier, et
+# le fichier absent rend les memes defauts que le gabarit.
+PHANTOM_APP=""
+
 discover_apps() {
-  local d
+  local d a found
   APPS=()
   # LC_ALL=C fige l'ordre : un ordre dependant de la locale produirait un diff
   # de compose.yaml d'une machine a l'autre, donc un redeploiement fantome.
@@ -483,6 +520,16 @@ discover_apps() {
     [ -f "$d/app.yml" ] || { warn "$d : pas d'app.yml, ignore"; continue; }
     APPS+=("$(basename "$d")")
   done < <(LC_ALL=C find apps -mindepth 1 -maxdepth 1 -type d 2>/dev/null | LC_ALL=C sort)
+  if [ -n "$PHANTOM_APP" ]; then
+    found=0
+    for a in "${APPS[@]-}"; do [ "$a" = "$PHANTOM_APP" ] && found=1; done
+    if [ "$found" = 0 ]; then
+      APPS+=("$PHANTOM_APP")
+      # Meme tri que ci-dessus : l'apercu doit montrer les artefacts tels qu'ils
+      # seraient ecrits, l'ordre des blocs du compose compris.
+      mapfile -t APPS < <(printf '%s\n' "${APPS[@]}" | LC_ALL=C sort)
+    fi
+  fi
 }
 
 load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sinon
@@ -540,7 +587,7 @@ mem_to_mb() {  # 128m -> 128, 1g -> 1024
 # container_name. Un doublon y est legal en YAML et silencieux : la derniere cle
 # gagne, la premiere disparait du deploiement sans un mot. D'ou le registre.
 collect_problems() {
-  local a i n p name svc img mem v e d cmd
+  local a i n p name svc img mem v e d
   declare -A owner_of=()
   VOL_OWNER=()
 
@@ -567,8 +614,9 @@ collect_problems() {
     name=$(map_one "$SHARED_RECORDS" "$i" name)
     [ -n "$name" ] || continue
     check_volume_list "$name" "[$name]" "$(map_all "$SHARED_RECORDS" "$i" volumes)"
-    cmd=$(map_one "$SHARED_RECORDS" "$i" command)
-    [ -z "$cmd" ] || check_command "$cmd" || printf "[%s] %s\n" "$name" "$VERR"
+    cmd_argv "$SHARED_RECORDS" "$i"
+    [ "${#CMD_ARGV[@]}" -eq 0 ] || check_command "${CMD_ARGV[@]}" \
+      || printf "[%s] %s\n" "$name" "$VERR"
     while IFS= read -r e; do
       [ -n "$e" ] || continue
       check_env_name "$e" || printf "[%s] %s\n" "$name" "$VERR"
@@ -618,8 +666,9 @@ collect_problems() {
       # Le proprietaire des volumes d'une annexe est l'APP : c'est ce qui permet
       # a un worker de monter le meme volume nomme que son service principal.
       check_volume_list "$a" "$p services '$name' :" "$(map_all "$A_SERVICES" "$i" volumes)"
-      cmd=$(map_one "$A_SERVICES" "$i" command)
-      [ -z "$cmd" ] || check_command "$cmd" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
+      cmd_argv "$A_SERVICES" "$i"
+      [ "${#CMD_ARGV[@]}" -eq 0 ] || check_command "${CMD_ARGV[@]}" \
+        || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
       while IFS= read -r e; do
         [ -n "$e" ] || continue
         check_env_name "$e" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
@@ -772,10 +821,9 @@ render() {
   printf '%s\n' "$t"
 }
 
-json_argv() {  # « --mode worker » -> ["--mode", "worker"] — forme exec
-  local -a w=(); local out="" sep="" x
-  read -ra w <<<"$1"
-  for x in "${w[@]}"; do
+json_argv() {  # json_argv --mode worker -> ["--mode", "worker"] — forme exec
+  local out="" sep="" x
+  for x in "$@"; do
     x=${x//\\/\\\\}; x=${x//\"/\\\"}
     out="$out$sep\"$x\""; sep=", "
   done
@@ -846,7 +894,7 @@ emit_env() {  # emit_env <noms, un par ligne>
 # journalisation bornee, meme reseau — et AUCUN label de routage. C'est la seule
 # difference qui compte : un service sans label n'a pas d'URL, il n'est joignable
 # que par ses voisins du reseau, par son nom de service.
-aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <commande> <volumes> <env> <legende>
+aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <argv, un par ligne> <volumes> <env> <legende>
   local svc="$1" owner="$2" image="$3" mem="$4" cmd="$5" vols="$6" envs="$7" legend="$8"
   cat <<YAML
 
@@ -877,9 +925,15 @@ aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <commande>
     labels:
       - "traefik.enable=false"
 YAML
-  if [ -n "$cmd" ]; then
-    check_command "$cmd" || { echo "ERREUR : $svc — $VERR" >&2; exit 1; }
-    printf '    command: %s\n' "$(json_argv "$cmd")"
+  # La commande arrive deja decoupee, un argument par ligne : c'est la forme qui
+  # survit indifferemment a un scalaire et a une liste YAML. Elle est validee ici
+  # aussi, et pas seulement dans collect_problems : ce fichier ne doit jamais
+  # sortir du generateur avec un secret dedans.
+  local -a argv=()
+  [ -z "$cmd" ] || mapfile -t argv <<<"$cmd"
+  if [ "${#argv[@]}" -gt 0 ]; then
+    check_command "${argv[@]}" || { echo "ERREUR : $svc — $VERR" >&2; exit 1; }
+    printf '    command: %s\n' "$(json_argv "${argv[@]}")"
   fi
   emit_volumes "$owner" "$vols"
   emit_env "$envs"
@@ -894,7 +948,8 @@ aux_services_block() {  # services annexes de l'app chargee par load_app
     [ -n "$name" ] || continue
     image=$(map_one "$A_SERVICES" "$i" image)
     mem=$(map_one "$A_SERVICES" "$i" memory); mem=${mem:-128m}
-    cmd=$(map_one "$A_SERVICES" "$i" command)
+    cmd_argv "$A_SERVICES" "$i"
+    cmd=""; [ "${#CMD_ARGV[@]}" -eq 0 ] || cmd=$(printf '%s\n' "${CMD_ARGV[@]}")
     # Le proprietaire des volumes est l'APP, pas l'annexe : le service annexe
     # partage le sous-arbre de donnees de son application.
     aux_block "$APP-$name" "$APP" "$image" "$mem" "$cmd" \
@@ -920,7 +975,8 @@ YAML
     [ -n "$name" ] || continue
     image=$(map_one "$SHARED_RECORDS" "$i" image)
     mem=$(map_one "$SHARED_RECORDS" "$i" memory); mem=${mem:-128m}
-    cmd=$(map_one "$SHARED_RECORDS" "$i" command)
+    cmd_argv "$SHARED_RECORDS" "$i"
+    cmd=""; [ "${#CMD_ARGV[@]}" -eq 0 ] || cmd=$(printf '%s\n' "${CMD_ARGV[@]}")
     aux_block "$name" "$name" "$image" "$mem" "$cmd" \
       "$(map_all "$SHARED_RECORDS" "$i" volumes)" \
       "$(map_all "$SHARED_RECORDS" "$i" env)" \
@@ -1009,33 +1065,91 @@ YAML
 }
 
 emit_compose() {
+  # L'en-tete ne decrit QUE ce que ce fichier contient. Un paragraphe qui annonce
+  # « trois sortes de services » a un compose qui n'en porte qu'une, ou qui affirme
+  # que traefik.enable=false « est pose sur chaque service non route ci-dessous »
+  # quand il n'y a pas un seul service non route, fait de l'explication elle-meme
+  # une source d'erreur : on cherche dans le fichier ce que le fichier n'a pas, et
+  # on finit par douter de ce qu'il dit d'exact. Ces paragraphes sont donc
+  # conditionnes, comme l'est deja le bloc volumes: de premier niveau.
+  local a n_aux=0 n_partages=0 n_non_routes=0 vols titre
+  for a in "${APPS[@]}"; do
+    load_app "$a"
+    [ "$A_ENABLED" = true ] || continue
+    n_aux=$(( n_aux + $(map_count "$A_SERVICES") ))
+  done
+  n_partages=$(map_count "$SHARED_RECORDS")
+  n_non_routes=$(( n_aux + n_partages ))
+  vols=$(collect_volume_names | awk '!vu[$0]++')
+
   cat <<YAML
 # Genere par init.sh depuis fabrique.yml et apps/*/app.yml.
 # NE PAS EDITER — ./init.sh --check refuse un compose desynchronise.
 #
-# Une seule stack dockhand : toutes les applications activees, leurs services
-# annexes et les services partages. Le rayon de souffle est commun : une erreur
-# dans un bloc fait echouer le deploiement de toute la fabrique.
+# Une seule stack dockhand. Le rayon de souffle est commun : une erreur dans un
+# bloc fait echouer le deploiement de toute la fabrique.
+YAML
+
+  if [ "$n_non_routes" -gt 0 ]; then
+    titre="DEUX SORTES DE SERVICES cohabitent"
+    if [ "$n_aux" -gt 0 ] && [ "$n_partages" -gt 0 ]; then
+      titre="TROIS SORTES DE SERVICES cohabitent"
+    fi
+    cat <<YAML
 #
-# TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
+# $titre ici, dans un espace de noms plat, et UNE
 # SEULE EST ROUTEE :
 #
 #   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
 #                  Seule sorte a porter des labels de ROUTAGE : un routeur, une
 #                  URL https://<app>.$DOMAIN, un middleware
 #                  d'authentification Google et priority=100.
+YAML
+    if [ "$n_aux" -gt 0 ]; then
+      cat <<YAML
 #   <app>-<nom>    service annexe prive d'une application (section services:
 #                  de son app.yml). Un seul label : traefik.enable=false.
+YAML
+    fi
+    if [ "$n_partages" -gt 0 ]; then
+      cat <<YAML
 #   <nom>          service partage par plusieurs applications (shared_services
 #                  dans fabrique.yml). Le meme unique label.
+YAML
+    fi
+    cat <<YAML
 #
-# Les trois vivent sur le meme reseau $NETWORK et se joignent entre elles par
+# Toutes vivent sur le meme reseau $NETWORK et se joignent entre elles par
 # leur nom de service ; aucune ne publie de port sur l'hote. Ce qui expose un
 # service a Internet, ce sont ses labels Traefik, pas le reseau — mais l'absence
 # de label n'est PAS une protection : avec exposedByDefault, qui est le DEFAUT,
 # un conteneur sans le moindre label recoit quand meme un routeur, donc une URL,
 # et sans middleware d'authentification. Seul traefik.enable=false l'en retire ;
 # c'est pourquoi il est pose sur chaque service non route ci-dessous.
+YAML
+  else
+    cat <<YAML
+#
+# CE FICHIER NE PORTE QUE DES SERVICES D'APPLICATION, decrits par leur
+# apps/<app>/app.yml, et TOUS SONT ROUTES : chacun porte ses labels de ROUTAGE —
+# un routeur, une URL https://<app>.$DOMAIN, un middleware
+# d'authentification Google et priority=100. Ils vivent sur le reseau $NETWORK
+# et se joignent entre eux par leur nom de service ; aucun ne publie de port
+# sur l'hote.
+#
+# Deux autres sortes apparaitront ici des qu'un manifeste les declarera :
+# <app>-<nom>, annexe privee d'une app (section services: de son app.yml), et
+# <nom>, service partage (shared_services dans fabrique.yml). Elles ne sont pas
+# routees, et init.sh leur pose alors « traefik.enable=false » — c'est ce label,
+# et non l'absence de label, qui retire du routage : avec exposedByDefault, qui
+# est le DEFAUT de Traefik, un conteneur sans le moindre label recoit quand meme
+# un routeur, donc une URL, et sans authentification. Aucune n'est declaree a ce
+# jour : ce fichier ne contient donc, volontairement, aucun traefik.enable=false.
+YAML
+  fi
+
+  if [ -n "$vols" ]; then
+    cat <<YAML
 #
 # Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
 # Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le
@@ -1045,9 +1159,12 @@ emit_compose() {
 # existe dans l'IMAGE : C'EST DONC LE DOCKERFILE QUI FIXE LE PROPRIETAIRE. Une
 # app en non-root doit creer son repertoire et le chown AVANT sa directive
 # USER, sinon le volume appartient a root et elle ne peut pas y ecrire.
+YAML
+  fi
+
+  cat <<YAML
 services:
 YAML
-  local a
   for a in "${APPS[@]}"; do
     load_app "$a"
     if [ "$A_ENABLED" = true ]; then service_block; aux_services_block; else disabled_note; fi
@@ -1057,8 +1174,6 @@ YAML
   # Bloc de premier niveau : chaque volume monte plus haut doit etre declare ici.
   # Il est OMIS entierement si aucun service n'en monte — une app sans volume
   # produit alors le meme compose qu'avant l'existence de cette section.
-  local vols
-  vols=$(collect_volume_names | awk '!vu[$0]++')
   if [ -n "$vols" ]; then
     cat <<YAML
 
@@ -1253,19 +1368,30 @@ jobs:
           registry: __REGISTRY__
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      # CONSTRUIRE D'ABORD EN LOCAL, PUBLIER ENSUITE. Entre les deux se glisse le
+      # seul controle capable de voir les labels de l'IMAGE. Docker fusionne dans
+      # les labels du conteneur ceux qui sont graves dans l'image — y compris
+      # ceux HERITES d'une image de BASE ou poses par un etage intermediaire, que
+      # la lecture de apps/<app>/Dockerfile faite par « ./init.sh --check » ne
+      # peut pas voir. Un « traefik.* » grave la publierait un routeur
+      # SUPPLEMENTAIRE : il porte un autre nom que celui de compose.yaml, donc le
+      # compose ne l'ecrase pas, et il arrive SANS middleware d'authentification —
+      # constate avec Traefik 3.7.10. Le service principal, lui, est route :
+      # traefik.enable=false ne le couvre pas, ce controle est sa seule parade.
+      # L'etape de publication ci-dessous repart de ce cache : rien n'est
+      # reconstruit, et surtout pas une image differente de celle qu'on inspecte.
+      - name: construire ${{ matrix.app }} sans publier
+        uses: docker/build-push-action@v6
         with:
           # Contexte reduit a l'app : c'est ce qui isole les constructions les
           # unes des autres et empeche une edition dans une app d'invalider le
           # cache de couches des autres.
           context: apps/${{ matrix.app }}
           file: apps/${{ matrix.app }}/Dockerfile
-          # Sur une pull request on construit sans publier : la validation du
-          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
-            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:${{ github.sha }}
+          # Chargee dans le demon local, pas poussee : sans cela il n'y a rien a
+          # inspecter avant la publication.
+          load: true
+          tags: __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:ci
           # Rattache le paquet au depot : ses permissions suivent alors celles
           # du depot, et un seul identifiant de lecture couvre toutes les apps.
           labels: |
@@ -1278,6 +1404,42 @@ jobs:
           # paralleles se disputent un cache unique et s'evincent l'une l'autre.
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      - name: aucun LABEL traefik.* dans l'image de ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          image=__REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:ci
+          echo "labels de l'image : $(docker image inspect "$image" --format '{{json .Config.Labels}}')"
+          # Les cles seules, une par ligne : rien a analyser, donc pas de jq.
+          graves=$(docker image inspect "$image" \
+                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' \
+                   | grep -E '^traefik\.' || true)
+          if [ -n "$graves" ]; then
+            printf '::error::LABEL traefik grave dans l image : %s\n' $graves
+            echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, portant un autre nom que celui de compose.yaml — donc SANS authentification. Retire-le du Dockerfile, ou change d'image de base : ce label n'est pas ecrasable depuis le compose."
+            exit 1
+          fi
+          echo "aucun label traefik.* — ni ecrit dans le Dockerfile, ni herite de l'image de base"
+
+      - name: publier ${{ matrix.app }}
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/${{ matrix.app }}
+          file: apps/${{ matrix.app }}/Dockerfile
+          # Sur une pull request on construit sans publier : la validation du
+          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
+            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/__ORG__/__REPO__
+          build-args: |
+            VERSION=${{ github.sha }}
+          # Tout vient du cache de l'etape de construction : rien n'est
+          # reconstruit, et surtout pas une image differente de celle qui vient
+          # d'etre inspectee.
+          cache-from: type=gha,scope=${{ matrix.app }}
       - name: taille de l'image
         if: github.event_name != 'pull_request'
         run: |
@@ -1328,36 +1490,35 @@ jobs:
           # sort -u : la meme image peut etre referencee par plusieurs services
           # — une app et son worker partagent la leur — et l'inspecter deux fois
           # ne prouve rien de plus.
-          prefix='__REGISTRY__/__ORG__/__REPO__/'
           mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml | LC_ALL=C sort -u)
           if [ ${#images[@]} -eq 0 ]; then
             echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
             exit 1
           fi
-          manquantes=() tierces=()
+          # TOUTES les images sont verifiees, les TIERCES COMPRISES, et un echec
+          # bloque. Ne pas les bloquer sous pretexte que ce job « ne s'authentifie
+          # que sur __REGISTRY__ » serait faux : « docker buildx imagetools
+          # inspect » interroge le registre en ANONYME quand il n'a pas
+          # d'identifiants, et l'inspection d'une image publique aboutit sans
+          # login — mesure, docker deconnecte de tout registre : l'inspection de
+          # valkey/valkey:8-alpine sort en 0, la meme avec une faute de frappe
+          # sort en 1. Une image tierce mal orthographiee ou disparue ferait
+          # echouer le « docker compose up », atomique pour la stack entiere : la
+          # laisser passer, c'est deployer une fabrique qui tombe TOUTE. Une image
+          # tierce reellement privee est le seul faux positif possible, et elle
+          # n'aurait de toute facon pas sa place dans un compose que le serveur
+          # tire sans identifiants.
+          manquantes=()
           for img in "${images[@]}"; do
             if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
               echo "  ok   $img"
-            elif [ "${img#"$prefix"}" != "$img" ]; then
-              # Image de la fabrique : ce job vient de la publier et s'est
-              # authentifie sur __REGISTRY__. Absente, elle emporterait la stack.
+            else
               echo "  KO   $img"
               manquantes+=("$img")
-            else
-              # Image tierce : ce job ne s'authentifie que sur __REGISTRY__, une
-              # inspection qui echoue ne prouve donc pas que l'image manque —
-              # elle peut n'etre qu'inaccessible d'ici. Bloquer la-dessus
-              # refuserait un deploiement sain.
-              echo "  ??   $img (image tierce, non verifiable depuis ce job)"
-              tierces+=("$img")
             fi
           done
-          for img in "${tierces[@]-}"; do
-            [ -n "$img" ] || continue
-            echo "::warning::image tierce non verifiee : $img — ce job ne s'authentifie que sur __REGISTRY__ ; le deploiement continue, le serveur la tirera lui-meme"
-          done
           if [ ${#manquantes[@]} -gt 0 ]; then
-            printf '::error::image absente du registre : %s\n' "${manquantes[@]}"
+            printf '::error::image introuvable dans son registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
             exit 1
           fi
@@ -1658,6 +1819,11 @@ scaffold_app() {
   valid_name "$a" || exit 1
   if [ "$DRYRUN" = 1 ]; then
     warn "--dry-run : $dir/ n'est pas echafaude (app.yml, .dockerignore, test.sh, README.md, PRODUCT.md seraient crees)"
+    # Une app neuve nait desactivee : l'echafaudage ecrit « enabled: false ». Le
+    # meme defaut est pose ici, sans quoi l'apercu ferait entrer dans le compose
+    # une app dont l'image n'existe pas — l'inverse de ce que la commande fait.
+    [ -n "${SET[enabled]+x}" ] || SET[enabled]=false
+    PHANTOM_APP="$a"
     return 0
   fi
   if [ -d "$dir" ] && [ "$FORCE" = 0 ]; then
@@ -2151,8 +2317,13 @@ check_app_files() {
       nsvc=$(map_count "$A_SERVICES")
       for (( isvc = 0; isvc < nsvc; isvc++ )); do
         simg=$(map_one "$A_SERVICES" "$isvc" image)
+        # Les TROIS formes de reference a l'image de l'app : sans tag (« :latest »
+        # implicite), « :tag » et « @sha256:... ». Exiger le deux-points laisserait
+        # passer la premiere, et une annexe qui monte un volume de l'app sortirait
+        # du filet sans qu'on lui dise pourquoi.
         case "$simg" in
-          "$REGISTRY/$ORG/$REPO/$APP:"*) map_all "$A_SERVICES" "$isvc" volumes ;;
+          "$REGISTRY/$ORG/$REPO/$APP"|"$REGISTRY/$ORG/$REPO/$APP:"*|"$REGISTRY/$ORG/$REPO/$APP@"*)
+            map_all "$A_SERVICES" "$isvc" volumes ;;
         esac
       done
     )

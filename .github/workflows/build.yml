@@ -133,19 +133,30 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      # CONSTRUIRE D'ABORD EN LOCAL, PUBLIER ENSUITE. Entre les deux se glisse le
+      # seul controle capable de voir les labels de l'IMAGE. Docker fusionne dans
+      # les labels du conteneur ceux qui sont graves dans l'image — y compris
+      # ceux HERITES d'une image de BASE ou poses par un etage intermediaire, que
+      # la lecture de apps/<app>/Dockerfile faite par « ./init.sh --check » ne
+      # peut pas voir. Un « traefik.* » grave la publierait un routeur
+      # SUPPLEMENTAIRE : il porte un autre nom que celui de compose.yaml, donc le
+      # compose ne l'ecrase pas, et il arrive SANS middleware d'authentification —
+      # constate avec Traefik 3.7.10. Le service principal, lui, est route :
+      # traefik.enable=false ne le couvre pas, ce controle est sa seule parade.
+      # L'etape de publication ci-dessous repart de ce cache : rien n'est
+      # reconstruit, et surtout pas une image differente de celle qu'on inspecte.
+      - name: construire ${{ matrix.app }} sans publier
+        uses: docker/build-push-action@v6
         with:
           # Contexte reduit a l'app : c'est ce qui isole les constructions les
           # unes des autres et empeche une edition dans une app d'invalider le
           # cache de couches des autres.
           context: apps/${{ matrix.app }}
           file: apps/${{ matrix.app }}/Dockerfile
-          # Sur une pull request on construit sans publier : la validation du
-          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
-            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:${{ github.sha }}
+          # Chargee dans le demon local, pas poussee : sans cela il n'y a rien a
+          # inspecter avant la publication.
+          load: true
+          tags: ghcr.io/billbob-space/hello-world/${{ matrix.app }}:ci
           # Rattache le paquet au depot : ses permissions suivent alors celles
           # du depot, et un seul identifiant de lecture couvre toutes les apps.
           labels: |
@@ -158,6 +169,42 @@ jobs:
           # paralleles se disputent un cache unique et s'evincent l'une l'autre.
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      - name: aucun LABEL traefik.* dans l'image de ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          image=ghcr.io/billbob-space/hello-world/${{ matrix.app }}:ci
+          echo "labels de l'image : $(docker image inspect "$image" --format '{{json .Config.Labels}}')"
+          # Les cles seules, une par ligne : rien a analyser, donc pas de jq.
+          graves=$(docker image inspect "$image" \
+                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' \
+                   | grep -E '^traefik\.' || true)
+          if [ -n "$graves" ]; then
+            printf '::error::LABEL traefik grave dans l image : %s\n' $graves
+            echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, portant un autre nom que celui de compose.yaml — donc SANS authentification. Retire-le du Dockerfile, ou change d'image de base : ce label n'est pas ecrasable depuis le compose."
+            exit 1
+          fi
+          echo "aucun label traefik.* — ni ecrit dans le Dockerfile, ni herite de l'image de base"
+
+      - name: publier ${{ matrix.app }}
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/${{ matrix.app }}
+          file: apps/${{ matrix.app }}/Dockerfile
+          # Sur une pull request on construit sans publier : la validation du
+          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
+            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/billbob-space/hello-world
+          build-args: |
+            VERSION=${{ github.sha }}
+          # Tout vient du cache de l'etape de construction : rien n'est
+          # reconstruit, et surtout pas une image differente de celle qui vient
+          # d'etre inspectee.
+          cache-from: type=gha,scope=${{ matrix.app }}
       - name: taille de l'image
         if: github.event_name != 'pull_request'
         run: |
@@ -208,36 +255,35 @@ jobs:
           # sort -u : la meme image peut etre referencee par plusieurs services
           # — une app et son worker partagent la leur — et l'inspecter deux fois
           # ne prouve rien de plus.
-          prefix='ghcr.io/billbob-space/hello-world/'
           mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml | LC_ALL=C sort -u)
           if [ ${#images[@]} -eq 0 ]; then
             echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
             exit 1
           fi
-          manquantes=() tierces=()
+          # TOUTES les images sont verifiees, les TIERCES COMPRISES, et un echec
+          # bloque. Ne pas les bloquer sous pretexte que ce job « ne s'authentifie
+          # que sur ghcr.io » serait faux : « docker buildx imagetools
+          # inspect » interroge le registre en ANONYME quand il n'a pas
+          # d'identifiants, et l'inspection d'une image publique aboutit sans
+          # login — mesure, docker deconnecte de tout registre : l'inspection de
+          # valkey/valkey:8-alpine sort en 0, la meme avec une faute de frappe
+          # sort en 1. Une image tierce mal orthographiee ou disparue ferait
+          # echouer le « docker compose up », atomique pour la stack entiere : la
+          # laisser passer, c'est deployer une fabrique qui tombe TOUTE. Une image
+          # tierce reellement privee est le seul faux positif possible, et elle
+          # n'aurait de toute facon pas sa place dans un compose que le serveur
+          # tire sans identifiants.
+          manquantes=()
           for img in "${images[@]}"; do
             if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
               echo "  ok   $img"
-            elif [ "${img#"$prefix"}" != "$img" ]; then
-              # Image de la fabrique : ce job vient de la publier et s'est
-              # authentifie sur ghcr.io. Absente, elle emporterait la stack.
+            else
               echo "  KO   $img"
               manquantes+=("$img")
-            else
-              # Image tierce : ce job ne s'authentifie que sur ghcr.io, une
-              # inspection qui echoue ne prouve donc pas que l'image manque —
-              # elle peut n'etre qu'inaccessible d'ici. Bloquer la-dessus
-              # refuserait un deploiement sain.
-              echo "  ??   $img (image tierce, non verifiable depuis ce job)"
-              tierces+=("$img")
             fi
           done
-          for img in "${tierces[@]-}"; do
-            [ -n "$img" ] || continue
-            echo "::warning::image tierce non verifiee : $img — ce job ne s'authentifie que sur ghcr.io ; le deploiement continue, le serveur la tirera lui-meme"
-          done
           if [ ${#manquantes[@]} -gt 0 ]; then
-            printf '::error::image absente du registre : %s\n' "${manquantes[@]}"
+            printf '::error::image introuvable dans son registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
             exit 1
           fi
