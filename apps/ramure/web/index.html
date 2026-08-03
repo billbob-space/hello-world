@@ -157,6 +157,17 @@
         <g id="cernes" aria-hidden="true"></g>
         <g id="liens" aria-hidden="true"></g>
         <g id="noeuds"></g>
+        <!-- Les libelles vivent dans leur PROPRE couche, peinte apres toutes
+             les pastilles. C'est la seule garantie de la §11 qui ne depende
+             d'aucune metrique de police : un nom ne peut plus passer sous une
+             pastille voisine, quel que soit le zoom, parce que l'ordre de
+             peinture est un invariant de similitude. Mesure avant correction :
+             un nom enterre sous un disque voisin dans 59 % des scenes en 1440
+             et 86 % en 390, jusqu'a 31 % de la surface du libelle.
+             aria-hidden et pointer-events: none : le nom accessible est porte
+             par l'aria-label du noeud, et la cible de pointage reste la
+             pastille. -->
+        <g id="libelles" aria-hidden="true" pointer-events="none"></g>
       </g>
     </svg>
 

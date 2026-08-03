@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 	"testing"
 )
 
@@ -378,5 +379,75 @@ func TestUnHeritierTresAffineResteePlusPetitQuUneBranchePeuAffine(t *testing.T) 
 					affiniteBranche, branche.Taille, affiniteHeritier, places[0].Taille)
 			}
 		}
+	}
+}
+
+// Le symptome interdit : les grappes d'heritiers de deux branches voisines se
+// chevauchent systematiquement, parce que les branches angulairement voisines
+// sont aussi celles dont les rayons sont les plus proches.
+//
+// Dispose trie par affinite decroissante ; leur donner des secteurs consecutifs
+// place cote a cote les deux rayons les plus semblables — le pire cas possible,
+// et il etait structurel plutot qu'accidentel. L'entrelacement met un rayon
+// eloigne entre deux rayons proches.
+func TestDeuxBranchesVoisinesNontPasDesRayonsVoisins(t *testing.T) {
+	vivier := vivierDeTest(40)
+
+	for nonce := range 40 {
+		tirage := Tirage{Centre: "dz:1", Nonce: nonce}
+		noeuds := Dispose(ChoisitBranches(vivier, tirage), tirage)
+
+		// On reordonne par angle croissant : c'est le voisinage a l'ecran.
+		parAngle := make([]Noeud, len(noeuds))
+		copy(parAngle, noeuds)
+		sort.SliceStable(parAngle, func(i, j int) bool { return parAngle[i].Angle < parAngle[j].Angle })
+
+		// Le rang d'affinite de chaque noeud dans l'ordre de sortie.
+		rang := make(map[string]int, len(noeuds))
+		for i, n := range noeuds {
+			rang[n.ID] = i
+		}
+
+		// Sans entrelacement, chaque paire angulairement adjacente aurait des
+		// rangs consecutifs. On exige que ce ne soit PAS le cas general.
+		consecutifs := 0
+		for i := range parAngle {
+			a := rang[parAngle[i].ID]
+			b := rang[parAngle[(i+1)%len(parAngle)].ID]
+			if a-b == 1 || b-a == 1 {
+				consecutifs++
+			}
+		}
+		if consecutifs > len(parAngle)/2 {
+			t.Fatalf("tirage %d : %d paires angulairement adjacentes sur %d ont des rangs d'affinite consecutifs — "+
+				"les grappes d'heritiers des branches voisines vont se rejoindre", nonce, consecutifs, len(parAngle))
+		}
+	}
+}
+
+// L'entrelacement doit rester une BIJECTION : chaque secteur occupe une fois
+// et une seule. S'il ne l'etait pas, deux branches partageraient un secteur et
+// leurs libelles se recouvriraient de facon garantie.
+func TestLEntrelacementEstUneBijection(t *testing.T) {
+	for n := 1; n <= 12; n++ {
+		vus := make(map[int]int, n)
+		for rang := range n {
+			s := secteurEntrelace(rang, n)
+			if s < 0 || s >= n {
+				t.Fatalf("n=%d rang=%d : secteur %d hors de [0, %d[", n, rang, s, n)
+			}
+			vus[s]++
+		}
+		for s, k := range vus {
+			if k != 1 {
+				t.Errorf("n=%d : le secteur %d est attribue %d fois", n, s, k)
+			}
+		}
+		if len(vus) != n {
+			t.Errorf("n=%d : %d secteurs distincts attribues", n, len(vus))
+		}
+	}
+	if got := secteurEntrelace(0, 0); got != 0 {
+		t.Errorf("n=0 doit rendre 0 sans paniquer, rendu %d", got)
 	}
 }

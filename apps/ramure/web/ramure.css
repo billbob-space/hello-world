@@ -642,16 +642,30 @@ button, input, select { font: inherit; color: inherit; }
   stroke-width: 3.5;
   stroke-linejoin: round;
 }
-.noeud--centre .noeud__nom {
+/* Les libelles vivent maintenant dans #libelles, hors des groupes de noeuds :
+   les selecteurs descendants .noeud--x .noeud__nom ne s'appliqueraient plus.
+   La variante est portee par la classe du libelle lui-meme. */
+.noeud__nom--centre {
   font-family: var(--serif);
   font-size: calc(var(--taille-libelle, 13px) * 1.5);
   font-weight: 700;
   letter-spacing: .01em;
 }
-.noeud--heritier .noeud__nom {
+.noeud__nom--heritier {
   font-size: calc(var(--taille-libelle, 13px) * .82);
   fill: var(--lichen);
 }
+
+/* Le repli en initiales reste DANS la pastille : le deplacer avec le libelle
+   viderait le disque d'un artiste sans illustration. */
+.noeud__initiales {
+  fill: var(--craie);
+  font-family: var(--sans);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+#libelles { transition: opacity var(--duree-courte); }
 
 /* Le signal de nouveaute (F-23) : une pousse, en bourgeon. Une forme ET une
    couleur, jamais la couleur seule. */

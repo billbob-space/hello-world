@@ -501,6 +501,21 @@ function positionHeritier(heritier, posBranche, c) {
 // geometrie respire sur un grand ecran. Les bornes evitent les deux exces
 // inverses : une pastille minuscule sur un tres petit canevas, une pastille
 // demesuree sur un tres grand.
+// rayonHeritierRendu retablit la moitie « taille » de la F-09 au niveau des
+// heritiers : ramure.js passait la constante r.heritier et jetait l'affinite
+// calculee, donc toutes les pastilles d'une scene avaient exactement le meme
+// diametre — et deux heritiers d'une grappe le meme decalage de libelle, ce qui
+// rendait leur collision purement translationnelle.
+//
+// La variation est CONDITIONNELLE, et c'est le point delicat : appliquee sans
+// garde-fou, elle ferait retomber les plus petites pastilles sous les 24 px de
+// la SC 2.5.8 qu'on vient tout juste d'atteindre. Elle ne s'applique donc que
+// lorsque le plancher reste franchi apres reduction.
+function rayonHeritierRendu(rayonBase, affinite) {
+  const part = 0.72 + 0.28 * Math.max(0, Math.min(1, affinite ?? 0.5));
+  return rayonBase * part >= 12 ? rayonBase * part : rayonBase;
+}
+
 function rayons(c) {
   const borne = (v, mini, maxi) => Math.max(mini, Math.min(maxi, v));
   return {
@@ -607,7 +622,7 @@ function dessineNoeud(artiste, pos, rayon, genre) {
   // exactement la place de l'image, donc son arrivee ne decale rien.
   const poseInitiales = () => {
     const t = el("text", {
-      class: "noeud__nom", y: rayon * 0.18, "font-size": rayon * 0.7,
+      class: "noeud__initiales", y: rayon * 0.18, "font-size": rayon * 0.7,
       "font-family": "Bodoni Moda, Didot, serif", "font-weight": 700,
       opacity: .42, "stroke-width": 0,
     });
@@ -636,10 +651,9 @@ function dessineNoeud(artiste, pos, rayon, genre) {
     sonde.src = image;
   }
 
-  const nom = el("text", { class: "noeud__nom", y: rayon + 17 });
-  nom.textContent = artiste.nom;
-  g.appendChild(nom);
-
+  // Le libelle n'est plus pose ici : il part dans la couche #libelles, peinte
+  // apres toutes les pastilles (voir index.html). dessineNoeud rend donc le
+  // groupe ET la position ou son nom devra etre ecrit.
   if (artiste.nouveaute) {
     g.appendChild(el("circle", { class: "noeud__pousse", cx: rayon * 0.7, cy: -rayon * 0.7, r: 5 }));
   }
@@ -658,9 +672,23 @@ function rend({ anime = false } = {}) {
 
   const gLiens = $("liens");
   const gNoeuds = $("noeuds");
+  const gLibelles = $("libelles");
   gLiens.textContent = "";
   gNoeuds.textContent = "";
+  gLibelles.textContent = "";
+  gLibelles.style.opacity = "";
   $("defs").textContent = "";
+
+  // libelle ecrit un nom dans la couche superieure, a la position absolue du
+  // noeud decalee sous sa pastille.
+  const libelle = (artiste, pos, rayon, genre) => {
+    const t = el("text", {
+      class: `noeud__nom noeud__nom--${genre}`,
+      x: pos.x, y: pos.y + rayon + 17,
+    });
+    t.textContent = artiste.nom;
+    gLibelles.appendChild(t);
+  };
 
   const posCentre = { x: c.cx, y: c.cy };
 
@@ -678,19 +706,26 @@ function rend({ anime = false } = {}) {
   for (const b of etat.branches) {
     const pos = position(b, c);
     for (const h of b.heritiers || []) {
-      const n = dessineNoeud(h, positionHeritier(h, pos, c), r.heritier, "heritier");
+      const posH = positionHeritier(h, pos, c);
+      const rH = rayonHeritierRendu(r.heritier, h.affinite);
+      const n = dessineNoeud(h, posH, rH, "heritier");
       if (anime) n.classList.add("noeud--parait");
       gNoeuds.appendChild(n);
+      libelle(h, posH, rH, "heritier");
     }
   }
   for (const b of etat.branches) {
-    const n = dessineNoeud(b, position(b, c), r.branche * b.taille, "branche");
+    const posB = position(b, c);
+    const rB = r.branche * b.taille;
+    const n = dessineNoeud(b, posB, rB, "branche");
     if (anime) n.classList.add("noeud--parait");
     gNoeuds.appendChild(n);
+    libelle(b, posB, rB, "branche");
   }
 
   if (etat.centre) {
     gNoeuds.appendChild(dessineNoeud(etat.centre, posCentre, r.centre, "centre"));
+    libelle(etat.centre, posCentre, r.centre, "centre");
   }
 }
 
@@ -719,6 +754,11 @@ async function promeut(id, nom) {
     promu.setAttribute("transform", `translate(${c.cx} ${c.cy}) scale(${facteur.toFixed(3)})`);
     promu.style.zIndex = "5";
     $("noeuds").appendChild(promu);   // au-dessus de ce qui s'efface
+    // Les libelles ne voyagent pas avec leur noeud : ils vivent dans une couche
+    // separee. Les effacer le temps du trajet evite de les voir rester en
+    // arriere pendant que la pastille avance — le fil que l'oeil suit est le
+    // noeud, pas son nom (§11).
+    $("libelles").style.opacity = "0";
   }
 
   // "La vue ne se recadre que si l'utilisateur l'avait modifiee : une camera
