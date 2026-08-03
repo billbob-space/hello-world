@@ -158,6 +158,12 @@ jobs:
           # Sur une pull request on construit sans publier : la validation du
           # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
           push: ${{ github.event_name != 'pull_request' }}
+          # ... mais l'image doit alors entrer dans le demon local, sinon
+          # l'etape suivante n'a rien a inspecter sur une pull request : sans
+          # publication, l'image reste dans le cache de buildx, invisible a
+          # « docker image inspect ». push et load s'excluent — jamais vrais
+          # ensemble ici, c'est la meme condition inversee.
+          load: ${{ github.event_name == 'pull_request' }}
           tags: |
             ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
             ghcr.io/billbob-space/hello-world/${{ matrix.app }}:${{ github.sha }}
@@ -173,11 +179,33 @@ jobs:
           # paralleles se disputent un cache unique et s'evincent l'une l'autre.
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
-      - name: taille de l'image
-        if: github.event_name != 'pull_request'
+      # Deux controles sur l'image finie, la seule chose que le serveur tirera.
+      # Sur une pull request elle vient de « load », sur main du registre.
+      - name: labels et taille de l'image
         run: |
+          set -euo pipefail
           image=ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
-          docker pull "$image"
+          if [ "${{ github.event_name }}" != pull_request ]; then
+            docker pull "$image"
+          fi
+
+          # Le contrat interdit tout LABEL traefik.* dans un Dockerfile, et
+          # --check le verifie. Mais il lit le Dockerfile, ou un label HERITE
+          # d'une image de base n'apparait pas. Docker fusionne pourtant les
+          # labels de l'image dans ceux du conteneur : le routeur ainsi publie
+          # porte un autre nom que celui du compose, donc le compose ne peut
+          # pas l'ecraser — il vivrait SANS middleware d'authentification.
+          # L'image construite est le seul endroit ou un label herite se voit.
+          graves=$(docker image inspect "$image" \
+                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' \
+                   | grep -E '^traefik\.' || true)
+          if [ -n "$graves" ]; then
+            printf '::error::LABEL traefik grave dans l image ${{ matrix.app }} : %s\n' $graves
+            echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, sans authentification. Retire-le du Dockerfile, ou change d image de base : ce label n est pas ecrasable depuis le compose."
+            exit 1
+          fi
+          echo "aucun label traefik.* — ni ecrit dans le Dockerfile, ni herite de l image de base"
+
           size=$(docker image inspect "$image" --format '{{.Size}}')
           echo "Image ${{ matrix.app }} : $((size / 1024 / 1024)) Mo"
           if [ "$size" -gt $((200 * 1024 * 1024)) ]; then
