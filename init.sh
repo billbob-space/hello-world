@@ -8,6 +8,8 @@
 #   ./init.sh --app NOM ...   applique les options ci-dessous a cette app
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
+#   ./init.sh --branche NOM   cree la branche de travail : <app|fabrique>/<sujet>
+#   ./init.sh --pret          verifie que l'etape en cours est committable
 #
 # Options — elles ne valent que pour l'app ciblee par --add ou --app :
 #
@@ -30,7 +32,7 @@
 
 set -euo pipefail
 
-CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0
+CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0 BRANCHE="" PRET=0
 declare -A SET=()
 
 while [ $# -gt 0 ]; do
@@ -39,6 +41,8 @@ while [ $# -gt 0 ]; do
     --list)        LIST=1 ;;
     --dry-run)     DRYRUN=1 ;;
     --force)       FORCE=1 ;;
+    --branche)     BRANCHE="$2"; shift ;;
+    --pret)        PRET=1 ;;
     --add)         ADD="$2"; TARGET="$2"; shift ;;
     --app)         TARGET="$2"; shift ;;
     --port)        SET[port]="$2";        shift ;;
@@ -1054,6 +1058,110 @@ apply_target_options() {
     ok "apps/$TARGET/app.yml : $k = ${SET[$k]}"
   done
 }
+
+# --- la branche de travail ------------------------------------------------------
+#
+# Convention : <app>/<sujet>, ou fabrique/<sujet> pour ce qui touche init.sh, la
+# CI, le contrat ou l'outillage. Le prefixe dit quel perimetre est en jeu — donc
+# quel rayon de souffle — avant meme d'ouvrir le diff.
+
+BASE=$(fab base_branch main)
+
+apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+  {
+    git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
+    git status --porcelain 2>/dev/null | cut -c4- || true
+  } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u
+}
+
+if [ -n "$BRANCHE" ]; then
+  discover_apps
+  prefixe=${BRANCHE%%/*}; sujet=${BRANCHE#*/}
+
+  if [ "$prefixe" = "$BRANCHE" ]; then
+    echo "ERREUR : '$BRANCHE' n'a pas de prefixe." >&2
+    echo "Attendu : <app>/<sujet>, ou fabrique/<sujet> pour l'infrastructure." >&2
+    echo "Apps disponibles : ${APPS[*]}" >&2
+    exit 1
+  fi
+
+  connu=0
+  [ "$prefixe" = fabrique ] && connu=1
+  for a in "${APPS[@]}"; do [ "$a" = "$prefixe" ] && connu=1; done
+  if [ "$connu" = 0 ]; then
+    echo "ERREUR : prefixe '$prefixe' inconnu." >&2
+    echo "Attendu : ${APPS[*]} fabrique" >&2
+    exit 1
+  fi
+
+  printf '%s' "$sujet" | grep -qE '^[a-z0-9][a-z0-9-]*$' || {
+    echo "ERREUR : sujet '$sujet' invalide — minuscules, chiffres et tirets." >&2; exit 1; }
+
+  if git show-ref --verify --quiet "refs/heads/$BRANCHE"; then
+    git switch "$BRANCHE"
+    ok "branche existante : $BRANCHE"
+  else
+    # Partir de la base a jour plutot que du HEAD courant : une branche greffee
+    # sur une autre branche de travail traine ses commits dans sa PR.
+    git fetch origin "$BASE" >/dev/null 2>&1 || warn "origin/$BASE non joignable, depart depuis HEAD"
+    if git show-ref --verify --quiet "refs/remotes/origin/$BASE"; then
+      git switch -c "$BRANCHE" "origin/$BASE"
+    else
+      git switch -c "$BRANCHE"
+    fi
+    ok "branche creee : $BRANCHE"
+  fi
+  exit 0
+fi
+
+# --- --pret : cette etape est-elle committable ? --------------------------------
+#
+# Le point de passage avant chaque commit. Un commit qui casse quelque chose
+# rend la relecture plus dure, pas plus simple : c'est tout l'interet de
+# committer par etapes verifiees plutot qu'au kilometre.
+
+if [ "$PRET" = 1 ]; then
+  courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  echo "Etape en cours — branche $courante"
+
+  if [ "$courante" = "$BASE" ]; then
+    bad "sur $BASE : le travail doit vivre sur une branche dediee (./init.sh --branche <app>/<sujet>)"
+  else
+    ok "branche dediee"
+  fi
+
+  if "$0" --check >/tmp/.pret-check.$$ 2>&1; then
+    ok "contrat respecte"
+  else
+    bad "./init.sh --check echoue :"
+    grep -E 'KO' /tmp/.pret-check.$$ | sed 's/^/      /' || true
+  fi
+  rm -f /tmp/.pret-check.$$
+
+  # Seules les apps reellement touchees depuis la base : sur une fabrique qui
+  # grandit, tout relancer a chaque commit couterait plus que ca ne rapporte.
+  touchees=$(apps_touchees)
+  if [ -z "$touchees" ]; then
+    ok "aucune app modifiee — pas de test a lancer"
+  else
+    for a in $touchees; do
+      if [ ! -x "apps/$a/test.sh" ]; then
+        bad "[$a] test.sh absent ou non executable"
+      elif "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
+        ok "[$a] tests verts"
+      else
+        bad "[$a] tests en echec :"
+        tail -15 /tmp/.pret-test.$$ | sed 's/^/      /'
+      fi
+      rm -f /tmp/.pret-test.$$
+    done
+  fi
+
+  echo
+  [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s) — ne committe pas en l'etat."; exit 1; }
+  echo "Etape verifiee. Tu peux committer."
+  exit 0
+fi
 
 # --- --list ---------------------------------------------------------------------
 
