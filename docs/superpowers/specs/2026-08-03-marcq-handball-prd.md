@@ -13,7 +13,7 @@
 
 ## 1. En une phrase
 
-Une page web que quatorze ados de 13-14 ans ouvrent sans compte, sans
+Une page web que les ados de 13-14 ans d'une équipe ouvrent sans compte, sans
 installation et sans mot de passe, pour cocher les exercices du programme
 d'été de leur coach, voir leur progression, et se comparer aux autres s'ils
 le veulent bien.
@@ -56,12 +56,18 @@ le programme lui appartient mais il l'a déjà écrit. Ce qu'il veut savoir le
 | Objectif | Mesure | Cible |
 |---|---|---|
 | Le programme est suivi, pas seulement reçu | Part des exercices cochés sur l'ensemble du programme | > 60 % |
-| L'app tient sur la durée | Enfants encore actifs à la séance du 17 août | ≥ 8 sur 14 |
+| L'app tient sur la durée | Part de l'effectif encore active à la séance du 17 août | > 50 % |
 | L'entrée est sans friction | Enfants qui atteignent la première séance après avoir ouvert le lien | > 90 % |
 | Le coach y gagne | Il consulte le bilan avant la reprise du 21 | au moins une fois |
 
 Ces chiffres sont des repères de décision, pas des indicateurs à instrumenter :
-sur quatorze enfants, un comptage manuel depuis le classement suffit.
+sur un effectif de cet ordre — une équipe, pas une cohorte — un comptage manuel
+depuis le classement suffit.
+
+**L'effectif exact n'est pas connu et le produit n'en dépend pas.** Aucun écran
+n'affiche un total d'équipe, aucune cible n'est exprimée en nombre absolu, et
+rien ne suppose que tout le monde participe. Une équipe de dix comme de vingt
+doit fonctionner sans changer une ligne.
 
 ## 5. Le principe directeur : par défaut, rien ne quitte le téléphone
 
@@ -86,8 +92,8 @@ mineur ne quitte le téléphone sans un acte volontaire, précédé d'un message
 de consentement.
 
 Cette règle n'est pas une précaution abstraite. Sans elle, l'application
-publierait à l'adresse d'un club nommé la liste des prénoms d'une quinzaine de
-mineurs identifiables, avec leur activité jour par jour. Avec elle, ce que
+publierait à l'adresse d'un club nommé la liste des prénoms des mineurs d'une
+équipe identifiable, avec leur activité jour par jour. Avec elle, ce que
 l'application expose au pire est une liste de pseudonymes et de pourcentages.
 
 ## 6. Périmètre
@@ -427,7 +433,7 @@ n'en dépend pas.
 ## 13. Décisions écartées
 
 **Le prénom sur le serveur.** Écarté au profit du pseudonyme choisi. Sur une URL
-publique, publier les prénoms d'une quinzaine de mineurs identifiables — club
+publique, publier les prénoms des mineurs d'une équipe identifiable — club
 nommé, catégorie d'âge connue — avec leur activité quotidienne, n'est pas
 justifié par le confort d'un podium nominatif.
 
@@ -461,7 +467,7 @@ quatorzième.
 |---|---|---|
 | Livraison tardive | Chaque jour perdu est une séance non couverte | Lot 1 volontairement réduit à ce qui tient en 48 h |
 | Abandon après deux séances | L'app ne mesure plus rien | Zéro friction à l'entrée, récompense à chaque séance, aucun compte |
-| Un enfant gonfle son score | Classement faussé | Assumé : quatorze gamins qui se connaissent, la triche se voit au vestiaire. Le classement est indicatif, pas un titre |
+| Un enfant gonfle son score | Classement faussé | Assumé : une équipe de gamins qui se connaissent, la triche se voit au vestiaire. Le classement est indicatif, pas un titre |
 | Perte du téléphone ou vidage du navigateur | Progression perdue | Assumé et **annoncé** : sans compte, il n'y a pas de sauvegarde. La page de réglages le dit |
 | Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et supprimable |
 | Trafic automatisé sur l'URL publique | Bruit, charge | Aucune donnée sensible à atteindre ; c'est le principe même du § 5 |
@@ -469,8 +475,10 @@ quatorzième.
 ## 15. Questions ouvertes
 
 1. **Page 3 sur 3 du programme** — à récupérer auprès du coach (§ 12.3).
-2. **Effectif réel de l'équipe** — quatorze est une estimation ; le nombre exact
-   ne change rien au produit mais rend les cibles du § 4 vérifiables.
+2. ~~**Effectif réel de l'équipe**~~ — *tranché : le produit n'en dépend pas.*
+   Les cibles du § 4 sont exprimées en proportion, les rangs comptent les
+   participants et non l'effectif (§ 9), et aucun écran n'affiche de total
+   d'équipe. Le nombre exact reste utile au coach ; il n'est requis nulle part.
 3. **Le coach est-il au courant ?** Le lot 2 lui destine un écran. Savoir s'il
    compte le regarder décide s'il vaut le travail, et si le ressenti mérite
    d'exister.
