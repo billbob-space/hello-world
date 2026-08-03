@@ -318,6 +318,15 @@ test('un navigateur sans matchMedia n est pas prive d animation', () => {
 });
 
 test('style.css neutralise tout mouvement quand le systeme le demande (PRD §10)', () => {
+  // Un seul bloc dans toute la feuille. Le PRP 01 en avait pose un ; ce PRP le
+  // REMPLACE. En laisser deux serait le pire cas : la recherche ci-dessous
+  // extrait le premier, les assertions porteraient sur le bloc du PRP 01, et
+  // l'echec ne designerait pas le fichier fautif. On le verrouille ici plutot
+  // que de le recommander en prose.
+  const blocs = css.match(/@media \(prefers-reduced-motion: reduce\)/g) || [];
+  assert.equal(blocs.length, 1,
+    `style.css doit porter exactement un bloc de mouvement reduit, ${blocs.length} trouve(s) — celui du PRP 01 a-t-il ete supprime ?`);
+
   const bloc = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css);
   assert.ok(bloc, 'le bloc prefers-reduced-motion manque dans style.css');
   // Les deux proprietes, pas une seule : une transition oubliee suffit a faire
@@ -369,7 +378,16 @@ export function mouvementReduit(fenetre = globalThis) {
 }
 ```
 
-Ajouter à la fin de `apps/marcq-handball/web/style.css` :
+**Supprimer** le bloc `@media (prefers-reduced-motion: reduce)` posé par le
+PRP 01 (`web/style.css`, en fin de la section du socle), puis ajouter à la fin de
+`apps/marcq-handball/web/style.css` :
+
+> **Un seul bloc dans toute la feuille.** Le PRP 01 en a posé un, avec
+> `0.01ms`, pour que la règle existe dès la première ligne de CSS. Ce PRP le
+> **remplace**, il ne s'y ajoute pas. En laisser deux ferait échouer le test de
+> l'étape suivante : sa recherche extrait le **premier** bloc du fichier — donc
+> celui du PRP 01 — et l'assertion sur `.001ms` ne peut pas correspondre à
+> `0.01ms`. L'échec ne désignerait pas ce fichier-ci, et se chercherait longtemps.
 
 ```css
 /* ---------------------------------------------------------------------------
@@ -377,10 +395,11 @@ Ajouter à la fin de `apps/marcq-handball/web/style.css` :
    L'animation vient apres l'action et ne retarde aucun tap (PRD §10).
    --------------------------------------------------------------------------- */
 
-/* Ecrit AVANT la premiere animation, et volontairement universel : il couvre ce
-   qui suit dans ce fichier, mais aussi ce qu'un PRP futur y ajoutera sans y
-   penser. Sa position n'a aucun effet — `!important` gagne quel que soit
-   l'ordre — c'est son EXISTENCE des la premiere animation qui compte.
+/* Le SEUL bloc de mouvement reduit de la feuille : il remplace celui du PRP 01.
+   Volontairement universel — il couvre ce qui suit dans ce fichier, mais aussi
+   ce qu'un PRP futur y ajoutera sans y penser. Sa position n'a aucun effet,
+   `!important` gagnant quel que soit l'ordre ; c'est son EXISTENCE des la
+   premiere animation qui compte.
    `.001ms` plutot que `0s` : l'animation se termine a l'image suivante, donc
    `animationend` et `transitionend` sont bien emis, et un code qui attend l'un
    des deux pour nettoyer n'attend pas indefiniment. */

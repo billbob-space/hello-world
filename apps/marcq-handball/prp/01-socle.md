@@ -110,8 +110,13 @@ const COQUE = [ '/', '/style.css' ];   // tout PRP qui ajoute un fichier de coqu
   écrans et déclare sa propre famille `--marcq-*` : ces jetons restent dans la
   feuille mais cessent d'avoir un consommateur (voir PRP 03, « Le style des
   écrans »). N'écris donc rien en aval qui les lise.
-- Le bloc `prefers-reduced-motion` global (PRD §10), lui, est **définitif** :
-  posé ici une fois pour toutes, il couvre tous les écrans à venir.
+- Le bloc `prefers-reduced-motion` global (PRD §10) est posé ici pour que la
+  règle existe dès la première ligne de CSS. **Le PRP 06 le remplace** par la
+  version définitive, dont il justifie les valeurs — il est le PRP des
+  animations, c'est lui qui possède cette règle, et les PRP 09, 10 et 11 la lui
+  attribuent. Il doit la **remplacer** et non en ajouter une seconde : deux blocs
+  `@media (prefers-reduced-motion: reduce)` dans la même feuille font échouer son
+  propre test, qui extrait le premier.
 
 **Noms introduits ici et absents de `00-ossature.md`**, donc définis par ce
 document : `apps/marcq-handball/package.json`, `apps/marcq-handball/tests/coque.test.js` ;
@@ -132,7 +137,7 @@ classes HTML de la page d'attente `.attente .sur-titre .periode .dit .note`.
 - Tester : `apps/marcq-handball/main_test.go`, `apps/marcq-handball/tests/coque.test.js`,
   `./init.sh --check`
 
-## Convention d'écriture propre à cette app
+## Convention d'écriture — posée ici, portée par l'ossature §9
 
 **Les accents vont dans ce que l'enfant lit, pas dans le code.** Le texte de
 `index.html` et de tout écran à venir est du français accentué — « Programme
@@ -650,9 +655,11 @@ h1 {
   color: var(--encre-douce);
 }
 
-/* PRD §10 : tout reste utilisable sans un seul mouvement. La regle est posee
-   ici une fois pour toutes, pour que chaque animation ajoutee ensuite en herite
-   au lieu d'avoir a y penser. */
+/* PRD §10 : tout reste utilisable sans un seul mouvement. La regle existe des la
+   premiere ligne de CSS, pour qu'aucune animation ajoutee ensuite n'ait a y
+   penser. Le PRP 06 REMPLACE ce bloc par la version definitive — il est le PRP
+   des animations et il justifie ses valeurs. Il ne doit pas en ajouter un
+   second : son test extrait le premier bloc du fichier. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

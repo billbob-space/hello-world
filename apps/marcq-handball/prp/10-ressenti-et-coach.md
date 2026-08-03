@@ -146,7 +146,7 @@ choisirEcran(route)
 ```
 
 ```
-Jetons et classes de web/style.css — PRP 01, 03, 05, 06
+Jetons et classes de web/style.css — PRP 03, 05, 06
   --marcq-encre --marcq-encre-douce --marcq-fond --marcq-carte --marcq-accent
   --marcq-sur-accent --marcq-danger --marcq-trait --marcq-tap (48px)
   .ecran  .titre-ecran  .titre-bloc  .aide  .barre  .compte  .bouton
@@ -550,8 +550,15 @@ arguments des tests du PRP 08 continuent de passer sans retouche.
    contexte est un instantané du dernier rendu).
 2. `envoiNecessaire(local, faits, ressentis)` décide `GET` ou `POST`.
 3. `corpsEnvoi({ pseudo, code, faits, ressentis })`.
-4. Sur `200` seulement : `dernierEnvoi = { at: recuA, empreinte: empreinte(faits),
+4. Sur `200` **ou `201`** : `dernierEnvoi = { at: recuA, empreinte: empreinte(faits),
    empreinteRessentis: empreinteRessentis(ressentis) }`.
+   Les deux codes, sans exception. Le PRP 07 rend `201` à la création du
+   pseudonyme et `200` à chaque mise à jour : le `201` est donc exactement le
+   **premier** envoi d'un enfant qui vient de rejoindre. Ne l'écrire que sur
+   `200` laisserait `dernierEnvoi` vide à ce moment-là, `envoiNecessaire`
+   resterait vrai, et chaque déclencheur re-posterait le même corps
+   indéfiniment. Le PRP 08 le dit déjà — « un `fetch` qui rend `201` est traité
+   comme un `200` » — et c'est lui qui fait foi sur `synchroniser`.
 
 **L'empreinte est celle de la carte *filtrée*, pas de la carte lue.** Une entrée
 écartée par le filtre — une date qui n'est plus une séance après une mise à jour

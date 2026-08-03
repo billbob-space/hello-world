@@ -910,8 +910,9 @@ document-ci est un `.md`, il a le droit de la nommer ; `vue-bilan.js` ne l'a pas
 
 **Les accents vont dans ce que l'enfant lit, pas dans le code.** Les libellés, les
 phrases et les noms de mois portent leurs accents ; les commentaires, les noms de
-fonctions, de variables et de tests restent en ASCII. C'est la convention des
-PRP 01, 04 et 05, et les messages de commit la suivent aussi.
+fonctions, de variables et de tests restent en ASCII. C'est la règle de
+l'ossature §9, valable pour les onze PRP, et les messages de commit la suivent
+aussi.
 
 **Le PRD ne se contredit pas sur ce périmètre.** Un point mérite d'être signalé :
 le §9 demande que *« chacun voie ce qu'il a accompli »* et le §6 lot 3 parle d'un

@@ -829,7 +829,7 @@ l'un des deux manque de la coque hors ligne — ils y sont depuis les PRP 03 et 
 et renommer l'un de ces exports casse cet écran. C'est le prix à ne pas payer une
 seconde table de mois ni une seconde courbe de roulement dans l'application.
 
-**Les accents vont dans ce que l'enfant lit, pas dans le code.** Convention posée
-au PRP 01 : les libellés, les phrases affichées et les messages portent leurs
-accents ; les commentaires, les noms de fonctions, de variables et de tests
-restent en ASCII.
+**Les accents vont dans ce que l'enfant lit, pas dans le code.** Règle de
+l'ossature §9, valable pour les onze PRP : les libellés, les phrases affichées et
+les messages portent leurs accents ; les commentaires, les noms de fonctions, de
+variables et de tests restent en ASCII.

@@ -379,9 +379,16 @@ Elles s'appliquent à **tous** les PRP.
   messages de commit et les noms de fonctions.
 - **Les accents vont dans ce que l'enfant lit, pas dans le code.** Les libellés,
   les phrases affichées et les messages d'erreur destinés à l'écran portent
-  leurs accents ; les commentaires, les noms de fonctions, de variables, de
-  tests et les messages de commit restent en ASCII. C'est ce qui évite qu'un
-  identifiant s'écrive de deux façons selon le clavier de qui l'a tapé.
+  leurs accents ; les noms de fonctions, de variables et de tests, les
+  commentaires du code et les messages de commit restent en ASCII. C'est ce qui
+  évite qu'un identifiant s'écrive de deux façons selon le clavier de qui l'a
+  tapé.
+
+  La règle porte sur **ce qui devient littéralement un fichier source** : les
+  blocs de code que l'agent recopie. Elle ne porte pas sur les listings de
+  synthèse d'interfaces des PRP — ceux qui récapitulent des signatures pour un
+  lecteur humain, y compris au §5 et au §6 de ce document. Ce sont de la
+  documentation dans une fence, pas du code à copier.
 - **Aucun secret** dans le dépôt ni dans l'image. Les noms des variables
   attendues vont dans le `README`, jamais les valeurs.
 - **Aucune section `ports:`**, aucun `LABEL traefik.*` dans le `Dockerfile`.
