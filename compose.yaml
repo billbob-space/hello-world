@@ -39,8 +39,8 @@ services:
       - "traefik.http.routers.cadran.rule=Host(`cadran.apps.billbob.ovh`)"
       - "traefik.http.routers.cadran.entrypoints=websecure"
       - "traefik.http.routers.cadran.priority=100"
-      # forwardauth = authentification Google (exposure private). La retirer
-      # exposerait l'app en clair.
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
       - "traefik.http.routers.cadran.middlewares=forwardauth,security-headers@file"
       - "traefik.http.routers.cadran.tls.certresolver=letsencrypt"
       - "traefik.http.services.cadran.loadbalancer.server.port=8080"
@@ -81,8 +81,8 @@ services:
       - "traefik.http.routers.hello-world.rule=Host(`hello-world.apps.billbob.ovh`)"
       - "traefik.http.routers.hello-world.entrypoints=websecure"
       - "traefik.http.routers.hello-world.priority=100"
-      # forwardauth = authentification Google (exposure private). La retirer
-      # exposerait l'app en clair.
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
       - "traefik.http.routers.hello-world.middlewares=forwardauth,security-headers@file"
       - "traefik.http.routers.hello-world.tls.certresolver=letsencrypt"
       - "traefik.http.services.hello-world.loadbalancer.server.port=8080"
