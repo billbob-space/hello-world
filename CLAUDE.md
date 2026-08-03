@@ -173,6 +173,21 @@ cours de session n'est donc invocable qu'à la session suivante — exactement l
 même piège que les plugins, et pour la même raison. En attendant, sa séquence
 s'exécute à la main, elle tient en quatre commandes.
 
+### La pull request se lit en trente secondes
+
+Un corps de PR n'est pas un compte rendu. Il sert à décider **s'il faut relire,
+et par où commencer** : une phrase sur ce que fait le changement, trois à cinq
+puces sur ce qui compte, ce qui a été vérifié en chiffres, et les points
+d'attention avant fusion. Le reste encombre.
+
+`.github/pull_request_template.md`, généré, en donne la forme — remplis ses
+sections, ne les invente pas.
+
+Le raisonnement détaillé, lui, va dans les **messages de commit**, où il reste
+attaché au changement qu'il explique et survit à la fusion. C'est aussi ce qui
+rend le découpage en étapes payant : quatre commits bien décrits valent mieux
+qu'un long corps de PR que personne ne relira.
+
 ## Le rayon de souffle
 
 Une seule stack, donc un seul `docker compose up`, atomique pour l'ensemble.
