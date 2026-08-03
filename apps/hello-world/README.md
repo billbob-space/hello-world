@@ -17,6 +17,7 @@ serveur HTTP, le gabarit de page et les tests tiennent dans trois fichiers :
 | `main.go` | serveur HTTP, routes, arrêt propre sur SIGTERM |
 | `page.html` | page d'accueil, embarquée dans le binaire (`go:embed`) |
 | `main_test.go` | tests des routes et de l'échappement de l'identité |
+| `devtools/preview/` | mandataire local qui pose `X-Forwarded-User`, hors image |
 
 L'image finale est une Alpine portant le binaire statique, environ 12 Mo.
 
@@ -25,16 +26,13 @@ app de la fabrique est un module Go distinct, ce qu'impose le contexte de
 construction réduit à `apps/hello-world`. Le `go.work` à la racine du dépôt les
 rassemble pour `gopls`, sans entrer dans aucune image.
 
-La page est un **panneau à palettes** : chaque valeur est posée sur une grille
-de cellules de caractère, comme sur un tableau des départs. Tout est obtenu en
-CSS — le treillis des volets est peint en fond, en unités `ch`, derrière un
-simple champ de texte. C'est ce qui permet à `page.html` de rester un gabarit
-Go ordinaire : `main_test.go` verrouille `{{.VersionShort}}` collé à sa balise,
-donc aucun découpage caractère par caractère n'est possible. Aucun script,
-aucune police distante, aucune requête sortante depuis le navigateur.
+La page est un **panneau à volets**, à la manière d'un tableau des départs :
+chaque valeur est posée sur une matrice de cellules de caractère. Aucun script,
+aucune police distante, aucune requête sortante depuis le navigateur — la
+police est embarquée dans le fichier, en data URI.
 
-Le monde visuel et les décisions produit sont consignés dans
-[`PRODUCT.md`](PRODUCT.md).
+Le monde visuel est décrit dans [`DESIGN.md`](DESIGN.md), les décisions produit
+dans [`PRODUCT.md`](PRODUCT.md). Lis-les avant de toucher à la page.
 
 ## Routes
 
@@ -79,6 +77,19 @@ go run .               # écoute sur :8080
 curl localhost:8080/healthz
 ```
 
+En local, `X-Forwarded-User` est absent et la ligne d'identité reste éteinte —
+un état légitime, mais le seul visible sans mandataire. Pour voir l'état
+authentifié, le seul où l'ambre apparaît :
+
+```bash
+go run . &                      # l'application, sur :8080
+go run ./devtools/preview       # le mandataire, sur :8081
+```
+
+Puis ouvrir <http://127.0.0.1:8081/>. Le mandataire pose `X-Forwarded-User` et
+l'hôte public, exactement comme Traefik. Il n'entre pas dans l'image : le
+`Dockerfile` ne construit que le paquet racine du module.
+
 Depuis la racine du dépôt, comme le fait la CI :
 
 ```bash
@@ -90,10 +101,21 @@ Le contexte de construction est `apps/hello-world`, jamais la racine.
 
 ## Invariants verrouillés par les tests
 
-`main_test.go` fige quatre choses que toute refonte de la page doit préserver :
-la version courte **collée à sa balise** (`>abcdef1<`), le SHA complet dans un
-attribut `title`, `inconnu` affiché sans en-tête `X-Forwarded-User`, et
-l'identité **échappée** en HTML.
+`main_test.go` fige quatre choses que toute refonte de la page doit préserver.
+Elles **cassent silencieusement le diagnostic de déploiement** si elles sautent :
+la construction reste verte, seuls les tests protestent.
+
+| Invariant | Test | Pourquoi |
+|---|---|---|
+| `{{.VersionShort}}` est le **seul contenu texte** de sa balise | recherche littérale de `>abcdef1<` | Sans lui, plus rien ne dit d'un coup d'œil quelle image tourne |
+| Le SHA complet reste dans un attribut `title` | `title="abcdef1234567890"` | Le SHA court à sept signes ne suffit pas à lever une ambiguïté |
+| `inconnu` s'affiche sans en-tête | recherche littérale | En local, la page doit rester lisible |
+| L'identité est échappée | injection de `<script>` | Elle vient d'un en-tête, donc du monde extérieur |
+
+Le premier est le plus contraignant : **aucun découpage caractère par caractère
+n'est possible**. C'est pour cette raison que chaque couche décorative — les
+cartes de volet, la bande de charnière — est un élément *frère* du champ de
+texte, jamais un élément qui l'entoure ou le fractionne.
 
 Piège de dérive : `newMux(t)` reconstruit le mux au lieu de réutiliser celui de
 `main()`. Une route ajoutée dans `main()` et pas dans `newMux` serait

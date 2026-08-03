@@ -5,3 +5,6 @@
 /apps/cadran/cadran
 /apps/hello-world/hello-world
 /apps/ramure/ramure
+
+# Cache du hook de revue de design, local a la machine : il ne se partage pas.
+apps/*/.impeccable/hook.cache.json

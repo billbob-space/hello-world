@@ -5,22 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.VersionShort}} · hello-world</title>
 <style>
+  /* Martian Mono 600, sous-ensemble des 70 glyphes que cette page peut
+     afficher, embarque en data URI. Copyright 2022 The Martian Mono Project
+     Authors (https://github.com/evilmartians/mono), SIL Open Font License 1.1.
+     Embarque et non lie : le contrat interdit toute requete sortante depuis le
+     navigateur, pas un asset porte par le fichier lui-meme. */
+  @font-face {
+    font-family: "Martian Mono";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url(data:font/woff2;base64,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) format("woff2");
+  }
+
   :root {
     color-scheme: dark;
 
-    /* Le panneau est un objet physique : il est noir sous toute lumiere
-       ambiante, donc pas de variante claire. */
-    --room:     #050506;  /* le mur derriere le panneau */
-    --frame:    #0b0b0c;  /* le caisson */
-    --flap-hi:  #1c1d20;  /* moitie haute du volet, qui prend la lumiere */
-    --flap-lo:  #141518;  /* moitie basse, dans l'ombre du volet suivant */
-    --seam:     #08080a;  /* la charniere */
-    --ink:      #ece7dc;  /* les lettres : blanc chaud, jamais pur */
-    --silk:     #8a867c;  /* la serigraphie du caisson, teintee depuis l'encre */
-    --signal:   #f0a828;  /* l'ambre : la lampe et la ligne « vous », rien d'autre */
+    /* Le panneau est un objet physique : noir sous toute lumiere ambiante,
+       donc pas de variante claire. */
+    --room:      #050506;
+    --frame:     #0e0f11;  /* la face du caisson */
+    --bezel:     #1e2025;  /* l'arete du cadre, qui prend la lumiere */
+    --ink:       #f0ece2;  /* les lettres : blanc chaud, jamais pur */
+    --silk:      #8f8b80;  /* serigraphie courante, teintee depuis l'encre */
+    --silk-hi:   #bab4a6;  /* serigraphie de tete */
+    --signal:    #f2a52a;  /* l'ambre : l'identite et le focus clavier, rien d'autre */
 
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, "DejaVu Sans Mono",
-            "Liberation Mono", Menlo, Consolas, monospace;
+    --board: "Martian Mono", ui-monospace, SFMono-Regular, "DejaVu Sans Mono",
+             Menlo, Consolas, monospace;
     --silk-face: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
                  "Helvetica Neue", Arial, sans-serif;
   }
@@ -32,160 +44,265 @@
     min-height: 100dvh;
     display: grid;
     place-items: center;
-    padding: clamp(1rem, 4vw, 2.5rem);
-    background: var(--room);
+    padding: clamp(.9rem, 3.5vw, 2.5rem);
+    /* Le mur est une surface, pas un aplat : le panneau y est pose. */
+    background: radial-gradient(115% 80% at 50% 26%, #101114 0%, #08090a 46%, var(--room) 100%);
     color: var(--ink);
     font-family: var(--silk-face);
     font-size: 16px;
     -webkit-text-size-adjust: 100%;
   }
 
-  /* ---- le caisson ------------------------------------------------------ */
+  /* ---- le caisson -------------------------------------------------------
+     Largeur dictee par les modules, jamais l'inverse : le boitier est monte
+     autour de la matrice, comme sur un vrai panneau. */
 
   .board {
-    width: min(32rem, 100%);
-    background: var(--frame);
-    border-radius: 4px;
-    padding: clamp(1.1rem, 4.5vw, 1.6rem);
+    position: relative;
+    width: max-content;
+    max-width: 100%;
+    padding: clamp(1.1rem, 3.6vw, 1.7rem) clamp(.85rem, 3.2vw, 1.5rem)
+             clamp(.9rem, 3vw, 1.3rem);
+    background: linear-gradient(180deg, #131418 0%, var(--frame) 34%, #0a0b0d 100%);
+    border-radius: 7px;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, .055),
-      0 26px 60px -24px rgba(0, 0, 0, .95);
+      inset 0 0 0 1px var(--bezel),           /* l'arete interieure du cadre */
+      inset 0 2px 0 rgba(255, 255, 255, .07), /* le chant superieur, eclaire */
+      inset 0 -14px 22px -14px rgba(0, 0, 0, .95),
+      0 2px 0 #000,
+      0 34px 66px -28px rgba(0, 0, 0, .95);   /* le panneau decolle du mur */
   }
 
-  /* La plaque de nom serigraphiee sur le caisson. Pas de temoin d'etat :
-     lire le panneau prouve deja qu'il est alimente, et la ligne « en service »
-     en porte la duree. */
-  .housing {
-    padding-bottom: .85rem;
-    border-bottom: 1px solid #17181b;
+  /* Les quatre vis de fixation du cadre. */
+  .screws {
+    position: absolute;
+    inset: 7px;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px),
+      radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px),
+      radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px),
+      radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px);
+    background-size: 7px 7px;
+    background-repeat: no-repeat;
+    background-position: left top, right top, left bottom, right bottom;
+  }
+
+  /* ---- la plaque de nom -------------------------------------------------
+     Gravee dans la tole du caisson : creuse, pas serigraphiee comme les
+     etiquettes de champ. */
+
+  .plate {
+    display: inline-block;
+    margin-bottom: clamp(1rem, 3vw, 1.4rem);
+    padding: .3rem .7rem .34rem;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #0a0b0d, #131418);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, .9),
+      0 1px 0 rgba(255, 255, 255, .045);
   }
 
   h1 {
     margin: 0;
-    font-size: .74rem;
-    font-weight: 600;
-    letter-spacing: .2em;
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: .3em;
+    text-indent: .3em;      /* compense la chasse ajoutee au dernier signe */
     text-transform: uppercase;
-    color: var(--silk);
+    color: #a9a396;
   }
 
-  /* ---- les volets ------------------------------------------------------ */
+  /* ---- etiquettes serigraphiees, rangees ------------------------------- */
 
-  /* Une cellule de caractere par volet. Le treillis est peint en fond, en
-     unites `ch`, pour que le gabarit reste un simple champ de texte : les
-     tests verrouillent {{"{{.VersionShort}}"}} colle a sa balise, aucun
-     decoupage par caractere n'est possible. */
-  .flaps {
-    --cellw: 1.24ch;
-    --flaph: 1.5em;
-    --fhi: var(--flap-hi);
-    --flo: var(--flap-lo);
-    --div: var(--frame);
+  .cap {
+    margin: 0 0 .5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--silk);
+    font-size: .63rem;
+    letter-spacing: .19em;
+  }
 
-    margin: 0;
-    font-family: var(--mono);
-    font-weight: 500;
-    letter-spacing: .24ch;
-    line-height: var(--flaph);
-    color: var(--ink);
-    padding-left: .12ch;        /* demi-jeu : centre le glyphe dans sa cellule */
-    overflow-wrap: anywhere;
+  /* L'etiquette de tete : plus grande, plus claire, elle ouvre le panneau. */
+  .cap--lead {
+    font-size: .78rem;
+    letter-spacing: .24em;
+    color: var(--silk-hi);
+  }
+
+  /* ---- les modules a volets ---------------------------------------------
+     Chaque volet est un element reel : face qui recoit la lumiere en haut,
+     jeu sombre a la charniere, arete eclairee sur le volet inferieur, et
+     l'ombre du volet avant portee sur celui de derriere. Le compte de
+     cellules est fixe, donc la bande fait toujours un nombre entier de
+     volets — jamais de demi-carte coupee au bord. */
+
+  .strip {
     position: relative;
-    background-color: var(--fhi);
-    background-image:
-      linear-gradient(180deg,
-        transparent calc(50% - 1px),
-        var(--seam) calc(50% - 1px), var(--seam) 50%,
-        rgba(255, 255, 255, .05) 50%, rgba(255, 255, 255, .05) calc(50% + 1px),
-        transparent calc(50% + 1px)),
-      linear-gradient(90deg, var(--div) 0 1px, transparent 1px),
-      linear-gradient(180deg, var(--fhi) 0 50%, var(--flo) 50% 100%);
-    background-size: 100% var(--flaph), var(--cellw) 100%, 100% var(--flaph);
-    background-repeat: repeat-y, repeat-x, repeat-y;
+    font-family: var(--board);
+    font-weight: 600;
+    /* Une cellule = une chasse exactement. Toute chasse ajoutee se decalerait
+       du pas de la grille et la derive s'accumulerait sur onze cellules. */
+    --cellw: 1ch;
+    --flaph: 1.42em;
+    width: calc(var(--cells) * var(--cellw));
+    max-width: 100%;
+    height: var(--flaph);
+  }
+
+  .cards {
+    position: absolute;
+    inset: 0;
+    /* `1fr` repartit l'arrondi sur toute la bande au lieu de le laisser
+       s'accumuler cellule apres cellule : les cartes restent calees sur les
+       glyphes, dont la chasse derive de la meme largeur totale. */
+    display: grid;
+    grid-template-columns: repeat(var(--cells), 1fr);
+    overflow: hidden;
+    border-radius: 1.5px;
+  }
+
+  .cards i {
+    position: relative;
+    border-right: 1px solid #050507;
+    background: linear-gradient(180deg,
+      #303239 0%,          /* haut du volet avant : pleine lumiere */
+      #26282e 34%,
+      #1b1d22 49.2%,       /* bas du volet avant, dans son propre ombrage */
+      #08090b 49.2%, #08090b 50.6%,   /* le jeu de la charniere */
+      #35373e 50.6%,       /* arete du volet arriere, qui accroche la lumiere */
+      #262830 63%,
+      #15161a 100%);
+  }
+
+  /* L'ombre portee du volet avant sur le volet arriere. */
+  .cards i::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50.6%;
+    height: 30%;
+    background: linear-gradient(180deg, rgba(0, 0, 0, .66), rgba(0, 0, 0, 0));
   }
 
   /* Les tourillons de l'axe, de part et d'autre du module. */
-  .flaps::before,
-  .flaps::after {
+  .strip::before,
+  .strip::after {
     content: "";
     position: absolute;
     top: 50%;
-    width: .16em;
-    height: .16em;
+    width: .17em;
+    height: .17em;
     border-radius: 50%;
-    background: #34353a;
+    background: linear-gradient(180deg, #55575e, #2a2c31);
     transform: translateY(-50%);
   }
-  .flaps::before { left: -.3em; }
-  .flaps::after  { right: -.3em; }
+  .strip::before { left: -.32em; }
+  .strip::after  { right: -.32em; }
+
+  /* Le champ de texte, pose sur la matrice. Le gabarit reste un simple
+     champ : main_test.go verrouille {{"{{.VersionShort}}"}} colle a sa
+     balise, donc aucun decoupage caractere par caractere n'est possible. */
+  .glyphs {
+    position: relative;
+    display: block;
+    margin: 0;
+    line-height: var(--flaph);
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* La fente de charniere passe DEVANT les lettres : sur un panneau a
+     palettes, elle coupe chaque caractere en deux, et c'est ce trait qui
+     identifie la forme. Une lettre non coupee est imprimee sur une grille,
+     pas portee par un volet. Element separe, donc le champ de texte du
+     gabarit reste intact. */
+  .hinge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50.6%;
+    z-index: 2;
+    height: .045em;
+    min-height: 1px;
+    background: linear-gradient(180deg, rgba(3, 3, 4, .92), rgba(3, 3, 4, .78));
+    box-shadow: 0 .045em .07em -.02em rgba(0, 0, 0, .55);
+    pointer-events: none;
+  }
+
+  /* Votre ligne sur le panneau. L'ambre n'est pose que sur une identite
+     reellement transmise par Traefik : en local, sans en-tete, la valeur
+     reste eteinte plutot que de faire croire a une session. */
+  .glyphs.you { color: var(--signal); }
+  .glyphs.unset { color: var(--silk); }
 
   /* ---- la ligne d'affiche ---------------------------------------------- */
 
-  .marquee { margin: 1.35rem 0 0; }
+  .marquee { margin: 0 0 clamp(1.3rem, 4vw, 1.9rem); }
 
-  .marquee dt,
-  .rows dt {
-    font-size: .66rem;
-    font-weight: 600;
-    letter-spacing: .17em;
-    text-transform: uppercase;
-    color: var(--silk);
+  /* Le `dd` du navigateur arrive avec 40px de retrait a gauche. Non remis a
+     zero, le module de tete se decale de son propre en-tete — et ce retrait
+     entre dans le `max-content` du caisson, qui traine alors 40px de vide a
+     droite de chaque ligne. */
+  .marquee dd { margin: 0; }
+
+  /* Les deux corps sont dans le rapport 30/11, aux trois regimes du clamp :
+     les modules font donc exactement la meme largeur a toute taille d'ecran,
+     le caisson epouse la matrice et les tourillons tombent sur le cadre. */
+  .marquee .strip {
+    --cells: 11;
+    font-size: clamp(1.78rem, 8.59vw, 4.91rem);
   }
 
-  .marquee dt { margin-bottom: .6rem; }
-
-  .marquee dd {
-    margin: 0;
-    font-size: clamp(2rem, 11vw, 3.6rem);
-  }
-  .marquee dd.flaps { --flaph: 1.4em; }
-
-  /* Le SHA complet est la vraie reponse : lisible, selectionnable d'un clic,
-     pas cache dans une infobulle. Il reste subordonne aux volets, d'ou le
-     selecteur assez specifique pour passer devant `.marquee dd`. */
-  .marquee dd.sha {
-    margin: .7rem 0 0;
-    font-family: var(--mono);
-    font-size: .74rem;
-    letter-spacing: .04em;
-    color: var(--silk);
+  /* Le SHA complet est la vraie charge utile pour qui compare plus de sept
+     signes : lisible et selectionnable d'un clic, jamais une infobulle. */
+  /* `width: 0` puis `min-width: 100%` : le SHA s'affiche sur toute la largeur
+     du caisson mais ne compte pour rien dans sa largeur intrinseque. Sans
+     cela, ses quarante signes insecables etirent un caisson en `max-content`
+     bien au-dela de l'ecran d'un telephone. */
+  .marquee dd.hash {
+    margin: .85rem 0 0;
+    width: 0;
+    min-width: 100%;
+    font-family: var(--board);
+    font-size: clamp(.95rem, 2.2vw, 1.25rem);
+    letter-spacing: .02em;
+    color: #b3ada0;
     overflow-wrap: anywhere;
     user-select: all;
   }
 
   /* ---- les lignes de depart -------------------------------------------- */
 
-  .rows {
-    margin: 1.6rem 0 0;
-    display: grid;
-    grid-template-columns: minmax(6rem, max-content) 1fr;
-    gap: .5rem 1.1rem;
-    align-items: center;
+  .rows { margin: 0; }
+  .rows dd { margin: 0 0 clamp(.85rem, 2.6vw, 1.15rem); }
+  .rows .strip {
+    --cells: 30;
+    /* Le coefficient est legerement sous le rapport 30/11 exact : la chasse
+       reelle est arrondie par le moteur a chaque corps, donc l'egalite
+       theorique des largeurs ne tient pas aux petites tailles. Mieux vaut une
+       ligne un peu plus courte que le module de tete que l'inverse : c'est le
+       module focal qui doit tenir le bord du caisson. */
+    font-size: clamp(.6307rem, 2.9vw, 1.8rem);
   }
 
-  /* A l'echelle des lignes, la cellule tombe sous dix pixels : le treillis
-     plein contraste virerait au grain. On l'attenue pour qu'il reste des
-     volets vides, pas une texture. */
-  .rows dd {
-    margin: 0;
-    font-size: clamp(.8rem, 3vw, .94rem);
-    --fhi: #191a1d;
-    --flo: #151619;
-    --div: #101114;
+  /* A 12 px de corps, la bande de charniere et son ombre pesent deux pixels
+     sur une hauteur de capitale de neuf : la valeur se lit barree au lieu de
+     coupee. Sur les lignes, la fente se passe de son ombre portee. */
+  .rows .hinge {
+    box-shadow: none;
+    background: rgba(3, 3, 4, .82);
   }
-
-  /* Votre ligne sur le panneau. L'ambre n'est pose que sur une identite
-     reellement transmise par Traefik : en local, sans en-tete, la valeur
-     reste eteinte plutot que de faire croire a une session. */
-  .rows dd.you { color: var(--signal); }
-  .rows dd.unset { color: var(--silk); }
 
   /* ---- la plaque de sonde ---------------------------------------------- */
 
   footer {
-    margin-top: 1.7rem;
-    padding-top: 1.1rem;
-    border-top: 1px solid #17181b;
+    margin-top: clamp(.6rem, 2.4vw, 1rem);
+    padding-top: clamp(.85rem, 2.6vw, 1.15rem);
+    border-top: 1px solid #191a1e;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -194,7 +311,7 @@
   }
 
   .legend {
-    font-size: .66rem;
+    font-size: .6rem;
     font-weight: 600;
     letter-spacing: .17em;
     text-transform: uppercase;
@@ -202,32 +319,29 @@
   }
 
   .probe {
-    font-family: var(--mono);
-    font-size: .78rem;
+    font-family: var(--board);
+    font-weight: 600;
+    font-size: .72rem;
     color: var(--ink);
     text-decoration: none;
-    padding: .42rem .7rem;
-    border: 1px solid #2b2c31;
-    border-radius: 3px;
-    background: var(--flap-hi);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+    padding: .44rem .7rem;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #2a2c32, #1a1c20);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .09),
+      0 1px 0 #000;
     transition: background 160ms ease-out, transform 160ms ease-out,
                 box-shadow 160ms ease-out;
   }
-  .probe:hover { background: #232428; }
+  .probe:hover { background: linear-gradient(180deg, #34363d, #212328); }
   .probe:active {
     transform: translateY(1px);
-    background: var(--flap-lo);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, .6);
+    background: linear-gradient(180deg, #17181c, #202228);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, .75);
   }
   .probe:focus-visible {
     outline: 2px solid var(--signal);
     outline-offset: 2px;
-  }
-
-  @media (max-width: 34rem) {
-    .rows { grid-template-columns: 1fr; gap: .25rem; }
-    .rows dt { margin-top: .55rem; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -239,48 +353,47 @@
 <!--
 THESIS: a deployment is a flap turning — this page is the board showing the
 value now in service, not a status card with a green pill.
-OWN-WORLD: matte black housing, two-tone flap cards split by a hinge seam,
-ivory lettering in fixed character cells, axle pins on every strip, one amber
-signal reserved for the identity row and keyboard focus. No status lamp.
+OWN-WORLD: matte black housing with a bezel and mounting screws, real flap
+cards carrying a lit face, a hinge gap and a cast shadow, board lettering in
+fixed character cells, axle pins on every module, one amber signal reserved
+for the identity row and keyboard focus. No status lamp.
 STORY: the visitor merged minutes ago; they read the SHA at board scale,
 confirm it is theirs, and leave.
-FIRST VIEWPORT: silkscreened nameplate; "Version en ligne" over the SHA at
-board scale with the full hash beneath; four departure rows; the /healthz
-plate closes the frame.
+FIRST VIEWPORT: engraved nameplate; "Version en ligne" over the SHA on an
+eleven-cell module the board is sized from, full hash beneath; four departure
+modules; the /healthz plate closes the frame.
 FORM: split-flap departure board, candidate 6 of 7, seed 8ff367b8.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
 -->
 <main class="board">
+  <span class="screws" aria-hidden="true"></span>
 
-  <header class="housing">
-    <h1>hello-world</h1>
-  </header>
+  <header class="plate"><h1>hello-world</h1></header>
 
   <dl class="marquee">
-    <dt>Version en ligne</dt>
-    <dd class="flaps" title="{{.Version}}">{{.VersionShort}}</dd>
-    <dd class="sha">{{.Version}}</dd>
+    <dt class="cap cap--lead">Version en ligne</dt>
+    <dd class="strip"><span class="cards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="hinge" aria-hidden="true"></span><span class="glyphs" title="{{.Version}}">{{.VersionShort}}</span></dd>
+    <dd class="hash">{{.Version}}</dd>
   </dl>
 
   <dl class="rows">
-    <dt>Utilisateur</dt>
-    <dd class="flaps {{if .UserKnown}}you{{else}}unset{{end}}">{{.User}}</dd>
+    <dt class="cap">Utilisateur</dt>
+    <dd class="strip"><span class="cards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="hinge" aria-hidden="true"></span><span class="glyphs {{if .UserKnown}}you{{else}}unset{{end}}">{{.User}}</span></dd>
 
-    <dt>Hôte</dt>
-    <dd class="flaps">{{.Host}}</dd>
+    <dt class="cap">Hôte</dt>
+    <dd class="strip"><span class="cards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="hinge" aria-hidden="true"></span><span class="glyphs">{{.Host}}</span></dd>
 
-    <dt>Démarrée</dt>
-    <dd class="flaps">{{.Started}}</dd>
+    <dt class="cap">Démarrée</dt>
+    <dd class="strip"><span class="cards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="hinge" aria-hidden="true"></span><span class="glyphs">{{.Started}}</span></dd>
 
-    <dt>En service</dt>
-    <dd class="flaps">{{.Uptime}}</dd>
+    <dt class="cap">En service</dt>
+    <dd class="strip"><span class="cards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="hinge" aria-hidden="true"></span><span class="glyphs">{{.Uptime}}</span></dd>
   </dl>
 
   <footer>
     <span class="legend">Sonde de santé</span>
     <a class="probe" href="/healthz">/healthz</a>
   </footer>
-
 </main>
 </body>
 </html>
