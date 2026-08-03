@@ -471,10 +471,15 @@ en une ligne, l'inverse a déjà exposé les données.
   parmi N : une erreur dedans fait échouer le déploiement de toutes les apps.
 - **Chaque app déclare ses tests dans `apps/<nom>/test.sh`**, exécutable. La CI
   ne lance que ce fichier ; la fabrique n'a pas à connaître ton langage.
-- **Aucun `LABEL traefik.*` dans le `Dockerfile`**, sans exception. Docker
-  fusionne les labels de l'image dans ceux du conteneur : un label de routage
-  gravé dans l'image publierait un routeur **supplémentaire**, que le compose ne
-  peut pas écraser puisqu'il porte un autre nom — donc **sans authentification**.
+- **Aucun `LABEL traefik.*` dans l'image**, sans exception — ni écrit dans le
+  `Dockerfile`, ni **hérité de l'image de base**. Docker fusionne les labels de
+  l'image dans ceux du conteneur : un label de routage gravé dans l'image
+  publierait un routeur **supplémentaire**, que le compose ne peut pas écraser
+  puisqu'il porte un autre nom — donc **sans authentification**. `--check` lit le
+  `Dockerfile`, où un label hérité n'apparaît pas ; la CI inspecte donc en plus
+  l'**image construite**, seul endroit où il se voit, et refuse la construction.
+  Si l'image de base en porte un, il faut en changer : ce label ne se retire pas
+  depuis le compose.
 - **Aucun secret** dans le dépôt ni dans l'image. Les valeurs sensibles sont
   injectées par l'infrastructure via l'environnement ; déclare les noms attendus
   dans le `README`, jamais les valeurs.

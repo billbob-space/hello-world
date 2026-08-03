@@ -119,3 +119,50 @@ répond à des besoins réels et vaut d'être repris, mais `init.sh` a divergé 
 +636 lignes côté `main` contre +1346 côté branche depuis la même base. Reprendre
 signifie réécrire, pas fusionner. Question pour l'utilisateur : réécrire sur la
 base actuelle, ou abandonner ?
+
+### 6. J'ai chiffré un portage sans avoir lu l'étape que je proposais de modifier
+
+**Symptôme** — j'ai annoncé le garde-fou de labels d'image comme « ~10 lignes
+dans une étape existante, l'image est déjà construite et inspectable
+localement ». En ouvrant l'étape : elle **tire l'image publiée** depuis le
+registre et porte `if: github.event_name != 'pull_request'`. Sur une pull
+request, aucune image n'existe dans le démon — `push: false` la laisse dans le
+cache de buildx. Le contrôle tel que je le décrivais n'aurait rien gardé au
+moment utile.
+
+**Cause** — j'avais lu la ligne `docker image inspect` dans le workflow généré et
+conclu que l'image était disponible, sans lire les deux lignes au-dessus. Un
+`grep` qui trouve le mot attendu ressemble beaucoup à une vérification.
+
+**Detecte par** — `auteur` — en ouvrant le fichier pour écrire le correctif,
+c'est-à-dire une étape trop tard : l'estimation était déjà annoncée.
+
+**Action** — `comportement` — ne pas chiffrer un changement à partir d'un `grep`.
+Le coût réel s'est révélé plus élevé mais le correctif meilleur : `load:` sur les
+pull requests fait entrer l'image dans le démon, et l'étape devient
+inconditionnelle.
+
+### 7. Aucun contrôle ne portait sur l'image construite avant la fusion
+
+**Symptôme** — l'unique inspection d'image de la CI ne tournait qu'après fusion
+sur `main`. Une image trop lourde n'était donc signalée qu'une fois publiée, et
+un `LABEL traefik.*` hérité d'une image de base n'était vu **nulle part** :
+`--check` lit le `Dockerfile`, où un label hérité n'apparaît pas.
+
+**Cause** — la construction sur pull request a été conçue pour valider le
+`Dockerfile` sans bouger le tag `:main`, ce qui est juste. Mais `push: false`
+laisse l'image hors du démon, et personne n'a remarqué que cela retirait aussi
+toute possibilité de l'inspecter. Le garde-fou existant — « aucun `LABEL
+traefik.*` dans le Dockerfile » — donnait l'impression que le cas était couvert,
+alors qu'il ne couvre que la moitié écrite à la main.
+
+**Detecte par** — `auteur` — en analysant `claude/parallel-dev-versions-8d5g9c`,
+dont un commit portait ce contrôle. Aucune app de la fabrique n'utilise
+aujourd'hui d'image de base tierce, donc rien ne l'aurait révélé avant le premier
+service annexe.
+
+**Action** — `garde-fou` — corrigé : `load:` sur les pull requests, étape
+d'inspection inconditionnelle, refus dur sur un label `traefik.*`, et le contrôle
+de taille profite du même passage. Logique vérifiée sur trois cas simulés — image
+saine, label hérité, aucun label — Docker n'étant pas disponible dans le
+conteneur de développement.
