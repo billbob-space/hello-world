@@ -702,6 +702,29 @@ __ENABLED__  },
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-branche.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-commit.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
@@ -781,6 +804,85 @@ fi
 }
 
 # Toujours 0 : un rapport ne fait pas echouer l'ouverture d'une session.
+exit 0
+SH
+}
+
+emit_garde_branche() {
+  render __BASE__ "$BASE" <<'SH'
+#!/usr/bin/env bash
+#
+# Genere par init.sh — hook PreToolUse : refuse d'ecrire directement sur __BASE__.
+#
+# La fabrique ouvre une branche des la PREMIERE modification. Une regle ecrite
+# dans CLAUDE.md s'oublie ; un hook, lui, s'execute. Il ne cree pas la branche
+# lui-meme : le nom doit dire le sujet, et seul celui qui edite le connait.
+#
+# Aucune dependance : ni jq ni python. Un garde-fou qui ne demarre pas sur une
+# machine depouillee ne garde rien.
+
+set -u
+BASE="__BASE__"
+
+entree=$(cat)
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+racine=$(git rev-parse --show-toplevel)
+courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "$courante" = "$BASE" ] || exit 0
+
+# Un fichier hors du depot ne concerne pas cette regle : le hook n'a pas a
+# bloquer l'edition d'un brouillon ou d'une note personnelle. Chemin illisible
+# = on protege, par defaut.
+cible=$(printf '%s' "$entree" | sed -nE 's/.*"file_path"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' | head -1)
+case "$cible" in
+  "$racine"/*) ;;
+  "")          ;;
+  *) exit 0 ;;
+esac
+
+raison="Modification refusee : HEAD est sur $BASE.\n\nLa fabrique ouvre une branche des la premiere modification, nommee <app>/<sujet> — ou fabrique/<sujet> pour init.sh, la CI, le contrat ou l'outillage.\n\n  ./init.sh --branche <app>/<sujet>\n\nPuis recommence cette modification."
+
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$raison"
+exit 0
+SH
+}
+
+emit_garde_commit() {
+  render __BASE__ "$BASE" <<'SH'
+#!/usr/bin/env bash
+#
+# Genere par init.sh — hook Stop : refuse de terminer sur un arbre de travail
+# sale.
+#
+# Committer a chaque etape verifiee est ce qui evite la PR de mille lignes que
+# personne ne relit vraiment. Le hook ne committe pas a votre place : il refuse
+# seulement de laisser du travail non enregistre derriere lui.
+
+set -u
+BASE="__BASE__"
+
+entree=$(cat)
+
+# Garde anti-boucle. Quand ce hook a deja bloque et que la main est revenue,
+# stop_hook_active vaut true : bloquer de nouveau ferait tourner en rond. En cas
+# de doute on laisse passer — se tromper dans ce sens ne coute qu'un rappel
+# manque, se tromper dans l'autre bloque la session.
+case "$entree" in *'"stop_hook_active"'*true*) exit 0 ;; esac
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+cd "$(git rev-parse --show-toplevel)" 2>/dev/null || exit 0
+
+courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "$courante" = "$BASE" ] && exit 0
+
+sale=$(git status --porcelain 2>/dev/null)
+[ -n "$sale" ] || exit 0
+n=$(printf '%s\n' "$sale" | grep -c . || true)
+
+raison="$n fichier(s) non committe(s) sur $courante.\n\nLa fabrique committe a chaque etape verifiee, pour que la relecture se fasse commit par commit plutot qu'en bloc a la fin.\n\n  ./init.sh --pret                    # l'etape est-elle committable ?\n  git add -A && git commit\n  git push -u origin $courante\n\nL'agent greffier fait ces trois gestes d'un coup. Si ce travail ne doit deliberement pas etre committe, dis-le explicitement."
+
+printf '{"decision":"block","reason":"%s"}\n' "$raison"
 exit 0
 SH
 }
@@ -889,12 +991,15 @@ emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
     .claude/settings.json)        emit_settings ;;
     .claude/check-plugins.sh)     emit_check_plugins ;;
     .claude/cloud-setup.sh)       emit_cloud_setup ;;
+    .claude/garde-branche.sh)     emit_garde_branche ;;
+    .claude/garde-commit.sh)      emit_garde_commit ;;
     go.work)                      emit_gowork ;;
   esac
 }
 
 DERIVES=(compose.yaml .github/workflows/build.yml .claude/settings.json
-         .claude/check-plugins.sh .claude/cloud-setup.sh go.work)
+         .claude/check-plugins.sh .claude/cloud-setup.sh
+         .claude/garde-branche.sh .claude/garde-commit.sh go.work)
 
 # --- --add ----------------------------------------------------------------------
 
@@ -1404,7 +1509,7 @@ if [ "$CHECK" = 1 ]; then
   # generateur produit un fichier plausible mais inanalysable, qui echouerait
   # silencieusement au demarrage d'une session cloud. bash -n le voit tout de
   # suite, et coute une milliseconde.
-  for s in .claude/check-plugins.sh .claude/cloud-setup.sh apps/*/test.sh; do
+  for s in .claude/check-plugins.sh .claude/cloud-setup.sh .claude/garde-*.sh apps/*/test.sh; do
     [ -f "$s" ] || continue
     bash -n "$s" 2>/dev/null && ok "$s analysable" || bad "$s : erreur de syntaxe shell"
   done
@@ -1527,7 +1632,7 @@ for f in "${DERIVES[@]}"; do
   mv "$tmp" "$f"
   ok "$f"
 done
-chmod +x .claude/check-plugins.sh
+chmod +x .claude/check-plugins.sh .claude/garde-branche.sh .claude/garde-commit.sh
 
 IGNORES=('.claude/settings.local.json' '.env' '.env.*' '*.log')
 # `go build` sans -o depose son binaire dans le repertoire courant, sous le nom
