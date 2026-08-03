@@ -22,9 +22,12 @@ Le contrat que doit respecter chaque application est dans
 ## Arborescence
 
 ```
-apps/<nom>/          une application : app.yml, Dockerfile, test.sh, PRODUCT.md, code
-compose.yaml         GÉNÉRÉ — la stack, un service par app activée
-fabrique.yml         org, dépôt, registre, domaine, réseau, plafonds
+apps/<nom>/          une application : app.yml, .dockerignore, test.sh, README.md,
+                     PRODUCT.md (écrits par --add), Dockerfile et code (à toi)
+compose.yaml         GÉNÉRÉ — la stack : les apps activées, leurs services annexes,
+                     les services partagés, et le bloc volumes: s'il y a des volumes
+fabrique.yml         org, dépôt, registre, domaine, réseau, plafonds, et
+                     shared_services — les services partagés par plusieurs apps
 init.sh              le générateur et le vérificateur
 go.work              GÉNÉRÉ — les modules Go, pour gopls
 .github/workflows/   GÉNÉRÉ — construction par app, déploiement unique
@@ -43,12 +46,20 @@ Deux commits — **construire d'abord, brancher ensuite** :
 ./init.sh --add ma-nouvelle-app --stack go --exposure private
 # écrire apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
 ./init.sh --check
-git add apps/ma-nouvelle-app && git commit     # commit 1 : la CI publie l'image
+git add apps/ma-nouvelle-app compose.yaml .github .gitignore .claude go.work
+git commit                                     # commit 1 : la CI publie l'image
 
 ./init.sh --app ma-nouvelle-app --enable       # une fois l'image publiée
 ./init.sh --check
 git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit    # commit 2 : le déploiement
 ```
+
+Le commit 1 emporte **les artefacts régénérés** : `--add` réécrit `compose.yaml`,
+le workflow et `.gitignore` — plus `.claude/` si le langage ou `ui:` est nouveau,
+et `go.work` dès que le module Go existe. Ne committer que `apps/<nom>` fait
+échouer le job `contrat` sur « compose.yaml désynchronisé des manifestes ».
+Le commit 2 se limite à `app.yml` et `compose.yaml` : `--enable` ne touche rien
+d'autre.
 
 Une app naît `enabled: false`. La raison est dans la section suivante.
 
@@ -64,8 +75,8 @@ Trois garde-fous en découlent :
 | Garde-fou | Ce qu'il empêche |
 |---|---|
 | `enabled: false` par défaut | qu'une app entre dans le compose avant que son image existe |
-| garde-fou de CI | que le webhook parte alors qu'une image du compose est introuvable |
-| `./init.sh --check` par service | qu'une app se retrouve sans authentification, ou en écart avec son `app.yml` |
+| garde-fou de CI | que le webhook parte alors qu'**une seule** image référencée par le compose est introuvable — celles de la fabrique, des annexes, des services partagés, et les **tierces** : `docker buildx imagetools inspect` interroge le registre en anonyme, une image publique s'inspecte sans login et une faute de frappe sort en 1 |
+| `./init.sh --check` par service | qu'une app se retrouve sans authentification, qu'un service annexe ou partagé se retrouve routé sans authentification, ou qu'un service soit en écart avec son manifeste |
 
 Le pire cas est donc « rien n'est déployé », jamais « tout tombe ». Un
 déploiement refusé se lit dans les journaux du workflow, pas sur le site.
@@ -92,18 +103,57 @@ dans [`CLAUDE.md`](CLAUDE.md).
 ./init.sh --check
 ```
 
-Il vérifie, **service par service** et non par recherche globale dans le
+Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`,
+noms de service —, parce qu'un `app.yml` faux ne pourrait produire qu'un
+« compose désynchronisé » dont le vrai motif serait perdu.
+
+Il vérifie ensuite, **service par service** et non par recherche globale dans le
 fichier : le middleware conforme à l'`exposure` de chaque app, la règle
 `Host()`, `priority=100`, le port, la mémoire, le `container_name`, le
-`pull_policy`, le nommage de l'image, les journaux bornés, l'absence de `ports:`.
+`pull_policy`, le nommage de l'image, les journaux bornés, l'absence de `ports:`
+— et, sur chaque service non routé, le `traefik.enable=false` qui l'en retire.
 Puis, en croisé : l'unicité des noms de service, des hostnames et des
 `container_name`, la correspondance exacte entre `apps/*/app.yml` et les
 services du compose, la mémoire totale engagée.
 
-Il vérifie enfin que **chaque artefact généré correspond aux manifestes** : si
-un `app.yml` a changé sans qu'`./init.sh` ait été relancé, le contrôle échoue.
-C'est le seul mécanisme capable de prouver que le `compose.yaml` committé décrit
-bien les applications committées.
+Il compare **ensuite** — deuxième section, pas la dernière — chaque **artefact
+généré** à ce qu'`./init.sh` écrirait aujourd'hui : si un `app.yml` a changé sans
+qu'`./init.sh` ait été relancé, le contrôle échoue. C'est le seul mécanisme
+capable de prouver que le `compose.yaml` committé décrit bien les applications
+committées. La comparaison est **sautée** si les manifestes ci-dessus sont déjà
+en faute : « désynchronisé » masquerait le vrai motif.
+
+Il relit alors le compose **service par service** et non par recherche globale
+dans le fichier, pour les **trois sortes** de services :
+
+| Sorte | Ce qui est vérifié |
+|---|---|
+| `<app>` | l'authentification conforme à l'`exposure`, la règle `Host()`, `priority=100`, le port, la mémoire, le `container_name`, le `pull_policy`, le nommage de l'image, les journaux bornés, l'absence de `ports:` |
+| `<app>-<nom>` (annexe) et `<nom>` (partagé) | la **présence** de `traefik.enable=false` — c'est lui, et non l'absence de label, qui retire du routage — et l'**absence** de tout autre label `traefik.*`, plus le réseau, la mémoire, les journaux, l'absence de `ports:` |
+
+Puis les volumes : chaque montage est un volume **nommé** préfixé par son
+propriétaire et jamais un bind mount, et le bloc `volumes:` de premier niveau
+déclare **exactement** ceux qui sont montés — chacun avec son `name:`, sans quoi
+Compose préfixerait le nom du projet et une sauvegarde archiverait un volume vide
+en sortant en 0. S'il n'y a aucun volume, il n'y a aucun bloc, et c'est correct.
+
+Puis, en croisé : l'unicité des noms de service, des hostnames et des
+`container_name` — les trois sortes partagent un espace de noms plat —, la
+correspondance exacte entre `apps/*/app.yml` et les services du compose, la
+mémoire totale engagée, les liens morts entre documents, l'outillage de l'agent,
+et l'absence de secret évident dans les fichiers suivis.
+
+Puis les secrets, par un scan des **fichiers produits** — `compose.yaml`,
+`fabrique.yml`, `apps/*/app.yml` — et non des champs : une clé qui évoque un
+secret suivie d'une valeur littérale est refusée, où qu'elle soit écrite. Le même
+scan tourne à la génération, qui n'écrit alors aucun artefact. `${VAR}` et un
+chemin vers un secret monté en fichier sont exemptés ; le message nomme le
+fichier et la ligne, sans jamais réimprimer la valeur.
+
+Les **avertissements** ne bloquent pas — un `chown` introuvable dans un
+`Dockerfile`, une clé inconnue ignorée dans une entrée `services:`, un budget
+mémoire dépassé, un écart entre le setup script et les langages du dépôt. Les KO,
+si.
 
 Ce même contrôle tourne en CI, en verrou de tous les autres jobs.
 
@@ -230,7 +280,27 @@ présent dans le PATH de toutes les sessions.
 
 ## Besoins d'infrastructure
 
-Ni base de données, ni cache, ni volume persistant, ni port supplémentaire.
+À ce jour, aucune application de la fabrique ne déclare de volume ni de service
+partagé — `shared_services` est vide dans `fabrique.yml` et le `compose.yaml`
+généré ne porte donc aucun bloc `volumes:`. C'est un **état**, pas une limite du
+contrat : une base de données, un cache, un volume persistant ou un service
+annexe se déclarent désormais dans les manifestes (`volumes:`, `services:`,
+`needs:` d'un `app.yml`, `shared_services` de `fabrique.yml`), `./init.sh` les
+génère et le déploiement les crée. Voir [`CLAUDE.md`](CLAUDE.md).
+
+Ce qui reste **hors de ce dépôt** est plus étroit, et ne se traite pas d'un seul
+geste — même règle que [`CLAUDE.md`](CLAUDE.md) :
+
+- **un fait** — la **topologie réseau** (`apps_net` est `external: true`, Traefik,
+  TLS, DNS et liste blanche vivent côté serveur) : on vit avec ;
+- **une demande** — les **valeurs** des secrets : le dépôt n'en porte que les
+  noms, dans `env:` et dans le `README` de l'app, et **on s'arrête là** ;
+  l'infrastructure injecte la valeur ;
+- **trois refus**, qui ne se demandent pas parce que le contrat offre déjà
+  l'alternative — un **port publié** sur l'hôte (c'est Traefik qui joint le
+  conteneur par `apps_net`), un **bind mount** depuis un chemin de l'hôte (un
+  volume nommé, créé par `docker compose up`), et une **exposition sans
+  authentification** (il n'y a que `private` et `google`).
 
 **Un point reste à régler côté serveur : l'accès en lecture aux paquets GHCR.**
 La construction publie bien les images, mais `dockhand` échoue à les récupérer :

@@ -148,7 +148,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      # CONSTRUIRE D'ABORD EN LOCAL, PUBLIER ENSUITE. Entre les deux se glisse le
+      # seul controle capable de voir les labels de l'IMAGE. Docker fusionne dans
+      # les labels du conteneur ceux qui sont graves dans l'image — y compris
+      # ceux HERITES d'une image de BASE ou poses par un etage intermediaire, que
+      # la lecture de apps/<app>/Dockerfile faite par « ./init.sh --check » ne
+      # peut pas voir. Un « traefik.* » grave la publierait un routeur
+      # SUPPLEMENTAIRE : il porte un autre nom que celui de compose.yaml, donc le
+      # compose ne l'ecrase pas, et il arrive SANS middleware d'authentification —
+      # constate avec Traefik 3.7.10. Le service principal, lui, est route :
+      # traefik.enable=false ne le couvre pas, ce controle est sa seule parade.
+      # L'etape de publication ci-dessous repart de ce cache : rien n'est
+      # reconstruit, et surtout pas une image differente de celle qu'on inspecte.
+      - name: construire ${{ matrix.app }} sans publier
+        uses: docker/build-push-action@v6
         with:
           # Contexte reduit a l'app : c'est ce qui isole les constructions les
           # unes des autres et empeche une edition dans une app d'invalider le
@@ -208,7 +221,7 @@ jobs:
           # ou l'absence de resultat est une bonne nouvelle.
           labels=$(docker image inspect "$image" \
                      --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}')
-          graves=$(printf '%s\n' "$labels" | grep -E '^traefik\.' || true)
+          graves=$(printf '%s\n' "$labels" | grep -iE '^traefik\.' || true)
           if [ -n "$graves" ]; then
             printf '::error::LABEL traefik grave dans l image ${{ matrix.app }} : %s\n' $graves
             echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, sans authentification. Retire-le du Dockerfile, ou change d image de base : ce label n est pas ecrasable depuis le compose."
@@ -258,11 +271,27 @@ jobs:
       - name: toutes les images du compose sont tirables
         run: |
           set -euo pipefail
-          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml)
+          # sort -u : la meme image peut etre referencee par plusieurs services
+          # — une app et son worker partagent la leur — et l'inspecter deux fois
+          # ne prouve rien de plus.
+          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml | LC_ALL=C sort -u)
           if [ ${#images[@]} -eq 0 ]; then
             echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
             exit 1
           fi
+          # TOUTES les images sont verifiees, les TIERCES COMPRISES, et un echec
+          # bloque. Ne pas les bloquer sous pretexte que ce job « ne s'authentifie
+          # que sur ghcr.io » serait faux : « docker buildx imagetools
+          # inspect » interroge le registre en ANONYME quand il n'a pas
+          # d'identifiants, et l'inspection d'une image publique aboutit sans
+          # login — mesure, docker deconnecte de tout registre : l'inspection de
+          # valkey/valkey:8-alpine sort en 0, la meme avec une faute de frappe
+          # sort en 1. Une image tierce mal orthographiee ou disparue ferait
+          # echouer le « docker compose up », atomique pour la stack entiere : la
+          # laisser passer, c'est deployer une fabrique qui tombe TOUTE. Une image
+          # tierce reellement privee est le seul faux positif possible, et elle
+          # n'aurait de toute facon pas sa place dans un compose que le serveur
+          # tire sans identifiants.
           manquantes=()
           for img in "${images[@]}"; do
             if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
@@ -273,11 +302,11 @@ jobs:
             fi
           done
           if [ ${#manquantes[@]} -gt 0 ]; then
-            printf '::error::image absente du registre : %s\n' "${manquantes[@]}"
+            printf '::error::image introuvable dans son registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
             exit 1
           fi
-          echo "${#images[@]} image(s) verifiee(s)"
+          echo "${#images[@]} image(s) distincte(s) verifiee(s)"
 
       # Le tag :main est mutable : une image reconstruite ne change pas une
       # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne

@@ -1,9 +1,24 @@
 # Genere par init.sh depuis fabrique.yml et apps/*/app.yml.
 # NE PAS EDITER — ./init.sh --check refuse un compose desynchronise.
 #
-# Une seule stack dockhand, un service par application activee. Le rayon de
-# souffle est commun : une erreur dans un bloc fait echouer le deploiement de
-# toute la fabrique.
+# Une seule stack dockhand. Le rayon de souffle est commun : une erreur dans un
+# bloc fait echouer le deploiement de toute la fabrique.
+#
+# CE FICHIER NE PORTE QUE DES SERVICES D'APPLICATION, decrits par leur
+# apps/<app>/app.yml, et TOUS SONT ROUTES : chacun porte ses labels de ROUTAGE —
+# un routeur, une URL https://<app>.apps.billbob.ovh, un middleware
+# d'authentification Google et priority=100. Ils vivent sur le reseau apps_net
+# et se joignent entre eux par leur nom de service ; aucun ne publie de port
+# sur l'hote.
+#
+# Deux autres sortes apparaitront ici des qu'un manifeste les declarera :
+# <app>-<nom>, annexe privee d'une app (section services: de son app.yml), et
+# <nom>, service partage (shared_services dans fabrique.yml). Elles ne sont pas
+# routees, et init.sh leur pose alors « traefik.enable=false » — c'est ce label,
+# et non l'absence de label, qui retire du routage : avec exposedByDefault, qui
+# est le DEFAUT de Traefik, un conteneur sans le moindre label recoit quand meme
+# un routeur, donc une URL, et sans authentification. Aucune n'est declaree a ce
+# jour : aucun service de ce fichier ne porte donc ce label, et c'est correct.
 services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh

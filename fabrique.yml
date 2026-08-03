@@ -12,3 +12,48 @@ memory_budget: 1024m   # plafond de la somme des mem_limit
 image_max_mb: 200
 log_max_size: 10m     # cap des journaux json-file, par service
 log_max_file: 3
+
+# Services partages par plusieurs applications. Ils vivent sur apps_net, sont
+# joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
+# init.sh leur pose « traefik.enable=false », le seul label qui RETIRE du
+# routage — l'absence de label ne suffirait pas, exposedByDefault leur creerait
+# un routeur sans authentification. Une app declare sa dependance avec
+# « needs: [redis] » dans son app.yml, et un needs vers un service absent d'ici
+# est une erreur de generation, pas une panne au demarrage.
+#
+# « command » s'ecrit en scalaire — decoupee sur les espaces — ou en LISTE, en
+# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas.
+#
+# Un secret ne se declare pas ici, et aucune syntaxe ne le fait passer : avant
+# d'ecrire quoi que ce soit, init.sh scanne ce fichier, les apps/*/app.yml et le
+# compose qu'il vient de produire. Une cle qui evoque un secret — requirepass,
+# password, token, api-key, ou des identifiants dans une URL — suivie d'une
+# VALEUR LITTERALE arrete la generation ; le message nomme le fichier et la
+# ligne, sans jamais reimprimer la valeur. Le scan lit le RESULTAT et non les
+# champs : « sh -c », health_cmd et command: y passent de la meme facon.
+#
+# Deux formes restent admises, et ce sont les deux bonnes :
+#   « --requirepass ${REDIS_PASSWORD} »   le NOM va dans env:, la valeur est
+#                                         injectee par l'infrastructure ;
+#   « --password-file /run/secrets/pw »   un CHEMIN, forme du secret monte en
+#                                         fichier cote serveur.
+# Une option qui ne porte pas de secret passe telle quelle :
+# « --notify-keyspace-events Ex », « --tls-key-file /certs/k.pem »,
+# « --auth-host=trust ».
+#
+# Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
+#
+# shared_services:
+#   - name: redis
+#     image: valkey/valkey:8-alpine
+#     memory: 128m
+#     command: ["redis-server", "--maxmemory", "96mb", "--notify-keyspace-events", "Ex"]
+#     volumes:
+#       - donnees:/data
+#   - name: directus
+#     image: directus/directus:11
+#     memory: 512m
+#     env: [DIRECTUS_KEY, DIRECTUS_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD]
+#     volumes:
+#       - base:/directus/database
+#       - fichiers:/directus/uploads
