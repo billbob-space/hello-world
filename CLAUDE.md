@@ -33,6 +33,7 @@ son PRD, son URL, son palier d'exposition, ses tests.
 ./init.sh --list          # état des applications
 ./init.sh --add <nom>     # échafaude apps/<nom>/
 ./init.sh --dry-run       # montre ce qui changerait, sans rien écrire
+./init.sh --branches-fusionnees   # quelles branches distantes peuvent être supprimées
 ```
 
 `init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
@@ -134,6 +135,28 @@ une : personne ne le choisit.
 Il ne dit rien du périmètre, et c'est sa seule limite. Sur une branche
 `claude/<sujet>`, le rayon de souffle se lit dans le champ `Périmètre` de
 l'entrée de journal et dans le diff, pas dans le nom. Renseigne-le tôt.
+
+### La fin de vie d'une branche ne t'appartient pas
+
+**Une session cloud ouvre des branches et ne peut pas en fermer.** Le relais git
+du harnais refuse la suppression de refs — `HTTP 403` sur `git-receive-pack`, et
+`git` affiche ensuite `Everything up-to-date`, qui ressemble à un succès. Le
+serveur MCP GitHub expose `create_branch` sans son inverse. Les branches
+fusionnées s'accumulent donc, et rien ne le signale.
+
+```bash
+./init.sh --branches-fusionnees    # dit quoi supprimer, ne supprime rien
+```
+
+Le critère est l'**équivalence de patch**, pas l'appartenance à l'ascendance de
+`main` : cette dernière se trompe dans les deux sens. Elle classe « non
+fusionnée » une branche simplement écrasée en un commit, et ne dit rien d'une
+branche dont la PR est fusionnée mais qui porte des commits écrits **après**.
+
+Sa limite est dans le nom de sa seconde section, `à regarder` : un patch inédit
+ne prouve pas un travail perdu. Un contenu repris à un autre chemin, ou refait à
+la main, produit un patch différent — la commande le remonte plutôt que de
+proposer une suppression qu'elle ne sait pas justifier. Compare avant de conclure.
 
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque
 commit :
