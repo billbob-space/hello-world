@@ -694,9 +694,19 @@ jobs:
           # porte un autre nom que celui du compose, donc le compose ne peut
           # pas l'ecraser — il vivrait SANS middleware d'authentification.
           # L'image construite est le seul endroit ou un label herite se voit.
-          graves=$(docker image inspect "$image" \
-                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' \
-                   | grep -E '^traefik\.' || true)
+          # L'inspection est isolee du filtre, et c'est tout l'interet : dans
+          # « inspect | grep ... || true », le « || true » couvre le PIPELINE
+          # ENTIER. Une inspection en echec — image absente, tag mal forme,
+          # demon indisponible — rendait alors une liste vide, indiscernable
+          # d'une image saine, et le garde-fou annoncait « aucun label » en
+          # sortant en succes. Un controle de securite qui echoue en ouvert est
+          # pire que pas de controle : il rassure. Ici l'affectation echoue sous
+          # « set -e » et l'etape s'arrete ; le « || true » ne couvre plus que
+          # grep, dont le code 1 signifie « aucune correspondance », seul cas
+          # ou l'absence de resultat est une bonne nouvelle.
+          labels=$(docker image inspect "$image" \
+                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}')
+          graves=$(printf '%s\n' "$labels" | grep -E '^traefik\.' || true)
           if [ -n "$graves" ]; then
             printf '::error::LABEL traefik grave dans l image ${{ matrix.app }} : %s\n' $graves
             echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, sans authentification. Retire-le du Dockerfile, ou change d image de base : ce label n est pas ecrasable depuis le compose."

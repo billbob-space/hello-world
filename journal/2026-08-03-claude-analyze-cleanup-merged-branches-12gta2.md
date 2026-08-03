@@ -242,3 +242,76 @@ dans `--check`, et **avant l'écriture** dans la génération. Un compose où de
 apps partagent un volume est déjà écrit quand `--check` le dit. Vérifiée ensuite
 sur une vraie collision fabriquée pour l'occasion (`cadran` + `x-y` contre
 `cadran-x` + `y`), pas seulement sur le cas nominal.
+
+### 11. Le garde-fou de labels que j'ai livré échouait en ouvert
+
+**Symptôme** — dans `graves=$(docker image inspect … | grep -E '^traefik\.' ||
+true)`, le `|| true` couvre le **pipeline entier**. Une inspection en échec —
+image absente, tag mal formé, démon indisponible — rendait une liste vide,
+indiscernable d'une image saine. L'étape annonçait « aucun label traefik.* » et
+sortait en succès. Vérifié : la version fusionnée en #28 sort en 0 quand
+`docker image inspect` échoue.
+
+**Cause** — j'ai éprouvé le garde-fou sur trois cas — image saine, label hérité,
+aucun label — c'est-à-dire trois cas où la commande **réussit**. Je n'ai jamais
+posé la question « et si l'inspection elle-même échoue ? ». C'est le mode de
+défaillance le plus banal d'un contrôle en CI, et le seul que mon jeu d'essais
+ne couvrait pas.
+
+**Detecte par** — `auteur` — mais il a fallu, pour le voir, lire le message de
+commit d'une autre session sur `claude/parallel-dev-versions-8d5g9c`, qui
+mentionnait « l'inspection des labels de l'image en CI n'échoue plus en ouvert ».
+Sans cette phrase, rien ne l'aurait révélé : le contrôle est vert dans les deux
+cas. La branche que je proposais de supprimer a rattrapé un défaut de la branche
+que j'avais fait fusionner.
+
+**Action** — `garde-fou` — corrigé : l'inspection est isolée du filtre, son échec
+tombe sous `set -e`, et le `|| true` ne couvre plus que `grep`, dont le code 1
+signifie « aucune correspondance ». **Un contrôle de sécurité qui échoue en
+ouvert est pire que pas de contrôle : il rassure.** La règle générale à en tirer
+est dans la cause, pas dans le correctif — tout jeu d'essais d'un garde-fou doit
+comporter le cas où l'outil qu'il appelle ne répond pas.
+
+### 12. Mon premier test du correctif a donné un faux négatif
+
+**Symptôme** — après correction, le cas « inspection en échec » sortait encore en
+0. J'ai failli conclure que le correctif ne marchait pas et le réécrire.
+
+**Cause** — le harnais, pas le code. Je sourçais le script (`. ./t.sh`) dans un
+sous-shell avec une fonction `docker` de substitution ; ce contexte ne reproduit
+pas `set -e` comme le fait un `run:` de GitHub Actions. Rejoué avec un vrai
+exécutable `docker` sur le `PATH` et `bash script.sh`, les quatre cas répondent
+juste. C'est le même harnais que j'avais utilisé pour valider le garde-fou
+initial — donc la raison pour laquelle l'anomalie 11 m'a échappé deux fois.
+
+**Detecte par** — `auteur` — en refusant le premier résultat plutôt qu'en le
+croyant, parce que le code corrigé était trop simple pour se tromper.
+
+**Action** — `comportement` — un harnais qui ne reproduit pas le contexte
+d'exécution réel ne prouve rien, dans les deux sens : il masque un défaut et il
+en invente. Pour un `run:` de CI, la reproduction fidèle est un fichier lancé par
+`bash`, avec les dépendances substituées **sur le `PATH`** et non par des
+fonctions shell.
+
+### 13. J'ai recommandé de supprimer une branche qui était en cours de travail
+
+**Symptôme** — `claude/parallel-dev-versions-8d5g9c` portait 8 commits lors de
+mon analyse, dont le dernier disait « RESTE OUVERT, refonte en cours ». J'en ai
+conclu « abandonnée, inachevée, supprimable », et l'utilisateur a tranché sur
+cette base. Elle en porte 9 aujourd'hui : le commit manquant est précisément la
+refonte annoncée, poussée pendant que je travaillais.
+
+**Cause** — j'ai lu « reste ouvert » comme un état final alors que c'était une
+note d'étape. Une branche sans PR ressemble à une branche morte, mais rien ne
+distingue l'abandon du travail en cours : c'est la même absence. Deux autres
+branches inconnues de mon inventaire sont apparues dans le même intervalle.
+
+**Detecte par** — `auteur` — en relançant `--branches-fusionnees` depuis le
+`main` fusionné, qui a compté 9 patchs là où j'en avais annoncé 8. L'outil écrit
+au commit précédent a rattrapé l'erreur d'analyse du commit d'avant.
+
+**Action** — `arbitrage` — la décision de suppression prise pour cette branche
+repose sur une prémisse devenue fausse ; elle est à reprendre par l'utilisateur,
+pas par moi. Note de méthode : un inventaire de branches se périme en minutes
+quand plusieurs sessions travaillent en parallèle, et aucune de mes analyses n'a
+porté de date.
