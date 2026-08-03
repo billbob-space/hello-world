@@ -18,7 +18,7 @@
 # et non l'absence de label, qui retire du routage : avec exposedByDefault, qui
 # est le DEFAUT de Traefik, un conteneur sans le moindre label recoit quand meme
 # un routeur, donc une URL, et sans authentification. Aucune n'est declaree a ce
-# jour : ce fichier ne contient donc, volontairement, aucun traefik.enable=false.
+# jour : aucun service de ce fichier ne porte donc ce label, et c'est correct.
 services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh

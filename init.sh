@@ -843,8 +843,10 @@ emit_volumes() {  # emit_volumes <proprietaire> <specs, une par ligne>
 
 # Tous les volumes nommes references par le compose, dans l'ordre d'emission et
 # dedoublonnes. Sert au bloc volumes: de premier niveau, que la Compose Spec
-# exige : un volume monte mais non declare la est traite comme un bind mount et
-# fait echouer le « compose up » de toute la stack. Les apps desactivees n'y
+# exige : un volume monte mais non declare la n'est PAS reinterprete en bind
+# mount — Compose refuse le projet entier a la validation (« refers to undefined
+# volume ... : invalid compose project »), avant qu'un conteneur ne demarre, et
+# le « compose up » de toute la stack s'arrete la. Les apps desactivees n'y
 # figurent pas, puisque leurs services ne sont pas emis.
 collect_volume_names() {
   local a n i name v
@@ -1144,7 +1146,7 @@ YAML
 # et non l'absence de label, qui retire du routage : avec exposedByDefault, qui
 # est le DEFAUT de Traefik, un conteneur sans le moindre label recoit quand meme
 # un routeur, donc une URL, et sans authentification. Aucune n'est declaree a ce
-# jour : ce fichier ne contient donc, volontairement, aucun traefik.enable=false.
+# jour : aucun service de ce fichier ne porte donc ce label, et c'est correct.
 YAML
   fi
 
@@ -2463,7 +2465,7 @@ if [ "$CHECK" = 1 ]; then
       fi
     else
       for v in $(comm -13 <(printf '%s\n' "$vdecl") <(printf '%s\n' "$vref")); do
-        bad "volume '$v' monte par un service mais absent du bloc volumes: de premier niveau — docker le traiterait comme un bind mount et le « compose up » de TOUTE la stack echouerait"
+        bad "volume '$v' monte par un service mais absent du bloc volumes: de premier niveau — Compose refuserait le projet ENTIER a la validation (« refers to undefined volume $v : invalid compose project »), avant tout demarrage : le « compose up » de TOUTE la stack echouerait"
       done
       for v in $(comm -23 <(printf '%s\n' "$vdecl") <(printf '%s\n' "$vref")); do
         bad "volume '$v' declare au premier niveau mais monte par aucun service — lance ./init.sh"
@@ -2665,13 +2667,20 @@ log_max_file: $LOG_MAX_FILE
 # « needs: [redis] » dans son app.yml, et un needs vers un service absent d'ici
 # est une erreur de generation, pas une panne au demarrage.
 #
+# « command » s'ecrit en scalaire — decoupee sur les espaces — ou en LISTE, en
+# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas. Une
+# valeur litterale sur une cle qui evoque un secret (« --requirepass p4ssw0rd »)
+# est refusee a la generation : declare le NOM dans env: et ecris
+# « --requirepass \${REDIS_PASSWORD} ». Les mots-cles sont reconnus entiers, donc
+# « --notify-keyspace-events Ex » ou « --tls-key-file /certs/k.pem » passent.
+#
 # Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
 #
 # shared_services:
 #   - name: redis
 #     image: valkey/valkey:8-alpine
 #     memory: 128m
-#     command: --maxmemory 96mb --maxmemory-policy allkeys-lru
+#     command: ["redis-server", "--maxmemory", "96mb", "--notify-keyspace-events", "Ex"]
 #     volumes:
 #       - donnees:/data
 #   - name: directus

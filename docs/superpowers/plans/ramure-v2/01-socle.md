@@ -94,7 +94,9 @@ l'affiche.
 - Produit : `apps/ramure-v2/app.yml` portant exactement
   `enabled: false`, `port: 8080`, `memory: 128m`, `health_path: /healthz`,
   `health_cmd: wget --spider -q http://localhost:8080/healthz`,
-  `exposure: google`, `stack: go`, `ui: true`.
+  `exposure: google`, `stack: go`, `ui: true`, plus les deux sections
+  optionnelles décommentées à la main : `volumes:` avec
+  `donnees:/var/lib/ramure` et `env: [LASTFM_API_KEY]`.
   Ce fichier est la **source de vérité** de toute la série : `init.sh` ne le
   réécrit jamais, tout le reste en découle.
 
@@ -124,6 +126,15 @@ cle() { sed -nE "s/^$1:[[:space:]]*//p" "$A" | head -1; }
 [ "$(cle health_path)" = "/healthz" ] || echoue "health_path = '$(cle health_path)', attendu /healthz"
 [ "$(cle health_cmd)"  = "wget --spider -q http://localhost:8080/healthz" ] \
     || echoue "health_cmd = '$(cle health_cmd)'"
+
+# Les deux sections optionnelles, decommentees a la main : sans le volume, la
+# collection (F-32, F-33) ne survivrait a aucun redeploiement, et la demande
+# arriverait apres la mise en ligne — un deploiement de plus.
+grep -qE '^volumes:' "$A"                    || echoue "section volumes: absente d'app.yml"
+grep -qE '^[[:space:]]+- donnees:/var/lib/ramure$' "$A" \
+    || echoue "le volume 'donnees:/var/lib/ramure' n'est pas declare"
+grep -qE '^env:.*LASTFM_API_KEY' "$A"        || echoue "env: [LASTFM_API_KEY] absent d'app.yml"
+grep -qE '^(volumes|env):.*=' "$A"           && echoue "une VALEUR est ecrite dans app.yml — seuls les noms s'y declarent"
 
 [ -x apps/ramure-v2/test.sh ]      || echoue "apps/ramure-v2/test.sh absent ou non executable"
 [ -f apps/ramure-v2/.dockerignore ] || echoue "apps/ramure-v2/.dockerignore absent"
@@ -168,6 +179,25 @@ cd /home/user/hello-world
           --health-cmd 'wget --spider -q http://localhost:8080/healthz'
 cp docs/PRD-RAMURE.md apps/ramure-v2/PRODUCT.md
 ```
+
+Les quatre sections optionnelles n'ont **aucun équivalent en ligne de commande** :
+`--add` les écrit commentées, tu en décommentes deux à la main dans
+`apps/ramure-v2/app.yml`, puis tu relances `./init.sh` — corrige le chemin, que
+l'échafaudage préfixe du nom de l'app :
+
+```yaml
+volumes:
+  - donnees:/var/lib/ramure     # volume réel « ramure-v2-donnees », créé par compose
+env: [LASTFM_API_KEY]           # un NOM, jamais une valeur
+```
+
+Elles arrivent **maintenant** et non au PRP 07, pour deux raisons. Le volume est
+ce qui fait survivre la collection (F-32, F-33) à un redéploiement : déclaré
+après la mise en ligne, il coûterait un déploiement de plus et un
+« l'app démarre et perd tout » entre-temps. Et l'app étant `enabled: false`,
+elle ne contribue encore aucun volume au compose — la déclaration est donc sans
+risque pour les autres apps, et entrera dans la stack en même temps que le
+service, à la tâche 10.
 
 Ce que chaque option décide, et pourquoi :
 
@@ -973,10 +1003,14 @@ git commit -m "ramure-v2 : declare go vet et go test dans test.sh"
 
 **Interfaces :**
 - Consomme : `var version` (tâche 4) — cible du `-X main.version` ;
-  `apps/ramure-v2/app.yml` (tâche 1) — `health_cmd` fondé sur `wget`.
+  `apps/ramure-v2/app.yml` (tâche 1) — `health_cmd` fondé sur `wget`, et
+  `volumes: [donnees:/var/lib/ramure]`, dont ce `Dockerfile` fixe le
+  propriétaire.
 - Produit : `ghcr.io/billbob-space/hello-world/ramure-v2:main`, construite par la
   CI avec `--build-arg VERSION=<sha>`, contexte `apps/ramure-v2`, utilisateur
-  `10001`, taille sous 200 Mo.
+  `10001`, taille sous 200 Mo, `/var/lib/ramure` créé et donné à `10001` avant
+  `USER`, `RAMURE_DATA_DIR` posée par l'image — le PRP 07 y trouve `FileStore`
+  sans réglage côté serveur.
 
 **Si le démon Docker n'est pas disponible dans ta session**, cette tâche ne peut
 pas être déclarée finie localement. Le job `build` de la CI exécute exactement
@@ -1021,6 +1055,14 @@ uid=$(docker run --rm --entrypoint id ramure-v2:essai -u)
 # 6. wget existe dans l'image finale : c'est ce que health_cmd appellera.
 docker run --rm --entrypoint sh ramure-v2:essai -c 'command -v wget' >/dev/null \
   || echoue "wget absent de l'image finale — le health_cmd d'app.yml echouerait a chaque fois"
+
+# 6bis. Le chemin de persistance existe dans l'image, appartient a 10001 et est
+#       designe par RAMURE_DATA_DIR. C'est le contenu de l'IMAGE qui est recopie
+#       dans le volume vide au premier montage : sans ce chown, le volume
+#       appartiendrait a root et l'app perdrait tout en silence.
+docker run --rm --entrypoint sh ramure-v2:essai \
+  -c '[ "$RAMURE_DATA_DIR" = /var/lib/ramure ] && touch "$RAMURE_DATA_DIR/.essai"' \
+  || echoue "RAMURE_DATA_DIR absente ou /var/lib/ramure non ecrivable par l'uid 10001"
 
 # 7. Le binaire sert vraiment, et porte la version injectee.
 #    -p 8099:8080 n'est valable QUE pour cet essai local : compose.yaml n'a
@@ -1089,6 +1131,18 @@ FROM alpine:3.20
 RUN adduser -D -H -u 10001 ramure
 
 COPY --from=serveur /out/ramure-v2 /usr/local/bin/ramure-v2
+
+# Point de montage du volume nomme « ramure-v2-donnees » declare dans app.yml.
+# Au PREMIER montage, Docker recopie dans le volume vide le repertoire tel qu'il
+# existe DANS L'IMAGE, proprietaire compris : c'est donc ce chown, et lui seul,
+# qui decide si l'app pourra ecrire. Absent, le volume appartient a root, l'app
+# tourne en 10001, et le symptome est « elle demarre et perd tout » — sans une
+# erreur. La ligne vient AVANT USER : apres, elle ne serait plus permise.
+RUN mkdir -p /var/lib/ramure && chown 10001:10001 /var/lib/ramure
+
+# Le chemin de persistance est fixe par l'IMAGE, pas demande a l'exploitant :
+# une seule source de verite, et le PRP 07 y trouve FileStore sans reglage.
+ENV RAMURE_DATA_DIR=/var/lib/ramure
 
 # Aucun port n'est publie : Traefik joint le conteneur par le reseau apps_net,
 # et compose.yaml n'a pas de section ports:. EXPOSE ne fait que documenter.
@@ -1276,19 +1330,26 @@ git commit -m "ramure-v2 : arrete le serveur proprement sur SIGTERM"
 - Test : bloc bash ci-dessous, lancé depuis la racine (non versionné)
 
 **Interfaces :**
-- Consomme : rien du code.
-- Produit : la déclaration, **par leur nom seulement**, de `LASTFM_API_KEY` et
-  `RAMURE_DATA_DIR`. C'est le document que lit l'exploitant du serveur : les
-  valeurs sont injectées par l'infrastructure, jamais versionnées.
+- Consomme : `apps/ramure-v2/app.yml` (tâche 1) — `env: [LASTFM_API_KEY]` ;
+  `apps/ramure-v2/Dockerfile` (tâche 7) — `ENV RAMURE_DATA_DIR=/var/lib/ramure`.
+- Produit : la déclaration de `LASTFM_API_KEY` **par son nom seulement** — la
+  seule demande adressée à l'exploitant —, et la documentation de
+  `RAMURE_DATA_DIR`, que **l'image fixe** et que personne n'a à injecter.
 
 **Pourquoi maintenant, alors qu'aucune ligne de code ne les lit encore.** Parce
 que le `README` d'une application **est** sa demande à l'exploitant, et qu'une
 demande formulée après la mise en ligne arrive trop tard : il faut alors un
-second déploiement pour la satisfaire. `LASTFM_API_KEY` sera lue par le PRP 03,
-`RAMURE_DATA_DIR` par le PRP 07 ; les deux sont facultatives, et leur absence
-dégrade une fonction sans casser l'écran (N-06). Écrire une valeur ici — même
-« pour essayer » — la publierait : le dépôt est lisible par tous ceux qui le
-clonent.
+second déploiement pour la satisfaire. `LASTFM_API_KEY` sera lue par le PRP 03 :
+elle est facultative, son absence bascule sur ListenBrainz et dégrade la finesse
+sans casser l'écran (N-06). Écrire sa valeur ici — même « pour essayer » — la
+publierait : le dépôt est lisible par tous ceux qui le clonent.
+
+`RAMURE_DATA_DIR` n'est pas de la même nature, et le `README` ne doit pas les
+confondre : elle est **posée par le `Dockerfile`** sur `/var/lib/ramure`, point
+de montage du volume nommé déclaré dans `app.yml`. Ce n'est ni une option
+laissée à l'exploitant ni une variable facultative — c'est ce qui fait que le
+PRP 07 trouve `FileStore` comme régime nominal, sans réglage côté serveur. On la
+documente pour dire **où vivent les données**, pas pour la demander.
 
 - [ ] **Étape 1 : écrire le test qui échoue**
 
@@ -1306,6 +1367,8 @@ exige() { grep -q -- "$1" "$R" || echoue "$2"; }
 
 exige 'LASTFM_API_KEY'  "LASTFM_API_KEY n'est pas declaree"
 exige 'RAMURE_DATA_DIR' "RAMURE_DATA_DIR n'est pas declaree"
+exige '/var/lib/ramure' "le chemin de persistance n'est pas dit — RAMURE_DATA_DIR est fixee par l'image, pas demandee a l'exploitant"
+exige 'ramure-v2-donnees' "le volume nomme qui porte la collection n'est pas nomme"
 exige 'ramure-v2.apps.billbob.ovh' "l'URL de l'application n'est pas dite"
 exige 'X-Forwarded-User' "la source d'identite n'est pas dite"
 exige '/healthz' "la sonde de sante n'est pas documentee"
@@ -1391,14 +1454,25 @@ ignore la sonde de santé.
 Aucune valeur n'est versionnée : seuls les noms le sont. Elles sont injectées
 par l'infrastructure, côté serveur.
 
-| Nom | Obligatoire | Rôle |
+| Nom | À injecter ? | Rôle |
 |---|---|---|
-| `LASTFM_API_KEY` | non | Clé Last.fm, source de proximité entre artistes. Absente, l'application bascule sur ListenBrainz : l'affinité est moins fine, rien n'est cassé. |
-| `RAMURE_DATA_DIR` | non | Répertoire de persistance de la collection. Absent, la collection est volatile et l'application le journalise au démarrage. |
+| `LASTFM_API_KEY` | **oui, côté serveur** — facultative | Clé Last.fm, source de proximité entre artistes. Absente, l'application bascule sur ListenBrainz : l'affinité est moins fine, rien n'est cassé. C'est la seule demande de ce fichier. |
+| `RAMURE_DATA_DIR` | **non — l'image la fixe** à `/var/lib/ramure` | Répertoire de persistance de la collection, point de montage du volume nommé `ramure-v2-donnees` déclaré dans `app.yml`. Rien à injecter, rien à créer sur l'hôte. La redéfinir côté serveur pointerait **hors** du volume : les données ne survivraient plus au redéploiement. |
 
-Aucune des deux n'est lue par le code à ce stade : elles sont déclarées
+Aucune n'est lue par le code à ce stade. `LASTFM_API_KEY` est déclarée
 maintenant parce que ce fichier est la demande adressée à l'exploitant, et
 qu'une demande formulée après la mise en ligne coûte un déploiement de plus.
+
+## Persistance
+
+La collection vit dans le volume nommé **`ramure-v2-donnees`**, déclaré par
+`volumes: [donnees:/var/lib/ramure]` dans `app.yml` et monté sur
+`/var/lib/ramure`. `docker compose up` le crée au premier démarrage et le
+conserve entre deux déploiements : **aucune action sur l'hôte**, ni `mkdir`, ni
+`chown`, ni chemin à valider. Le `Dockerfile` crée ce répertoire et le donne à
+l'uid `10001` **avant** `USER` — c'est le contenu de l'image, propriétaire
+compris, que Docker recopie dans le volume vide au premier montage. Tout le
+reste du système de fichiers du conteneur est jeté à chaque déploiement.
 
 ## Développement
 
@@ -1421,7 +1495,8 @@ docker build -t ramure-v2 apps/ramure-v2
 
 Go 1.23, bibliothèque standard uniquement à ce stade. La page d'accueil est
 embarquée dans le binaire par `go:embed` : l'image finale ne porte qu'un
-exécutable, aucun fichier à monter, aucun répertoire à créer au démarrage.
+exécutable et le répertoire de données décrit ci-dessus, créé par le
+`Dockerfile`. Rien n'est à préparer sur l'hôte avant un déploiement.
 
 Image finale sur `alpine` et non `scratch` : c'est busybox qui fournit le
 `wget` du `health_cmd` déclaré dans `app.yml`. Utilisateur `10001`, non root,

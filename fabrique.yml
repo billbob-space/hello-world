@@ -21,13 +21,20 @@ log_max_file: 3
 # « needs: [redis] » dans son app.yml, et un needs vers un service absent d'ici
 # est une erreur de generation, pas une panne au demarrage.
 #
+# « command » s'ecrit en scalaire — decoupee sur les espaces — ou en LISTE, en
+# ligne comme en bloc ; elle est lue et emise EN ENTIER dans les deux cas. Une
+# valeur litterale sur une cle qui evoque un secret (« --requirepass p4ssw0rd »)
+# est refusee a la generation : declare le NOM dans env: et ecris
+# « --requirepass ${REDIS_PASSWORD} ». Les mots-cles sont reconnus entiers, donc
+# « --notify-keyspace-events Ex » ou « --tls-key-file /certs/k.pem » passent.
+#
 # Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
 #
 # shared_services:
 #   - name: redis
 #     image: valkey/valkey:8-alpine
 #     memory: 128m
-#     command: --maxmemory 96mb --maxmemory-policy allkeys-lru
+#     command: ["redis-server", "--maxmemory", "96mb", "--notify-keyspace-events", "Ex"]
 #     volumes:
 #       - donnees:/data
 #   - name: directus

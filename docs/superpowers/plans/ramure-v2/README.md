@@ -44,7 +44,10 @@ silence. **Elles s'appliquent aux neuf PRP sans être répétées dans chacun.**
   `apps/ramure-v2` — jamais la racine.
 - **`USER` non root**, aucune section `ports:`, aucun `LABEL traefik.*`.
 - **Aucun secret dans le dépôt ni dans l'image** — seuls les *noms* des
-  variables sont déclarés, dans le `README` de l'app.
+  variables sont déclarés, dans `env:` de l'`app.yml` et dans le `README` de l'app.
+- **Persistance : volume nommé `donnees:/var/lib/ramure`**, déclaré dans
+  `app.yml` **dès le PRP 01** ; `RAMURE_DATA_DIR` est fixée par le `Dockerfile`,
+  qui crée et `chown` ce chemin avant `USER`.
 - **Logs sur la sortie standard.** Démarrage sans intervention.
 - **Port 8080, santé `/healthz`.** Tests dans `apps/ramure-v2/test.sh`.
 - **Ne jamais éditer à la main** `compose.yaml`, `.github/`, `.claude/`,
@@ -137,22 +140,33 @@ dès la première mesure du taux de service.
 
 ---
 
-## Ce qui relève du serveur et sort de ce dépôt
+## La persistance : déclarée dans le dépôt, dès le PRP 01
 
 **F-32 (collection multi-appareils) et F-33 (réconciliation) exigent un stockage
-qui survit au redéploiement.** Le contrat est explicite : une base de données ou
-un volume persistant est une décision d'infrastructure, prise côté serveur.
+qui survit au redéploiement.** Ce n'est plus une décision d'infrastructure à
+demander : le contrat l'a fait entrer dans les manifestes. Un **volume nommé** se
+déclare dans `apps/ramure-v2/app.yml`, `./init.sh` l'écrit dans `compose.yaml`,
+et `docker compose up` le crée — aucune action sur l'hôte, pour personne, jamais.
 
-La série **ne l'invente pas**. Le PRP 07 :
+Ce que la série en fait :
 
-1. conçoit la persistance derrière une interface `CollectionStore` ;
-2. livre `MemoryStore` (par défaut, volatile, avertissement au démarrage) et
-   `FileStore` (activée par `RAMURE_DATA_DIR` si fournie) ;
-3. **écrit la demande dans `apps/ramure-v2/README.md` et s'arrête là**.
+1. **PRP 01** — `volumes: [donnees:/var/lib/ramure]` et `env: [LASTFM_API_KEY]`
+   entrent dans `app.yml` dès l'échafaudage, et le `Dockerfile` crée
+   `/var/lib/ramure`, le `chown` **avant** `USER` et pose
+   `ENV RAMURE_DATA_DIR=/var/lib/ramure`. Le chemin persistant existe donc, et
+   appartient à l'app, avant la première ligne de code qui écrit. Sans ce
+   `chown`, le volume vide reçoit le répertoire tel qu'il est dans l'image —
+   propriétaire compris — l'app non-root ne peut pas y écrire, et le symptôme
+   est « elle démarre et perd tout ».
+2. **PRP 07** — la persistance vit derrière l'interface `CollectionStore`.
+   **`FileStore` est le régime nominal** : il est choisi dès que
+   `RAMURE_DATA_DIR` est définie, ce que le `Dockerfile` garantit en conteneur —
+   donc en production, toujours. **`MemoryStore` est le repli de développement
+   hors conteneur** (`go run .` sans volume) : volatile, et annoncé au démarrage.
 
-Tant que le volume n'est pas accordé, F-32 est **dégradé, pas cassé** : la
-collection reste utilisable localement côté client (F-33), ce que le lot MVP
-autorise déjà.
+F-32 et F-33 ne sont donc **ni dégradés ni en attente** : leur persistance est
+tenue par le déploiement lui-même. Le cloisonnement par `X-Forwarded-User` reste
+la contrainte qui les gouverne, le palier étant `google`.
 
 ---
 
@@ -191,5 +205,6 @@ autorise déjà.
 nouveauté), F-27 (palmarès de l'arbre), F-35 (export de la collection), filtres
 complémentaires sur les branches.
 
-**Non résolu dans ce dépôt :** F-32 et F-33 sont implémentés et testés, mais leur
-persistance dépend d'un volume qui relève du serveur.
+**Rien n'est laissé en attente du serveur :** F-32 et F-33 sont implémentés,
+testés, et leur persistance tient au volume nommé déclaré dans `app.yml` dès le
+PRP 01.
