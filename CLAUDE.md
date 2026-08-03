@@ -165,19 +165,45 @@ spectaculaires. Or ce sont les mineures qui disent où le contrat a un trou.
 Le nom du fichier vient de la branche, ce qui le rend retrouvable sans index :
 `fabrique/garde-fous-git` → `journal/2026-08-03-fabrique-garde-fous-git.md`.
 
-Chaque anomalie porte quatre champs, dont un fait tout le travail :
+Chaque anomalie porte quatre champs. `Symptôme` et `Cause` sont en prose libre.
+Les deux autres ont un **vocabulaire fermé**, et `./init.sh --check` le vérifie :
 
-| Champ | |
+```
+**Detecte par** — `utilisateur`
+**Action** — `garde-fou` — pourquoi, en une ligne.
+```
+
+| `Detecte par` | qui a rattrapé, du moins cher au plus cher |
 |---|---|
-| **Symptôme** | ce qui a été observé |
-| **Cause** | ce qui l'a produit |
-| **Détecté par** | test, CI, relecture, hasard, **ou l'utilisateur** |
-| **Ce que ça devrait changer** | contrat, garde-fou, outillage, ou rien |
+| `compilateur` | immédiat, coût nul |
+| `test` | avant même de lancer |
+| `CI` | avant la fusion |
+| `relecture` | humaine ou outillée, avant livraison |
+| `auteur` | en cours de travail, après coup |
+| `utilisateur` | après livraison : un aller-retour, et un garde-fou manquant |
+| `production` | après déploiement |
 
-« Détecté par » est ce qui rentabilise le journal. Une anomalie rattrapée par la
-CI n'a rien coûté ; la même rattrapée par l'utilisateur a coûté un aller-retour,
-et pointe un garde-fou manquant. Relue périodiquement, la distribution de ce
-champ dit où poser le prochain.
+| `Action` | ce que l'anomalie devrait changer |
+|---|---|
+| `rien` | réparée, rien à en tirer |
+| `contrat` | ce fichier dit quelque chose de faux, ou ne dit rien |
+| `garde-fou` | `--check`, `--pret` ou un hook devrait le voir |
+| `outillage` | un plugin, un LSP, un agent manque |
+| `comportement` | façon de travailler, aucun artefact à changer |
+| `arbitrage` | demande une décision humaine, pas un correctif |
+
+**Le vocabulaire est fermé parce que le lecteur peut être un agent.** En prose
+libre, « moi », « la critique impeccable » et « le compilateur » ne s'agrègent
+pas : la distribution que ce journal promet n'est plus calculable. Ce n'est pas
+une crainte théorique — les deux premières entrées ont produit treize valeurs en
+six catégories informelles, dont aucune ne suivait le vocabulaire que le gabarit
+proposait déjà. Un vocabulaire non vérifié n'est pas un vocabulaire.
+
+`Detecte par` est **ordonné par coût croissant**, et c'est ce qui rentabilise le
+journal. L'agrégat utile n'est pas le nombre d'anomalies mais **jusqu'où la
+distribution glisse vers la droite** : une masse sur `utilisateur` et
+`production` dit que les garde-fous laissent passer ; une masse sur
+`compilateur`, `test` et `CI` dit qu'ils tiennent, quel qu'en soit le nombre.
 
 Ce journal enregistre les **anomalies**, pas le déroulé : ce qui a surpris, cassé,
 ou s'est révélé faux — y compris tes propres erreurs de raisonnement, qui sont
@@ -199,6 +225,29 @@ entrée vide et une entrée jamais ouverte ne disent pas la même chose.
 Le `greffier` ne peut pas remplir le journal — il n'a pas d'outil d'édition, et
 c'est délibéré. Il butera sur `--pret` et rapportera : seul celui qui a fait le
 travail connaît les anomalies qu'il a rencontrées.
+
+### L'agent `analyste`
+
+Un journal que personne ne relit est un coût sans contrepartie. L'`analyste` est
+le lecteur :
+
+```
+Agent(subagent_type: "analyste")   # lançable en tâche de fond
+```
+
+Il agrège les deux champs fermés, cherche les causes qui reviennent d'une branche
+à l'autre, et rend un plan de trois à six actions groupées par `Action` — les
+`contrat` ensemble, les `garde-fou` ensemble. Les `arbitrage` ne sont pas des
+actions : il les liste à part, telles quelles, ce sont des questions pour toi.
+
+Comme le `greffier`, il est restreint à `Bash`, `Read` et `Grep` : **il rend son
+plan dans sa réponse, il n'écrit aucun fichier.** C'est ce qui le rend lançable
+en tâche de fond sans risque, et ce qui laisse la décision à qui la doit.
+
+Deux consignes le tiennent au réel : ne pas compter une entrée marquée
+rétrospective comme une mesure fiable, et ne pas proposer de garde-fou pour une
+anomalie déjà rattrapée par le compilateur ou par un test — elle ne coûte rien,
+le garde-fou coûterait plus.
 
 ### L'agent `greffier`
 

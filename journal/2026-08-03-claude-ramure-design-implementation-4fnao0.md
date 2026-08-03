@@ -18,12 +18,11 @@ bundle `_ds/`. Aucun des deux n'existait dans le workspace.
 **Cause** — DesignSync exige une authentification interactive, indisponible en
 session cloud. L'export n'avait donc jamais été rapatrié.
 
-**Détecté par** — moi, avant de commencer.
+**Detecte par** — `auteur`
 
-**Ce que ça devrait changer** — rien. Le PRD demandait explicitement de poser les
-questions avant de démarrer ; ça a fonctionné. À noter seulement comme mode de
-défaillance récurrent des sessions cloud : tout ce qui exige un login interactif
-est absent, et le PRD n'a aucun moyen de le savoir.
+**Action** — `rien` — le PRD demandait de poser les questions avant de démarrer ;
+ça a fonctionné. À noter comme mode de défaillance récurrent des sessions cloud :
+tout ce qui exige un login interactif est absent, et le PRD ne peut pas le savoir.
 
 ### 2. Un correctif de cascade CSS a créé un P0
 
@@ -37,12 +36,12 @@ Tant que `[hidden]` était battu par les règles de classe, l'écran d'état
 s'affichait par accident. Le correctif a supprimé l'accident sans que je vérifie
 qui en dépendait.
 
-**Détecté par** — moi, en vérifiant mon propre correctif : `montreEtat()` n'avait
-aucun `basculeVers`, et `alerte(` zéro appelant.
+**Detecte par** — `auteur` — en vérifiant mon propre correctif : `montreEtat()`
+n'avait aucun `basculeVers`, et `alerte(` zéro appelant.
 
-**Ce que ça devrait changer** — garde-fou de méthode : un correctif qui change une
-règle de cascade doit être suivi de l'énumération de ses consommateurs. Il n'y a
-pas de vérification automatique évidente ici.
+**Action** — `comportement` — un correctif qui change une règle de cascade doit être
+suivi de l'énumération de ses consommateurs. Aucune vérification automatique
+évidente ici, d'où `comportement` plutôt que `garde-fou`.
 
 ### 3. Correctifs appliqués à un seul site sur plusieurs
 
@@ -53,10 +52,10 @@ avait été relevé pour le texte, pas pour les bordures des contrôles.
 **Cause** — j'ai corrigé le site où le défaut avait été observé, pas la classe de
 défaut.
 
-**Détecté par** — la critique `impeccable` (relecture outillée).
+**Detecte par** — `relecture` — la critique `impeccable`.
 
-**Ce que ça devrait changer** — rien de structurel. Motif à retenir : quand un
-défaut a une classe, énumérer les sites avant de corriger le premier.
+**Action** — `comportement` — quand un défaut a une classe, énumérer les sites
+avant de corriger le premier.
 
 ### 4. J'ai présenté un échantillon de 3 scènes comme une mesure
 
@@ -68,12 +67,12 @@ enfouis sous les pastilles.
 **Cause** — trois scènes observées, une conclusion générale énoncée sur ce
 fondement, avec le ton de la rigueur.
 
-**Détecté par** — la mesure à 54 scènes, que j'avais moi-même commanditée — donc
-**après** avoir énoncé le mauvais chiffre à l'utilisateur.
+**Detecte par** — `auteur` — par la mesure à 54 scènes que j'avais commanditée,
+donc **après** avoir énoncé le mauvais chiffre à l'utilisateur.
 
-**Ce que ça devrait changer** — comportement, et c'est l'anomalie la plus coûteuse
-de la branche : un petit échantillon présenté comme rigueur est pire que pas de
-mesure du tout, parce qu'il coupe court à la vérification.
+**Action** — `comportement` — l'anomalie la plus coûteuse de la branche : un petit
+échantillon présenté comme rigueur est pire que pas de mesure du tout, parce
+qu'il coupe court à la vérification.
 
 ### 5. Mon propre test affirmait ce que le code ne promettait pas
 
@@ -83,12 +82,11 @@ mesure du tout, parce qu'il coupe court à la vérification.
 et la rotation font que les angles rendus ne retombent pas dans leur secteur
 d'origine. Le test vérifiait une propriété que la fonction n'a jamais eue.
 
-**Détecté par** — moi, à l'exécution.
+**Detecte par** — `test` — à l'exécution de la suite.
 
-**Ce que ça devrait changer** — rien : la correction a été la bonne. `secteurEntrelace`
-a été extraite au niveau paquet et sa bijection testée directement. Motif : quand
-un test est difficile à écrire, c'est souvent qu'il manque une couture, pas que la
-propriété est fausse.
+**Action** — `comportement` — quand un test est difficile à écrire, c'est souvent
+qu'il manque une couture, pas que la propriété est fausse. `secteurEntrelace` a
+été extraite au niveau paquet et sa bijection testée directement.
 
 ### 6. Le nom de branche imposé par le harnais viole la convention du contrat
 
@@ -99,15 +97,14 @@ Le préfixe `claude` n'est ni une app ni `fabrique`.
 ailleurs. Le contrat, lui, impose `<app>/<sujet>` et fait valider le nom par
 `./init.sh --branche`, qui aurait refusé celui-ci.
 
-**Détecté par** — moi, en écrivant ce journal — c'est-à-dire par l'acte même de
-tenir le journal, deux semaines de travail après le fait.
+**Detecte par** — `auteur` — en écrivant ce journal, soit par l'acte même de le
+tenir, longtemps après le fait.
 
-**Ce que ça devrait changer** — **le contrat**. Deux règles se contredisent et
-rien ne le signale : `--branche` refuse un préfixe inconnu, mais aucune
-vérification ne s'applique à une branche créée hors de lui. Une session cloud
-travaille donc systématiquement hors convention sans qu'aucun garde-fou ne bronche.
-À trancher : soit le contrat admet le préfixe du harnais, soit `--check` signale
-une branche hors convention.
+**Action** — `arbitrage` — deux règles se contredisent et rien ne le signale :
+`--branche` refuse un préfixe inconnu, mais aucune vérification ne s'applique à
+une branche créée hors de lui. Une session cloud travaille donc systématiquement
+hors convention sans qu'aucun garde-fou ne bronche. À trancher : soit le contrat
+admet le préfixe du harnais, soit `--check` signale une branche hors convention.
 
 ### 7. La CI `contrat` a échoué sur la PR #19 sans que la branche ait changé
 
@@ -118,11 +115,11 @@ n'avait pas été touché.
 avancé de dix commits entre-temps (fusion de la PR #20), dont un qui régénérait
 le greffier. La fusion théorique portait donc un fichier généré périmé.
 
-**Détecté par** — la CI. Coût : une fusion de `origin/main` et un `./init.sh`.
+**Detecte par** — `CI` — coût : une fusion de `origin/main` et un `./init.sh`.
 
-**Ce que ça devrait changer** — rien. C'est exactement le travail du job `contrat`,
-et il l'a fait. À connaître parce que ça se reproduira sur toute branche à durée
-de vie longue dans une fabrique qui bouge.
+**Action** — `rien` — c'est exactement le travail du job `contrat`, et il l'a fait.
+À connaître parce que ça se reproduira sur toute branche à durée de vie longue
+dans une fabrique qui bouge.
 
 ### 8. Boucle de redirection sur `/`
 
@@ -131,9 +128,9 @@ de vie longue dans une fabrique qui bouge.
 **Cause** — le `FileServer` de Go redirige `/index.html` vers `./` ; ma réécriture
 de chemin renvoyait vers `/index.html`, fermant la boucle.
 
-**Détecté par** — moi, au navigateur.
+**Detecte par** — `auteur` — au navigateur.
 
-**Ce que ça devrait changer** — rien.
+**Action** — `rien` — corrigé en retirant la réécriture.
 
 ### 9. Débordement d'entier sur une constante de hachage
 
@@ -141,10 +138,10 @@ de chemin renvoyait vers `/index.html`, fermant la boucle.
 
 **Cause** — la constante tient sur 64 bits non signés, pas signés.
 
-**Détecté par** — le compilateur, donc coût nul.
+**Detecte par** — `compilateur`
 
-**Ce que ça devrait changer** — rien. Mentionné parce que c'est le contre-exemple
-utile : une anomalie rattrapée par l'outillage ne mérite pas d'analyse.
+**Action** — `rien` — le contre-exemple utile : une anomalie rattrapée par
+l'outillage ne mérite pas d'analyse, et surtout pas un garde-fou de plus.
 
 ### 10. « Tu n'as pas update le compose ? »
 
@@ -155,8 +152,8 @@ déjà fusionnée : le commit d'activation ne pouvait pas l'atteindre sans une
 nouvelle PR. J'avais signalé ce point, mais après avoir annoncé l'étape comme
 faite — donc dans l'ordre qui laisse croire au contraire.
 
-**Détecté par** — **l'utilisateur**.
+**Detecte par** — `utilisateur`
 
-**Ce que ça devrait changer** — comportement : le contrat en deux temps crée un état
-où « fait » et « déployé » divergent. En rendre compte, c'est dire **où vit le
-changement** avant de dire qu'il est fait, pas après.
+**Action** — `comportement` — le contrat en deux temps crée un état où « fait » et
+« déployé » divergent. En rendre compte, c'est dire **où vit le changement** avant
+de dire qu'il est fait, pas après.
