@@ -1,0 +1,458 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-02T00:00:00Z",
+  "title": "Design System: hello-world",
+  "extensions": {
+    "colorMeta": {
+      "signal": {
+        "role": "primary",
+        "displayName": "Ambre de signal",
+        "canonical": "#f2a52a",
+        "tonalRamp": [
+          "#2a1a02",
+          "#4d3005",
+          "#75490a",
+          "#9d6210",
+          "#c4801a",
+          "#f2a52a",
+          "#f7c271",
+          "#fce3b6"
+        ]
+      },
+      "room": {
+        "role": "neutral",
+        "displayName": "Noir de salle",
+        "canonical": "#050506",
+        "tonalRamp": [
+          "#050506",
+          "#0d0d0f",
+          "#17171a",
+          "#242429",
+          "#3a3a41",
+          "#5c5c66",
+          "#93939d",
+          "#d0d0d6"
+        ]
+      },
+      "frame": {
+        "role": "neutral",
+        "displayName": "Noir de caisson",
+        "canonical": "#0e0f11",
+        "tonalRamp": [
+          "#08090a",
+          "#0e0f11",
+          "#181a1d",
+          "#26282d",
+          "#3c3f45",
+          "#5f636b",
+          "#9599a2",
+          "#d1d4d9"
+        ]
+      },
+      "bezel": {
+        "role": "neutral",
+        "displayName": "Arête de biseau",
+        "canonical": "#1e2025",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#131418",
+          "#1e2025",
+          "#2c2f36",
+          "#41454e",
+          "#646972",
+          "#989da4",
+          "#d3d6dc"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Blanc chaud d'encre",
+        "canonical": "#f0ece2",
+        "tonalRamp": [
+          "#24211a",
+          "#3b372c",
+          "#544f41",
+          "#726c5c",
+          "#948d7c",
+          "#b8b1a1",
+          "#d6cfc0",
+          "#f0ece2"
+        ]
+      },
+      "silk": {
+        "role": "neutral",
+        "displayName": "Sérigraphie courante",
+        "canonical": "#8f8b80",
+        "tonalRamp": [
+          "#1c1b18",
+          "#2e2c27",
+          "#454239",
+          "#5f5b50",
+          "#7a7568",
+          "#8f8b80",
+          "#b3aea1",
+          "#d9d4c7"
+        ]
+      },
+      "silk-hi": {
+        "role": "neutral",
+        "displayName": "Sérigraphie de tête",
+        "canonical": "#bab4a6",
+        "tonalRamp": [
+          "#221f1a",
+          "#38342c",
+          "#514c41",
+          "#6d6759",
+          "#8b8474",
+          "#a89f8d",
+          "#bab4a6",
+          "#ded9cd"
+        ]
+      },
+      "engraved": {
+        "role": "neutral",
+        "displayName": "Gravure de plaque",
+        "canonical": "#a9a396",
+        "tonalRamp": [
+          "#1f1d18",
+          "#33302a",
+          "#4b473e",
+          "#666055",
+          "#837d6f",
+          "#a9a396",
+          "#c6c0b3",
+          "#e4dfd4"
+        ]
+      },
+      "hash-ink": {
+        "role": "neutral",
+        "displayName": "Encre de hash",
+        "canonical": "#b3ada0",
+        "tonalRamp": [
+          "#201e19",
+          "#35322b",
+          "#4e4a40",
+          "#6a6558",
+          "#888172",
+          "#b3ada0",
+          "#cec9be",
+          "#e9e5dc"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Filet de pied",
+        "canonical": "#191a1e",
+        "tonalRamp": [
+          "#090a0c",
+          "#111214",
+          "#191a1e",
+          "#26282d",
+          "#3b3e45",
+          "#5e626b",
+          "#94989f",
+          "#d0d3d8"
+        ]
+      },
+      "flap-face": {
+        "role": "tertiary",
+        "displayName": "Face de volet",
+        "canonical": "#303239",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#1f2126",
+          "#303239",
+          "#43464f",
+          "#666a76",
+          "#9a9ea9",
+          "#d2d5db"
+        ]
+      },
+      "flap-gap": {
+        "role": "tertiary",
+        "displayName": "Jeu de charnière",
+        "canonical": "#08090b",
+        "tonalRamp": [
+          "#08090b",
+          "#101114",
+          "#1a1c20",
+          "#282a30",
+          "#3d4048",
+          "#606570",
+          "#969ba5",
+          "#d1d4da"
+        ]
+      },
+      "flap-rear-edge": {
+        "role": "tertiary",
+        "displayName": "Arête de volet arrière",
+        "canonical": "#35373e",
+        "tonalRamp": [
+          "#0c0d0f",
+          "#16171a",
+          "#22242a",
+          "#35373e",
+          "#494c55",
+          "#6c707c",
+          "#a0a4ae",
+          "#d5d8de"
+        ]
+      },
+      "hardware-hi": {
+        "role": "neutral",
+        "displayName": "Metal eclaire (tourillon, tete de vis)",
+        "canonical": "#55575e",
+        "tonalRamp": [
+          "#0a0a0b",
+          "#161618",
+          "#242528",
+          "#35373b",
+          "#4b4d53",
+          "#666870",
+          "#94969e",
+          "#cfd0d3"
+        ]
+      },
+      "hardware-lo": {
+        "role": "neutral",
+        "displayName": "Metal dans l'ombre (tourillon, tete de vis)",
+        "canonical": "#2a2c31",
+        "tonalRamp": [
+          "#090a0b",
+          "#151619",
+          "#232529",
+          "#34363c",
+          "#494c55",
+          "#636873",
+          "#9196a1",
+          "#ced0d5"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "board-focal": {
+        "displayName": "Board Focal",
+        "purpose": "La version courte, sur le module de onze cellules dont le caisson tire sa largeur. Un seul par page."
+      },
+      "board-row": {
+        "displayName": "Board Row",
+        "purpose": "Les quatre modules de départ de trente cellules : utilisateur, hôte, démarrage, service."
+      },
+      "board-hash": {
+        "displayName": "Board Hash",
+        "purpose": "Le SHA complet sous le module focal, sélectionnable d'un clic."
+      },
+      "nameplate": {
+        "displayName": "Nameplate",
+        "purpose": "Le nom gravé dans la tôle du caisson. Un seul exemplaire."
+      },
+      "silk-lead": {
+        "displayName": "Silk Lead",
+        "purpose": "L'étiquette de tête, seule à monter d'un rang, qui ouvre le panneau."
+      },
+      "silk": {
+        "displayName": "Silk",
+        "purpose": "Étiquettes de champ sérigraphiées au-dessus de chaque ligne de départ."
+      },
+      "silk-fine": {
+        "displayName": "Silk Fine",
+        "purpose": "Légende de pied, à côté de la plaque de sonde."
+      }
+    },
+    "shadows": [
+      {
+        "name": "housing",
+        "value": "inset 0 0 0 1px #1e2025, inset 0 2px 0 rgba(255,255,255,.07), inset 0 -14px 22px -14px rgba(0,0,0,.95), 0 2px 0 #000, 0 34px 66px -28px rgba(0,0,0,.95)",
+        "purpose": "Le caisson : arête de cadre, chant supérieur éclairé, ombrage de pied, assise noire, et l'ombre longue qui le décolle du mur."
+      },
+      {
+        "name": "plate-engraved",
+        "value": "inset 0 1px 2px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.045)",
+        "purpose": "La plaque de nom, creusée dans la tôle : gravée, jamais sérigraphiée."
+      },
+      {
+        "name": "plate-raised",
+        "value": "inset 0 1px 0 rgba(255,255,255,.09), 0 1px 0 #000",
+        "purpose": "La plaque de sonde au repos, seul élément qui ressort du plan."
+      },
+      {
+        "name": "plate-pressed",
+        "value": "inset 0 2px 5px rgba(0,0,0,.75)",
+        "purpose": "État actif de la plaque de sonde, avec translateY(1px)."
+      },
+      {
+        "name": "hinge-cast",
+        "value": "0 .045em .07em -.02em rgba(0,0,0,.55)",
+        "purpose": "L'ombre de la fente de charnière, sur le module focal uniquement : retirée dès que le corps ne peut plus la payer."
+      }
+    ],
+    "motion": [
+      {
+        "name": "plate-press",
+        "value": "background 160ms ease-out, transform 160ms ease-out, box-shadow 160ms ease-out",
+        "purpose": "La seule transition du système : l'enfoncement de la plaque de sonde. Annulée sous prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Module à volets — focal",
+      "kind": "custom",
+      "refersTo": "module-focal",
+      "description": "Le module de onze cellules qui porte la version courte et donne sa largeur au caisson.",
+      "html": "<span class=\"ds-strip ds-strip-focal\"><span class=\"ds-cards\" aria-hidden=\"true\"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class=\"ds-hinge\" aria-hidden=\"true\"></span><span class=\"ds-glyphs\">8ff367b</span></span>",
+      "css": ".ds-strip { position: relative; display: block; font-family: \"Martian Mono\", ui-monospace, SFMono-Regular, \"DejaVu Sans Mono\", Menlo, Consolas, monospace; font-weight: 600; --cellw: 1ch; --flaph: 1.42em; width: calc(var(--cells) * var(--cellw)); max-width: 100%; height: var(--flaph); } .ds-strip-focal { --cells: 11; font-size: clamp(1.78rem, 8.59vw, 4.91rem); } .ds-cards { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--cells), 1fr); overflow: hidden; border-radius: 1.5px; } .ds-cards i { position: relative; border-right: 1px solid #050507; background: linear-gradient(180deg, #303239 0%, #26282e 34%, #1b1d22 49.2%, #08090b 49.2%, #08090b 50.6%, #35373e 50.6%, #262830 63%, #15161a 100%); } .ds-cards i::after { content: \"\"; position: absolute; left: 0; right: 0; top: 50.6%; height: 30%; background: linear-gradient(180deg, rgba(0,0,0,.66), rgba(0,0,0,0)); } .ds-strip::before, .ds-strip::after { content: \"\"; position: absolute; top: 50%; width: .17em; height: .17em; border-radius: 50%; background: linear-gradient(180deg, #55575e, #2a2c31); transform: translateY(-50%); } .ds-strip::before { left: -.32em; } .ds-strip::after { right: -.32em; } .ds-hinge { position: absolute; left: 0; right: 0; top: 50.6%; z-index: 2; height: .045em; min-height: 1px; background: linear-gradient(180deg, rgba(3,3,4,.92), rgba(3,3,4,.78)); box-shadow: 0 .045em .07em -.02em rgba(0,0,0,.55); pointer-events: none; } .ds-glyphs { position: relative; display: block; margin: 0; line-height: var(--flaph); color: #f0ece2; white-space: nowrap; overflow: hidden; }"
+    },
+    {
+      "name": "Module à volets — ligne de départ",
+      "kind": "custom",
+      "refersTo": "module-row",
+      "description": "Le module de trente cellules des lignes de départ ; sa fente se passe d'ombre portée pour ne pas barrer le texte.",
+      "html": "<span class=\"ds-strip ds-strip-row\"><span class=\"ds-cards\" aria-hidden=\"true\"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class=\"ds-hinge ds-hinge-flat\" aria-hidden=\"true\"></span><span class=\"ds-glyphs\">hello-world.apps.billbob.ovh</span></span>",
+      "css": ".ds-strip-row { --cells: 30; font-size: clamp(.6307rem, 2.9vw, 1.8rem); } .ds-hinge-flat { box-shadow: none; background: rgba(3,3,4,.82); }"
+    },
+    {
+      "name": "Ligne d'identité",
+      "kind": "custom",
+      "refersTo": "module-row-identity",
+      "description": "La seule ligne qui peut prendre l'ambre, et seulement quand l'infrastructure a réellement transmis l'identité ; sinon elle reste éteinte.",
+      "html": "<span class=\"ds-strip ds-strip-row\"><span class=\"ds-cards\" aria-hidden=\"true\"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class=\"ds-hinge ds-hinge-flat\" aria-hidden=\"true\"></span><span class=\"ds-glyphs ds-you\">amuteau@gmail.com</span></span>\n<span class=\"ds-strip ds-strip-row\"><span class=\"ds-cards\" aria-hidden=\"true\"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class=\"ds-hinge ds-hinge-flat\" aria-hidden=\"true\"></span><span class=\"ds-glyphs ds-unset\">inconnu</span></span>",
+      "css": ".ds-you { color: #f2a52a; } .ds-unset { color: #8f8b80; }"
+    },
+    {
+      "name": "Caisson",
+      "kind": "card",
+      "refersTo": "housing",
+      "description": "Le boîtier monté autour de la matrice : sa largeur est dictée par les modules, jamais l'inverse.",
+      "html": "<div class=\"ds-board\"><span class=\"ds-screws\" aria-hidden=\"true\"></span><span class=\"ds-glyphs-demo\">contenu</span></div>",
+      "css": ".ds-board { position: relative; width: max-content; max-width: 100%; padding: clamp(1.1rem,3.6vw,1.7rem) clamp(.85rem,3.2vw,1.5rem) clamp(.9rem,3vw,1.3rem); background: linear-gradient(180deg, #131418 0%, #0e0f11 34%, #0a0b0d 100%); border-radius: 7px; color: #f0ece2; box-shadow: inset 0 0 0 1px #1e2025, inset 0 2px 0 rgba(255,255,255,.07), inset 0 -14px 22px -14px rgba(0,0,0,.95), 0 2px 0 #000, 0 34px 66px -28px rgba(0,0,0,.95); } .ds-screws { position: absolute; inset: 7px; pointer-events: none; background-image: radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px), radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px), radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px), radial-gradient(circle at 50% 44%, #4a4c53 0 1.6px, #24262b 1.9px, #101116 2.9px, transparent 3.2px); background-size: 7px 7px; background-repeat: no-repeat; background-position: left top, right top, left bottom, right bottom; }"
+    },
+    {
+      "name": "Plaque de nom",
+      "kind": "custom",
+      "refersTo": "nameplate",
+      "description": "Le nom gravé dans la tôle du caisson : creux, jamais sérigraphié comme les étiquettes de champ.",
+      "html": "<header class=\"ds-plate\"><h1 class=\"ds-plate-title\">hello-world</h1></header>",
+      "css": ".ds-plate { display: inline-block; padding: .3rem .7rem .34rem; border-radius: 2px; background: linear-gradient(180deg, #0a0b0d, #131418); box-shadow: inset 0 1px 2px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.045); } .ds-plate-title { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; font-size: .82rem; font-weight: 700; letter-spacing: .3em; text-indent: .3em; text-transform: uppercase; color: #a9a396; }"
+    },
+    {
+      "name": "Étiquette sérigraphiée",
+      "kind": "chip",
+      "refersTo": "silk-label",
+      "description": "Les trois rangs de sérigraphie : étiquette de tête, étiquette de champ, légende de pied.",
+      "html": "<p class=\"ds-cap ds-cap-lead\">Version en ligne</p>\n<p class=\"ds-cap\">Utilisateur</p>\n<span class=\"ds-legend\">Sonde de santé</span>",
+      "css": ".ds-cap { margin: 0 0 .5rem; font-family: ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; font-weight: 600; text-transform: uppercase; color: #8f8b80; font-size: .63rem; letter-spacing: .19em; } .ds-cap-lead { font-size: .78rem; letter-spacing: .24em; color: #bab4a6; } .ds-legend { font-family: ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; font-size: .6rem; font-weight: 600; letter-spacing: .17em; text-transform: uppercase; color: #8f8b80; }"
+    },
+    {
+      "name": "Plaque de sonde",
+      "kind": "button",
+      "refersTo": "probe",
+      "description": "Le seul élément interactif du système : un lien-plaque qui s'enfonce sous le doigt et prend l'ambre au focus clavier.",
+      "html": "<a class=\"ds-probe\" href=\"/healthz\">/healthz</a>",
+      "css": ".ds-probe { display: inline-block; font-family: \"Martian Mono\", ui-monospace, SFMono-Regular, \"DejaVu Sans Mono\", Menlo, Consolas, monospace; font-weight: 600; font-size: .72rem; color: #f0ece2; text-decoration: none; padding: .44rem .7rem; border-radius: 2px; background: linear-gradient(180deg, #2a2c32, #1a1c20); box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 1px 0 #000; transition: background 160ms ease-out, transform 160ms ease-out, box-shadow 160ms ease-out; } .ds-probe:hover { background: linear-gradient(180deg, #34363d, #212328); } .ds-probe:active { transform: translateY(1px); background: linear-gradient(180deg, #17181c, #202228); box-shadow: inset 0 2px 5px rgba(0,0,0,.75); } .ds-probe:focus-visible { outline: 2px solid #f2a52a; outline-offset: 2px; } @media (prefers-reduced-motion: reduce) { .ds-probe { transition: none; } }"
+    },
+    {
+      "name": "Pied de caisson",
+      "kind": "nav",
+      "refersTo": "housing",
+      "description": "Le filet de pied et sa paire légende/plaque, qui ferme le cadre.",
+      "html": "<footer class=\"ds-footer\"><span class=\"ds-legend\">Sonde de santé</span><a class=\"ds-probe\" href=\"/healthz\">/healthz</a></footer>",
+      "css": ".ds-footer { margin-top: clamp(.6rem,2.4vw,1rem); padding-top: clamp(.85rem,2.6vw,1.15rem); border-top: 1px solid #191a1e; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Departure Board",
+    "overview": "L'écran est un objet, pas un document : un caisson de tôle noire mate, vissé au mur, dont les modules à volets portent la valeur actuellement en service. La thèse tient en une phrase — un déploiement, c'est un volet qui tourne — et tout le système en découle. On ne lit pas un état sur une pastille de couleur : on lit une valeur, à l'échelle du panneau, dans des cellules de caractères fixes.\n\nLe monde est engagé dans le noir, sans variante claire (color-scheme: dark) : un caisson physique reste noir sous n'importe quelle lumière ambiante, donc une inversion de thème serait une contradiction matérielle, pas une préférence. La matière est entièrement peinte en CSS — dégradés de volet, jeu de charnière, ombre portée, tourillons d'axe, vis de fixation — parce que le contrat interdit toute requête sortante depuis le navigateur : zéro image, zéro script, une seule police, embarquée en data URI.\n\nLe panneau est montré posé, jamais en train de tourner. Aucune chorégraphie au chargement, aucune donnée temps réel : l'uptime est rendu au serveur et ne s'incrémente pas. Le seul mouvement du système est l'enfoncement de la plaque /healthz sous le doigt. Anti-référence confirmée : la carte de statut à pastille verte, et le voyant d'état sous toutes ses formes.",
+    "keyCharacteristics": [
+      "Caisson noir mat à biseau, vis de fixation, tourillons d'axe sur chaque module",
+      "Volets réels : face éclairée, jeu de charnière sombre, arête arrière, ombre portée",
+      "Lettrage en cellules de caractères fixes, une cellule = une chasse exactement",
+      "Un seul ambre, réservé à l'identité transmise et au focus clavier",
+      "Sombre engagé, sans variante claire ; aucun voyant d'état",
+      "Immobile au repos : le seul mouvement est la pression sur la plaque de sonde"
+    ],
+    "rules": [
+      {
+        "name": "The Single Amber Rule",
+        "body": "L'ambre a deux emplois et pas un de plus : la ligne d'identité réellement transmise, et :focus-visible. Aucune autre surface ne devient ambre — ni un lien, ni un titre, ni un survol. Sa rareté est le signal.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Lamp Rule",
+        "body": "Aucune couleur de statut. Pas de vert, pas de rouge, pas de pastille : l'état se lit dans la valeur affichée, jamais dans un voyant. Un état absent se rend en sérigraphie éteinte, pas en couleur d'alerte.",
+        "section": "colors"
+      },
+      {
+        "name": "The Earned Amber Rule",
+        "body": "Le signal n'est posé que sur une donnée réellement reçue de l'infrastructure. Une valeur de repli (inconnu) prend la sérigraphie courante : la couleur ne peut pas affirmer plus que la donnée.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Cell One Advance Rule",
+        "body": "Le lettrage de panneau ne porte jamais d'interlettrage. --cellw: 1ch suppose que la cellule vaut exactement une chasse ; toute chasse ajoutée décale du pas de la grille et la dérive s'accumule sur onze cellules. L'interlettrage appartient à la sérigraphie, qui n'est pas posée sur des volets.",
+        "section": "typography"
+      },
+      {
+        "name": "The 30/11 Rule",
+        "body": "Les deux corps de panneau sont tenus au rapport 30/11 aux trois régimes du clamp, pour que le module de onze cellules et celui de trente calculent la même largeur à toute taille d'écran. Le coefficient des lignes est posé au rapport exact ou légèrement en-dessous : une ligne doit toujours être un peu plus courte que le module focal, jamais plus longue.",
+        "section": "typography"
+      },
+      {
+        "name": "The Board Face Rule",
+        "body": "Toute valeur portée par un volet est composée dans la police de panneau. Le sans-serif système ne sort jamais de la sérigraphie et ne monte à aucune échelle d'affichage.",
+        "section": "typography"
+      },
+      {
+        "name": "The Matrix Sizes the Housing Rule",
+        "body": "La largeur intrinsèque du caisson n'appartient qu'aux modules. Tout contenu large ajouté au panneau doit être neutralisé dans le calcul de max-content — le SHA complet le fait par width: 0; min-width: 100%.",
+        "section": "layout"
+      },
+      {
+        "name": "The Zero Reset Rule",
+        "body": "Toute marge par défaut du navigateur qui entre dans le max-content est remise à zéro : elle décalerait le module et traînerait du vide à droite de chaque ligne.",
+        "section": "layout"
+      },
+      {
+        "name": "The No Breakpoint Rule",
+        "body": "Pas de @media de mise en page. La seule requête média du système est prefers-reduced-motion.",
+        "section": "layout"
+      },
+      {
+        "name": "The Settled Board Rule",
+        "body": "Le panneau est montré posé. Aucune chorégraphie au chargement, aucune animation de volet qui tourne, aucune valeur qui s'anime côté client. La seule transition du système est celle de la plaque de sonde, annulée sous prefers-reduced-motion: reduce.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Split Crosses the Glyph Rule",
+        "body": "La fente de charnière passe devant le lettrage, à la même hauteur que le jeu peint dans les cartes, de sorte qu'elle coupe chaque caractère en deux. Une lettre non coupée est imprimée sur une grille, pas portée par un volet.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Shadow Costs Pixels Rule",
+        "body": "L'ombre de la fente est retirée dès que le corps ne peut plus la payer : à 12px, bande plus ombre pèsent deux pixels sur une hauteur de capitale de neuf, et la valeur se lirait barrée au lieu de coupée.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do composer toute valeur portée par un volet dans la police de panneau, sans interlettrage (The One Cell One Advance Rule).",
+      "Do apparier tout nouveau couple de modules au rapport de cellules exact aux trois régimes du clamp, coefficient au plus égal (The 30/11 Rule).",
+      "Do neutraliser la largeur intrinsèque de tout contenu à texte libre ajouté au caisson (width: 0; min-width: 100%).",
+      "Do poser chaque couche décorative en élément frère, aria-hidden, jamais autour ni au travers du nœud de texte du gabarit : main_test.go verrouille la version courte comme seul contenu de sa balise, le SHA complet dans title, inconnu sans en-tête, et l'identité échappée.",
+      "Do réserver l'ambre à une donnée réellement transmise par l'infrastructure et au :focus-visible (The Single Amber Rule, The Earned Amber Rule).",
+      "Do peindre toute matière en CSS : aucune requête sortante, aucun asset séparé, aucun script.",
+      "Do embarquer une police ajoutée en data URI avec sa notice de licence, sous-ensemblée aux glyphes réellement rendus."
+    ],
+    "donts": [
+      "Don't ajouter un voyant, une pastille de statut ou une couleur d'alerte (The No Lamp Rule).",
+      "Don't animer le panneau : pas de volet qui tourne, pas de chorégraphie au chargement, pas de valeur qui s'incrémente côté client (The Settled Board Rule).",
+      "Don't introduire de variante claire ni de prefers-color-scheme : le caisson est noir sous toute lumière.",
+      "Don't poser d'interlettrage sur un lettrage de panneau, ni laisser un module se terminer sur une demi-carte.",
+      "Don't ajouter de @media de mise en page : la réponse à la largeur passe par clamp.",
+      "Don't monter la pile sans-serif système au-delà de la sérigraphie ; elle ne porte aucune valeur et aucune échelle d'affichage.",
+      "Don't garder l'ombre de la fente quand le corps ne peut pas la payer : sous ~14px elle barre le texte au lieu de le couper (The Shadow Costs Pixels Rule).",
+      "Don't afficher une donnée que l'application ne mesure pas — le panneau ne porte que des valeurs rendues au serveur."
+    ]
+  }
+}
