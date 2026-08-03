@@ -33,7 +33,7 @@
 
 set -euo pipefail
 
-CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0 BRANCHE="" PRET=0
+CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0 BRANCHE="" PRET=0 FUSIONNEES=0
 declare -A SET=()
 
 while [ $# -gt 0 ]; do
@@ -44,6 +44,7 @@ while [ $# -gt 0 ]; do
     --force)       FORCE=1 ;;
     --branche)     BRANCHE="$2"; shift ;;
     --pret)        PRET=1 ;;
+    --branches-fusionnees) FUSIONNEES=1 ;;
     --add)         ADD="$2"; TARGET="$2"; shift ;;
     --app)         TARGET="$2"; shift ;;
     --port)        SET[port]="$2";        shift ;;
@@ -88,6 +89,31 @@ yget() {  # yget <fichier> <cle> <defaut>
   v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
   v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
   printf '%s' "${v:-$d}"
+}
+
+# ylist lit une section en liste — la seule forme imbriquee que ce parseur
+# connaisse, et elle lui a ete ajoutee pour volumes: uniquement. La section se
+# ferme des qu'une ligne reprend en colonne 0 : c'est ce qui evite de lire les
+# cles suivantes comme des elements. Les lignes vides et les commentaires a
+# l'interieur sont sautes.
+ylist() {  # ylist <fichier> <cle> — un element par ligne
+  local f="$1" k="$2" v
+  [ -f "$f" ] || return 0
+  tr -d '\r' < "$f" | awk -v k="$k" '
+    $0 ~ "^" k ":[[:space:]]*$"        { inside = 1; next }
+    inside && /^[^[:space:]#]/         { inside = 0 }
+    inside && /^[[:space:]]*#/         { next }
+    inside && /^[[:space:]]*$/         { next }
+    inside && /^[[:space:]]*-[[:space:]]*/ {
+      sub(/^[[:space:]]*-[[:space:]]*/, "")
+      sub(/[[:space:]]+#.*$/, "")
+      sub(/[[:space:]]+$/, "")
+      if (length($0)) print
+    }
+  ' | while IFS= read -r v; do
+        v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
+        printf '%s\n' "$v"
+      done
 }
 
 fab() { yget fabrique.yml "$1" "$2"; }
@@ -169,6 +195,50 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
   case "$A_HEALTH_PATH" in /*) ;; *) echo "ERREUR : $APP — health_path doit commencer par / (recu : $A_HEALTH_PATH)" >&2; exit 1 ;; esac
   case "$A_UI"      in true|false) ;; *) echo "ERREUR : $APP — ui doit valoir true ou false (recu : $A_UI)" >&2; exit 1 ;; esac
   case "$A_ENABLED" in true|false) ;; *) echo "ERREUR : $APP — enabled doit valoir true ou false (recu : $A_ENABLED)" >&2; exit 1 ;; esac
+
+  # volumes: — « <nom>:<chemin conteneur>[:ro] ». Le nom logique est prefixe par
+  # celui de l'app pour donner le nom reel du volume : c'est ce prefixe qui
+  # empeche deux apps de se marcher dessus sans avoir a se concerter.
+  A_VOLUMES=() A_VOL_NOMS=() A_VOL_CHEMINS=()
+  local v nom reste chemin mode
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    nom=${v%%:*}; reste=${v#*:}
+    case "$nom" in
+      "" |*/*) echo "ERREUR : $APP — volume '$v' : la partie gauche est un NOM de volume, pas un chemin d'hote. Un bind mount demanderait une action manuelle sur le serveur — c'est precisement ce que les volumes nommes suppriment." >&2; exit 1 ;;
+    esac
+    printf '%s' "$nom" | grep -qE '^[a-z0-9][a-z0-9-]*$' \
+      || { echo "ERREUR : $APP — volume '$v' : nom invalide '$nom' — minuscules, chiffres et tirets." >&2; exit 1; }
+    [ "$reste" = "$v" ] \
+      && { echo "ERREUR : $APP — volume '$v' : forme attendue <nom>:<chemin conteneur>[:ro]." >&2; exit 1; }
+    chemin=${reste%%:*}; mode=${reste#*:}
+    [ "$mode" = "$reste" ] && mode=""
+    case "$chemin" in /*) ;; *) echo "ERREUR : $APP — volume '$v' : le chemin conteneur doit etre absolu." >&2; exit 1 ;; esac
+    case "$mode" in ""|ro) ;; *) echo "ERREUR : $APP — volume '$v' : ':ro' est le seul suffixe admis (recu : ':$mode')." >&2; exit 1 ;; esac
+    A_VOL_NOMS+=("$APP-$nom")
+    A_VOL_CHEMINS+=("$chemin")
+    A_VOLUMES+=("$APP-$nom:$chemin${mode:+:$mode}")
+  done < <(ylist "apps/$APP/app.yml" volumes)
+}
+
+# Deux apps peuvent produire le meme nom reel — « ramure » avec « donnees-x » et
+# « ramure-donnees » avec « x » donnent tous deux « ramure-donnees-x ». Le cas
+# est rare, mais il ferait partager un volume a deux apps sans que ni l'une ni
+# l'autre ne l'ait demande. Une passe dediee, parce que load_app ne voit qu'une
+# app a la fois.
+check_volume_noms() {
+  local a n; declare -A vu=()
+  for a in "${APPS[@]}"; do
+    load_app "$a"
+    [ "$A_ENABLED" = true ] || continue
+    for n in "${A_VOL_NOMS[@]}"; do
+      if [ -n "${vu[$n]+x}" ]; then
+        echo "ERREUR : le volume '$n' est produit par '${vu[$n]}' et par '$a'. Renomme-le dans l'un des deux app.yml : deux apps partageraient un volume sans l'avoir demande." >&2
+        exit 1
+      fi
+      vu[$n]="$a"
+    done
+  done
 }
 
 mem_to_mb() {  # 128m -> 128, 1g -> 1024
@@ -334,6 +404,12 @@ $A_MW_NOTE
       - "traefik.http.services.$APP.loadbalancer.server.port=$A_PORT"
       - "traefik.docker.network=$NETWORK"
     networks: [$NETWORK]
+YAML
+  if [ ${#A_VOLUMES[@]} -gt 0 ]; then
+    printf '    volumes:\n'
+    printf '      - %s\n' "${A_VOLUMES[@]}"
+  fi
+  cat <<YAML
   # <<< $APP
 YAML
 }
@@ -359,11 +435,31 @@ emit_compose() {
 # toute la fabrique.
 services:
 YAML
-  local a
+  local a n tous=()
   for a in "${APPS[@]}"; do
     load_app "$a"
-    if [ "$A_ENABLED" = true ]; then service_block; else disabled_note; fi
+    if [ "$A_ENABLED" = true ]; then
+      service_block
+      for n in "${A_VOL_NOMS[@]}"; do tous+=("$n"); done
+    else
+      disabled_note
+    fi
   done
+
+  if [ ${#tous[@]} -gt 0 ]; then
+    cat <<YAML
+
+# « name: » n'est pas decoratif. Sans lui, Compose prefixe le volume par le nom
+# du projet : le volume documente ici ne serait pas le volume reel, et une
+# commande de sauvegarde montant le nom court archiverait un volume VIDE en
+# sortant en succes. Avec « name: », ce qui est ecrit est ce qui existe.
+volumes:
+YAML
+    for n in "${tous[@]}"; do
+      printf '  %s:\n    name: %s\n' "$n" "$n"
+    done
+  fi
+
   cat <<YAML
 
 networks:
@@ -1645,6 +1741,86 @@ if [ "$PRET" = 1 ]; then
   exit 0
 fi
 
+# --- --branches-fusionnees : ce qui peut partir, et ce qui ne le peut pas -------
+#
+# Une session cloud ouvre des branches et ne peut pas en fermer : le relais git
+# du harnais refuse la suppression de refs (HTTP 403 sur git-receive-pack), et
+# le serveur MCP GitHub expose create_branch sans son inverse. Les branches
+# fusionnees s'accumulent donc sans que rien ne le signale. Cette commande ne
+# supprime rien — elle n'en a pas le droit — elle dit QUOI supprimer, ce qui est
+# la partie qu'on ne peut pas faire de tete.
+#
+# Le critere n'est pas l'appartenance a l'ascendance de la base : sur ce depot
+# il s'est trompe dans les deux sens. Il a classe « non fusionnees » trois
+# branches simplement ecrasees en un commit (squash), dont le contenu etait bel
+# et bien dans main ; et il n'a rien dit d'une branche dont la PR etait fusionnee
+# mais qui portait cinq commits ecrits APRES, jamais repris. C'est l'equivalence
+# de patch — git cherry, qui compare les patch-id — qui repond juste dans les
+# deux cas. Un commit de fusion n'a pas de patch-id et git cherry l'ignore :
+# c'est correct, « merge branch main » n'apporte rien que main n'ait deja.
+
+if [ "$FUSIONNEES" = 1 ]; then
+  git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*" >/dev/null 2>&1 \
+    || warn "origin non joignable — l'etat ci-dessous peut etre perime"
+
+  # La branche sur laquelle on travaille est exclue : elle peut etre fusionnee
+  # et servir malgre tout a l'etape en cours — c'est le cas normal d'une session
+  # cloud, dont le nom de branche est impose et reutilise d'une PR a la suivante.
+  courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+  fusionnees=() vivantes=() ignoree=""
+  for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do
+    b=${ref#origin/}
+    [ "$b" = "$BASE" ] && continue
+    [ "$b" = HEAD ] && continue
+    [ "$b" = "$courante" ] && { ignoree="$b"; continue; }
+    # git cherry n'imprime que les commits absents de la base : « + » pour un
+    # patch inedit, « - » pour un patch deja present sous un autre sha.
+    if [ -z "$(git cherry "origin/$BASE" "$ref" 2>/dev/null | grep '^+' || true)" ]; then
+      fusionnees+=("$b")
+    else
+      vivantes+=("$b:$(git cherry "origin/$BASE" "$ref" 2>/dev/null | grep -c '^+' || echo '?')")
+    fi
+  done
+
+  [ -n "$ignoree" ] && { echo "-- ignoree"; warn "$ignoree — branche courante"; echo; }
+  echo "-- fusionnees dans $BASE — supprimables"
+  if [ ${#fusionnees[@]} -eq 0 ]; then
+    echo "  (aucune)"
+  else
+    for b in "${fusionnees[@]}"; do ok "$b"; done
+  fi
+
+  echo
+  echo "-- a regarder — patchs absents de $BASE"
+  if [ ${#vivantes[@]} -eq 0 ]; then
+    echo "  (aucune)"
+  else
+    for v in "${vivantes[@]}"; do warn "${v%:*} — ${v##*:} patch(s) inedit(s)"; done
+    echo
+    # Le titre de cette section dit « a regarder » et non « non fusionnees »,
+    # parce que l'equivalence de patch ne sait pas voir un contenu REECRIT. Un
+    # travail repris a un autre chemin, ou refait a la main, produit un patch
+    # different : la branche est signalee ici alors que son contenu est bien
+    # dans la base. La commande ne peut pas trancher ce cas — elle le remonte
+    # plutot que de proposer une suppression qu'elle ne sait pas justifier.
+    echo "  Un patch inedit ne veut pas dire un travail perdu : un contenu repris"
+    echo "  a un autre chemin, ou refait a la main, produit un patch different."
+    echo "  Compare avant de conclure :  git log --oneline origin/$BASE..origin/<branche>"
+  fi
+
+  if [ ${#fusionnees[@]} -gt 0 ]; then
+    echo
+    echo "Depuis une machine dont l'acces git n'est pas contraint :"
+    echo
+    for b in "${fusionnees[@]}"; do echo "  git push origin --delete $b"; done
+    echo
+    echo "Une suppression ne perd rien : ces patchs sont dans $BASE, et GitHub"
+    echo "sait restaurer une branche pendant 90 jours."
+  fi
+  exit 0
+fi
+
 # --- --list ---------------------------------------------------------------------
 
 if [ "$LIST" = 1 ]; then
@@ -1746,6 +1922,18 @@ check_app_files() {
     grep -qi 'traefik\.' "$d/Dockerfile" \
       && bad "$p LABEL traefik.* dans le Dockerfile — publierait une route SANS authentification" \
       || ok "$p aucun label traefik dans le Dockerfile"
+    # Un volume nomme herite du proprietaire du repertoire TEL QU'IL EXISTE dans
+    # l'image. Si le chemin monte n'y existe pas, Docker le cree en root, et une
+    # app tournant en USER non root ne peut pas y ecrire : elle demarre, puis
+    # perd tout, sans erreur claire. C'est le Dockerfile qui fixe ces droits,
+    # avant USER — nulle part ailleurs. Avertissement et non refus : le chemin
+    # peut etre prepare par une forme que ce grep ne reconnait pas.
+    local c
+    for c in "${A_VOL_CHEMINS[@]}"; do
+      grep -qE "(mkdir|chown)[^\n]*$c" "$d/Dockerfile" \
+        && ok "$p $c prepare dans le Dockerfile" \
+        || warn "$p $c est monte mais n'est ni cree ni chown dans le Dockerfile — le volume naitrait en root, l'app non root ne pourrait pas y ecrire"
+    done
     # une image sans shell ne peut pas executer un healthcheck CMD-SHELL
     if grep -qiE '^[[:space:]]*FROM .*(scratch|distroless)' "$d/Dockerfile" && [ "$A_HEALTH_CMD" != none ]; then
       bad "$p image sans shell (scratch/distroless) mais health_cmd defini — mets 'none' ou change de base"
@@ -1840,6 +2028,8 @@ if [ "$CHECK" = 1 ]; then
   echo
   echo "-- applications"
   for a in "${APPS[@]}"; do check_app_files "$a"; done
+  check_volume_noms
+  ok "noms de volumes distincts entre apps"
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.
@@ -1994,6 +2184,10 @@ discover_apps
 [ ${#APPS[@]} -gt 0 ] || { echo "ERREUR : aucune app sous apps/ — ./init.sh --add <nom>" >&2; exit 1; }
 
 apply_target_options
+# Avant d'ecrire quoi que ce soit : une collision de noms de volumes doit
+# arreter la generation, pas seulement --check. Un compose ou deux apps
+# partagent un volume est deja ecrit quand --check le dit.
+check_volume_noms
 compute_tooling
 
 if [ ! -f fabrique.yml ]; then

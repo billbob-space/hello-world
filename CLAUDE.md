@@ -33,6 +33,7 @@ son PRD, son URL, son palier d'exposition, ses tests.
 ./init.sh --list          # état des applications
 ./init.sh --add <nom>     # échafaude apps/<nom>/
 ./init.sh --dry-run       # montre ce qui changerait, sans rien écrire
+./init.sh --branches-fusionnees   # quelles branches distantes peuvent être supprimées
 ```
 
 `init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
@@ -56,6 +57,8 @@ health_cmd: wget --spider -q http://localhost:8080/healthz
 exposure: private          # private | google | public — voir plus bas
 stack: none                # langage principal — active son serveur LSP
 ui: false                  # true si l'app sert une interface web
+volumes:                   # optionnel — ce qui survit au redéploiement
+  - donnees:/var/lib/mon-app
 ```
 
 Édite-le puis relance `./init.sh`, ou passe les valeurs en options — elles ne
@@ -134,6 +137,28 @@ une : personne ne le choisit.
 Il ne dit rien du périmètre, et c'est sa seule limite. Sur une branche
 `claude/<sujet>`, le rayon de souffle se lit dans le champ `Périmètre` de
 l'entrée de journal et dans le diff, pas dans le nom. Renseigne-le tôt.
+
+### La fin de vie d'une branche ne t'appartient pas
+
+**Une session cloud ouvre des branches et ne peut pas en fermer.** Le relais git
+du harnais refuse la suppression de refs — `HTTP 403` sur `git-receive-pack`, et
+`git` affiche ensuite `Everything up-to-date`, qui ressemble à un succès. Le
+serveur MCP GitHub expose `create_branch` sans son inverse. Les branches
+fusionnées s'accumulent donc, et rien ne le signale.
+
+```bash
+./init.sh --branches-fusionnees    # dit quoi supprimer, ne supprime rien
+```
+
+Le critère est l'**équivalence de patch**, pas l'appartenance à l'ascendance de
+`main` : cette dernière se trompe dans les deux sens. Elle classe « non
+fusionnée » une branche simplement écrasée en un commit, et ne dit rien d'une
+branche dont la PR est fusionnée mais qui porte des commits écrits **après**.
+
+Sa limite est dans le nom de sa seconde section, `à regarder` : un patch inédit
+ne prouve pas un travail perdu. Un contenu repris à un autre chemin, ou refait à
+la main, produit un patch différent — la commande le remonte plutôt que de
+proposer une suppression qu'elle ne sait pas justifier. Compare avant de conclure.
 
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque
 commit :
@@ -393,6 +418,54 @@ préférences personnelles, jamais dans le fichier versionné. Et **jamais de bl
 `env` dans `.claude/settings.json`** : il est public par construction, y poser un
 jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
 
+## Les volumes nommés — ce qui survit au redéploiement
+
+Le système de fichiers d'un conteneur est jeté à chaque déploiement. Ce qui doit
+persister se déclare dans `volumes:`, et **rien d'autre ne survit**. La forme est
+`<nom>:<chemin conteneur>[:ro]` : le nom logique à gauche en minuscules, chiffres
+et tirets, le chemin à droite absolu, `:ro` seul suffixe admis.
+
+`donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
+**`ramure-donnees`**. C'est le préfixe du propriétaire qui empêche deux apps de
+se marcher dessus sans s'être concertées, et deux apps qui produiraient le même
+nom réel sont refusées — à la génération, pas seulement à `--check`.
+
+**Un `/` à gauche est refusé.** Ce serait un bind mount, donc un chemin d'hôte à
+créer à la main sur le serveur avant le premier déploiement. Les volumes nommés
+existent précisément pour supprimer ce geste : `docker compose up` crée le volume
+seul et le conserve entre deux déploiements. **Aucune action sur l'hôte, jamais.**
+
+### Le piège : c'est le `Dockerfile` qui fixe les droits
+
+Un volume nommé hérite du propriétaire du répertoire **tel qu'il existe dans
+l'image**. Si le chemin monté n'y existe pas, Docker le crée en `root` — et ton
+app, qui tourne en `USER` non root, ne peut pas y écrire. Le symptôme est « l'app
+démarre et perd tout », sans erreur claire.
+
+Crée donc le répertoire et donne-le à ton utilisateur **avant `USER`** :
+
+```dockerfile
+RUN mkdir -p /var/lib/mon-app && chown 10001 /var/lib/mon-app
+USER app
+```
+
+`./init.sh --check` avertit quand un chemin monté n'est ni créé ni `chown` dans
+le `Dockerfile`. C'est un avertissement et non un refus : la préparation peut
+prendre une forme que le contrôle ne reconnaît pas.
+
+### `name:` — pourquoi le compose porte deux fois le même nom
+
+Compose préfixe les volumes de premier niveau par le nom du projet. Sans `name:`,
+le volume réel s'appellerait `<projet>_ramure-donnees`, et une commande de
+sauvegarde montant le nom court archiverait un volume **vide en sortant en
+succès**. `init.sh` émet donc `name:` sous chaque volume : ce qui est écrit dans
+`compose.yaml` est ce qui existe sur l'hôte.
+
+Corollaire à connaître avant d'ajouter un premier volume à une stack déjà en
+service : le nom devient **global à l'hôte**. Si d'autres stacks tournent sur le
+même serveur, un nom déjà pris serait partagé. Le préfixe par nom d'app rend la
+collision improbable, il ne la rend pas impossible.
+
 ## Les trois paliers d'exposition
 
 Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
@@ -498,7 +571,7 @@ pas non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.clau
 `go.work`. Tu changes `apps/<nom>/app.yml` et tu relances `./init.sh`.
 
 Si tu as besoin de quelque chose que le contrat ne prévoit pas — une base de
-données, un cache, un volume persistant, un port supplémentaire — **écris-le
+données, un cache partagé, un port supplémentaire — **écris-le
 dans le `README` et arrête-toi**. C'est une décision d'infrastructure, elle se
 prend côté serveur.
 
