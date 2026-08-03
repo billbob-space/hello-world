@@ -174,8 +174,11 @@ ici et les PRP aval s'y tiennent :**
    reprise pour la ligne de date — elle nomme un accueil, pas un sur-titre, et
    une classe qui ment coûte plus cher qu'une classe de plus.
 4. **`data-exercice`** sur la case à cocher et **`data-seance`** sur la
-   section — les deux attributs par lesquels le PRP 06 retrouve une ligne sans
-   connaître la structure du DOM.
+   section — les deux attributs par lesquels on retrouve une ligne sans
+   connaître la structure du DOM. `data-exercice` est ce que lit l'écouteur
+   délégué du montage (tâche 5) ; les deux servent d'accroche aux tests et au
+   contrôle à la main. Aucun PRP aval ne les consomme : le PRP 06 se branche par les deux
+   événements, pas par le DOM de cette vue.
 
 ## Fichiers
 
@@ -207,12 +210,6 @@ navigateur :
 Un montage qui déciderait quoi que ce soit — « si la date est passée alors… » —
 serait une règle métier hors de portée des tests. Elle est toujours dans le
 modèle.
-
-## La convention d'écriture, rappelée
-
-**Les accents vont dans ce que l'enfant lit, pas dans le code** (PRP 01). Les
-libellés et les phrases affichées portent leurs accents ; les commentaires, les
-noms de fonctions et de variables restent en ASCII.
 
 ---
 

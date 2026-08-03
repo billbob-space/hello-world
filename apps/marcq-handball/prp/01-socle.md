@@ -10,7 +10,7 @@
 | | |
 |---|---|
 | **Lot** | 1 |
-| **Branche** | `marcq-handball/socle` |
+| **Branche** | `marcq-handball/socle` puis `marcq-handball/activation` — deux branches, deux PR, voir Tâches 6 et 7 |
 | **Dépend de** | rien |
 | **Débloque** | 02 (programme), 03 (entrée) — et par eux tous les autres |
 | **Sections du PRD** | §6 préalable non numéroté du lot 1, §11 contraintes, §12 dépendances et prérequis de mise en ligne |

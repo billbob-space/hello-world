@@ -12,7 +12,7 @@
 | **Lot** | 1 |
 | **Branche** | `marcq-handball/perso` |
 | **Dépend de** | PRP 04 (la route `#/seance/<date>` et `MOTIF_SEANCE`), et par lui PRP 01 (la coque, `sw.js`), 02 (`domaine.js`, `programme.json`), 03 (`app.js` et son contrat d'écran, `vue-jour.js`, les jetons de `style.css`) |
-| **Débloque** | PRP 06 (les compteurs de cet écran sont ceux qui roulent), PRP 09 (« L'équipe » s'ajoute sous le calendrier), PRP 11 (le bilan réutilise `formaterDuree` et `lignesVolume`) |
+| **Débloque** | PRP 09 (« L'équipe » s'ajoute sous le calendrier), PRP 11 (le bilan réutilise `formaterDuree` et `lignesVolume`) |
 | **Sections du PRD** | §7.5 « Ma progression », §9 (le volume est un récit, pas un rang ; les jours sans séance sont du repos), §6 lot 1 item 5, §10 (le ton), §11 (mobile d'abord) |
 
 ## Objectif
@@ -37,9 +37,10 @@ soit.
   calendrier ne peut donc pas mener à une route que le routeur ignore.
 - `./apps/marcq-handball/test.sh` est vert et `./init.sh --check` aussi.
 - Dans un navigateur, sur `#/perso` : un pourcentage en grand, des pastilles de
-  volume, une grille de dix-neuf cases alignée sur le lundi, et l'onglet
-  « Ma progression » actif ; l'onglet Réseau ne montre **aucune** requête après
-  le montage.
+  volume qui sont le **second** chiffre saillant de l'écran (PRD §9 : le cumul
+  s'affiche en grand sur la page perso), une grille de dix-neuf cases alignée sur
+  le lundi, et l'onglet « Ma progression » actif ; l'onglet Réseau ne montre
+  **aucune** requête après le montage.
 
 ## Périmètre
 
@@ -56,10 +57,13 @@ attente pour cet écran ; une section du `README.md`.
   ordonne « Ma progression » puis « L'équipe » ; ce PRP livre la première moitié,
   et l'écran s'arrête après le calendrier. **Aucune zone désactivée n'annonce le
   lot 2** — voir la décision 6 des interfaces.
-- **Les compteurs animés — PRP 06.** Rien ne roule ici : le pourcentage est posé
-  à sa valeur. Ce PRP pose les deux attributs par lesquels le PRP 06 retrouvera
-  les nombres, et rien d'autre (PRD §10 : *« un compteur qui augmente ne saute
-  jamais à sa valeur »*).
+- **Les compteurs animés — PRP 06, et pour son panneau de fin seulement.** Rien
+  ne roule ici, ni maintenant ni plus tard : le pourcentage et les pastilles sont
+  posés à leur valeur. Le PRD §10 (*« un compteur qui augmente ne saute jamais à
+  sa valeur »*) vise le compteur qu'on voit **augmenter** — celui du panneau qui
+  suit la dernière case cochée. Arriver sur cet écran n'est pas grimper : on
+  anime un changement qu'on a vu arriver, jamais un changement qu'on découvre
+  (même règle qu'au PRP 09, chantier 4).
 - **Tout calcul de domaine — PRP 02.** Cet écran ne recompte rien : il appelle
   `progression`, `totauxAccomplis`, `calendrier` et `etatSeance`, et met en forme.
 - **Cocher — PRP 04.** Les cases du calendrier mènent à l'écran de séance ; elles
@@ -82,7 +86,8 @@ etatSeance(prog, dateISO, aujourdhui, faits = {})  // -> { statut, cochable, tot
 dateEnToutesLettres(dateISO)   // '2026-08-03' -> 'lundi 3 août'
 
 // web/vue-seance.js — PRP 04 (dans le test seulement)
-MOTIF_SEANCE                   // /^#\/seance\/(\d{4}-…)$/
+MOTIF_SEANCE
+// /^#\/seance\/(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))$/
 ```
 
 Le **contrat d'écran** du PRP 03, que ce PRP applique sans le modifier :
@@ -136,8 +141,8 @@ export function monterPerso(hote, ctx)    // l'ecran, au contrat du PRP 03
 
 ```
 route #/perso            une entrée dans ECRANS, un onglet dans LIENS (« Ma progression »)
-data-compteur            sur le pourcentage — l'accroche du PRP 06
-data-unite               sur chaque pastille de volume — l'accroche du PRP 06
+data-compteur            sur le pourcentage — accroche de test, aucun PRP aval ne la lit
+data-unite               sur chaque pastille de volume — accroche de test, idem
 <section class="ecran ecran-perso">   le conteneur où le PRP 09 ajoutera
                                       « L'équipe », APRÈS le calendrier
 ```
@@ -150,8 +155,9 @@ définis ici et les PRP aval s'y tiennent :**
    et l'appelant multiplie les minutes par 60. Deux fonctions de formatage
    divergeraient au premier ajustement.
 2. **`lignesVolume` rend des objets `{ unite, phrase }`, pas des chaînes.** La
-   phrase est ce que l'enfant lit ; `unite` est ce par quoi le PRP 06 retrouve la
-   ligne à animer sans analyser du texte.
+   phrase est ce que l'enfant lit ; `unite` est ce par quoi une ligne se retrouve
+   sans analyser le texte qu'elle affiche — le test s'en sert, et le PRP 11
+   réutilise `lignesVolume` telle quelle pour son bilan.
 3. **`ETATS` porte les six statuts du domaine**, pas les quatre du PRD §7.5. Le
    calendrier n'invente aucun état et n'en fusionne aucun — voir « Points
    d'attention », qui dit pourquoi c'est l'écart le plus honnête.
@@ -200,13 +206,6 @@ La même qu'à l'écran de séance, et pour la même raison :
 Un montage qui déciderait quoi que ce soit — « si le dénominateur est nul
 alors… » — serait une règle métier hors de portée des tests. Elle est toujours
 dans le modèle.
-
-## La convention d'écriture, rappelée
-
-**Les accents vont dans ce que l'enfant lit, pas dans le code** (PRP 01, PRP 04).
-Les libellés, les phrases affichées et les noms de mois portent leurs accents ;
-les commentaires, les noms de fonctions, de variables et de tests restent en
-ASCII.
 
 ---
 
@@ -809,13 +808,14 @@ function lien(href, classe, texte) {
   return a;
 }
 
-// La part accomplie, en grand : c'est le chiffre qu'on vient chercher.
+// La part accomplie, en grand : c'est le premier chiffre de l'ecran. Le volume
+// vient juste apres, en second (PRD §9).
 function blocPart(part) {
   const bloc = el('div', 'part-perso');
 
   const chiffre = el('p', 'chiffre-part', `${part.pourcent} %`);
-  // Le PRP 06 fait rouler ce nombre au lieu de le poser d'un coup (PRD §10). Il
-  // le retrouve par cet attribut, sans rien savoir de la structure de l'ecran.
+  // Le nombre est pose a sa valeur : rien ne roule sur un ecran qu'on consulte.
+  // L'attribut est l'accroche du test, qui lit la valeur sans analyser le texte.
   chiffre.dataset.compteur = String(part.pourcent);
 
   // Une <progress> native, comme aux ecrans du jour et de seance : annoncee par
@@ -843,8 +843,8 @@ function blocVolume(volume) {
   const liste = el('ul', 'liste-volume');
   for (const ligne of volume.lignes) {
     const item = el('li', 'item-volume', ligne.phrase);
-    // La seconde accroche du PRP 06 : la ligne se retrouve par son unite, sans
-    // analyser le texte qu'elle affiche.
+    // L'accroche du test : la ligne se retrouve par son unite, sans analyser le
+    // texte qu'elle affiche.
     item.dataset.unite = ligne.unite;
     liste.append(item);
   }
@@ -932,7 +932,8 @@ Ajouter à la fin de `apps/marcq-handball/web/style.css` :
 ```css
 /* ---- l'ecran perso --------------------------------------------------------
    « Ma progression » (PRD §7.5) : on se lit, on ne se compare pas. Un chiffre en
-   grand, le volume en pastilles, et dix-neuf jours qui tiennent sur la largeur
+   grand, le volume en pastilles juste dessous — c'est le second chiffre saillant
+   de l'ecran (PRD §9) —, et dix-neuf jours qui tiennent sur la largeur
    d'un telephone sans defilement horizontal. Les titres, la barre et le bloc
    d'aide reutilisent les classes des ecrans precedents : une jumelle
    divergerait. */
@@ -960,7 +961,9 @@ Ajouter à la fin de `apps/marcq-handball/web/style.css` :
 .phrase-part { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
 
 /* Le volume en pastilles : une liste de choses a dire a table, pas un tableau
-   de bord. */
+   de bord. Le PRD §9 veut ce cumul « en grand sur la page perso » — les
+   pastilles portent donc le second corps de texte de l'ecran, juste sous le
+   pourcentage, et loin devant la phrase et le calendrier. */
 .liste-volume {
   display: flex;
   flex-wrap: wrap;
@@ -971,11 +974,13 @@ Ajouter à la fin de `apps/marcq-handball/web/style.css` :
 }
 
 .item-volume {
-  padding: .35rem .8rem;
+  padding: .45rem .9rem;
   border: 1px solid var(--marcq-trait);
   border-radius: 999px;
   background: var(--marcq-carte);
-  font-size: .95rem;
+  font-size: clamp(1.15rem, 5.5vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1285,7 +1290,9 @@ cd apps/marcq-handball && go run .
    compteur. » Aucune pastille, aucun zéro affiché.
 3. Cocher une séance depuis `#/seance/2026-08-03`, revenir sur `#/perso` : les
    pastilles apparaissent, le pourcentage a bougé, la case du 3 est pleine et
-   porte `✓`.
+   porte `✓`. Les nombres des pastilles se lisent à bout de bras — après le
+   pourcentage, c'est le texte le plus gros de l'écran (PRD §9), et il passe
+   devant la phrase de la part comme devant le calendrier.
 4. La grille tient sur la largeur de l'écran **sans défilement horizontal**, en
    mode responsive à 360 px comme à 414 px. Dix-neuf cases, la première sous le
    « L », les deux dernières colonnes de la dernière ligne vides.

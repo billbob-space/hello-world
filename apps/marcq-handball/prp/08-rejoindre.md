@@ -2,7 +2,6 @@
 
 > **Pour l'agent qui exécute :** applique ce PRP avec
 > `superpowers:subagent-driven-development` ou `superpowers:executing-plans`.
-> Les étapes sont des cases à cocher.
 >
 > **Ossature :** `apps/marcq-handball/prp/00-ossature.md` — lu avant de commencer.
 > **PRD :** `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`
@@ -44,12 +43,20 @@ complète, qui fonctionne réseau coupé et dont il peut sortir.
 - Réseau coupé (outils de développement → Réseau → Hors ligne) : une séance
   entière se coche, `#/perso` affiche `Pas de réseau. Dernière mise à jour il y
   a 2 h.`, et la console ne montre aucune exception non rattrapée.
+- Un serveur qui répond `201` à la première inscription puis `200` aux suivantes
+  produit le même écran : dans les deux cas `dernierRangConnu.moi` porte les huit
+  champs plats de la réponse d'envoi — `jour` et `ignores` compris —, un `GET` de
+  rafraîchissement suit, et `dernierRangConnu.instantane` porte alors le tableau
+  `classement` d'**après** l'envoi.
 - Hors ligne, le bouton de suppression n'efface **rien** localement et dit
-  pourquoi ; en ligne, il fait disparaître `marcq.v1.classement` de
-  `localStorage` **et** le pseudonyme de `GET /api/classement`.
-- Face à un serveur qui répond `409 {"erreur":"pseudo-pris"}`, l'écran affiche
-  `Ce nom est déjà pris. Choisis-en un autre.`, propose un autre nom, et le code
-  déjà saisi reste dans son champ.
+  pourquoi ; en ligne, la réponse `200` fait disparaître `marcq.v1.classement` de
+  `localStorage` **et** le pseudonyme de `GET /api/classement`, et son corps
+  donne le `participants` d'après l'opération.
+- Face à un serveur qui répond
+  `403 {"erreur":"code-refuse","message":"Ce nom est déjà pris, ou le code ne correspond pas."}`,
+  l'écran affiche ce message **tel quel**, propose un autre nom, et le code déjà
+  saisi reste dans son champ — une seule phrase pour les deux situations que le
+  PRP 07 refuse de distinguer.
 - `./apps/marcq-handball/test.sh` est vert, `./init.sh --check` aussi — la
   chaîne `x-forwarded-user` n'apparaît dans aucun fichier ajouté.
 
@@ -104,15 +111,15 @@ progression(prog, aujourdhui, faits)        // -> { cochees, programmees, part }
 // web/vue-perso.js — PRP 05
 monterPerso(hote, ctx)                      // c'est lui qui recevra le conteneur .bloc-equipe
 
-// web/style.css — PRP 01 et 03
+// web/style.css — PRP 03
 // --marcq-encre --marcq-encre-douce --marcq-fond --marcq-carte --marcq-accent
 // --marcq-sur-accent --marcq-danger --marcq-trait --marcq-tap (48px)
 // .ecran  .titre-ecran  .titre-bloc  .aide  .bouton  .bouton-principal  .panne
 ```
 
-**Consomme — du PRP 07, contrat exact exigé.** L'API appartient au PRP 07 ; ce
-PRP en énonce la forme dont il a besoin. En cas d'écart, c'est ce document qui
-s'aligne, et les fonctions à corriger sont nommées au chantier B.
+**Consomme — du PRP 07, la forme qui fait foi.** L'API appartient au PRP 07 ;
+les corps ci-dessous sont **recopiés** de son chantier 4, ils ne sont pas
+réinventés ici. Le PRP 09 consomme exactement les mêmes.
 
 ```
 GET /api/classement
@@ -122,63 +129,143 @@ GET /api/classement
 
 ```json
 {
-  "date": "2026-08-10",
-  "programmees": 24,
+  "jour": "2026-08-07",
+  "programmees": 22,
   "participants": 9,
-  "podium": [
-    { "rang": 1, "pseudo": "Renard-14", "cochees": 23, "part": 0.958 },
-    { "rang": 2, "pseudo": "Sirocco",   "cochees": 21, "part": 0.875 },
-    { "rang": 3, "pseudo": "Tornade-31","cochees": 20, "part": 0.833 }
+  "classement": [
+    { "rang": 1, "cochees": 22, "part": 1,     "pseudo": "Renard" },
+    { "rang": 2, "cochees": 20, "part": 0.909, "pseudo": "K7" },
+    { "rang": 3, "cochees": 19, "part": 0.864, "pseudo": "Bibou" },
+    { "rang": 4, "cochees": 19, "part": 0.864 },
+    { "rang": 5, "cochees": 14, "part": 0.636 },
+    { "rang": 6, "cochees": 12, "part": 0.545 },
+    { "rang": 7, "cochees":  9, "part": 0.409 },
+    { "rang": 8, "cochees":  6, "part": 0.273 },
+    { "rang": 9, "cochees":  0, "part": 0 }
   ],
-  "parts": [0.958, 0.875, 0.833, 0.791, 0.75, 0.708, 0.625, 0.5, 0.333],
-  "groupe": { "cochees": 154, "programmees": 216, "part": 0.713 }
+  "groupe": { "cochees": 121, "programmees": 198, "part": 0.611 }
 }
 ```
 
-`parts` est trié décroissant, de longueur `participants`, et **ne porte aucun
-pseudonyme**. C'est lui qui rend tenable la dernière phrase du PRD §7.4 — *« il
-continue à voir sa position »* — sans que le serveur connaisse celui qui n'a pas
-rejoint : le client compare sa propre part à cette liste et en déduit son rang,
-localement.
+`classement` porte **toutes** les lignes, dans l'ordre des rangs, qui sont
+**stricts de 1 à N et jamais répétés** ; `pseudo` n'est présent que sur les trois
+premières lignes — champ **absent**, et non vide, au-delà : le nom du quatrième
+ne transite pas. `participants` vaut `len(classement)` ; `groupe` vaut `0` quand
+il n'y a aucun participant ; `jour` est le jour du serveur, celui du
+dénominateur.
+
+C'est ce tableau — et non une liste de parts anonymes — qui rend tenable la
+dernière phrase du PRD §7.4, *« il continue à voir sa position »* : un enfant qui
+n'a pas rejoint compte ses propres cases et se place parmi les `cochees` du
+tableau, localement, sans que le serveur le connaisse. La règle exacte de ce
+placement appartient au PRP 09 (`positionDe`) ; ce PRP fournit la donnée et n'en
+affiche aucun rang.
 
 ```
 POST /api/classement
-  application/json, exactement trois cles, aucune autre acceptee
+  application/json, exactement cinq cles, aucune autre acceptee (DisallowUnknownFields)
+  `pseudo` et `code` toujours obligatoires ; `ressentis` et `supprimer` facultatifs,
+  `supprimer` absent valant false ; `faits` obligatoire tant que `supprimer` est faux,
+  et ignore quand il vaut true.
 ```
 
 ```json
-{ "pseudo": "Renard-14", "code": "4821", "faits": ["s1-c1", "s1-c2", "s1-r1"] }
+{
+  "pseudo": "Renard",
+  "code": "4821",
+  "faits": ["s1-c1", "s1-c2", "s1-r1", "s2-c1"],
+  "ressentis": { "2026-08-03": "correct", "2026-08-05": "dur" },
+  "supprimer": false
+}
 ```
 
-Réponse `200` : **le corps du `GET` ci-dessus**, plus une clé `moi` :
+`corpsEnvoi` de ce PRP n'émet que `pseudo`, `code` et `faits` : `ressentis` est
+rempli par le **PRP 10**, et `supprimer` par `corpsSuppression`. `faits: []` est
+légitime et distinct de `faits` absent, qui rend `400 faits-invalide`.
+
+Réponse `201` **à la création du pseudonyme**, `200` **à chaque mise à jour**,
+même corps **plat** dans les deux cas — jamais l'instantané du `GET` :
 
 ```json
-{ "moi": { "pseudo": "Renard-14", "rang": 3, "cochees": 17, "part": 0.708 } }
+{
+  "pseudo": "Renard",
+  "jour": "2026-08-07",
+  "rang": 2,
+  "participants": 9,
+  "cochees": 20,
+  "programmees": 22,
+  "part": 0.909,
+  "ignores": 3
+}
 ```
+
+`ignores` compte les identifiants envoyés que le serveur n'a pas retenus —
+inconnus de son `programme.json`, ou appartenant à une séance postérieure à son
+jour. Il existe pour que cet écran puisse écrire *« 3 exercices ne comptent pas
+encore »* au lieu de laisser l'enfant devant un écart muet entre son téléphone et
+le podium (ossature §5 : l'horloge du téléphone décide de l'affichage, celle du
+serveur décide du rang).
 
 Aucun horodatage n'est envoyé : le départage du PRD §9 — *« le premier arrivé à
 ce score est devant »* — se fait sur l'horloge de réception du serveur. Une date
 fournie par le client serait déclarative, ce que l'ossature §2 refuse
 explicitement pour le rang.
 
-Suppression, sur la même route et le même verbe :
+**Suppression**, sur la même route et le même verbe. Corps minimal ; `faits` et
+`ressentis` sont acceptés mais ignorés :
 
 ```json
-{ "pseudo": "Renard-14", "code": "4821", "supprimer": true }
+{ "pseudo": "Renard", "code": "4821", "supprimer": true }
 ```
 
-Réponse `200` : le corps du `GET` recalculé **sans** l'intéressé, plus
-`{ "supprime": true }`. Un pseudonyme inconnu rend `{ "supprime": false }` et
-`200` : la suppression est idempotente, un second tap ne doit pas inquiéter.
+Réponse `200` dans les deux cas d'aboutissement, **jamais `204`** — il faut un
+corps pour dire lequel des deux s'est produit :
 
-Erreurs, toujours en JSON `{ "erreur": "<code>" }` :
-
-| Statut | `erreur` | Quand |
+| Cas | Statut | Corps |
 |---|---|---|
-| `400` | `corps-invalide` | JSON illisible, clé manquante ou en trop, pseudo ou code hors format |
-| `409` | `pseudo-pris` | le pseudonyme existe avec un autre code |
-| `429` | `trop-de-requetes` | garde-fou de débit du serveur |
-| `503` | `magasin-indisponible` | le magasin de scores est inaccessible |
+| La fiche existait et le code correspond | `200` | `{ "pseudo": "Renard", "supprime": true, "jour": "2026-08-07", "participants": 8 }` |
+| Pseudonyme inconnu — jamais créé, ou déjà supprimé | `200` | `{ "pseudo": "Renard", "supprime": false, "jour": "2026-08-07", "participants": 9 }` |
+| La fiche existe, le code ne correspond pas | `403` | `{ "erreur": "code-refuse", "message": "Ce nom est déjà pris, ou le code ne correspond pas." }` |
+
+`participants` est le nombre **après** l'opération. L'opération est idempotente :
+un second tap rend `200` et `supprime: false`, jamais une erreur. Elle reste
+honorée après `prog.Fin` alors que l'envoi, lui, rend `409 classement-fige` — le
+gel protège le rang, pas le droit du PRD §14. Elle est soumise au même compteur
+de 5 refus en 15 minutes, et rend `503 classement-indisponible` quand le magasin
+est absent.
+
+**Les erreurs, une seule enveloppe pour les trois routes :**
+
+```json
+{ "erreur": "code-refuse", "message": "Ce nom est déjà pris, ou le code ne correspond pas." }
+```
+
+`message` est en français et **destiné à être affiché tel quel** par ce PRP.
+
+| Cas | Statut | `erreur` |
+|---|---|---|
+| corps illisible, > 8 Kio, ou champ inconnu | `400` | `json-invalide` |
+| pseudonyme vide, trop long, caractère refusé | `400` | `pseudo-invalide` |
+| code différent de quatre chiffres | `400` | `code-invalide` |
+| `faits` absent (hors suppression), non tableau, ou plus d'entrées que le programme n'a d'exercices | `400` | `faits-invalide` |
+| `ressentis` mal formé | `400` | `ressentis-invalide` |
+| pseudonyme existant, code différent | `403` | `code-refuse` |
+| **suppression** d'un pseudonyme existant, code différent | `403` | `code-refuse` |
+| 5 codes refusés en 15 min sur ce pseudonyme, envois et suppressions confondus | `429` + `Retry-After: 900` | `trop-d-essais` |
+| 200 participants atteints et le pseudonyme est nouveau | `409` | `classement-plein` |
+| envoi après `prog.Fin` — la suppression, elle, reste honorée | `409` | `classement-fige` |
+| magasin absent ou non inscriptible | `503` + `Retry-After: 60` | `classement-indisponible` |
+
+Il n'existe **ni** `corps-invalide`, **ni** `pseudo-pris`, **ni**
+`trop-de-requetes`, **ni** `magasin-indisponible` : *« ce pseudonyme est pris »*
+et *« ton code est faux »* rendent délibérément le même `403 code-refuse` et le
+même message, pour que la route ne devienne pas un oracle de disponibilité de
+pseudonymes. Cet écran n'a donc **qu'une** phrase pour les deux, et il ne cherche
+pas à deviner laquelle — voir `messageErreur`, chantier C.
+
+**Le `405` de `http.ServeMux` ne porte pas cette enveloppe** : il répond en texte
+brut. Ne décoder le JSON d'une réponse que si son `Content-Type` est
+`application/json`.
 
 **Produit :**
 
@@ -202,17 +289,27 @@ export const EVT_CLASSEMENT = 'marcq:classement-maj';
 
 export function empreinte(faits)                        // -> '17:2026-08-10T18:22:11.000Z' | ''
 export function corpsEnvoi({ pseudo, code, faits })     // -> { pseudo, code, faits: [ids tries] }
+// Trois cles ici, sur les cinq que le serveur accepte : le PRP 10 elargit cette
+// signature avec `ressentis`, et `corpsSuppression` porte `supprimer`.
 export function corpsSuppression({ pseudo, code })      // -> { pseudo, code, supprimer: true }
 export function envoiNecessaire(local, faits)           // -> boolean
 export async function relever(options = {})             // GET  -> Resultat
 export async function envoyer({ pseudo, code, faits }, options = {})   // POST -> Resultat
-export async function supprimer({ pseudo, code }, options = {})        // POST -> Resultat
+export async function supprimer({ pseudo, code }, options = {})        // POST + supprimer:true -> Resultat
 export async function synchroniser(ctx, options = {})   // choisit GET ou POST, ecrit l'etat, emet l'evenement
 export function brancherSynchronisation(ctx, options = {})             // -> debrancher()
 
 // Resultat — une seule forme, succes comme echec. Jamais de promesse rejetee.
-// { ok: true,  instantane, moi }            moi === null hors POST
-// { ok: false, statut, erreur }             statut 0 = pas de reseau ou delai depasse
+// { ok: true, statut, instantane, moi, suppression, cree }
+//   relever()   : instantane = le corps du GET ; moi, suppression = null ; cree = false
+//   envoyer()   : moi = le corps PLAT de la reponse d'envoi, ENTIER (jour et ignores
+//                 compris) ; instantane, suppression = null ; cree = (statut === 201)
+//   supprimer() : suppression = { pseudo, supprime, jour, participants } ;
+//                 instantane, moi = null ; cree = false
+// { ok: false, statut, erreur, message }
+//   statut 0 = pas de reseau ou delai depasse.
+//   erreur et message viennent de l'enveloppe du PRP 07 ; ils valent null quand la
+//   reponse ne porte pas `application/json` — le 405 de http.ServeMux.
 // options injectables : { fetch, maintenant, lire, ecrire, doc, fenetre, minuterie }
 ```
 
@@ -234,6 +331,7 @@ export function validerCode(saisie)                  // -> { valeur, erreur }
 export function messageErreur(statut, erreur)        // -> phrase francaise
 export function formaterFraicheur(recuA, maintenant) // -> 'à l’instant' | 'il y a 2 h' | 'hier' | 'le lundi 3 août'
 export function etatSynchro(local, maintenant, enLigne)  // -> { statut, phrase, fraicheur }
+export function phraseIgnores(n)                     // -> phrase | null ; le champ `ignores` du PRP 07
 export function phraseSuppression(pseudo)            // -> 'Supprimer « Renard-14 » du classement ?'
 export function avertissementChangementEnfant(pseudo)// -> la phrase ajoutee a la confirmation du PRP 03
 export function monterRejoindre(hote, ctx)           // l'ecran #/rejoindre, au contrat du PRP 03
@@ -255,11 +353,11 @@ route  #/rejoindre        une entree dans ECRANS, AUCUNE dans LIENS
 | `web/classement.js`, `web/vue-rejoindre.js` | Deux modules et non un : l'un décide **ce qui est envoyé**, l'autre **ce qui est dit**. La séparation est ce qui rend testable, sans navigateur ni réseau, la garantie que le prénom ne part pas. |
 | `CLE_CLASSEMENT`, `CLASSEMENT_VIDE` | La clé de l'ossature §6, plus sa valeur par défaut. `lireClassement()` rend `CLASSEMENT_VIDE` et jamais `null`, comme `lireFaits()` rend `{}` : l'appelant n'a pas de branche à écrire. |
 | `dernierEnvoi = { at, empreinte }` | L'ossature nomme la clé, pas sa forme. `empreinte` est ce qui fait de la file d'attente une comparaison — voir chantier B. |
-| `dernierRangConnu = { recuA, instantane, moi }` | L'ossature nomme la clé ; elle porte ici **l'instantané entier** du serveur, pas un entier. Le nom reste celui de l'ossature : le renommer forkerait le contrat pour de l'esthétique. |
+| `dernierRangConnu = { recuA, instantane, moi }` | L'ossature nomme la clé ; elle porte ici **deux corps entiers et non transformés** : `instantane` est le corps du dernier `GET` reçu — `{ jour, programmees, participants, classement, groupe }` —, `moi` celui de la dernière réponse d'envoi acceptée — `{ pseudo, jour, rang, participants, cochees, programmees, part, ignores }`. Ni sous-ensemble « pour faire propre », ni recomposition : le PRP 09 compare `moi.jour` à `instantane.jour` pour son garde-fou de minuit, et un champ retiré ici casse là-bas sans un symptôme. Le nom reste celui de l'ossature : le renommer forkerait le contrat pour de l'esthétique. |
 | `EVT_CLASSEMENT` | Le point d'accroche du PRP 09, sur le modèle des deux événements du PRP 04. Sans lui, le podium devrait interroger `localStorage` en boucle. |
 | `.bloc-equipe` | Le conteneur partagé avec le PRP 09, et le seul point de contact entre les deux branches. |
 | `MOTS_PSEUDO`, `proposerPseudo` | La proposition de pseudonyme. Sa signature est le contrat : elle ne reçoit que la source d'aléa, donc elle **ne peut pas** dériver du prénom. |
-| `supprimer: true` sur `POST` | La suppression garde la route et le verbe de la mise à jour — c'est une mise à jour vers rien, avec exactement la même authentification. La liste de routes de l'ossature §7 reste intacte. |
+| `corpsSuppression`, `supprimer`, `monterSuppression` | La sortie du PRD §14, côté navigateur. Le verbe n'est pas une invention de ce PRP : le PRP 07 a tranché `POST` + `supprimer: true` (chantier 4, « Se retirer du classement »), pour garder la route et l'authentification de la mise à jour et laisser intacte la liste de trois routes de l'ossature §7. Ce PRP en est le seul appelant. |
 
 ## Fichiers
 
@@ -274,12 +372,26 @@ route  #/rejoindre        une entree dans ECRANS, AUCUNE dans LIENS
   `apps/marcq-handball/web/style.css`,
   `apps/marcq-handball/web/sw.js`,
   `apps/marcq-handball/tests/etat.test.js`,
+  `apps/marcq-handball/tests/perso.test.js`,
   `apps/marcq-handball/README.md`
 - Tester : `apps/marcq-handball/tests/classement.test.js`,
   `apps/marcq-handball/tests/rejoindre.test.js`,
-  `apps/marcq-handball/tests/etat.test.js`, plus les deux contrôles à la main du
+  `apps/marcq-handball/tests/etat.test.js`,
+  `apps/marcq-handball/tests/perso.test.js`, plus les deux contrôles à la main du
   chantier B (hors ligne) et du chantier E (suppression) — la CI n'a ni
   navigateur ni interrupteur réseau.
+
+**Pourquoi `tests/perso.test.js` est dans la liste alors qu'aucun de ses sujets
+ne l'est.** Le PRP 05 y pose l'assertion *« l'écran perso ne parle à personne et
+ne compare à personne »*, qui refuse littéralement les sous-chaînes `fetch(`,
+`classement` et `podium` dans `web/vue-perso.js`, commentaires compris. Le
+chantier D y ajoute `import { monterActionClassement } from './vue-rejoindre.js'`
+et la sous-chaîne `classement` y entre. L'amendement attendu est exactement
+celui-ci, et pas un de plus : **retirer `classement` et `podium` de la liste
+interdite, garder `fetch(`**. L'écran perso continue de ne parler à personne —
+c'est `vue-rejoindre.js`, puis `vue-equipe.js` au PRP 09, qui appellent le
+réseau. Sans cette ligne, l'agent qui exécute ce PRP trouve `test.sh` rouge et
+`./init.sh --pret` bloqué sans que son propre document lui dise pourquoi.
 
 ---
 
@@ -381,16 +493,43 @@ parti.
 export async function synchroniser(ctx, options = {})
 // 1. local = lireClassement()
 // 2. local.pseudo === null            -> relever()          (GET : situer sans rejoindre)
-//    envoiNecessaire(local, faits)    -> envoyer(...)       (POST)
+//    envoiNecessaire(local, faits)    -> envoyer(...)       (POST, puis relever() : voir plus bas)
 //    sinon                            -> relever()          (rafraichir le rang des autres)
-// 3. sur ok : ecrireClassement({ dernierRangConnu: { recuA, instantane, moi } })
-//             et, si POST : dernierEnvoi = { at: recuA, empreinte: empreinte(faits) }
-// 4. emet EVT_CLASSEMENT sur document, succes comme echec
+// 3. sur ok, ecrireClassement FUSIONNE dans dernierRangConnu le seul champ obtenu :
+//      apres relever()  -> { recuA, instantane }   moi est CONSERVE tel quel
+//      apres envoyer()  -> { recuA, moi }          instantane est CONSERVE tel quel
+//    et, si POST accepte (200 ou 201) : dernierEnvoi = { at: recuA, empreinte: empreinte(faits) }
+// 4. emet EVT_CLASSEMENT sur document UNE SEULE FOIS, en fin d'appel, succes comme
+//    echec, avec le dernierRangConnu FUSIONNE : detail { instantane, moi, statut }.
+//    Un POST suivi de son GET n'emet donc pas deux evenements — le PRP 09 remonterait
+//    son bloc deux fois, dont une avec un podium d'avant l'envoi.
 ```
+
+**Un `POST` accepté est suivi d'un `GET`, dans le même appel à `synchroniser`.**
+La réponse d'envoi est **plate** : elle donne `moi`, jamais l'instantané. Sans ce
+relevé, le podium et la jauge du PRP 09 resteraient sur la valeur d'avant l'envoi
+alors que le rang, lui, vient de changer — l'écran se contredirait à l'œil nu. Le
+relevé qui suit n'est pas un second déclencheur : il ne repasse pas par le débit
+de `brancherSynchronisation`, et son échec ne fait pas échouer l'envoi, qui a
+abouti. Effet de bord utile, que le PRP 09 nomme : `moi.jour` vaut alors toujours
+`instantane.jour`, et le troisième cas de `positionDe` ne se produit pas.
+
+**`ecrireClassement` fusionne aussi *à l'intérieur* de `dernierRangConnu`.**
+Écraser la clé entière à chaque relevé effacerait `moi`, donc le seul rang que le
+serveur ait tranché ; l'écraser à chaque envoi effacerait `instantane`, donc le
+podium et la jauge. Les deux corps ont des durées de vie distinctes et se
+remplacent séparément.
 
 `ctx.faits` n'est pas relu ici : `synchroniser` appelle `lireFaits()`. Le
 contexte du PRP 03 est un instantané du dernier rendu, et une séance peut avoir
 été cochée depuis.
+
+**Lire l'enveloppe d'erreur sans la supposer.** Sur un statut ≥ 400, le corps
+n'est décodé que si le `Content-Type` de la réponse est `application/json` : le
+`405` de `http.ServeMux` répond en texte brut (PRP 07, points d'attention), et un
+`JSON.parse` sur ce corps jetterait dans le chemin d'erreur, c'est-à-dire là où
+plus rien ne rattrape. Sans enveloppe, `erreur` et `message` valent `null` et
+`messageErreur` fournit la phrase.
 
 **Aucun paramètre d'URL, jamais.** Le pseudonyme et le code ne circulent que
 dans le corps d'un `POST`. Une URL part dans les journaux d'accès et dans
@@ -400,15 +539,22 @@ identité, et un `?pseudo=` la leur donnerait.
 **Critère d'acceptation.** `tests/classement.test.js` tourne sans réseau, avec un
 `fetch` injecté : `empreinte` change à chaque cochage et à chaque décochage ;
 `envoiNecessaire` est faux juste après un envoi confirmé et vrai après un
-cochage ; un `fetch` qui rejette rend `{ ok: false, statut: 0 }` sans jeter ;
-`dernierEnvoi` reste inchangé après un `503` ; deux appels rapprochés à travers
-`brancherSynchronisation` ne produisent qu'une requête. À la main, hors ligne :
-cocher une séance entière n'affiche aucune erreur et ne bloque aucun tap.
+cochage ; un `fetch` qui rejette rend `{ ok: false, statut: 0 }` sans jeter ; un
+`fetch` qui rend `201` est traité **comme** un `200` — `dernierEnvoi` est écrit,
+`cree` vaut `true` — et un `fetch` qui rend `200` laisse `cree` faux ;
+`dernierEnvoi` reste inchangé après un `503` ; un `403` dont le corps est en
+texte brut rend `{ ok: false, statut: 403, erreur: null, message: null }` sans
+jeter ; un envoi accepté déclenche **un second appel `fetch` en `GET`**, et
+`dernierRangConnu` porte ensuite `moi` **et** `instantane` ; deux appels
+rapprochés à travers `brancherSynchronisation` ne produisent qu'une requête. À la
+main, hors ligne : cocher une séance entière n'affiche aucune erreur et ne bloque
+aucun tap.
 
-**Si le PRP 07 diverge du contrat ci-dessus**, seules `corpsEnvoi`,
-`corpsSuppression` et la lecture de la réponse dans `relever` / `envoyer` /
-`supprimer` changent. Ni les déclencheurs, ni l'empreinte, ni un seul écran n'en
-dépendent — c'est la raison de cette découpe.
+**Le contrat ci-dessus est celui du PRP 07, recopié — il n'est pas négocié ici.**
+S'il devait encore bouger, seules `corpsEnvoi`, `corpsSuppression` et la lecture
+de la réponse dans `relever` / `envoyer` / `supprimer` changent. Ni les
+déclencheurs, ni l'empreinte, ni un seul écran n'en dépendent — c'est la raison
+de cette découpe.
 
 ## Chantier C — L'écran de consentement
 
@@ -462,7 +608,7 @@ export const MOTS_PSEUDO = ['Renard', 'Faucon', 'Comète', 'Bourrasque', 'Silex'
 
 export function proposerPseudo(alea = Math.random)   // -> 'Renard-14'
 // <Mot>-<10..99>. 24 x 90 = 2160 tirages : dans un groupe de vingt, une
-// collision arrive une fois sur onze — le serveur repond alors `pseudo-pris`
+// collision arrive une fois sur onze — le serveur repond alors `403 code-refuse`
 // et l'ecran propose un autre nom. Aucun mot n'est un prenom, aucun ne
 // renvoie au club ni a la ville.
 ```
@@ -477,12 +623,22 @@ le PRD §7.4 le dit, *« c'est son choix, il a été informé de ce qu'il impliq
 **Validation.**
 
 ```js
-export const MOTIF_PSEUDO = /^[\p{L}\p{N}][\p{L}\p{N} .\-_]{0,15}$/u;
+export const MOTIF_PSEUDO = /^[\p{L}\p{N} '\-_]{2,16}$/u;
 export function validerPseudo(saisie)
-// Normalise : trim, suites d'espaces reduites a une, normalize('NFC').
-// -> { valeur, erreur } avec erreur ∈ { null, 'vide', 'trop-long', 'caracteres' }
-// NFC evite qu'un « é » compose cree un jumeau invisible d'un pseudo existant.
-// 16 caracteres : au-dela, le podium deborde sur un ecran de 320 px.
+// Normalise : trim, suites d'espaces reduites a une, apostrophe typographique ’
+// ramenee a ', normalize('NFC').
+// -> { valeur, erreur } avec erreur ∈ { null, 'vide', 'trop-court', 'trop-long',
+//    'caracteres' }
+// NFC evite qu'un « é » compose cree un jumeau invisible d'un pseudo existant —
+// et le serveur, lui, REFUSE les marques combinantes (categorie Mn) faute de
+// pouvoir normaliser en Go : un « é » decompose partirait en 400 pseudo-invalide.
+// 2 a 16 runes, et le meme jeu de caracteres que le serveur : lettres Unicode,
+// chiffres, espace, tiret, apostrophe droite, tiret bas. Ni point ni autre
+// ponctuation — le PRP 07 les refuse, et un motif client plus large ferait
+// tomber une saisie valide a l'ecran en 400 pseudo-invalide au retour du reseau.
+// L'apostrophe est ramenee a la droite parce qu'un clavier de telephone produit
+// la typographique, que le serveur n'accepte pas.
+// 16 runes : au-dela, le podium deborde sur un ecran de 320 px.
 ```
 
 **Aucune liste de mots interdits.** Le PRD §14 nomme l'atténuation du risque
@@ -511,31 +667,77 @@ plus à migrer pour un seul usage, moins insister ; et rien n'insiste, le bouton
 « Apparaître au classement » étant un bouton posé sur un écran, pas une
 sollicitation. Revenir sur son refus coûte un tap.
 
-**Ce que `messageErreur` dit.**
+**Ce que l'écran affiche sur un échec, et d'où vient la phrase.**
+
+Le PRP 07 renvoie une enveloppe `{ erreur, message }` dont le `message` est en
+français et *« destiné à être affiché tel quel »*. La règle est donc simple, et
+elle n'a qu'une exception :
+
+```js
+const phrase = resultat.message ?? messageErreur(resultat.statut, resultat.erreur);
+```
+
+`message` gagne quand il est là ; `messageErreur` parle quand il n'y est pas —
+pas de réseau, délai dépassé, `405` en texte brut, corps illisible. Deux
+vocabulaires qui divergeraient seraient le défaut que le PRP 07 nomme en posant
+son `message` ; `messageErreur` reproduit donc **mot pour mot** la phrase du
+serveur là où le serveur en a une, et c'est un test qui l'épingle.
+
+```js
+export function messageErreur(statut, erreur)   // -> phrase francaise, jamais vide
+```
 
 | Cas | Phrase |
 |---|---|
-| `409 pseudo-pris`, à l'inscription | `Ce nom est déjà pris. Choisis-en un autre.` |
-| `409 pseudo-pris`, alors qu'un pseudonyme est déjà enregistré ici | `Ce nom existe déjà avec un autre code. Vérifie ton code.` |
-| `400 corps-invalide` | `Le nom ou le code n’a pas été accepté.` |
-| `429 trop-de-requetes` | `Trop de demandes d’un coup. Réessaie dans une minute.` |
-| `503 magasin-indisponible` | `Le classement est indisponible. Ta progression, elle, est bien enregistrée sur ton téléphone.` |
+| `400 json-invalide` | `Ta demande n’a pas été comprise. Recharge la page et réessaie.` |
+| `400 pseudo-invalide` | `Ce nom n’a pas été accepté. Essaie deux à seize lettres, chiffres, espaces ou tirets.` |
+| `400 code-invalide` | `Le code doit faire exactement quatre chiffres.` |
+| `400 faits-invalide` | `Ta progression n’a pas pu être lue. Recharge la page et réessaie.` |
+| `400 ressentis-invalide` | `Ton ressenti n’a pas été accepté. Recharge la page et réessaie.` |
+| `403 code-refuse` | `Ce nom est déjà pris, ou le code ne correspond pas.` |
+| `429 trop-d-essais` | `Trop d’essais sur ce nom. Réessaie dans un quart d’heure.` |
+| `409 classement-plein` | `Le classement est complet. Il n’accepte plus de nouveau nom.` |
+| `409 classement-fige` | `Le classement est terminé depuis le 21 août. Ta progression reste sur ton téléphone.` |
+| `503 classement-indisponible` | `Le classement est indisponible. Ta progression, elle, est bien enregistrée sur ton téléphone.` |
 | `statut 0` | `Pas de réseau. Réessaie quand tu en auras.` |
+| tout autre statut, ou une enveloppe absente | `Le classement n’a pas répondu. Ça repartira tout seul.` |
 
-Le serveur ne distingue pas les deux `409` : c'est le client qui sait s'il
-détenait déjà ce pseudonyme, et qui choisit la phrase. Aucune sémantique
-supplémentaire n'est demandée au PRP 07.
+**Une seule phrase pour `403 code-refuse`, et c'est une décision du PRP 07, pas
+une paresse d'écriture.** Ce code couvre volontairement deux situations — *« ce
+pseudonyme est pris par quelqu'un d'autre »* et *« ton code ne correspond pas à
+ce pseudonyme »* — que le serveur refuse de distinguer pour ne pas devenir un
+oracle de disponibilité de pseudonymes. La phrase retenue est la sienne : elle
+est **vraie dans les deux cas** et n'en désigne aucun. La tentation de deviner
+côté client — « je détenais déjà ce nom, donc c'est mon code qui est faux » —
+serait fausse une fois sur deux, puisqu'un enfant peut très bien avoir choisi le
+nom d'un autre après avoir vidé son navigateur.
+
+**Ce que l'écran fait, en revanche, dépend de l'étape**, et cela ne révèle rien :
+à l'inscription il propose un autre nom **et** laisse retenter le code ; sur un
+pseudonyme déjà enregistré ici, il met le curseur dans le champ du code. Les deux
+gestes sont utiles quelle que soit la situation réelle, et aucun n'affirme
+laquelle s'est produite.
 
 **Un échec ne vide aucun champ.** Le nom et le code saisis restent en place :
-retaper quatre chiffres après un `409` est la friction qui fait abandonner
+retaper quatre chiffres après un `403` est la friction qui fait abandonner
 (PRD §14, « abandon après deux séances »).
+
+**`429` porte `Retry-After: 900`, `503` porte `Retry-After: 60`.** L'écran ne
+compte pas à rebours — ce serait une horloge de plus à tenir juste — mais les
+phrases ci-dessus disent le bon ordre de grandeur, et `brancherSynchronisation`
+n'insiste pas avant le déclencheur suivant.
 
 **Critère d'acceptation.** `tests/rejoindre.test.js` : les cinq chaînes de
 `CONSENTEMENT` reproduisent le bloc du PRD ; `proposerPseudo` avec un aléa figé
 rend un membre de `MOTS_PSEUDO` suivi de deux chiffres, et son arité est ≤ 1 ;
-`validerPseudo` refuse `''`, `'   '`, dix-sept caractères et `'a\nb'`, accepte
-`'Léo-7'` et `'Renard 14'` ; `validerCode` refuse `'12'`, `'12a4'`, `'12345'` ;
-`messageErreur` couvre les six cas.
+`validerPseudo` refuse `''`, `'   '`, `'R'`, dix-sept caractères, `'a\nb'` et
+`'Renard.14'` — le point n'est pas dans le jeu du serveur —, accepte `'Léo-7'`,
+`'Renard 14'` et `"L'Ours"`, et ramène `'L’Ours'` à `"L'Ours"` ; `validerCode`
+refuse `'12'`, `'12a4'`, `'12345'` ; `messageErreur` rend une phrase non vide
+pour les **onze** codes du PRP 07, pour `statut 0` et pour un code inconnu, et
+sa phrase du `403 code-refuse` est **exactement** le `message` du PRP 07 —
+l'assertion est écrite en dur, c'est ce qui fait tomber le test le jour où l'un
+des deux documents bouge sans l'autre.
 
 ## Chantier D — Le point de déclenchement et l'état visible
 
@@ -563,6 +765,24 @@ seul endroit où leurs diffs se croisent.
 - Rejoint : `Tu apparais sous le nom « Renard-14 ».`, la ligne d'état de
   synchronisation, et un lien `Gérer ce nom` vers `#/reglages`.
 - Dans les deux cas, la ligne d'état.
+
+**Ce que `ignores` fait à l'écran, et c'est ce PRP qui le porte** — le PRP 09 le
+range explicitement hors de son périmètre, *« c'est le retour d'un geste, pas une
+donnée de comparaison »*. Quand `dernierRangConnu.moi.ignores` est supérieur à
+zéro, la ligne d'état gagne une phrase, construite au singulier comme au pluriel :
+
+```js
+export function phraseIgnores(n)
+// 0 -> null
+// 1 -> '1 exercice ne compte pas encore : sa séance n’est pas encore arrivée.'
+// n -> `${n} exercices ne comptent pas encore : leur séance n’est pas encore arrivée.`
+```
+
+Sans elle, un enfant qui a coché en avance voit son écran perso et le podium ne
+pas dire le même nombre, sans qu'aucun des deux ne soit en cause : l'horloge du
+téléphone décide de l'affichage, celle du serveur décide du rang (ossature §5).
+La phrase ne s'excuse pas et n'invite à rien — il n'y a rien à faire, sinon
+attendre le jour de la séance.
 
 **La ligne d'état — c'est elle qui tient le « et le dit » du PRD §11.**
 
@@ -609,7 +829,8 @@ sans le moindre symptôme.
 **Critère d'acceptation.** `tests/rejoindre.test.js` : `etatSynchro` rend
 `'jamais'` sur `CLASSEMENT_VIDE`, `'hors-ligne'` avec `enLigne` faux et un
 instantané présent, `'en-attente'` quand `envoiNecessaire` est vrai et le réseau
-présent ; `formaterFraicheur` couvre les cinq paliers. `tests/vues.test.js` :
+présent ; `formaterFraicheur` couvre les cinq paliers ; `phraseIgnores` rend
+`null` sur `0`, le singulier sur `1` et le pluriel sur `3`. `tests/vues.test.js` :
 `choisirEcran('#/rejoindre')` rend l'entrée `rejoindre`, et `LIENS` ne la
 contient pas. Dans un navigateur : le bouton apparaît sous le calendrier, la
 zone de tap fait au moins 44 px, et rien ne bouge sur `#/perso` avant le premier
@@ -619,6 +840,17 @@ tap.
 
 **Ce qu'il fait.** Rend le pseudonyme supprimable, comme le PRD §14 l'exige, et
 dit exactement ce que la suppression efface et ce qu'elle laisse.
+
+**Ce que le serveur produit, et que ce chantier consomme.** Le PRP 07 livre la
+suppression à sa section « Se retirer du classement » : `POST /api/classement`
+portant `supprimer: true`, `faits` et `ressentis` acceptés mais ignorés, réponse
+`200` dans les deux cas d'aboutissement — `{ pseudo, supprime, jour,
+participants }`, `participants` étant le nombre **après** l'opération — et `403
+code-refuse` quand la fiche existe et que le code ne correspond pas. Le geste est
+**idempotent** : un pseudonyme inconnu, jamais créé ou déjà supprimé, rend `200`
+et `supprime: false`, jamais une erreur. Il reste honoré après le gel du 21 août,
+là où un envoi rend `409 classement-fige`, et il est soumis au même compteur de
+5 refus par quart d'heure.
 
 **Où.** Dans `#/reglages`, sous les gestes existants du PRP 03. C'est là que
 vivent les actions destructrices, et c'est là qu'on les cherche. Le bloc est
@@ -639,9 +871,28 @@ PRD §5 construit tout le produit sur le fait que ce qui est publié est public.
 
 **L'ordre des opérations, et il n'est pas négociable.**
 
-1. `supprimer({ pseudo, code })` part au serveur.
-2. `200` seulement : `effacerClassement()`.
-3. Autre chose : rien n'est effacé localement, `messageErreur` s'affiche.
+1. `supprimer({ pseudo, code })` part au serveur — `corpsSuppression` produit
+   `{ pseudo, code, supprimer: true }`, et rien d'autre.
+2. `200` : `effacerClassement()`, **que `supprime` vaille `true` ou `false`**.
+   `true`, la fiche vient de partir ; `false`, le serveur ne connaît pas ce nom —
+   dans les deux cas il n'y a plus rien au classement à quoi ce téléphone se
+   rattache, et garder la clé locale ne servirait qu'à proposer un second geste
+   sans effet. L'écran dit `Ton nom a été retiré du classement.` sur `true` et
+   `Ce nom n’était plus au classement. C’est réglé.` sur `false` : le PRP 07
+   rappelle qu'un enfant qui appuie deux fois, ou dont le réseau a rejoué la
+   requête, ne doit pas voir une erreur pour une action qui a abouti.
+3. `403 code-refuse`, `429`, `409`, `503`, `statut 0` : **rien n'est effacé
+   localement**, et la phrase du chantier C s'affiche — `resultat.message`, ou
+   `messageErreur` s'il n'y en a pas.
+4. Après un `200`, `EVT_CLASSEMENT` part avec
+   `{ instantane: null, moi: null, statut }` : le bloc du PRP 09 doit cesser de
+   montrer un rang qui n'existe plus.
+
+**Le `403` de la suppression ne se raconte pas différemment.** Il porte le même
+code, le même message et la même ambiguïté volontaire que celui de l'envoi. Ici,
+une seule des deux situations est plausible — on ne supprime que le nom qu'on
+détient —, mais l'écran n'a pas à le dire : la phrase du serveur est vraie, et
+inviter à vérifier le code suffit.
 
 **La suppression est la seule opération qui ne se met jamais en attente.** Effacer
 localement d'abord, en comptant sur une reprise, ferait perdre le code — donc le
@@ -650,10 +901,14 @@ n'agit pas et dit `Il faut du réseau pour supprimer ton nom.`
 
 **Changer de nom, c'est supprimer puis rejoindre.** Il n'y a pas de renommage :
 un `POST` avec un nouveau pseudonyme créerait une seconde entrée et laisserait la
-première orpheline. Le prix est le départage du PRD §9 (« le premier arrivé à ce
-score »), qui repart de la date de la nouvelle inscription. C'est dit dans le
-`README`, pas dans l'interface : la situation est rare, et un avertissement de
-plus sur cet écran noierait celui qui compte.
+première orpheline. Le PRP 07 rend la séquence sûre — la fiche supprimée libère
+le pseudonyme, qui peut être repris avec un autre code — et c'est ainsi que le
+*« il peut le remplacer par ce qu'il veut »* du PRD §7.4 s'exécute. Le prix est
+le départage du PRD §9 (« le premier arrivé à ce score »), qui repart de la date
+de la nouvelle inscription, et les cases cochées qu'il faut renvoyer : le
+premier `synchroniser` qui suit s'en charge, `dernierEnvoi` ayant disparu avec la
+clé locale. C'est dit dans le `README`, pas dans l'interface : la situation est
+rare, et un avertissement de plus sur cet écran noierait celui qui compte.
 
 **« Changer d'enfant » orpheline le pseudonyme.** `toutEffacer()` efface la clé
 locale mais ne touche pas au serveur : le nom reste au classement et plus
@@ -671,12 +926,33 @@ export function avertissementChangementEnfant(pseudo)
 
 **Critère d'acceptation.** `tests/rejoindre.test.js` : `phraseSuppression` et
 `avertissementChangementEnfant` contiennent le pseudonyme entre guillemets
-français ; un `fetch` injecté qui rend `503` laisse `CLE_CLASSEMENT` présente ;
-un `fetch` qui rend `200 { "supprime": true }` la fait disparaître. À la main,
-en ligne : après suppression, `curl -s https://marcq-handball.apps.billbob.ovh/api/classement`
-ne contient plus le pseudonyme et `participants` a diminué de un.
+français ; `corpsSuppression({ pseudo, code })` rend exactement
+`{ pseudo, code, supprimer: true }` et `Object.keys` le prouve. Dans
+`tests/classement.test.js`, avec un `fetch` injecté : un `503` et un
+`403 code-refuse` laissent `CLE_CLASSEMENT` présente ; un
+`200 { "supprime": true, "participants": 8 }` **et** un
+`200 { "supprime": false, "participants": 9 }` la font tous deux disparaître ; le
+corps envoyé ne porte ni `faits` ni `ressentis`. À la main, en ligne : après
+suppression, la réponse annonce `supprime: true` et le nouveau `participants`, et
+`curl -s https://marcq-handball.apps.billbob.ovh/api/classement` ne contient plus
+le pseudonyme et compte un participant de moins.
 
 ---
+
+## Ce qui reste à trancher avant d'exécuter
+
+| Question | Qui tranche | Effet si la réponse diffère |
+|---|---|---|
+| Les scores survivent-ils à un redéploiement (PRD §12.1) ? | L'exploitation du serveur | Bloque le PRP 07, donc celui-ci en entier. C'est le verrou en tête de document. |
+| Le dénominateur affiché à un non-participant : `participants` ou `participants + 1` ? | PRP 09 | Ce PRP fournit les deux nombres et ne tranche pas ; c'est une décision d'affichage, et le PRD §9 (« le dénominateur est honnête ») s'applique aux deux lectures. |
+
+**Deux questions que ce document posait ne se posent plus**, et il faut le dire
+plutôt que de laisser des lignes périmées dans ce tableau. *« La suppression
+existe-t-elle, et sous quel verbe ? »* : le PRP 07 l'a livrée, `POST` +
+`supprimer: true`, avec sa réponse, ses erreurs et son critère d'acceptation
+— le chantier E s'y branche tel quel. *« Le `GET` rend-il une liste anonyme de
+parts ? »* : non, il rend `classement`, qui porte toutes les lignes et rend le
+même service en mieux, puisque les rangs y sont déjà tranchés par le serveur.
 
 ## Points d'attention
 
@@ -703,10 +979,16 @@ L'alternative — un serveur qui garde le maximum — casserait le
 « le passé se corrige » du PRD §9, décocher n'ayant alors plus aucun effet. Le
 comportement est donc assumé et documenté dans le `README`.
 
-**Le `409` révèle qu'un pseudonyme existe.** C'est le seul moyen d'écrire un
-message utilisable — « ce nom est déjà pris » — et l'information est déjà
-publique dès que le porteur atteint le podium. C'est le PRP 07 qui décide si
-l'énumération mérite un garde-fou de débit ; ce PRP n'ajoute aucune surface.
+**Le `403` ne dit pas laquelle des deux situations s'est produite, et il ne faut
+pas « réparer » ça.** Un jour, quelqu'un trouvera l'écran imprécis et voudra
+distinguer « ce nom est pris » de « ton code est faux ». Ce serait rouvrir
+l'oracle de disponibilité de pseudonymes que le PRP 07 ferme délibérément, et
+qu'aucune des deux phrases ne vaut. La seule dissymétrie assumée est ailleurs et
+appartient au serveur : la **suppression** distingue « inconnu » (`200`,
+`supprime: false`) de « code faux » (`403`), parce que l'idempotence l'impose.
+Le PRP 07 en borne la portée dans ses points d'attention — ce qui fuit est
+l'existence d'un nom, jamais son rang ni son score —, et cet écran n'en tire
+aucune phrase supplémentaire.
 
 **L'empreinte dépend d'un détail de `etat.js`.** `empreinte` tient parce que
 `cocher()` écrit `new Date().toISOString()` : le maximum augmente à chaque
@@ -750,12 +1032,3 @@ est un pseudonyme choisi et un code à quatre chiffres — rien d'autre, à aucu
 **Aucune animation n'appartient à ce PRP.** Le PRD §10 réserve le mouvement à
 « grimper au classement », qui est du ressort du PRP 09. Un écran de
 consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
-
-## Ce qui reste à trancher avant d'exécuter
-
-| Question | Qui tranche | Effet si la réponse diffère |
-|---|---|---|
-| Les scores survivent-ils à un redéploiement (PRD §12.1) ? | L'exploitation du serveur | Bloque le PRP 07, donc celui-ci en entier. C'est le verrou en tête de document. |
-| Le verbe de la suppression : `POST` + `supprimer: true`, ou `DELETE /api/classement` ? | PRP 07, propriétaire de l'API | Seule `corpsSuppression` et l'appel dans `supprimer` changent. L'interface, les effets locaux et l'ordre des opérations du chantier E sont identiques dans les deux cas. |
-| `GET /api/classement` rend-il bien `parts` ? | PRP 07 | Sans cette liste anonyme, un enfant qui n'a pas rejoint ne peut pas voir sa position, et la dernière phrase du PRD §7.4 — *« Non merci est un choix complet »* — devient intenable. Il faudrait alors rouvrir le §7.4, pas contourner l'API. |
-| Le dénominateur affiché à un non-participant : `participants` ou `participants + 1` ? | PRP 09 | Ce PRP fournit les deux nombres et ne tranche pas ; c'est une décision d'affichage, et le PRD §9 (« le dénominateur est honnête ») s'applique aux deux lectures. |

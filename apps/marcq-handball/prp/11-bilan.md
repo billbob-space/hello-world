@@ -72,10 +72,16 @@ d'attention.
   jamais elle-même.
 - Programme entièrement coché au 22 août : `modeleBilan` rend `resume.seances === 7`,
   `resume.cases === 53`, `resume.pourcent === 100`, sept lignes de séance toutes
-  en `statut: 'faite'`, et les six phrases de volume de l'écran perso —
-  `226 pompes`, `345 squats`, `105 burpees`, `210 abdos`, `24 min de gainage`,
-  `3 h 55 de course` — recalculées depuis `programme.json`, jamais écrites dans
-  le code.
+  en `statut: 'faite'`, et les phrases de volume de l'écran perso, recalculées
+  depuis `programme.json` et jamais écrites dans le code. La comparaison est
+  celle du PRP 05 (`tests/perso.test.js`, tâche 3), filtre compris : les phrases
+  privées de celle qui se termine par `fentes` valent exactement `226 pompes`,
+  `345 squats`, `105 burpees`, `210 abdos`, `24 min de gainage`,
+  `3 h 55 de course` ; la ligne écartée est vérifiée par forme,
+  `/^\d+ fentes$/`, parce que le total de fentes n'est verrouillé par aucune
+  section du PRD — « 15 fentes par jambe » se saisit en une valeur ou en deux.
+  Un `deepEqual` sur six phrases échouerait : `VOLUME` (PRP 05) porte sept
+  unités et le programme contient des fentes les 3, 7 et 14 août.
 - Trois séances sur sept (3, 5 et 7 août) au 22 août : `resume.phrase` vaut
   exactement `3 séances bouclées et 22 exercices cochés. Voilà ce que tu ramènes
   à la reprise.` et `resume.pourcent` vaut `42`.
@@ -87,7 +93,9 @@ d'attention.
   `null`, et `LIENS` ne contient pas `#/bilan`.
 - Dans un navigateur, `#/bilan` tapé à la main le 5 août affiche le bilan de ce
   qui est fait à ce jour, précédé de la ligne
-  `Le programme n’est pas fini. Il reste 5 séances d’ici au vendredi 21 août.`
+  `Le programme n’est pas fini. Il reste 5 séances d’ici au vendredi 21 août.` ;
+  deux séances y figurent — le 5 août en est une —, et celle du jour se lit
+  `en cours` tant qu'elle n'est pas entièrement cochée, jamais `non faite`.
 - Dans un navigateur, horloge du système avancée au 22 août : ouvrir `/` réécrit
   l'adresse en `#/bilan` sans empiler d'entrée d'historique ; `#/perso`,
   `#/reglages` et `#/seance/2026-08-03` répondent encore ; cette dernière affiche
@@ -139,6 +147,9 @@ assertion de `tests/vues.test.js` ; une section du `README.md`.
 seanceDuJour(prog, aujourdhui)                     // -> { seance: Seance|null, cas }
                                                    //    cas ∈ { 'aujourd-hui', 'repos', 'terminee' }
 etatSeance(prog, dateISO, aujourdhui, faits = {})  // -> { statut, cochable, total, coches } | null
+                                                   //    statut ∈ { 'a-venir', 'aujourd-hui',
+                                                   //      'faite', 'partielle', 'manquee' }
+                                                   //    'a-venir' seul est hors du bilan
 progression(prog, aujourdhui, faits = {})          // -> { cochees, programmees, part }
 totauxAccomplis(prog, faits = {})                  // -> { cases, pompes, squats, burpees,
                                                    //      abdos, gainage_s, min_course, fentes }
@@ -167,8 +178,8 @@ Jetons et classes de `web/style.css` réutilisés, jamais redéfinis :
 `--marcq-encre`, `--marcq-encre-douce`, `--marcq-fond`, `--marcq-carte`,
 `--marcq-accent`, `--marcq-sur-accent`, `--marcq-trait`, `--marcq-tap`,
 `.ecran`, `.titre-ecran`, `.titre-bloc`, `.aide`, `.barre`, `.bouton`,
-`.liste-volume`, `.item-volume`, `.lu-seul`, `.jour-faite`, `.jour-partielle`,
-`.jour-manquee`.
+`.liste-volume`, `.item-volume`, `.lu-seul`, `.jour-faite`, `.jour-aujourd-hui`,
+`.jour-partielle`, `.jour-manquee`.
 
 **Produit :**
 
@@ -181,7 +192,15 @@ export const TITRE_BILAN = 'Ton bilan';
 export const PHRASE_RIEN = 'Aucune case cochée sur cette période. Le programme reste là, séance par séance, si tu veux le relire.';
 export const PHRASE_VOLUME_VIDE = 'Rien à additionner cette fois.';
 export const TEXTE_DETAIL = 'Voir le détail jour par jour';
-export const LIBELLES_BILAN = { 'faite': 'faite', 'partielle': 'commencée', 'manquee': 'non faite' };
+// Les quatre statuts que `etatSeance` peut rendre sur une seance dont la date
+// est <= aujourdhui, et eux seuls : 'a-venir' est impossible ici, le filtre de
+// `modeleBilan` l'ecarte. Une cle manquante donnerait `undefined` a l'ecran.
+export const LIBELLES_BILAN = {
+  'faite': 'faite',
+  'aujourd-hui': 'en cours',
+  'partielle': 'commencée',
+  'manquee': 'non faite',
+};
 
 // La bascule. Pure : aucune horloge, aucun DOM. Rend ROUTE_BILAN si — et
 // seulement si — la route est la racine ET seanceDuJour rend 'terminee'.
@@ -199,12 +218,14 @@ export function monterBilan(hote, ctx)             // l'ecran, au contrat du PRP
   date: '2026-08-07',
   dateLisible: 'vendredi 7 août',
   titre: 'Autre sport + Renforcement',  // seance.titre, tel quel : le PRP 02 le rend obligatoire
-  statut: 'partielle',                  // le mot du DOMAINE : 'faite' | 'partielle' | 'manquee'
+  statut: 'partielle',                  // le mot du DOMAINE :
+                                        // 'faite' | 'aujourd-hui' | 'partielle' | 'manquee'
   libelle: 'commencée',                 // le mot de l'ÉCRAN : LIBELLES_BILAN[statut]
   marque: '½',                          // ETATS[statut].marque — la forme double la couleur
   coches: 4,
   total: 6,
-  detail: '4 exercices sur 6',          // null quand statut vaut 'manquee'
+  detail: '4 exercices sur 6',          // null quand rien n'est coché : 'manquee'
+                                        // toujours, 'aujourd-hui' tant que coches vaut 0
   href: '#/seance/2026-08-07',
   nom: 'vendredi 7 août · Autre sport + Renforcement · commencée · 4 exercices sur 6',
 }
@@ -257,9 +278,9 @@ vertes sans être touchées.
 | `tests/bilan.test.js` | Un fichier par PRP, comme `seance.test.js`, `perso.test.js` et `equipe.test.js` : deux branches parallèles fusionnent sans conflit. |
 | `bascule` | La seule fonction de ce PRP que `app.js` importe pour décider quelque chose. Elle est **pure** et prend `aujourdhui` en paramètre : c'est ce qui rend la bascule prouvable par `node --test`, un mois avant la date où elle compte. |
 | `MOTIF_RACINE` | Le motif de l'adresse sans ancre — aujourd'hui écrit en clair dans l'entrée `jour` d'`ECRANS` (PRP 03). Il devient une constante nommée et **`ECRANS` s'y réfère**, parce que la bascule doit capturer exactement ce que l'entrée `jour` capture. Deux copies du même motif divergeraient au premier ajustement, et l'écart serait muet : le bilan ne prendrait pas la main sur une adresse sans ancre, c'est-à-dire sur le lien que les enfants ont reçu. |
-| `LIBELLES_BILAN` | Les trois mots que le bilan emploie, là où `ETATS` (PRP 05) en emploie six pour le calendrier. Le seul écart est `manquee` → **`non faite`**, et il porte tout le chantier 3 : le domaine constate, l'écran ne reproche pas. Les marques restent celles d'`ETATS` — une seule source pour ce qui se dessine. |
+| `LIBELLES_BILAN` | Les quatre mots que le bilan emploie — les quatre statuts qu'`etatSeance` peut rendre sur une séance déjà programmée —, là où `ETATS` (PRP 05) en emploie six pour le calendrier. Deux écarts : `manquee` → **`non faite`** et `aujourd’hui` → **`en cours`**, et ils portent tout le chantier 3 : le domaine constate, l'écran ne reproche pas. Les marques restent celles d'`ETATS` — une seule source pour ce qui se dessine. |
 | `phraseBilan`, `PHRASE_RIEN` | La phrase de tête, exportée et pure, donc épinglée au mot près par un test — comme `PHRASE_RASSURANTE` (PRP 03) et `CONSENTEMENT` (PRP 08). Le ton est une décision produit ; une reformulation bien intentionnée doit faire tomber un test. |
-| `ligneSeance` | Ce qu'une séance dit sur le bilan. Exportée séparément de `modeleBilan` pour que les trois statuts se testent un par un, sans fabriquer un programme entier par cas. |
+| `ligneSeance` | Ce qu'une séance dit sur le bilan. Exportée séparément de `modeleBilan` pour que les quatre statuts se testent un par un, sans fabriquer un programme entier par cas. |
 | `enCours` et `avis` | Ce qui rend `#/bilan` ouvrable **avant** le 22 août. Voir le chantier 1 : une route qui n'existerait qu'à partir d'une date ne pourrait être essayée qu'à une date où il est trop tard pour la corriger. |
 
 ## Fichiers
@@ -426,15 +447,29 @@ dans l'ordre des dates. Après le 21 août, c'est-à-dire dans le seul cas qui
 compte, ce sont les sept. Avant, c'est le même filtre que le dénominateur du
 §9 : on ne met pas sur un bilan une séance dont le jour n'est pas venu.
 
+**Le `<=` inclut la séance du jour, et c'est délibéré :** `progression` compte
+elle aussi `seance.date <= aujourdhui` (PRP 02, `if (seance.date > aujourdhui)
+continue`). Un `<` ici mettrait sur le même écran un dénominateur qui compte la
+séance du jour et une liste qui ne la montre pas. La conséquence à tenir est
+qu'`etatSeance` rend alors `'aujourd-hui'` — son test `dateISO === aujourdhui`
+précède `partielle` et `manquee` (PRP 02, tâche 4) — dès que la séance du jour
+n'est pas entièrement cochée. Ce statut est donc dans `LIBELLES_BILAN` comme les
+trois autres ; c'est exactement la clé qui manquerait sans ce paragraphe, et son
+absence ne se verrait qu'à l'écran, en `undefined`.
+
 ```js
 export function ligneSeance(prog, seance, aujourdhui, faits) {
   const { statut, coches, total } = etatSeance(prog, seance.date, aujourdhui, faits);
   // …
 }
-// statut vient du DOMAINE et ne prend, sur une seance passee, que trois valeurs :
-//   'faite'     -> detail = `${total} exercices`         ex. '8 exercices'
-//   'partielle' -> detail = `${coches} exercices sur ${total}`   ex. '4 exercices sur 6'
-//   'manquee'   -> detail = null
+// statut vient du DOMAINE et ne prend, sur une seance dont la date est <=
+// aujourdhui, que quatre valeurs — 'a-venir' est ecarte par le filtre :
+//   'faite'       -> detail = `${total} exercices`       ex. '8 exercices'
+//   'aujourd-hui' -> detail = coches > 0
+//                      ? `${coches} exercices sur ${total}`
+//                      : null                            ex. '2 exercices sur 8'
+//   'partielle'   -> detail = `${coches} exercices sur ${total}`  ex. '4 exercices sur 6'
+//   'manquee'     -> detail = null
 // libelle = LIBELLES_BILAN[statut] ; marque = ETATS[statut].marque
 // titre   = seance.titre, tel quel. Aucun repli : `chargerProgramme` refuse deja
 //           un titre absent ou vide (PRP 02), donc un `??` ici serait du code
@@ -446,10 +481,14 @@ export function ligneSeance(prog, seance, aujourdhui, faits) {
 //           existe. C'est le texte `.lu-seul` du PRP 05, meme role, meme forme.
 ```
 
-**`detail` vaut `null` pour une séance non faite, et c'est le choix de ton du
+**`detail` vaut `null` dès que rien n'est coché, et c'est le choix de ton du
 chantier 3, pris ici.** `0 exercices sur 6` est un reproche chiffré ; l'absence
 de chiffre est un fait. La ligne reste présente, datée, titrée, avec sa marque et
-son lien : rien n'est caché, rien n'est compté.
+son lien : rien n'est caché, rien n'est compté. La règle vaut pour `'manquee'`,
+où `coches` est nul par définition, et pour `'aujourd-hui'` tant que la séance du
+jour n'a pas été entamée — écrire `0 exercices sur 8` à quelqu'un dont la journée
+n'est pas finie serait le même reproche, un jour trop tôt. Dès la première case,
+`'en cours'` reprend le compte : `2 exercices sur 8` dit ce qui est fait.
 
 ### La période, et le cas « pas encore fini »
 
@@ -493,15 +532,22 @@ posée dans le montage est hors de portée de `node --test`.
 `totauxAccomplis`, jamais `totauxPrescrits` : le bilan additionne ce qui a été
 coché. Afficher le prescrit reviendrait à féliciter quelqu'un pour le programme
 qu'un autre a écrit — c'est la formulation du PRP 05, et elle vaut deux fois plus
-ici. `lignesVolume` est importée et non recopiée : les six phrases du bilan sont
-mot pour mot celles de `#/perso`, ce qui interdit à un enfant de lire deux
-chiffres différents pour la même chose sur deux écrans.
+ici. `lignesVolume` est importée et non recopiée : les phrases du bilan sont mot
+pour mot celles de `#/perso`, ce qui interdit à un enfant de lire deux chiffres
+différents pour la même chose sur deux écrans.
 
 **Critère d'acceptation.** `tests/bilan.test.js`, sur `programme.json` et des
 `faits` construits depuis lui — jamais depuis une liste d'identifiants recopiée :
-les quatre assertions chiffrées de « Ce qui est vérifiable à la fin » ; les trois
-`detail` de `ligneSeance` ; `modeleBilan(contexte('2026-08-05')).seances.length`
+les quatre assertions chiffrées de « Ce qui est vérifiable à la fin » ; les
+quatre `detail` de `ligneSeance`, dont les deux formes d'`'aujourd-hui'` — `null`
+sans rien de coché, `2 exercices sur 8` avec deux cases ;
+`modeleBilan(contexte('2026-08-05')).seances.length`
 vaut `2` et `modeleBilan(contexte('2026-08-22')).seances.length` vaut `7` ;
+sur ce contexte du 5 août, la dernière ligne — le 5 août est un jour de séance —
+porte `statut: 'aujourd-hui'` et `libelle: 'en cours'`, et
+`Object.keys(LIBELLES_BILAN)` contient chacun des `statut` rendus par les
+`seances` des deux modèles, ce qui fait tomber le test le jour où le domaine
+gagnerait un statut de plus ;
 `avis` vaut `null` au 22 août, la phrase « il reste 5 séances » au 5 août, et la
 phrase « plus aucune séance d'ici là » au 20 août ; chaque `href` satisfait
 `MOTIF_SEANCE`, de sorte que le bilan ne peut pas mener à une route que le routeur
@@ -657,7 +703,9 @@ routeur vide avant chaque montage.
 contrôle de source ; l'absence de `innerHTML` dans `web/vue-bilan.js` ; et le
 contrôle « toute classe posée par l'écran existe dans `style.css` », repris tel
 quel de `tests/perso.test.js` (PRP 05, tâche 4), la liste des classes construites
-par gabarit étant ici `jour-faite`, `jour-partielle`, `jour-manquee` et `barre`.
+par gabarit étant ici `jour-faite`, `jour-aujourd-hui`, `jour-partielle`,
+`jour-manquee` et `barre` — une par clé de `LIBELLES_BILAN`, puisque
+`lien-seance jour-${statut}` les pose toutes les quatre.
 
 ---
 
@@ -816,9 +864,14 @@ serait une seconde règle de date dans le routeur.
 
 **`ETATS` fournit la marque, `LIBELLES_BILAN` fournit le mot.** La tentation est
 de n'importer que `ETATS` et d'utiliser son `libelle` : trois caractères de moins,
-et le mot « manquée » revient à l'écran. C'est le seul endroit du chantier 3 qui
-se défait par simplification, et le test du ton est là pour ça — mais il ne
-protège que les chaînes de `dites()`, alors relis-le si tu en ajoutes une.
+et les mots « manquée » et « aujourd’hui » reviennent à l'écran — le premier
+reproche, le second date une ligne déjà datée. C'est le seul endroit du
+chantier 3 qui se défait par simplification, et le test du ton est là pour ça —
+mais il ne protège que les chaînes de `dites()`, alors relis-le si tu en ajoutes
+une. La tentation inverse coûte plus cher : un `LIBELLES_BILAN` plus court que la
+liste des statuts rendus par `etatSeance` sort `undefined` à l'écran, en silence,
+et seulement les jours de séance. C'est ce que vérifie l'assertion sur
+`Object.keys(LIBELLES_BILAN)` du chantier 2.
 
 **`statut` reste le mot du domaine, y compris dans les classes CSS.**
 `jour-manquee` est réutilisée depuis `#/perso` et ne s'affiche pas ; la renommer
@@ -840,9 +893,13 @@ compte est un écran non testé.
 
 **La saison prochaine défait la bascule toute seule.** Changer `debut` et `fin`
 dans `programme.json` suffit : `seanceDuJour` ne rend plus `terminee`, la racine
-cesse de basculer, et le bilan de l'été précédent reste atteignable à
-`#/bilan`. Rien à supprimer, rien à rééditer — c'est l'exigence du PRD §8,
-vérifiée par le seul écran qui aurait pu la trahir.
+cesse de basculer, et `#/bilan` reste honorée à toute date — elle affiche alors
+le bilan du programme **actuellement chargé**, c'est-à-dire celui de la saison
+qui commence. Le bilan de l'été précédent, lui, n'est pas conservé :
+`modeleBilan` recalcule tout depuis `ctx.prog`, et le PRD §6 range
+« Historique multi-saisons, comptes durables » hors périmètre. Rien à supprimer,
+rien à rééditer — c'est l'exigence du PRD §8, vérifiée par le seul écran qui
+aurait pu la trahir.
 
 **`./init.sh --check` refuse la chaîne `x-forwarded-user` dans tout fichier suivi
 de `apps/marcq-handball/` hors `.md`** (`init.sh:1444-1452`). Aucun fichier de ce

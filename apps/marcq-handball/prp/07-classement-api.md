@@ -2,7 +2,6 @@
 
 > **Pour l'agent qui exécute :** applique ce PRP avec
 > `superpowers:subagent-driven-development` ou `superpowers:executing-plans`.
-> Les étapes sont des cases à cocher.
 >
 > **Ossature :** `apps/marcq-handball/prp/00-ossature.md` — lu avant de commencer.
 > **PRD :** `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`
@@ -99,6 +98,11 @@ d'un enfant.
   répond `201` et un `rang` ; le même envoi avec `"code":"0000"` répond `403`
   `code-refuse` ; `classement.json` existe et ne contient **ni** `4821` **ni**
   `0000` en clair.
+- `POST /api/classement` avec `{"pseudo":"Renard","code":"4821","supprimer":true}`
+  répond `200` et `{"supprime": true}` ; `classement.json` ne contient plus
+  `Renard` ; le même appel répété répond `200` et `{"supprime": false}` ; sur un
+  pseudonyme existant, le même appel avec `"code":"0000"` répond `403`
+  `code-refuse` et n'efface rien.
 - Le processus tué puis relancé sur le même répertoire resert le même
   `GET /api/classement`, participants et rangs identiques.
 - `MARCQ_DONNEES` non défini : les trois routes répondent `503`
@@ -112,7 +116,8 @@ d'un enfant.
 **Dedans :** la demande d'infrastructure dans `README.md` ; le portage Go du
 domaine ; le magasin sur fichier et son écriture atomique ; les trois routes
 `GET /api/classement`, `POST /api/classement`, `GET /api/coach` ; la validation
-du pseudonyme et du code à 4 chiffres ; le calcul du rang à l'horloge du serveur ;
+du pseudonyme et du code à 4 chiffres ; **la suppression d'une fiche par le
+porteur de son code** (PRD §14) ; le calcul du rang à l'horloge du serveur ;
 les trois fichiers de test Go.
 
 **Dehors, et pourquoi :**
@@ -178,6 +183,7 @@ func routes(web fs.FS, sw []byte, cl *classement) http.Handler
 func ouvrirClassement(dossier string, prog *Programme, horloge func() time.Time) (*classement, error)
 func (c *classement) lire(jour string) reponseClassement
 func (c *classement) enregistrer(e envoiClassement, jour string) (reponseEnvoi, bool, error)
+func (c *classement) supprimer(e envoiClassement, jour string) (reponseSuppression, error)
 func (c *classement) coach(jour string) reponseCoach
 
 // apps/marcq-handball/domaine.go
@@ -189,7 +195,9 @@ func progression(p *Programme, jour string, faits map[string]bool) (cochees, pro
 func jourParis(t time.Time) string    // -> "2026-08-07"
 ```
 
-Les trois routes, corps compris, sont écrites au chantier 4. La variable
+Les trois routes, corps compris, sont écrites au chantier 4 — qui déclare aussi,
+champ par champ, les cinq types de corps cités ci-dessus (`reponseClassement`,
+`envoiClassement`, `reponseEnvoi`, `reponseSuppression`, `reponseCoach`). La variable
 d'environnement produite est `MARCQ_DONNEES` — un nom, jamais une valeur
 (CLAUDE.md, ossature §9).
 
@@ -516,18 +524,132 @@ quand le dénominateur change — pour une économie invisible.
 `t.TempDir()`, un envoi, une réouverture sur le même répertoire rendent le même
 classement ; un `classement.json` contenant `{` est mis de côté et le magasin
 démarre vide ; le fichier écrit ne contient jamais le code en clair ; deux
-enregistrements concurrents lancés par `t.Parallel` laissent un fichier valide.
+enregistrements concurrents lancés par `t.Parallel` laissent un fichier valide ;
+une suppression suivie d'une réouverture sur le même répertoire ne rend plus le
+participant, et le pseudonyme peut être recréé avec un autre code.
 
 ---
 
 ## Chantier 4 — Les trois routes
 
 **Ce qu'il fait.** Il expose le magasin sous les trois routes que l'ossature §7
-réserve au lot 2, et **rien de plus** : aucune route de suppression, aucune route
-d'administration. Toutes portent `X-App-Version` par `withVersion` (PRP 01),
+réserve au lot 2, et **rien de plus** : aucune route d'administration, aucune
+quatrième route. La suppression d'une fiche, qu'exige le PRD §14, est un
+**champ du corps du `POST`** et non un verbe supplémentaire — voir plus bas.
+Toutes portent `X-App-Version` par `withVersion` (PRP 01),
 `Content-Type: application/json; charset=utf-8` et `Cache-Control: no-store` — un
 classement mis en cache est un classement faux, et c'est déjà le réglage de
 `/api/heure` dans `cadran`.
+
+### Les types des corps
+
+Les corps JSON décrits ci-dessous ne sont pas construits à la main : ils ont
+chacun un type, déclaré dans `api.go` et utilisé tel quel par `classement.go`
+— même paquet, aucun import. Les décrire ici évite qu'une signature du bloc
+« Produit » désigne une forme que le lecteur doit deviner.
+
+```go
+// ligneClassement est une ligne du tableau `classement`, commune a
+// /api/classement et /api/coach. Pseudo porte omitempty : au-dela de la
+// troisieme ligne, le champ n'est pas emis du tout — le nom ne transite pas.
+type ligneClassement struct {
+	Rang    int     `json:"rang"`
+	Cochees int     `json:"cochees"`
+	Part    float64 `json:"part"`
+	Pseudo  string  `json:"pseudo,omitempty"`
+}
+
+// jauge est la progression collective du PRD §7.5.
+type jauge struct {
+	Cochees     int     `json:"cochees"`
+	Programmees int     `json:"programmees"`
+	Part        float64 `json:"part"`
+}
+
+// reponseClassement est le corps de la reponse 200 de GET /api/classement.
+type reponseClassement struct {
+	Jour         string            `json:"jour"`
+	Programmees  int               `json:"programmees"`
+	Participants int               `json:"participants"`
+	Classement   []ligneClassement `json:"classement"`
+	Groupe       jauge             `json:"groupe"`
+}
+
+// envoiClassement est le corps recu par POST /api/classement, envoi et
+// suppression confondus.
+//
+// Faits est un []string et non un pointeur : json.Decode laisse nil quand le
+// champ est absent, et rend une tranche non nulle de longueur 0 pour []. C'est
+// ce qui distingue « faits absent » — refuse en 400 faits-invalide hors
+// suppression — de « navigateur vide qui renvoie un ensemble vide », legitime.
+type envoiClassement struct {
+	Pseudo    string            `json:"pseudo"`
+	Code      string            `json:"code"`
+	Faits     []string          `json:"faits"`
+	Ressentis map[string]string `json:"ressentis,omitempty"`
+	Supprimer bool              `json:"supprimer,omitempty"`
+}
+
+// reponseEnvoi est le corps des reponses 201 (creation) et 200 (mise a jour)
+// de POST /api/classement.
+type reponseEnvoi struct {
+	Pseudo       string  `json:"pseudo"`
+	Jour         string  `json:"jour"`
+	Rang         int     `json:"rang"`
+	Participants int     `json:"participants"`
+	Cochees      int     `json:"cochees"`
+	Programmees  int     `json:"programmees"`
+	Part         float64 `json:"part"`
+	Ignores      int     `json:"ignores"`
+}
+
+// reponseSuppression est le corps de la reponse 200 de POST /api/classement
+// portant supprimer: true.
+type reponseSuppression struct {
+	Pseudo       string `json:"pseudo"`
+	Supprime     bool   `json:"supprime"`
+	Jour         string `json:"jour"`
+	Participants int    `json:"participants"`
+}
+
+// assiduite repartit les participants sur leur part. C'est une structure et
+// non une carte : une carte omettrait les tranches vides, et le PRP 10 devrait
+// se defendre contre quatre valeurs absentes au lieu de lire quatre zeros.
+type assiduite struct {
+	Aucune  int `json:"aucune"`
+	Faible  int `json:"faible"`
+	Moyenne int `json:"moyenne"`
+	Forte   int `json:"forte"`
+}
+
+// agregatRessentis compte les trois valeurs du PRD §6 lot 2 item 10. Meme
+// raison qu'assiduite d'etre une structure : les trois cles existent toujours.
+type agregatRessentis struct {
+	Facile  int `json:"facile"`
+	Correct int `json:"correct"`
+	Dur     int `json:"dur"`
+}
+
+type ligneSeanceCoach struct {
+	Date                  string `json:"date"`
+	Titre                 string `json:"titre"`
+	Exercices             int    `json:"exercices"`
+	Cochees               int    `json:"cochees"`
+	ParticipantsActifs    int    `json:"participantsActifs"`
+	ParticipantsAyantFini int    `json:"participantsAyantFini"`
+}
+
+// reponseCoach est le corps de la reponse 200 de GET /api/coach. Le champ
+// anonyme aplatit les cinq champs de reponseClassement dans le meme objet
+// JSON : c'est ce qui garantit, a la compilation, que le coach voit
+// exactement le tableau des enfants et pas une copie qui derive.
+type reponseCoach struct {
+	reponseClassement
+	Assiduite assiduite          `json:"assiduite"`
+	Seances   []ligneSeanceCoach `json:"seances"`
+	Ressentis agregatRessentis   `json:"ressentis"`
+}
+```
 
 ### `GET /api/classement`
 
@@ -583,18 +705,23 @@ Aucun paramètre, aucun corps. Réponse `200` :
 
 ### `POST /api/classement`
 
-`Content-Type: application/json`. Corps, **exactement quatre champs** :
+`Content-Type: application/json`. Corps, **exactement cinq champs**, aucun autre
+accepté :
 
 ```json
 {
   "pseudo": "Renard",
   "code": "4821",
   "faits": ["s1-c1", "s1-c2", "s1-r1", "s2-c1"],
-  "ressentis": { "2026-08-03": "correct", "2026-08-05": "dur" }
+  "ressentis": { "2026-08-03": "correct", "2026-08-05": "dur" },
+  "supprimer": false
 }
 ```
 
-`ressentis` est **facultatif** ; les trois autres sont obligatoires.
+`pseudo` et `code` sont **toujours obligatoires**. `ressentis` et `supprimer`
+sont **facultatifs** ; `supprimer` absent vaut `false`. `faits` est obligatoire
+quand `supprimer` vaut `false`, et ignoré quand il vaut `true` — le détail est à
+la section « Se retirer du classement ».
 
 Réponse `201` à la création du pseudonyme, `200` à chaque mise à jour :
 
@@ -639,6 +766,98 @@ chaque fois et que le client renverra l'identifiant quand son jour sera venu.
 navigateur peut servir une version antérieure de `programme.json` depuis le cache
 de son service worker ; refuser l'envoi entier l'exclurait du classement jusqu'au
 prochain rechargement.
+
+### Se retirer du classement — `supprimer: true`
+
+**Pourquoi cette écriture existe.** Le PRD §14 range « un pseudonyme injurieux ou
+identifiant » parmi les risques, et son unique atténuation est que le pseudonyme
+*« reste modifiable par l'enfant, et supprimable »*. Le §7.4 en dépend aussi :
+*« il peut le remplacer par ce qu'il veut »* — changer de nom, c'est retirer sa
+fiche puis en recréer une. Sans cette écriture, les deux tombent, et un nom
+publié sur une page publique le reste.
+
+**Pourquoi un champ et non un verbe.** L'ossature §7 fixe la liste des routes du
+lot 2 à trois ; un `DELETE /api/classement` demanderait de l'amender. Le champ
+emprunte en outre exactement le même chemin que la mise à jour — même décodeur,
+même validation de pseudonyme, même vérification du code, même compteur d'essais
+— là où un second verbe rouvrirait une deuxième fois la seule route d'écriture
+publique du projet, avec deux occasions de rater une validation. C'est le même
+raisonnement qui a mis `ressentis` ici plutôt qu'au PRP 10.
+
+Corps, trois champs suffisent ; `faits` et `ressentis` sont acceptés mais
+**ignorés** — la fiche disparaît, ce qu'elle contenait n'a plus d'importance, et
+exiger leur absence ferait échouer un client qui réutilise son gabarit d'envoi :
+
+```json
+{ "pseudo": "Renard", "code": "4821", "supprimer": true }
+```
+
+**La réponse est `200` dans les deux cas, jamais `204`** — il faut un corps pour
+dire lequel des deux s'est produit :
+
+| Cas | Statut | Corps |
+|---|---|---|
+| La fiche existait et le code correspond | `200` | `{ "pseudo": "Renard", "supprime": true, "jour": "2026-08-07", "participants": 8 }` |
+| Le pseudonyme est inconnu — jamais créé, ou déjà supprimé | `200` | `{ "pseudo": "Renard", "supprime": false, "jour": "2026-08-07", "participants": 9 }` |
+| La fiche existe, le code ne correspond pas | `403` | `{ "erreur": "code-refuse", "message": "Ce nom est déjà pris, ou le code ne correspond pas." }` |
+
+`participants` est le nombre **après** l'opération : `8` quand la fiche vient de
+partir, inchangé quand il n'y avait rien à retirer. `jour` est celui du serveur,
+comme dans toutes les autres réponses.
+
+**L'opération est idempotente.** Supprimer deux fois n'est pas une erreur : le
+second appel rend `200` et `"supprime": false`. C'est ce qui rend le geste
+rejouable par le PRP 08 — un enfant qui appuie deux fois, un réseau qui rejoue
+une requête, un téléphone qui a perdu la réponse — sans qu'aucun de ces cas ne
+produise un écran d'erreur pour une action qui a, en réalité, abouti.
+
+**La vérification du code est la même que partout ailleurs.** `hmac.Equal` sur
+l'empreinte, `403 code-refuse`, le même message français, et le même compteur de
+**5 refus en 15 minutes** par pseudonyme : un `429 trop-d-essais` couvre donc
+aussi cette écriture. Sans quoi la suppression serait le chemin le moins cher
+pour attaquer un code à quatre chiffres.
+
+**Ce qui est effacé, exactement.** La fiche entière disparaît du fichier :
+`pseudo`, `cle`, `sel`, `empreinte`, `iterations`, `faits` et leurs horodatages
+serveur, `ressentis`, `creeLe`, `vuLe`. Aucune pierre tombale, aucune corbeille,
+aucune conservation « au cas où » : le fichier est réécrit atomiquement sans la
+fiche, et le pseudonyme **redevient libre** — quelqu'un peut le reprendre avec un
+autre code, ce qui est exactement le geste « changer de nom » du §7.4 vu depuis
+le serveur.
+
+**Ce qui n'est pas effacé, et pourquoi :**
+
+- **Le compteur d'essais en mémoire** de ce pseudonyme. Il vit hors du fichier et
+  expire seul au bout de 15 minutes ; l'effacer ferait de la suppression le moyen
+  d'annuler une pénalité qu'on vient de déclencher.
+- **Les agrégats déjà servis** — rien n'est réécrit rétroactivement, mais tout
+  est recalculé : au prochain `GET`, `participants` a baissé de un, les rangs se
+  resserrent en 1..N sans trou, `groupe` perd les cases de la fiche, et
+  `/api/coach` perd sa ligne d'assiduité et ses ressentis. Conserver un ressenti
+  orphelin serait garder la donnée d'un enfant qui a demandé son effacement.
+- **Rien côté navigateur.** Vider `marcq.v1.classement` est le geste du PRP 08 ;
+  ce PRP ne connaît pas `localStorage`.
+
+**La suppression reste ouverte après le gel du 21 août.** Un envoi postérieur à
+`prog.Fin` rend `409 classement-fige` ; une suppression est honorée. Le gel
+protège le **rang** d'une modification tardive, pas le droit du §14 : un
+pseudonyme indésirable qui deviendrait ineffaçable le 22 août est précisément le
+risque que le PRD demande d'atténuer. Et une suppression ne peut rien fabriquer —
+elle retire une ligne, jamais n'en ajoute ni n'en améliore une : se retirer d'un
+classement gelé revient à ne l'avoir jamais rejoint, et les autres ne remontent
+que du cran que le départ leur donne mécaniquement.
+
+**Critère d'acceptation** (dans `api_test.go`, avec les autres) : sur un magasin
+portant `Renard`/`4821`, `POST` `{"pseudo":"Renard","code":"4821","supprimer":true}`
+rend `200` et `{"supprime": true}` avec `participants` décrémenté ; le même appel
+rejoué rend `200` et `{"supprime": false}` ; `GET /api/classement` ne contient
+plus la ligne et les rangs restants sont 1..N sans trou ; le fichier du magasin
+ne contient plus la chaîne `Renard` ; sur une fiche existante, la même requête
+avec `"code":"0000"` rend `403` `code-refuse` et la fiche est toujours là, la
+sixième tentative rendant `429` ; une suppression datée après `prog.Fin` rend
+`200` là où un envoi rend `409` `classement-fige` ; enfin, un `POST` portant
+`"supprimer": true` sur un magasin absent (`cl == nil`) rend `503`
+`classement-indisponible` comme les autres.
 
 ### `GET /api/coach`
 
@@ -712,7 +931,9 @@ doit être une date de séance, la valeur ∈ `{facile, correct, dur}`.
 Aucun filtrage de contenu : le PRD §14 tranche déjà ce risque — *« le pseudonyme
 proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et
 supprimable »* — et une liste de mots interdits sur une page lue par une équipe
-qui se connaît serait de l'esbroufe.
+qui se connaît serait de l'esbroufe. Cette atténuation n'est pas déclarative :
+c'est le `supprimer: true` de la section précédente qui la rend exécutable, et
+c'est la seule raison pour laquelle cette API accepte une suppression.
 
 ### Le code à 4 chiffres
 
@@ -737,6 +958,9 @@ en a pas sur le serveur. »*
   autre » et « ton code est faux » rendent le même `403 code-refuse` et le même
   message : *« Ce nom est déjà pris, ou le code ne correspond pas. »* Les
   distinguer transformerait la route en oracle de disponibilité de pseudonymes.
+  La suppression est le seul chemin qui les distingue, parce que l'idempotence
+  l'impose ; ce qu'elle laisse voir est borné, et les points d'attention disent
+  pourquoi c'est acceptable.
 - **Interdits de vocabulaire pour le PRP 08**, imposés par le §7.4 : jamais
   « mot de passe », jamais « sécurise », jamais « protège tes données ». La
   formulation admise est du type : *« Ce code empêche quelqu'un d'autre de
@@ -754,12 +978,13 @@ en a pas sur le serveur. »*
 | corps illisible, > 8 Kio, ou champ inconnu | `400` | `json-invalide` |
 | pseudonyme vide, trop long, caractère refusé | `400` | `pseudo-invalide` |
 | code différent de quatre chiffres | `400` | `code-invalide` |
-| `faits` absent, non tableau, ou plus d'entrées que le programme n'a d'exercices | `400` | `faits-invalide` |
+| `faits` absent (hors suppression), non tableau, ou plus d'entrées que le programme n'a d'exercices | `400` | `faits-invalide` |
 | `ressentis` mal formé | `400` | `ressentis-invalide` |
 | pseudonyme existant, code différent | `403` | `code-refuse` |
-| 5 codes refusés en 15 min sur ce pseudonyme | `429` + `Retry-After: 900` | `trop-d-essais` |
+| **suppression** d'un pseudonyme existant, code différent | `403` | `code-refuse` |
+| 5 codes refusés en 15 min sur ce pseudonyme, envois et suppressions confondus | `429` + `Retry-After: 900` | `trop-d-essais` |
 | 200 participants atteints et le pseudonyme est nouveau | `409` | `classement-plein` |
-| envoi après `prog.Fin` | `409` | `classement-fige` |
+| envoi après `prog.Fin` — la suppression, elle, reste honorée | `409` | `classement-fige` |
 | magasin absent ou non inscriptible | `503` + `Retry-After: 60` | `classement-indisponible` |
 
 `message` est en français, destiné à être affiché tel quel par le PRP 08 : une
@@ -767,10 +992,11 @@ API dont le client doit traduire les codes produit deux vocabulaires qui diverge
 
 **Critère d'acceptation.** `api_test.go` couvre, via `httptest` et `routes(...)`
 — jamais un `ServeMux` reconstruit dans le test, pour la raison que donne
-`cadran/main.go:153-156` — : les trois routes en cas nominal ; les dix lignes du
+`cadran/main.go:153-156` — : les trois routes en cas nominal ; les onze lignes du
 tableau d'erreurs ; le `201` puis `200` sur le même pseudonyme ; l'absence de
-`pseudo` à partir de la quatrième ligne ; l'ordre des ex æquo ; `cl == nil` qui
-rend `503` sur les trois routes pendant que `/healthz` rend `200`.
+`pseudo` à partir de la quatrième ligne ; l'ordre des ex æquo ; les six
+assertions de suppression de la section « Se retirer du classement » ; `cl == nil`
+qui rend `503` sur les trois routes pendant que `/healthz` rend `200`.
 
 ---
 
@@ -810,9 +1036,9 @@ refusée est un point d'injection dans les journaux.
   écriture, sans allocation notable. Un robot qui les martèle consomme du CPU et
   rien d'autre. `Cache-Control: no-store` et aucun en-tête CORS : aucune page
   tierce ne peut les lire depuis un navigateur.
-- `POST` sur un pseudonyme existant avec un mauvais code : **5 échecs en 15
-  minutes** et le pseudonyme répond `429` pendant 15 minutes, code correct ou
-  non. Sans cela, 10 000 possibilités à 50 req/s — la limite du palier — sont
+- `POST` sur un pseudonyme existant avec un mauvais code — envoi ou suppression,
+  le compteur est le même : **5 échecs en 15 minutes** et le pseudonyme répond
+  `429` pendant 15 minutes, code correct ou non. Sans cela, 10 000 possibilités à 50 req/s — la limite du palier — sont
   épuisées en 200 secondes : la limite du palier n'est pas une protection, elle
   est un plafond de débit. Ce compteur vit **en mémoire** et se perd au
   redémarrage : le persister demanderait un élagage, et une pénalité de quinze
@@ -824,10 +1050,13 @@ refusée est un point d'injection dans les journaux.
   pas une cohorte »* — et 200 fiches font environ 500 Kio sur un disque à 92 %.
   Remplir les 200 places reste possible : c'est une nuisance, réparable à la main
   en éditant le fichier et en redémarrant, pas une fuite.
-- **Après le 21 août, il n'y a plus d'écriture du tout** : `classement-fige`
-  ferme la seule route d'écriture pour toute la durée de vie restante de
-  l'application. C'est la meilleure réponse possible à *« l'URL finira par être
-  trouvée »*.
+- **Après le 21 août, la seule écriture qui reste est la suppression de sa propre
+  fiche** : `classement-fige` ferme l'envoi pour toute la durée de vie restante
+  de l'application, et c'est la meilleure réponse possible à *« l'URL finira par
+  être trouvée »*. La suppression, elle, reste ouverte parce que le PRD §14
+  l'exige, et elle n'ouvre rien : elle demande le code de la fiche visée, ne peut
+  que retirer une ligne, et ne fait que **libérer** des places sous le plafond de
+  200.
 - `ReadTimeout: 10 * time.Second` est ajouté au `http.Server` de `main.go`, à
   côté du `ReadHeaderTimeout` du PRP 01 : sans lui, un corps envoyé octet par
   octet immobilise une connexion indéfiniment.
@@ -837,10 +1066,11 @@ qui prime sur toutes les autres : *« Le prénom de l'enfant ne quitte jamais so
 appareil. »* Voici pourquoi la **forme** de l'API le rend impossible, et pas
 seulement déconseillé :
 
-1. **Aucun champ ne peut l'accueillir.** Le corps accepté a exactement quatre
-   champs — `pseudo`, `code`, `faits`, `ressentis` — et `DisallowUnknownFields`
-   rejette tout le reste en `400`. Un client bavard ne fait pas passer une valeur
-   en trop : il fait échouer sa requête.
+1. **Aucun champ ne peut l'accueillir.** Le corps accepté a exactement cinq
+   champs — `pseudo`, `code`, `faits`, `ressentis`, `supprimer` — dont un seul,
+   `pseudo`, est du texte libre, et `DisallowUnknownFields` rejette tout le reste
+   en `400`. Un client bavard ne fait pas passer une valeur en trop : il fait
+   échouer sa requête.
 2. **Le seul texte libre est borné et choisi.** `pseudo`, 16 runes, sans
    caractères de commande : on n'y glisse pas une phrase, et sa valeur est
    précisément ce que l'enfant a décidé de publier après l'écran de consentement
@@ -936,11 +1166,25 @@ un envoi juste avant et un envoi juste après ne sont pas comparables. Le PRP 09
 ne doit pas animer un changement de position qu'il n'a pas causé — d'où le champ
 `jour` dans chaque réponse, à comparer au `dernierRangConnu` mis en cache.
 
-**`enregistrer` ne connaît pas HTTP.** Elle rend des erreurs sentinelles
-(`errCodeRefuse`, `errTropDEssais`, `errClassementPlein`, `errClassementFige`, …)
-que `api.go` traduit en statut et en code. Ce découpage est ce qui rend
-`classement_test.go` lisible sans `httptest`, et c'est le même que celui de
-`cadran`, où `angles` ne connaît pas `http`.
+**La suppression distingue « inconnu » de « code faux » — et c'est borné.** Un
+`200 {"supprime": false}` sur un pseudonyme inconnu et un `403 code-refuse` sur
+une fiche existante disent, ensemble, si un pseudonyme est pris. C'est
+exactement ce que la route d'envoi refuse de dire, et l'écart est assumé pour
+une raison : rendre `403` sur un pseudonyme inconnu ferait perdre l'idempotence,
+et laisserait un enfant qui a vidé son navigateur devant une erreur qu'aucun
+geste ne résout. Ce qui fuit est **l'existence d'un nom, jamais son rang ni son
+score** — au-delà de la troisième ligne, `classement` ne nomme personne, et
+c'est ce lien-là que le PRD §9 protège. Le chemin est en outre soumis au
+compteur de 5 refus par quart d'heure, et la route d'envoi donne déjà la même
+réponse à qui accepte de créer le pseudonyme pour l'obtenir. À ne pas
+« corriger » plus tard en alignant les deux : on casserait la suppression sans
+rien gagner.
+
+**`enregistrer` et `supprimer` ne connaissent pas HTTP.** Elles rendent des
+erreurs sentinelles (`errCodeRefuse`, `errTropDEssais`, `errClassementPlein`,
+`errClassementFige`, …) que `api.go` traduit en statut et en code. Ce découpage
+est ce qui rend `classement_test.go` lisible sans `httptest`, et c'est le même
+que celui de `cadran`, où `angles` ne connaît pas `http`.
 
 **Le `405` ne porte pas l'enveloppe d'erreur JSON.** `http.ServeMux` répond
 lui-même `405 Method Not Allowed` avec un `Allow` correct et un corps en texte

@@ -20,6 +20,15 @@ un couplage** : rien ici ne lit ni ne modifie `vue-perso.js`, et les deux
 branches ne se croisent que dans `web/style.css`. Le PRP 06 s'exécute dès que le
 PRP 04 est fusionné.
 
+**Aucun compteur de l'écran perso ne roule, et c'est une décision.** Les
+attributs `data-compteur` et `data-unite` que le PRP 05 pose sur son pourcentage
+et ses pastilles ne sont lus par personne ici : le roulement du PRD §10
+appartient au panneau de fin de séance, où l'enfant voit le nombre **augmenter**
+après son geste. Arriver sur `#/perso` n'est pas grimper — on anime un changement
+qu'on a vu arriver, jamais un changement qu'on découvre (même règle qu'au PRP 09,
+chantier 4). Les deux attributs du PRP 05 restent des accroches de test, pas un
+contrat avec ce document.
+
 ## Objectif
 
 Cocher la dernière case d'une séance devient un moment — confettis, compteur de
@@ -96,7 +105,7 @@ export const EVT_SEANCE_COMPLETE = 'marcq:seance-complete';
 export const EVT_COCHAGE = 'marcq:exercice-coche';   // pose par le PRP 04, NON consomme ici
 
 // web/domaine.js — PRP 02, ossature §5
-totauxAccomplis(prog, faits)   // -> { pompes, squats, burpees, abdos, gainage_s, min_course, cases }
+totauxAccomplis(prog, faits)   // -> { pompes, squats, burpees, abdos, gainage_s, min_course, fentes, cases }
 
 // web/etat.js — PRP 03
 lireFaits()                    // -> { [id]: isoString }, {} si vide ou illisible
@@ -232,12 +241,6 @@ Le test 16 épingle les deux phrases exportées et refuse une liste de mots dans
 tout le fichier — **commentaires compris**. Ce n'est pas de la pruderie : ces
 mots arrivent par la porte du commentaire (« pas de badge ici ») puis passent
 dans une chaîne à la retouche suivante.
-
-## La convention d'écriture, rappelée
-
-**Les accents vont dans ce que l'enfant lit, pas dans le code** (PRP 01). Les
-phrases affichées portent leurs accents ; les commentaires, les noms de
-fonctions et de variables restent en ASCII. Les messages de commit aussi.
 
 ---
 

@@ -99,6 +99,7 @@ export function toutEffacer()     // -> nombre de clés `marcq.` effacées
 // web/app.js
 export const aujourdhui = () => 'YYYY-MM-DD'          // Europe/Paris, ossature §5
 export const ECRANS = [{ nom, motif, monter }, …]     // le tableau des routes
+export const LIENS = [{ href, texte }, …]             // les onglets de la barre de navigation
 export function choisirEcran(route)                   // -> entrée d'ECRANS | null
 
 // web/vue-prenom.js
@@ -115,6 +116,29 @@ export const AVERTISSEMENT_SAUVEGARDE;   // PRD §14
 export const CONFIRMATION_CHANGEMENT;    // PRD §7.2
 export function monterReglages(hote, ctx)
 ```
+
+Et dans `web/style.css`, la fabrique visuelle que les PRP 04, 05, 06, 08, 09, 10
+et 11 consomment telle quelle : neuf jetons, posés à la tâche 7.
+
+```css
+:root {
+  --marcq-encre;        /* le texte */
+  --marcq-encre-douce;  /* le texte secondaire */
+  --marcq-fond;         /* le fond de page */
+  --marcq-carte;        /* le fond d’un bloc posé sur la page */
+  --marcq-accent;       /* l’action, 7,4:1 sur blanc */
+  --marcq-sur-accent;   /* le texte posé sur l’accent */
+  --marcq-danger;       /* l’irréversible, 7,9:1 sur blanc */
+  --marcq-trait;        /* les bordures */
+  --marcq-tap;          /* 48px — la zone de tap du PRD §11 */
+}
+```
+
+Et dix classes partagées : `.ecran` (la colonne d'un écran), `.titre-ecran`,
+`.titre-bloc`, `.aide` (une ligne d'explication), `.barre` et `.compte` (une
+progression), `.lien-nav` (un onglet), `.bouton` et `.bouton-principal`, `.panne`
+(un message d'échec). Les valeurs sont à la tâche 7 : un PRP aval pose ces noms
+et n'écrit en dur ni couleur, ni hauteur de zone de tap.
 
 ### Le contrat d'écran — c'est lui que les PRP 04, 05, 06, 10 et 11 consomment
 
@@ -183,6 +207,7 @@ sans empiler d'entrée, sinon le bouton retour rejouerait la route morte.
 | `modeleJour`, `dateEnToutesLettres` | Le calcul de ce que l'écran du jour affiche, séparé de son écriture dans le DOM. C'est ce qui rend les trois cas du PRD §6 vérifiables par `node --test`, sans navigateur ni dépendance. |
 | `PHRASE_RASSURANTE`, `AVERTISSEMENT_SAUVEGARDE`, `CONFIRMATION_CHANGEMENT` | Trois phrases exigées par le PRD (§7.1, §14, §7.2). Exportées pour être comparées par un test : une reformulation bien intentionnée les perdrait en silence. |
 | `CLE_PRENOM`, `CLE_FAITS`, `PREFIXE_CLES` | Les clés de l'ossature §6, nommées une fois. Le lot 2 ajoutera les siennes ; `PREFIXE_CLES` est ce qui fait que « changer d'enfant » les emporte aussi. |
+| Les neuf jetons `--marcq-*` et les dix classes partagées de `web/style.css` | `--marcq-encre`, `--marcq-encre-douce`, `--marcq-fond`, `--marcq-carte`, `--marcq-accent`, `--marcq-sur-accent`, `--marcq-danger`, `--marcq-trait`, `--marcq-tap` ; `.ecran`, `.titre-ecran`, `.titre-bloc`, `.aide`, `.barre`, `.compte`, `.lien-nav`, `.bouton`, `.bouton-principal`, `.panne`. L'ossature ne fixe aucune valeur d'apparence : elles sont nommées ici une fois, à la tâche 7, et les PRP 04 à 11 les reprennent au lieu de réinventer chacun sa couleur et sa hauteur de tap. Le préfixe `--marcq-` les distingue de tout jeton d'une autre origine dans la même feuille — ceux du PRP 01, notamment, que cette famille remplace. |
 | `<main id="ecran">`, `<nav id="nav">` | Les deux points d'ancrage de la coque. Le premier reçoit les écrans, le second la barre d'onglets — qui vit **hors** de `#ecran` pour ne pas clignoter d'un écran à l'autre. |
 | `ecrirePrenom` rend le prénom écrit ou `null` ; `cocher`/`decocher` rendent les faits à jour ; `toutEffacer` rend un nombre | L'ossature §6 fixe les signatures, pas les retours. Les PRP 04 et 05 s'appuient dessus. |
 
@@ -1458,7 +1483,12 @@ export const ECRANS = [
 // Les onglets. Meme regle : un ecran pose son lien ici, jamais avant d'exister —
 // un lien mort coute plus cher qu'un lien absent. Le PRP 05 ajoutera « Ma
 // progression ».
-const LIENS = [
+//
+// Exporte, comme `ECRANS` : les PRP 08, 10 et 11 verifient depuis leur fichier
+// de test qu'aucun onglet ne pointe vers un ecran qu'ils n'ont pas encore pose.
+// Un `import { LIENS }` sur un symbole non exporte ferait echouer le chargement
+// du module de test entier, pas une assertion.
+export const LIENS = [
   { href: '#/', texte: 'Aujourd’hui' },
   { href: '#/reglages', texte: 'Réglages' },
 ];
@@ -1703,6 +1733,13 @@ Attendu : ÉCHEC, `# pass 11` et `# fail 2`, le premier sur
 Ajouter ce bloc à la fin de `apps/marcq-handball/web/style.css`. Il vient après
 ce qu'a posé le PRP 01 : à spécificité égale, la dernière règle gagne, et c'est
 bien celle-ci qui doit s'appliquer.
+
+Les jetons du PRP 01 — `--papier`, `--carte`, `--encre`, `--encre-douce`,
+`--trait`, `--signal`, `--signal-lisible`, `--fait`, `--tap`, `--pas`, `--marge`,
+`--rayon`, `--texte`, `--chiffres` — et sa classe `.tap` restent dans la feuille
+mais cessent d'avoir un consommateur : c'est la famille `--marcq-*` déclarée
+ci-dessous que ce PRP et les PRP 04 à 11 lisent. Ne mélange pas les deux dans une
+même règle ; le préfixe est là pour que l'écart se voie.
 
 ```css
 /* ---------------------------------------------------------------------------

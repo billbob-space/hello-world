@@ -299,6 +299,15 @@ Trois conséquences, et la première suffirait :
    merci est un choix complet, pas une punition »* — et qui garantit que rejoindre
    n'est jamais présenté comme un moyen de mieux se classer.
 
+**Cet arbitrage doit remonter au PRD, il ne peut pas vivre ici seul.** Le §7.5
+chiffre la situation par *« tu es 3e sur 9, affichée même sans avoir rejoint »*,
+et le §9 pose que le dénominateur *« compte les participants au classement »* :
+un enfant qui n'a pas rejoint lira donc « 3e sur 10 » là où la source annonce
+« 3e sur 9 ». L'écart est délibéré et démontré ci-dessus, mais il se règle dans
+la source, pas dans un PRP aval : le décideur du PRD valide, et une phrase entre
+au §7.5 et au §9 — **« le dénominateur inclut celui qui regarde »**. Tant qu'elle
+n'y est pas, le prochain lecteur du PRD prendra l'écran pour un défaut.
+
 ### Les fonctions
 
 ```js
@@ -746,11 +755,13 @@ séance se coche de bout en bout.
 | **`web/classement.js` s'aligne-t-il sur la forme du PRP 07 avant que ce PRP ne démarre ?** | le PRP 08, propriétaire de `classement.js`, qui a déjà écrit qu'il s'alignerait | Sans cet alignement, `dernierRangConnu.instantane` ne porte ni `jour`, ni `classement`, ni `participants`, et **rien** de ce document ne fonctionne. C'est le second verrou, et il se lève en corrigeant la lecture de la réponse dans `relever`, `envoyer` et `supprimer` |
 | **`synchroniser` fait-il suivre un `GET` après un `POST` accepté ?** | le PRP 08 | Si oui, le podium est frais après chaque envoi et `moi.jour` vaut toujours `instantane.jour` : le troisième cas de `positionDe` ne se produit jamais. Si non, il se produit à chaque envoi jusqu'au relevé suivant, et le rang affiché est alors celui du repli strict. Le modèle du chantier 1 est correct dans les deux cas ; c'est une question de fraîcheur, pas de justesse |
 | **`dernierRangConnu.moi` porte-t-il le corps entier de la réponse d'envoi, `jour` compris ?** | le PRP 08 | Sans `moi.jour`, le garde-fou de minuit du chantier 4 n'a rien à comparer et le deuxième cas de `positionDe` devient indécidable : il faudrait alors se rabattre systématiquement sur le calcul local, donc afficher un rang que le serveur n'a pas tranché |
+| **« Le dénominateur inclut celui qui regarde » entre-t-il au PRD §7.5 et §9 ?** | le décideur du PRD | Rien dans le code : ce PRP tranche `participants + 1` et la démonstration est au chantier 1. Ce qui bouge est la source — sans cette phrase, l'exemple chiffré du §7.5 (« 3e sur 9 ») contredit l'écran (« 3e sur 10 » pour qui n'a pas rejoint), et la règle survivra moins longtemps que le document qui la porte |
 | **Page 3 sur 3 de la note du coach** (PRD §12.3) | le coach, avant le 17 août | Rien dans cet écran. `programme.json` gagne des séances, `progression` suit, `instantane.programmees` suit, et le garde-fou de comparabilité du chantier 1 signale le seul cas gênant — un téléphone dont le service worker sert encore l'ancien fichier |
 
 **Ce que ce PRP tranche et ne renvoie donc pas plus loin :** le dénominateur
 affiché à un non-participant, que le PRP 08 lui laissait explicitement, vaut
-`participants + 1`. La démonstration est au chantier 1.
+`participants + 1`. La démonstration est au chantier 1, et la phrase qui doit
+remonter au PRD §7.5 et §9 y est écrite telle qu'elle s'y insère.
 
 ## Points d'attention
 
@@ -807,6 +818,6 @@ et renommer l'un de ces exports casse cet écran. C'est le prix à ne pas payer 
 seconde table de mois ni une seconde courbe de roulement dans l'application.
 
 **Les accents vont dans ce que l'enfant lit, pas dans le code.** Convention posée
-au PRP 01 et rappelée aux PRP 04 et 05 : les libellés, les phrases affichées et
-les messages portent leurs accents ; les commentaires, les noms de fonctions, de
-variables et de tests restent en ASCII.
+au PRP 01 : les libellés, les phrases affichées et les messages portent leurs
+accents ; les commentaires, les noms de fonctions, de variables et de tests
+restent en ASCII.
