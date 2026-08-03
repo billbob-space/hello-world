@@ -8,6 +8,8 @@
 #   ./init.sh --app NOM ...   applique les options ci-dessous a cette app
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
+#   ./init.sh --branche NOM   cree la branche de travail : <app|fabrique>/<sujet>
+#   ./init.sh --pret          verifie que l'etape en cours est committable
 #
 # Options — elles ne valent que pour l'app ciblee par --add ou --app :
 #
@@ -30,7 +32,7 @@
 
 set -euo pipefail
 
-CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0
+CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0 BRANCHE="" PRET=0
 declare -A SET=()
 
 while [ $# -gt 0 ]; do
@@ -39,6 +41,8 @@ while [ $# -gt 0 ]; do
     --list)        LIST=1 ;;
     --dry-run)     DRYRUN=1 ;;
     --force)       FORCE=1 ;;
+    --branche)     BRANCHE="$2"; shift ;;
+    --pret)        PRET=1 ;;
     --add)         ADD="$2"; TARGET="$2"; shift ;;
     --app)         TARGET="$2"; shift ;;
     --port)        SET[port]="$2";        shift ;;
@@ -698,6 +702,29 @@ __ENABLED__  },
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-branche.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-commit.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
@@ -779,6 +806,176 @@ fi
 # Toujours 0 : un rapport ne fait pas echouer l'ouverture d'une session.
 exit 0
 SH
+}
+
+emit_garde_branche() {
+  render __BASE__ "$BASE" <<'SH'
+#!/usr/bin/env bash
+#
+# Genere par init.sh — hook PreToolUse : refuse d'ecrire directement sur __BASE__.
+#
+# La fabrique ouvre une branche des la PREMIERE modification. Une regle ecrite
+# dans CLAUDE.md s'oublie ; un hook, lui, s'execute. Il ne cree pas la branche
+# lui-meme : le nom doit dire le sujet, et seul celui qui edite le connait.
+#
+# Aucune dependance : ni jq ni python. Un garde-fou qui ne demarre pas sur une
+# machine depouillee ne garde rien.
+
+set -u
+BASE="__BASE__"
+
+entree=$(cat)
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+racine=$(git rev-parse --show-toplevel)
+courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "$courante" = "$BASE" ] || exit 0
+
+# Un fichier hors du depot ne concerne pas cette regle : le hook n'a pas a
+# bloquer l'edition d'un brouillon ou d'une note personnelle. Chemin illisible
+# = on protege, par defaut.
+cible=$(printf '%s' "$entree" | sed -nE 's/.*"file_path"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' | head -1)
+case "$cible" in
+  "$racine"/*) ;;
+  "")          ;;
+  *) exit 0 ;;
+esac
+
+raison="Modification refusee : HEAD est sur $BASE.\n\nLa fabrique ouvre une branche des la premiere modification, nommee <app>/<sujet> — ou fabrique/<sujet> pour init.sh, la CI, le contrat ou l'outillage.\n\n  ./init.sh --branche <app>/<sujet>\n\nPuis recommence cette modification."
+
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$raison"
+exit 0
+SH
+}
+
+emit_garde_commit() {
+  render __BASE__ "$BASE" <<'SH'
+#!/usr/bin/env bash
+#
+# Genere par init.sh — hook Stop : refuse de terminer sur un arbre de travail
+# sale.
+#
+# Committer a chaque etape verifiee est ce qui evite la PR de mille lignes que
+# personne ne relit vraiment. Le hook ne committe pas a votre place : il refuse
+# seulement de laisser du travail non enregistre derriere lui.
+
+set -u
+BASE="__BASE__"
+
+entree=$(cat)
+
+# Garde anti-boucle. Quand ce hook a deja bloque et que la main est revenue,
+# stop_hook_active vaut true : bloquer de nouveau ferait tourner en rond. En cas
+# de doute on laisse passer — se tromper dans ce sens ne coute qu'un rappel
+# manque, se tromper dans l'autre bloque la session.
+case "$entree" in *'"stop_hook_active"'*true*) exit 0 ;; esac
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+cd "$(git rev-parse --show-toplevel)" 2>/dev/null || exit 0
+
+courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ "$courante" = "$BASE" ] && exit 0
+
+sale=$(git status --porcelain 2>/dev/null)
+[ -n "$sale" ] || exit 0
+n=$(printf '%s\n' "$sale" | grep -c . || true)
+
+raison="$n fichier(s) non committe(s) sur $courante.\n\nLa fabrique committe a chaque etape verifiee, pour que la relecture se fasse commit par commit plutot qu'en bloc a la fin.\n\n  ./init.sh --pret                    # l'etape est-elle committable ?\n  git add -A && git commit\n  git push -u origin $courante\n\nL'agent greffier fait ces trois gestes d'un coup. Si ce travail ne doit deliberement pas etre committe, dis-le explicitement."
+
+printf '{"decision":"block","reason":"%s"}\n' "$raison"
+exit 0
+SH
+}
+
+emit_pr_template() {
+  cat <<'MD'
+<!-- Une pull request se lit en trente secondes. Elle sert a decider s'il faut
+     relire et par ou commencer — le raisonnement, lui, vit dans les messages de
+     commit, ou il reste attache au changement qu'il explique. -->
+
+<!-- Une phrase : ce que ce changement fait. -->
+
+## Ce qui compte
+
+<!-- Trois a cinq puces, la plus importante en premier. Ce qu'un relecteur doit
+     savoir pour juger — pas la liste de ce qui a ete fait, le diff la montre
+     deja. Mets en gras le mot qui porte l'idee de chaque puce. -->
+
+## Verifie
+
+<!-- Une ou deux lignes : ce qui a ete lance, et le resultat. Des nombres
+     plutot que des adjectifs. -->
+
+## Avant de fusionner
+
+<!-- Supprime cette section s'il n'y a rien a signaler. Sinon : points
+     d'attention, gestes cote serveur, ce qui n'est pas couvert par la CI. -->
+MD
+}
+
+emit_greffier() {
+  render __APPS__ "${APPS[*]}" __BASE__ "$BASE" <<'MD'
+---
+name: greffier
+description: Enregistre dans git le travail en cours de la fabrique — ouvre la branche au bon nom si besoin, verifie que l'etape est committable, committe et pousse. A lancer des qu'une etape verifiee est terminee, ou quand l'arbre de travail est sale. Ne modifie jamais le code.
+tools: Bash, Read, Grep
+model: haiku
+---
+
+Tu es le greffier de la fabrique : tu tiens son journal git. Tu n'ecris pas de
+code, tu enregistres celui des autres. Sois rapide — peu de commandes, aucune
+exploration inutile.
+
+## La sequence, dans cet ordre
+
+**1. Regarde.** `git status --porcelain` et `git rev-parse --abbrev-ref HEAD`.
+Si rien n'est modifie, arrete-toi et dis « rien a enregistrer ». N'invente pas
+de travail.
+
+**2. La branche.** Si HEAD est sur `__BASE__`, il faut une branche dediee :
+
+    ./init.sh --branche <prefixe>/<sujet>
+
+Le prefixe est l'app touchee — parmi : __APPS__ — ou `fabrique` si le
+changement porte sur `init.sh`, `fabrique.yml`, `compose.yaml`, `.github/`,
+`.claude/` ou la documentation racine. Si plusieurs apps sont touchees a la
+fois, c'est un changement transverse : prefixe `fabrique`.
+
+Le sujet fait deux a quatre mots en minuscules separes par des tirets, et dit
+**ce que le changement fait**, pas quels fichiers il touche. Lis le diff pour
+le trouver. Si HEAD est deja sur une branche dediee, garde-la.
+
+**3. Verifie.** `./init.sh --pret`. **S'il echoue, tu t'arretes la.** Tu ne
+committes pas, tu ne poussses pas : tu rapportes exactement les lignes en echec.
+Un commit qui casse quelque chose rend la relecture plus dure, pas plus simple.
+
+**4. Committe.** `git add -A`, puis un message dans le style du depot :
+
+- une premiere ligne de 72 caracteres au plus, en francais **sans accents**,
+  de la forme `perimetre : ce que fait le changement` — le perimetre est le nom
+  de l'app ou `fabrique`, `outillage`, `ci`, `doc` ;
+- un corps qui dit **pourquoi**, et ce que ca evite, quand ce n'est pas evident
+  a la lecture du diff. Pas de liste de fichiers : le diff les montre deja ;
+- termine par les lignes d'attribution que ton prompt systeme impose.
+
+Lis le diff (`git diff --staged`) avant d'ecrire le message. Un message exact
+est la moitie de la valeur d'un commit.
+
+**5. Pousse.** `git push -u origin <branche>`. En cas d'echec reseau, reessaie
+jusqu'a quatre fois en doublant l'attente : 2 s, 4 s, 8 s, 16 s.
+
+**6. Rapporte** en trois lignes : la branche, le SHA court et la premiere ligne
+du message, le nombre de fichiers.
+
+## Ce que tu ne fais jamais
+
+- committer ou pousser sur `__BASE__` ;
+- `--force`, `--amend`, `rebase`, `reset --hard`, `merge`, supprimer une branche —
+  tu ajoutes a l'histoire, tu ne la reecris pas ;
+- ouvrir une pull request : elle vient a la fin, et ce n'est pas ton geste ;
+- modifier un fichier de code. Si `--pret` echoue, ce n'est pas a toi de
+  reparer : rapporte et arrete-toi.
+MD
 }
 
 emit_cloud_setup() {
@@ -885,12 +1082,19 @@ emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
     .claude/settings.json)        emit_settings ;;
     .claude/check-plugins.sh)     emit_check_plugins ;;
     .claude/cloud-setup.sh)       emit_cloud_setup ;;
+    .claude/garde-branche.sh)     emit_garde_branche ;;
+    .claude/garde-commit.sh)      emit_garde_commit ;;
+    .claude/agents/greffier.md)   emit_greffier ;;
+    .github/pull_request_template.md) emit_pr_template ;;
     go.work)                      emit_gowork ;;
   esac
 }
 
-DERIVES=(compose.yaml .github/workflows/build.yml .claude/settings.json
-         .claude/check-plugins.sh .claude/cloud-setup.sh go.work)
+DERIVES=(compose.yaml .github/workflows/build.yml .github/pull_request_template.md
+         .claude/settings.json
+         .claude/check-plugins.sh .claude/cloud-setup.sh
+         .claude/garde-branche.sh .claude/garde-commit.sh
+         .claude/agents/greffier.md go.work)
 
 # --- --add ----------------------------------------------------------------------
 
@@ -1054,6 +1258,110 @@ apply_target_options() {
     ok "apps/$TARGET/app.yml : $k = ${SET[$k]}"
   done
 }
+
+# --- la branche de travail ------------------------------------------------------
+#
+# Convention : <app>/<sujet>, ou fabrique/<sujet> pour ce qui touche init.sh, la
+# CI, le contrat ou l'outillage. Le prefixe dit quel perimetre est en jeu — donc
+# quel rayon de souffle — avant meme d'ouvrir le diff.
+
+BASE=$(fab base_branch main)
+
+apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+  {
+    git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
+    git status --porcelain 2>/dev/null | cut -c4- || true
+  } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u
+}
+
+if [ -n "$BRANCHE" ]; then
+  discover_apps
+  prefixe=${BRANCHE%%/*}; sujet=${BRANCHE#*/}
+
+  if [ "$prefixe" = "$BRANCHE" ]; then
+    echo "ERREUR : '$BRANCHE' n'a pas de prefixe." >&2
+    echo "Attendu : <app>/<sujet>, ou fabrique/<sujet> pour l'infrastructure." >&2
+    echo "Apps disponibles : ${APPS[*]}" >&2
+    exit 1
+  fi
+
+  connu=0
+  [ "$prefixe" = fabrique ] && connu=1
+  for a in "${APPS[@]}"; do [ "$a" = "$prefixe" ] && connu=1; done
+  if [ "$connu" = 0 ]; then
+    echo "ERREUR : prefixe '$prefixe' inconnu." >&2
+    echo "Attendu : ${APPS[*]} fabrique" >&2
+    exit 1
+  fi
+
+  printf '%s' "$sujet" | grep -qE '^[a-z0-9][a-z0-9-]*$' || {
+    echo "ERREUR : sujet '$sujet' invalide — minuscules, chiffres et tirets." >&2; exit 1; }
+
+  if git show-ref --verify --quiet "refs/heads/$BRANCHE"; then
+    git switch "$BRANCHE"
+    ok "branche existante : $BRANCHE"
+  else
+    # Partir de la base a jour plutot que du HEAD courant : une branche greffee
+    # sur une autre branche de travail traine ses commits dans sa PR.
+    git fetch origin "$BASE" >/dev/null 2>&1 || warn "origin/$BASE non joignable, depart depuis HEAD"
+    if git show-ref --verify --quiet "refs/remotes/origin/$BASE"; then
+      git switch -c "$BRANCHE" "origin/$BASE"
+    else
+      git switch -c "$BRANCHE"
+    fi
+    ok "branche creee : $BRANCHE"
+  fi
+  exit 0
+fi
+
+# --- --pret : cette etape est-elle committable ? --------------------------------
+#
+# Le point de passage avant chaque commit. Un commit qui casse quelque chose
+# rend la relecture plus dure, pas plus simple : c'est tout l'interet de
+# committer par etapes verifiees plutot qu'au kilometre.
+
+if [ "$PRET" = 1 ]; then
+  courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  echo "Etape en cours — branche $courante"
+
+  if [ "$courante" = "$BASE" ]; then
+    bad "sur $BASE : le travail doit vivre sur une branche dediee (./init.sh --branche <app>/<sujet>)"
+  else
+    ok "branche dediee"
+  fi
+
+  if "$0" --check >/tmp/.pret-check.$$ 2>&1; then
+    ok "contrat respecte"
+  else
+    bad "./init.sh --check echoue :"
+    grep -E 'KO' /tmp/.pret-check.$$ | sed 's/^/      /' || true
+  fi
+  rm -f /tmp/.pret-check.$$
+
+  # Seules les apps reellement touchees depuis la base : sur une fabrique qui
+  # grandit, tout relancer a chaque commit couterait plus que ca ne rapporte.
+  touchees=$(apps_touchees)
+  if [ -z "$touchees" ]; then
+    ok "aucune app modifiee — pas de test a lancer"
+  else
+    for a in $touchees; do
+      if [ ! -x "apps/$a/test.sh" ]; then
+        bad "[$a] test.sh absent ou non executable"
+      elif "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
+        ok "[$a] tests verts"
+      else
+        bad "[$a] tests en echec :"
+        tail -15 /tmp/.pret-test.$$ | sed 's/^/      /'
+      fi
+      rm -f /tmp/.pret-test.$$
+    done
+  fi
+
+  echo
+  [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s) — ne committe pas en l'etat."; exit 1; }
+  echo "Etape verifiee. Tu peux committer."
+  exit 0
+fi
 
 # --- --list ---------------------------------------------------------------------
 
@@ -1296,7 +1604,7 @@ if [ "$CHECK" = 1 ]; then
   # generateur produit un fichier plausible mais inanalysable, qui echouerait
   # silencieusement au demarrage d'une session cloud. bash -n le voit tout de
   # suite, et coute une milliseconde.
-  for s in .claude/check-plugins.sh .claude/cloud-setup.sh apps/*/test.sh; do
+  for s in .claude/check-plugins.sh .claude/cloud-setup.sh .claude/garde-*.sh apps/*/test.sh; do
     [ -f "$s" ] || continue
     bash -n "$s" 2>/dev/null && ok "$s analysable" || bad "$s : erreur de syntaxe shell"
   done
@@ -1419,7 +1727,7 @@ for f in "${DERIVES[@]}"; do
   mv "$tmp" "$f"
   ok "$f"
 done
-chmod +x .claude/check-plugins.sh
+chmod +x .claude/check-plugins.sh .claude/garde-branche.sh .claude/garde-commit.sh
 
 IGNORES=('.claude/settings.local.json' '.env' '.env.*' '*.log')
 # `go build` sans -o depose son binaire dans le repertoire courant, sous le nom

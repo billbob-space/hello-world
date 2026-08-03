@@ -107,6 +107,87 @@ peut pas** casser la stack des autres.
 Si la nouvelle app introduit un langage absent du dépôt, recolle
 `.claude/cloud-setup.sh` dans le champ *Setup script* de ton environnement.
 
+## Comment on travaille : branche, puis commits par étapes
+
+**Jamais de modification directe sur `main`.** Une branche s'ouvre dès la
+**première** modification, et elle est nommée `<app>/<sujet>` — ou
+`fabrique/<sujet>` pour ce qui touche `init.sh`, `fabrique.yml`, la CI, le
+contrat ou l'outillage. Le préfixe dit quel périmètre est en jeu, donc quel
+rayon de souffle, avant même d'ouvrir le diff.
+
+```bash
+./init.sh --branche cadran/fuseaux-multiples
+./init.sh --branche fabrique/garde-fous-git
+```
+
+Le nom est validé avant la création : préfixe connu, sujet en minuscules. La
+branche part de `origin/main`, jamais du HEAD courant — greffée sur une autre
+branche de travail, elle traînerait ses commits dans sa PR.
+
+**Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque
+commit :
+
+```bash
+./init.sh --pret     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
+```
+
+`--pret` ne relance que les apps réellement modifiées depuis la base : sur une
+fabrique qui grandit, tout relancer à chaque commit coûterait plus que ça ne
+rapporte. Chaque commit est ainsi relisable seul et ne casse rien — c'est ce qui
+rend la relecture simple, et c'est le seul intérêt de committer souvent. On
+pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ensemble
+cohérent.
+
+### Deux garde-fous, parce qu'une règle écrite s'oublie
+
+| Hook | Ce qu'il fait |
+|---|---|
+| `.claude/garde-branche.sh` (`PreToolUse`) | refuse toute édition tant que HEAD est sur `main`, et donne la commande exacte |
+| `.claude/garde-commit.sh` (`Stop`) | refuse de terminer sur un arbre de travail sale |
+
+Ils sont générés par `init.sh` comme le reste de `.claude/`, et `--check` refuse
+qu'ils divergent de leur générateur. Aucun des deux ne dépend de `jq` ni de
+`python` : un garde-fou qui ne démarre pas sur une machine dépouillée ne garde
+rien.
+
+Le garde-fou de branche n'ouvre pas la branche à ta place : le nom doit dire le
+sujet, et seul celui qui édite le connaît.
+
+### L'agent `greffier`
+
+Les trois gestes — brancher, vérifier, committer et pousser — se délèguent :
+
+```
+Agent(subagent_type: "greffier")   # lançable en tâche de fond
+```
+
+Il est restreint à `Bash`, `Read` et `Grep`. **L'absence d'outil d'édition n'est
+pas un détail de configuration** : c'est ce qui garantit qu'un agent lancé en
+fond ne peut pas modifier le dépôt pendant que tu travailles dessus. Si
+`./init.sh --pret` échoue, il s'arrête et rapporte — réparer n'est pas son rôle.
+Il ne réécrit jamais l'histoire (`--force`, `--amend`, `rebase`, `reset --hard`,
+`merge` lui sont interdits) et n'ouvre pas de pull request.
+
+**Le registre des agents est lu au démarrage de la session.** Un agent ajouté en
+cours de session n'est donc invocable qu'à la session suivante — exactement le
+même piège que les plugins, et pour la même raison. En attendant, sa séquence
+s'exécute à la main, elle tient en quatre commandes.
+
+### La pull request se lit en trente secondes
+
+Un corps de PR n'est pas un compte rendu. Il sert à décider **s'il faut relire,
+et par où commencer** : une phrase sur ce que fait le changement, trois à cinq
+puces sur ce qui compte, ce qui a été vérifié en chiffres, et les points
+d'attention avant fusion. Le reste encombre.
+
+`.github/pull_request_template.md`, généré, en donne la forme — remplis ses
+sections, ne les invente pas.
+
+Le raisonnement détaillé, lui, va dans les **messages de commit**, où il reste
+attaché au changement qu'il explique et survit à la fusion. C'est aussi ce qui
+rend le découpage en étapes payant : quatre commits bien décrits valent mieux
+qu'un long corps de PR que personne ne relira.
+
 ## Le rayon de souffle
 
 Une seule stack, donc un seul `docker compose up`, atomique pour l'ensemble.

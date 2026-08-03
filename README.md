@@ -69,6 +69,22 @@ Trois garde-fous en découlent :
 Le pire cas est donc « rien n'est déployé », jamais « tout tombe ». Un
 déploiement refusé se lit dans les journaux du workflow, pas sur le site.
 
+## Comment on travaille
+
+Une branche dès la première modification, nommée `<app>/<sujet>` — ou
+`fabrique/<sujet>` pour l'infrastructure —, puis un commit par étape vérifiée.
+
+```bash
+./init.sh --branche cadran/fuseaux-multiples   # nom validé, départ depuis origin/main
+./init.sh --pret                               # cette étape est-elle committable ?
+```
+
+Deux hooks générés font respecter la règle plutôt que de l'écrire : l'un refuse
+toute édition tant que HEAD est sur `main`, l'autre refuse de terminer sur un
+arbre de travail sale. L'agent `greffier` enchaîne les trois gestes — brancher,
+vérifier, committer et pousser — et se lance en tâche de fond. Le détail est
+dans [`CLAUDE.md`](CLAUDE.md).
+
 ## Le contrôle avant de pousser
 
 ```bash
