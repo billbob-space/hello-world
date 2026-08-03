@@ -734,7 +734,9 @@ rend un membre de `MOTS_PSEUDO` suivi de deux chiffres, et son arité est ≤ 1 
 `'Renard.14'` — le point n'est pas dans le jeu du serveur —, accepte `'Léo-7'`,
 `'Renard 14'` et `"L'Ours"`, et ramène `'L’Ours'` à `"L'Ours"` ; `validerCode`
 refuse `'12'`, `'12a4'`, `'12345'` ; `messageErreur` rend une phrase non vide
-pour les **onze** codes du PRP 07, pour `statut 0` et pour un code inconnu, et
+pour les **dix** codes distincts du PRP 07 — son tableau compte onze lignes,
+`code-refuse` y couvrant l'envoi et la suppression —, pour `statut 0` et pour un
+code inconnu, et
 sa phrase du `403 code-refuse` est **exactement** le `message` du PRP 07 —
 l'assertion est écrite en dur, c'est ce qui fait tomber le test le jour où l'un
 des deux documents bouge sans l'autre.

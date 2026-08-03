@@ -25,14 +25,18 @@
 > puis sur le PRP 08, puis sur celui-ci. Tant qu'il tient, le travail en aval est
 > spéculatif : cet écran n'a rien à afficher, parce qu'il n'a rien à lire.
 
-**Un second verrou, plus proche et plus facile à lever.** Les PRP 07 et 08 ne
-décrivent pas le même corps JSON. Le PRP 07 est propriétaire de l'API et le
-PRP 08 l'écrit lui-même : *« En cas d'écart, c'est ce document qui s'aligne. »*
-Ce PRP consomme donc **la forme du PRP 07**, et l'écart est chiffré au chantier 1.
-Tant que `web/classement.js` range dans `dernierRangConnu` la forme inventée au
-PRP 08 (`date`, `podium`, `parts`), rien de ce qui suit ne fonctionne — et
-l'échec est silencieux : `instantane.classement` vaut `undefined`, le podium est
-vide, la position est nulle, et l'écran ne montre rien sans se plaindre.
+**Le second verrou est levé.** Les PRP 07 et 08 décrivaient deux corps JSON
+différents — le PRP 08 avait été rédigé en parallèle du PRP 07, sans pouvoir lire
+le contrat que celui-ci écrivait, et consommait donc une API imaginée (`date`
+pour `jour`, `podium` et `parts` pour `classement`). Le PRP 08 a depuis été
+aligné sur la forme du PRP 07, qui est propriétaire de l'API. Ce PRP consomme
+cette même forme, et n'a plus d'écart à rattraper.
+
+Il reste de ce verrou une **dépendance d'exécution**, pas de contenu : le PRP 08
+doit être fusionné avant celui-ci, puisque c'est lui qui pose
+`web/classement.js`. Tant qu'il ne l'est pas, `instantane.classement` vaut
+`undefined` et l'échec est silencieux — le podium est vide, la position est
+nulle, et l'écran ne montre rien sans se plaindre.
 
 ## Objectif
 
@@ -257,12 +261,14 @@ que vivent les trois règles du PRD §9, et c'est ce qui les rend prouvables par
 | `date` | `jour` | Le nom du champ de datation, lu par `datationEquipe` |
 | `podium: [3 lignes nommées]` | `classement: [N lignes, nommées jusqu'à la 3ᵉ]` | Le podium se **dérive** du tableau au lieu d'être un champ |
 | `parts: [nombres triés]` | `classement[i].cochees` et `.part` | La position d'un non-participant se déduit du même tableau, en mieux : il porte les rangs déjà tranchés par le serveur |
-| `POST` rend le corps du `GET` + `moi` | `POST` rend **huit champs plats**, sans le tableau | Après un envoi, le podium n'est **pas** rafraîchi ; seul `moi` l'est |
+| `POST` rend le corps du `GET` + `moi` | `POST` rend **huit champs plats**, sans le tableau | La réponse d'envoi ne porte pas le tableau ; le PRP 08 fait donc suivre un `GET` dans le même appel à `synchroniser`, et le podium est frais après chaque envoi |
 
-Les trois premières lignes sont des renommages : `web/classement.js` s'y aligne,
-et le PRP 08 l'a écrit d'avance — *« seules `corpsEnvoi`, `corpsSuppression` et
-la lecture de la réponse dans `relever` / `envoyer` / `supprimer` changent »*.
-La quatrième est une décision d'affichage, et elle se prend ici.
+Les trois premières lignes sont des renommages : `web/classement.js` s'y est
+aligné. La quatrième n'est plus une décision à prendre ici — le PRP 08 l'a
+tranchée en enchaînant le `GET` de rafraîchissement derrière l'envoi, de sorte
+que `dernierRangConnu.instantane` porte le tableau d'**après** l'envoi. Cet écran
+lit donc toujours un instantané frais, et n'a aucun rafraîchissement à déclencher
+de son côté.
 
 **Ce que ce PRP exige de `dernierRangConnu` :** `{ recuA, instantane, moi }` où
 `instantane` est **le corps du dernier `GET` reçu, entier et non transformé**, et
@@ -749,12 +755,18 @@ séance se coche de bout en bout.
 
 ## Ce qui reste à trancher avant d'exécuter
 
+**Trois questions que ce document posait ne se posent plus.** Le PRP 08 a été
+aligné sur le contrat du PRP 07 et a tranché ce qu'il laissait ouvert :
+`web/classement.js` lit désormais la forme du PRP 07 ; `synchroniser` fait suivre
+un `GET` après un `POST` accepté, donc le podium est frais après chaque envoi et
+le troisième cas de `positionDe` ne se produit jamais ; et
+`dernierRangConnu.moi` porte le corps entier de la réponse d'envoi, `jour` et
+`ignores` compris, donc le garde-fou de minuit du chantier 4 a bien de quoi
+comparer.
+
 | Question | Qui tranche | Ce qui bouge selon la réponse |
 |---|---|---|
 | **Les scores survivent-ils à un redéploiement ?** (PRD §12.1) | l'exploitation du serveur | Tout. C'est le verrou en tête de document : « non » fait tomber le PRP 07, donc le 08, donc celui-ci |
-| **`web/classement.js` s'aligne-t-il sur la forme du PRP 07 avant que ce PRP ne démarre ?** | le PRP 08, propriétaire de `classement.js`, qui a déjà écrit qu'il s'alignerait | Sans cet alignement, `dernierRangConnu.instantane` ne porte ni `jour`, ni `classement`, ni `participants`, et **rien** de ce document ne fonctionne. C'est le second verrou, et il se lève en corrigeant la lecture de la réponse dans `relever`, `envoyer` et `supprimer` |
-| **`synchroniser` fait-il suivre un `GET` après un `POST` accepté ?** | le PRP 08 | Si oui, le podium est frais après chaque envoi et `moi.jour` vaut toujours `instantane.jour` : le troisième cas de `positionDe` ne se produit jamais. Si non, il se produit à chaque envoi jusqu'au relevé suivant, et le rang affiché est alors celui du repli strict. Le modèle du chantier 1 est correct dans les deux cas ; c'est une question de fraîcheur, pas de justesse |
-| **`dernierRangConnu.moi` porte-t-il le corps entier de la réponse d'envoi, `jour` compris ?** | le PRP 08 | Sans `moi.jour`, le garde-fou de minuit du chantier 4 n'a rien à comparer et le deuxième cas de `positionDe` devient indécidable : il faudrait alors se rabattre systématiquement sur le calcul local, donc afficher un rang que le serveur n'a pas tranché |
 | **« Le dénominateur inclut celui qui regarde » entre-t-il au PRD §7.5 et §9 ?** | le décideur du PRD | Rien dans le code : ce PRP tranche `participants + 1` et la démonstration est au chantier 1. Ce qui bouge est la source — sans cette phrase, l'exemple chiffré du §7.5 (« 3e sur 9 ») contredit l'écran (« 3e sur 10 » pour qui n'a pas rejoint), et la règle survivra moins longtemps que le document qui la porte |
 | **Page 3 sur 3 de la note du coach** (PRD §12.3) | le coach, avant le 17 août | Rien dans cet écran. `programme.json` gagne des séances, `progression` suit, `instantane.programmees` suit, et le garde-fou de comparabilité du chantier 1 signale le seul cas gênant — un téléphone dont le service worker sert encore l'ancien fichier |
 

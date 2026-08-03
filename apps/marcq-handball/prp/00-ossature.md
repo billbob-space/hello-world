@@ -377,6 +377,11 @@ Elles s'appliquent à **tous** les PRP.
 
 - **Français** pour l'interface, les commentaires, la documentation, les
   messages de commit et les noms de fonctions.
+- **Les accents vont dans ce que l'enfant lit, pas dans le code.** Les libellés,
+  les phrases affichées et les messages d'erreur destinés à l'écran portent
+  leurs accents ; les commentaires, les noms de fonctions, de variables, de
+  tests et les messages de commit restent en ASCII. C'est ce qui évite qu'un
+  identifiant s'écrive de deux façons selon le clavier de qui l'a tapé.
 - **Aucun secret** dans le dépôt ni dans l'image. Les noms des variables
   attendues vont dans le `README`, jamais les valeurs.
 - **Aucune section `ports:`**, aucun `LABEL traefik.*` dans le `Dockerfile`.

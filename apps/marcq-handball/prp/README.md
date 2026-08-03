@@ -14,6 +14,12 @@ l'avoir lu, et aucun n'introduit un nom qui n'y figure pas sans le déclarer.
 déployable de plus.** La frontière tombe là où un relecteur pourrait accepter
 l'un et refuser son voisin, et où le livrable tient dans une phrase vérifiable.
 
+**Une exception, et une seule : le PRP 01.** Il porte deux branches et deux pull
+requests — `marcq-handball/socle` puis `marcq-handball/activation` — parce que la
+fabrique l'impose : une application entre dans le compose après que son image est
+publiée, jamais avant. Ce n'est pas une entorse à la règle mais la séquence en
+deux commits du contrat, et c'est le seul PRP qui la traverse.
+
 Ce n'est donc pas un PRP par item du PRD : le socle et le programme n'y sont pas
 numérotés alors qu'ils portent tout le reste, tandis que les items 3, 4 et 6 du
 lot 1 ne se relisent pas séparément — ils décrivent un seul geste, cocher.

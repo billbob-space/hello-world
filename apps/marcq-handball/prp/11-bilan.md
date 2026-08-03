@@ -165,7 +165,8 @@ ETATS                                              // { [statut]: { libelle, mar
 seancesTerminees(prog, faits)                      // -> entier ; sans horloge
 
 // web/vue-seance.js — PRP 04 (dans le test seulement)
-MOTIF_SEANCE                                       // /^#\/seance\/(\d{4}-…)$/
+MOTIF_SEANCE
+// /^#\/seance\/(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))$/
 motifVerrou({ dateISO, aujourdhui, fin })          // -> phrase | null
 ```
 

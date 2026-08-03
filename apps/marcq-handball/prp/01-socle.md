@@ -102,11 +102,16 @@ const COQUE = [ '/', '/style.css' ];   // tout PRP qui ajoute un fichier de coqu
 - `GET /programme.json` est **déjà câblé** avec `application/json; charset=utf-8`
   et `Cache-Control: no-cache`. PRP 02 dépose le fichier et remplace
   `TestProgrammeJSONPasEncoreLivre` par l'assertion 200.
-- Jetons CSS de `web/style.css`, utilisables par tous les écrans :
+- Jetons CSS de `web/style.css` pour la page d'attente :
   `--papier --carte --encre --encre-douce --trait --signal --signal-lisible
-  --fait --tap --pas --marge --rayon --texte --chiffres`, la classe utilitaire
-  `.tap` (hauteur et largeur minimales de 44 px, PRD §11) et le bloc
-  `prefers-reduced-motion` global (PRD §10).
+  --fait --tap --pas --marge --rayon --texte --chiffres`, plus la classe
+  utilitaire `.tap` (hauteur et largeur minimales de 44 px, PRD §11).
+  **Ils ne survivent pas au PRP 03**, qui remplace la page d'attente par les
+  écrans et déclare sa propre famille `--marcq-*` : ces jetons restent dans la
+  feuille mais cessent d'avoir un consommateur (voir PRP 03, « Le style des
+  écrans »). N'écris donc rien en aval qui les lise.
+- Le bloc `prefers-reduced-motion` global (PRD §10), lui, est **définitif** :
+  posé ici une fois pour toutes, il couvre tous les écrans à venir.
 
 **Noms introduits ici et absents de `00-ossature.md`**, donc définis par ce
 document : `apps/marcq-handball/package.json`, `apps/marcq-handball/tests/coque.test.js` ;

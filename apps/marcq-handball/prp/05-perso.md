@@ -104,7 +104,7 @@ export function choisirEcran(route)
 ```
 
 ```
-Jetons et classes de web/style.css — PRP 01 et 03
+Jetons et classes de web/style.css — PRP 03
   --marcq-encre --marcq-encre-douce --marcq-fond --marcq-carte --marcq-accent
   --marcq-sur-accent --marcq-danger --marcq-trait --marcq-tap (48px)
   .ecran  .titre-ecran  .titre-bloc  .aide  .barre (un <progress>)  .lien-nav
@@ -1213,7 +1213,11 @@ Et l'onglet dans `LIENS`, **entre le jour et les réglages** : le PRD §7.5 met
 « Ma progression » juste après ce qu'il y a à faire aujourd'hui.
 
 ```js
-const LIENS = [
+// `export` conserve, comme sur `ECRANS` : les PRP 08, 10 et 11 importent `LIENS`
+// depuis leur fichier de test. Toute reecriture de ce bloc doit le garder — un
+// `import { LIENS }` sur un symbole redevenu prive ferait echouer le chargement
+// du module de test entier, et l'erreur ne designerait pas ce fichier-ci.
+export const LIENS = [
   { href: '#/', texte: 'Aujourd’hui' },
   { href: '#/perso', texte: 'Ma progression' },
   { href: '#/reglages', texte: 'Réglages' },
