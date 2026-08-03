@@ -1187,7 +1187,9 @@ button, input, select { font: inherit; color: inherit; }
 
 .fiche {
   left: 0; right: 0; bottom: 0;
-  max-height: 62vh;
+  /* 55vh et non 62 : au-dela, la barre d'outils et la fiche ne laissaient plus
+     qu'une centaine de points au canevas — c'est-a-dire pas d'arbre du tout. */
+  max-height: 55vh;
   border-width: 1px 0 0;
   border-radius: 10px 10px 0 0;
   transition: transform var(--duree-promotion) var(--deplacement);

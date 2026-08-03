@@ -224,7 +224,9 @@
       <header class="fiche__tete">
         <div class="fiche__portrait" id="fiche-portrait" aria-hidden="true"></div>
         <div class="fiche__identite">
-          <h3 class="fiche__nom" id="fiche-nom"></h3>
+          <!-- h2 et non h3 : le titre de section est un h1 depuis la correction du
+               niveau manquant en exploration, et h1 -> h3 sautait un rang. -->
+          <h2 class="fiche__nom" id="fiche-nom"></h2>
           <p class="fiche__audience" id="fiche-audience"></p>
           <ul class="genres" id="fiche-genres" aria-label="Genres"></ul>
         </div>
@@ -260,7 +262,7 @@
 
       <section class="disco" aria-labelledby="disco-titre">
         <div class="disco__tete">
-          <h4 class="disco__titre" id="disco-titre">Discographie</h4>
+          <h3 class="disco__titre" id="disco-titre">Discographie</h3>
           <!-- "Le filtre est masque s'il n'y a rien a filtrer" (F-22) -->
           <div class="filtres" id="filtres" role="group" aria-label="Filtrer par type de sortie" hidden></div>
         </div>

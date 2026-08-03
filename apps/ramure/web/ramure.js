@@ -424,6 +424,7 @@ function cadre() {
   // se retrouve cachee derriere le panneau sur telephone.
   let occupeLargeur = 0;
   let occupeHauteur = 0;
+  let occupeHaut = 0;
 
   if (large()) {
     occupeLargeur = ouverte ? fiche.getBoundingClientRect().width + 32 : 0;
@@ -433,18 +434,42 @@ function cadre() {
     // La place reellement prise est publiee pour que les commandes de cadrage
     // et la legende se posent juste au-dessus, quelle que soit la hauteur.
     $("canevas").style.setProperty("--place-fiche", `${Math.round(occupeHauteur)}px`);
+
+    // Et la barre d'outils mange le HAUT. Elle etait ignoree, alors qu'elle
+    // s'etend sur toute la largeur en disposition etroite : l'anneau remontait
+    // sous elle des que la fiche s'ouvrait, et cinq noeuds se retrouvaient
+    // physiquement derriere les commandes. Un appui sur une branche ouvrait
+    // alors la Collection ou le Palmares — une action fausse, executee en
+    // silence, sur le geste fondamental du produit.
+    const barre = $("barre").getBoundingClientRect();
+    occupeHaut = Math.max(0, barre.bottom - r.top);
   }
 
   const l = Math.max(280, r.width - occupeLargeur);
-  const h = Math.max(280, r.height - occupeHauteur);
-  const marge = large() ? 130 : 58;
+
+  // libre est la hauteur REELLEMENT disponible entre la barre et la fiche.
+  // Elle n'est pas plancheé : la plancher revenait a dessiner l'arbre dans un
+  // rectangle plus grand que l'espace libre, donc a le repousser sous le
+  // panneau qu'on venait d'exclure du calcul. Le plancher s'applique au rayon,
+  // pas a la boite.
+  const libre = Math.max(0, r.height - occupeHauteur - occupeHaut);
+  const h = Math.max(280, libre);
+
+  // Quand la bande libre se resserre — fiche ouverte sur telephone — la marge
+  // se resserre avec elle, au lieu de manger une place qui n'existe plus.
+  const marge = large() ? 130 : Math.min(58, libre * 0.15);
 
   return {
     cx: l / 2,
-    cy: h / 2,
+    // cy est decale de l'encombrement haut : centrer dans un rectangle dont un
+    // bord est occupe revient a pousser la moitie de l'arbre sous la barre.
+    cy: occupeHaut + libre / 2,
     // Le rayon de l'anneau laisse la place aux libelles ET aux grappes
     // d'heritiers, qui debordent au-dela de leur branche.
-    rayon: Math.max(110, Math.min(l, h) / 2 - marge),
+    // Le rayon suit la bande libre, avec un plancher assez bas pour qu'un arbre
+    // reste dessine meme tres a l'etroit — mais jamais assez grand pour
+    // deborder sous la fiche.
+    rayon: Math.max(64, Math.min(l, large() ? h : libre) / 2 - marge),
   };
 }
 
@@ -481,7 +506,11 @@ function rayons(c) {
   return {
     centre: borne(c.rayon * 0.30, 30, 62),
     branche: borne(c.rayon * 0.17, 16, 36),
-    heritier: borne(c.rayon * 0.075, 8, 18),
+    // Plancher a 13, soit 26 px de diametre : le critere WCAG 2.2 SC 2.5.8
+    // impose 24 px, et le libelle sous le noeud n'aide pas puisqu'il porte
+    // pointer-events: none. A 8, douze heritiers sur dix-huit tombaient a
+    // 17 px sur telephone — viser « Tricky » atteignait « Massive Attack ».
+    heritier: borne(c.rayon * 0.075, 13, 18),
   };
 }
 
@@ -571,11 +600,12 @@ function dessineNoeud(artiste, pos, rayon, genre) {
     }
     remplissage = `url(#${idMotif})`;
   }
-  g.appendChild(el("circle", { class: "noeud__pastille", r: rayon, fill: remplissage }));
+  const pastille = el("circle", { class: "noeud__pastille", r: rayon, fill: remplissage });
+  g.appendChild(pastille);
 
   // Le repli : les initiales, quand il n'y a pas d'illustration. Il occupe
   // exactement la place de l'image, donc son arrivee ne decale rien.
-  if (!image) {
+  const poseInitiales = () => {
     const t = el("text", {
       class: "noeud__nom", y: rayon * 0.18, "font-size": rayon * 0.7,
       "font-family": "Bodoni Moda, Didot, serif", "font-weight": 700,
@@ -583,6 +613,27 @@ function dessineNoeud(artiste, pos, rayon, genre) {
     });
     t.textContent = initiales(artiste.nom);
     g.appendChild(t);
+  };
+
+  if (!image) {
+    poseInitiales();
+  } else {
+    // Une adresse valide n'est PAS une image chargee. Le motif SVG reste vide
+    // quand le telechargement echoue, et la pastille devient transparente :
+    // les vingt-huit noeuds affichaient alors le glyphe « image cassee » du
+    // navigateur, traits de parente traversant des cercles vides. La §11
+    // l'interdit — "aucune illustration manquante ne laisse un vide".
+    //
+    // Le meme controle existait deja pour les tuiles du mur, dans fond(), et
+    // c'est precisement l'ecran que le PRD appelle « le produit » qui en etait
+    // depourvu. La sonde ne coute pas un second telechargement : elle partage
+    // l'entree de cache du <pattern>.
+    const sonde = new Image();
+    sonde.onerror = () => {
+      pastille.setAttribute("fill", teinteRepli(artiste.nom));
+      poseInitiales();
+    };
+    sonde.src = image;
   }
 
   const nom = el("text", { class: "noeud__nom", y: rayon + 17 });
@@ -1642,6 +1693,15 @@ function retourAccueil() {
   url.searchParams.delete("graine");
   history.replaceState(null, "", url);
 
+  // Le champ est vide ICI et pas au moment de l'echec : conserver la saisie
+  // ratee permet de la corriger sur place, mais la laisser en revenant a
+  // l'accueil fait concatener l'essai suivant — mesure : « Portished » tape
+  // par-dessus « Kzzzqqwwxx » donnait « PortishedKzzzqqwwxx », donc un second
+  // echec garanti. La F-07 veut d'ailleurs que ce retour reinitialise l'etat.
+  $("graine").value = "";
+  $("effacer").hidden = true;
+  $("alerte").textContent = "";
+
   sessionStorage.removeItem(CLE_SESSION);
   basculeVers("accueil");
   rendMur();
@@ -1674,6 +1734,10 @@ function montreEtat(genre, titre, texte, { reessayer } = {}) {
   // aucune session expiree n'etait annoncee. Un utilisateur au lecteur d'ecran
   // ne pouvait pas savoir que sa recherche avait echoue.
   alerte(`${titre}. ${texte}`);
+  // La region de statut mentait : elle restait sur « L'arbre pousse… » alors
+  // que le chargement avait echoue. Deux regions live qui se contredisent
+  // valent moins qu'une seule qui dit vrai.
+  annonce(titre);
 
   // LE point de la F-36 : seule une panne propose de reessayer. Sur un vide,
   // reessayer ne changerait rien et enfermerait l'utilisateur dans une boucle.
