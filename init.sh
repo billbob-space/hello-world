@@ -8,7 +8,7 @@
 #   ./init.sh --app NOM ...   applique les options ci-dessous a cette app
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
-#   ./init.sh --branche NOM   cree la branche de travail : <app|fabrique>/<sujet>
+#   ./init.sh --branche NOM   cree la branche de travail, et son entree de journal
 #   ./init.sh --pret          verifie que l'etape en cours est committable
 #
 # Options — elles ne valent que pour l'app ciblee par --add ou --app :
@@ -25,7 +25,8 @@
 # Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
 # TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
-# il est la source de verite, edite a la main ou par --app.
+# il est la source de verite, edite a la main ou par --app. Il en va de meme des
+# entrees de journal/ : echafaudees une fois, ecrites a la main ensuite.
 #
 # Le script ne genere NI Dockerfile NI code applicatif : le choix de la
 # technologie appartient a l'agent. Voir CLAUDE.md.
@@ -947,6 +948,74 @@ emit_pr_template() {
 MD
 }
 
+emit_analyste() {
+  render __DETECTE__ "$JOURNAL_DETECTE" __ACTION__ "$JOURNAL_ACTION" <<'MD'
+---
+name: analyste
+description: Relit journal/ — le journal des anomalies de la fabrique — et en tire un plan d'amelioration ordonne. A lancer periodiquement, ou quand on se demande ou poser le prochain garde-fou. Ne modifie rien.
+tools: Bash, Read, Grep
+---
+
+Tu relis le journal des anomalies de la fabrique et tu en tires un plan. Tu ne
+repares rien et tu n'ecris aucun fichier : tu rends ton plan dans ta reponse.
+C'est ce qui te rend lancable en tache de fond sans risque pour le depot.
+
+## Ce que tu lis
+
+`journal/*.md`, une entree par branche. Chaque anomalie porte deux champs a
+vocabulaire ferme, faits pour etre agreges :
+
+    Detecte par   __DETECTE__
+    Action        __ACTION__
+
+`Detecte par` est **ordonne par cout croissant**. Une anomalie rattrapee par le
+compilateur n'a rien coute ; la meme rattrapee par l'utilisateur a coute un
+aller-retour, et une rattrapee en production a coute davantage. C'est la
+grandeur qui porte le plus d'information du journal.
+
+## Ce que tu produis
+
+**1. La distribution.** Compte les anomalies par `Detecte par` et par `Action` :
+
+    sed -nE 's/^\*\*Detecte par\*\* — `([^`]+)`.*/\1/p' journal/*.md | sort | uniq -c | sort -rn
+    sed -nE 's/^\*\*Action\*\* — `([^`]+)`.*/\1/p'      journal/*.md | sort | uniq -c | sort -rn
+
+Le motif est ancre en debut de ligne et prend le **premier** groupe entre
+apostrophes inverses, pas le dernier : la prose qui suit le jeton en contient
+souvent d'autres. Un `grep | sort | uniq` sur la ligne entiere ne marche pas non
+plus, pour la meme raison. Verifie ton total : la somme doit egaler le nombre de
+`^### ` dans les memes fichiers, sinon ton extraction laisse des anomalies de
+cote.
+
+Ce qui compte n'est pas le total mais **jusqu'ou la distribution glisse vers la
+droite**. Une masse sur `utilisateur` et `production` dit que les garde-fous
+laissent passer ; une masse sur `compilateur`, `test` et `CI` dit qu'ils
+tiennent, quel que soit le nombre d'anomalies.
+
+**2. Les recurrences.** Une meme cause qui revient sur plusieurs branches vaut
+plus qu'une anomalie spectaculaire isolee. Cite les entrees qui la portent.
+
+**3. Le plan.** Trois a six actions, la plus rentable en premier. Pour chacune :
+ce qu'elle change, quelles anomalies elle aurait evitees, et ou elle vit —
+`CLAUDE.md`, `init.sh`, `.claude/`, ou une facon de travailler.
+
+Groupe par `Action` : les `contrat` se corrigent ensemble, les `garde-fou`
+aussi. Les `arbitrage` ne sont pas des actions — ce sont des questions a poser a
+l'humain : liste-les a part, telles quelles.
+
+**4. Ce que le journal ne dit pas.** Les entrees marquees comme retrospectives
+sont reconstituees, donc incompletes du cote des anomalies mineures. Dis-le
+plutot que de conclure sur elles.
+
+## Ce que tu ne fais jamais
+
+- ecrire ou modifier un fichier, ouvrir une branche, committer ;
+- compter une entree marquee retrospective comme une mesure fiable ;
+- proposer un garde-fou pour une anomalie deja rattrapee par le compilateur ou
+  par un test : elle ne coute rien, le garde-fou couterait plus.
+MD
+}
+
 emit_greffier() {
   render __APPS__ "${APPS[*]}" __BASE__ "$BASE" <<'MD'
 ---
@@ -982,6 +1051,11 @@ le trouver. Si HEAD est deja sur une branche dediee, garde-la.
 **3. Verifie.** `./init.sh --pret`. **S'il echoue, tu t'arretes la.** Tu ne
 committes pas, tu ne poussses pas : tu rapportes exactement les lignes en echec.
 Un commit qui casse quelque chose rend la relecture plus dure, pas plus simple.
+
+Un cas revient souvent : `journal : ... est encore le gabarit nu`. L'entree de
+journal de la branche n'a pas ete ecrite, et tu n'as pas d'outil d'edition pour
+le faire — c'est voulu. Rapporte-le tel quel, en nommant le fichier : seul celui
+qui a fait le travail connait les anomalies qu'il a rencontrees.
 
 **4. Committe.** `git add -A`, puis un message dans le style du depot :
 
@@ -1119,6 +1193,7 @@ emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
     .claude/garde-branche.sh)     emit_garde_branche ;;
     .claude/garde-commit.sh)      emit_garde_commit ;;
     .claude/agents/greffier.md)   emit_greffier ;;
+    .claude/agents/analyste.md)   emit_analyste ;;
     .github/pull_request_template.md) emit_pr_template ;;
     go.work)                      emit_gowork ;;
   esac
@@ -1128,7 +1203,7 @@ DERIVES=(compose.yaml .github/workflows/build.yml .github/pull_request_template.
          .claude/settings.json
          .claude/check-plugins.sh .claude/cloud-setup.sh
          .claude/garde-branche.sh .claude/garde-commit.sh
-         .claude/agents/greffier.md go.work)
+         .claude/agents/greffier.md .claude/agents/analyste.md go.work)
 
 # --- --add ----------------------------------------------------------------------
 
@@ -1314,6 +1389,107 @@ apps_touchees() {  # les apps modifiees depuis la base, travail non committe inc
       done
 }
 
+# --- le journal des anomalies ---------------------------------------------------
+#
+# Une entree par branche, ouverte avec elle et remplie au fil du travail. Ecrite
+# a chaud, elle retient les anomalies mineures ; reconstituee a la fin, elle ne
+# garde que les spectaculaires — or ce sont les mineures qui disent ou le
+# contrat a un trou.
+#
+# La branche donne le nom du fichier, ce qui rend l'entree retrouvable sans
+# index : fabrique/journal-des-anomalies -> journal/<date>-fabrique-journal-des-anomalies.md
+# La date est figee a la creation, donc on retrouve par suffixe, jamais par date.
+
+# Deux champs sont a vocabulaire ferme, parce que le lecteur du journal peut
+# etre un agent qui en tire des plans d'amelioration : en prose libre, « moi »,
+# « la critique impeccable » et « le compilateur » ne s'agregent pas, et la
+# distribution que le journal promet n'est pas calculable. Constate sur les deux
+# premieres entrees, ou treize valeurs ont donne six categories informelles —
+# aucune conforme au gabarit qui les demandait.
+#
+# DETECTE est ordonne par cout croissant : plus une anomalie est rattrapee tard,
+# plus elle a coute. L'agregat utile est « jusqu'ou la distribution glisse vers
+# la droite », pas un simple decompte.
+#
+# Les etiquettes des deux champs s'ecrivent sans accents — « Detecte par », pas
+# « Detecte par » accentue — comme tout le markdown genere par ce fichier. Le
+# motif de verification reste ainsi en ASCII pur, insensible a la locale, et la
+# prose accentuee vit dans Symptome et Cause qui ne sont pas verifies.
+
+JOURNAL_DIR=journal
+JOURNAL_MARQUEUR=REMPLIS-MOI   # present = gabarit nu ; retire = entree ecrite
+JOURNAL_DETECTE='compilateur|test|CI|relecture|auteur|utilisateur|production'
+JOURNAL_ACTION='rien|contrat|garde-fou|outillage|comportement|arbitrage'
+
+journal_slug() { printf '%s' "${1//\//-}"; }
+
+journal_entree() {  # journal_entree <branche> — le chemin de l'entree, ou vide
+  local m
+  m=$(ls "$JOURNAL_DIR"/*-"$(journal_slug "$1")".md 2>/dev/null | head -1)
+  printf '%s' "$m"
+}
+
+journal_ouvre() {  # journal_ouvre <branche> — cree l'entree si elle n'existe pas
+  local br="$1" f
+  f=$(journal_entree "$br")
+  [ -n "$f" ] && { ok "journal : entree existante ($f)"; return 0; }
+
+  mkdir -p "$JOURNAL_DIR"
+  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$(journal_slug "$br").md"
+  render __BRANCHE__ "$br" __DATE__ "$(date -u +%Y-%m-%d)" __MARQUEUR__ "$JOURNAL_MARQUEUR" \
+    > "$f" <<'MD'
+# __DATE__ — __BRANCHE__
+
+<!-- __MARQUEUR__ : retire ce commentaire quand l'entree dit quelque chose.
+
+     Une anomalie par bloc, ecrite quand tu la rencontres.
+
+     Deux champs sont a vocabulaire ferme et ./init.sh --check les verifie. Ce
+     n'est pas de la bureaucratie : le lecteur de ce journal peut etre un agent
+     qui en tire des plans d'amelioration, et « moi » ou « le compilateur » ne
+     s'agregent pas. La prose va dans Symptome et Cause, qui sont libres.
+
+     Detecte par — qui a rattrape l'anomalie, du moins cher au plus cher :
+
+       compilateur   immediat, cout nul
+       test          avant meme de lancer
+       CI            avant la fusion
+       relecture     humaine ou outillee, avant livraison
+       auteur        en cours de travail, apres coup
+       utilisateur   apres livraison : un aller-retour, et un garde-fou manquant
+       production    apres deploiement
+
+     Action — ce que l'anomalie devrait changer :
+
+       rien          reparee, rien a en tirer
+       contrat       CLAUDE.md dit quelque chose de faux, ou ne dit rien
+       garde-fou     init.sh --check, --pret, ou un hook devrait le voir
+       outillage     un plugin, un LSP, un agent manque
+       comportement  facon de travailler, aucun artefact a changer
+       arbitrage     demande une decision humaine, pas un correctif
+
+     Une session sans anomalie est une entree valide — ecris « Aucune anomalie »
+     et retire ce commentaire. Une entree vide et une entree jamais ouverte ne
+     disent pas la meme chose. -->
+
+Branche : `__BRANCHE__`
+Perimetre : <apps touchees, ou fabrique>
+
+## Anomalies
+
+### 1. <ce qui a mal tourne, en une ligne>
+
+**Symptome** — ce qui a ete observe.
+
+**Cause** — ce qui l'a produit.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — pourquoi, en une ligne.
+MD
+  ok "journal : entree ouverte ($f)"
+}
+
 if [ -n "$BRANCHE" ]; then
   discover_apps
   prefixe=${BRANCHE%%/*}; sujet=${BRANCHE#*/}
@@ -1351,6 +1527,9 @@ if [ -n "$BRANCHE" ]; then
     fi
     ok "branche creee : $BRANCHE"
   fi
+  # L'entree s'ouvre avec la branche : c'est le seul moment ou le geste est
+  # gratuit, et le seul qui permette d'ecrire les anomalies a chaud.
+  journal_ouvre "$BRANCHE"
   exit 0
 fi
 
@@ -1377,6 +1556,20 @@ if [ "$PRET" = 1 ]; then
     grep -E 'KO' /tmp/.pret-check.$$ | sed 's/^/      /' || true
   fi
   rm -f /tmp/.pret-check.$$
+
+  # Le journal se verifie ici et pas seulement en CI : rendu a la relecture de
+  # la PR, le detail des anomalies est deja perdu. Le gabarit nu ne compte pas —
+  # sans ce second test, le geste deviendrait une case a cocher vide.
+  if [ "$courante" != "$BASE" ]; then
+    entree=$(journal_entree "$courante")
+    if [ -z "$entree" ]; then
+      bad "journal : aucune entree pour $courante (./init.sh --branche $courante l'ouvre)"
+    elif grep -q "$JOURNAL_MARQUEUR" "$entree"; then
+      bad "journal : $entree est encore le gabarit nu — ecris-y les anomalies de cette branche"
+    else
+      ok "journal : $entree"
+    fi
+  fi
 
   # Seules les apps reellement touchees depuis la base : sur une fabrique qui
   # grandit, tout relancer a chaque commit couterait plus que ca ne rapporte.
@@ -1627,7 +1820,7 @@ if [ "$CHECK" = 1 ]; then
   # reorganisation incomplete — le risque propre a une fabrique qui deplace des
   # applications. Boucle `for` et non tube : bad() doit rester dans ce shell.
   morts=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     for cible in $(grep -oE '\]\([^)#:]+\.md\)' "$src" | sed -E 's/^\]\((.*)\)$/\1/'); do
       [ -f "$(dirname "$src")/$cible" ] || { bad "lien mort : $src -> $cible"; morts=$((morts+1)); }
@@ -1682,7 +1875,40 @@ if [ "$CHECK" = 1 ]; then
     bad ".claude/cloud-setup.sh absent — les plugins resteraient inertes en session cloud"
   fi
 
-  # 6. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
+  # 6. Journal des anomalies. Une entree suivie par git est une entree livree :
+  # elle doit dire quelque chose. Une entree non suivie est un travail en cours,
+  # et ne se juge pas — c'est ce qui laisse --check vert entre l'ouverture de la
+  # branche et le premier commit, sans rien relacher en CI, ou tout est suivi.
+  echo
+  echo "-- journal"
+  if [ -d "$JOURNAL_DIR" ]; then
+    mauvaises=0 total=0 anomalies=0
+    for e in "$JOURNAL_DIR"/[0-9]*.md; do
+      [ -f "$e" ] || continue
+      git ls-files --error-unmatch "$e" >/dev/null 2>&1 || continue
+      total=$((total+1))
+      faute=0
+      grep -q "$JOURNAL_MARQUEUR" "$e" && { bad "$e : gabarit nu committe"; faute=1; }
+      grep -q '^## Anomalies' "$e" || { bad "$e : section '## Anomalies' absente"; faute=1; }
+
+      # Chaque anomalie doit porter ses deux champs fermes. Compter les titres et
+      # les champs valides suffit : un jeton hors vocabulaire ne matche pas, donc
+      # le compte tombe — pas besoin d'analyser le document.
+      n=$(grep -c '^### ' "$e" || true)
+      d=$(grep -cE "^\*\*Detecte par\*\* — \`($JOURNAL_DETECTE)\`" "$e" || true)
+      a=$(grep -cE "^\*\*Action\*\* — \`($JOURNAL_ACTION)\`" "$e" || true)
+      [ "$d" -eq "$n" ] || { bad "$e : $d/$n champ(s) 'Detecte par' valide(s) — $JOURNAL_DETECTE"; faute=1; }
+      [ "$a" -eq "$n" ] || { bad "$e : $a/$n champ(s) 'Action' valide(s) — $JOURNAL_ACTION"; faute=1; }
+
+      anomalies=$((anomalies+n))
+      [ "$faute" = 0 ] || mauvaises=$((mauvaises+1))
+    done
+    [ "$mauvaises" -eq 0 ] && ok "$total entree(s), $anomalies anomalie(s), champs agregeables"
+  else
+    warn "aucun journal/ — la premiere ./init.sh --branche l'ouvrira"
+  fi
+
+  # 7. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
   # caractere — gh[p]_ — pour que ce script, lui-meme suivi par git, ne se
   # detecte pas comme fuite a chaque lancement.
   echo

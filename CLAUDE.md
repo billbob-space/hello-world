@@ -15,6 +15,7 @@ sont dans `fabrique.yml`.
 
 ```
 apps/<nom>/          une application : app.yml, Dockerfile, test.sh, PRODUCT.md, code
+journal/             une entrée par branche : les anomalies rencontrées
 compose.yaml         GÉNÉRÉ — la stack, un service par app activée
 fabrique.yml         valeurs communes : org, dépôt, registre, domaine, réseau, plafonds
 init.sh              le générateur
@@ -152,6 +153,101 @@ rien.
 
 Le garde-fou de branche n'ouvre pas la branche à ta place : le nom doit dire le
 sujet, et seul celui qui édite le connaît.
+
+### Le journal des anomalies
+
+**Une branche, une entrée dans `journal/`.** Elle s'ouvre avec la branche —
+`./init.sh --branche` la crée préremplie, il n'y a pas de geste à retenir — et se
+remplit **au fil du travail**, pas à la fin. Écrite à chaud, elle retient les
+anomalies mineures ; reconstituée en fin de branche, elle ne garde que les
+spectaculaires. Or ce sont les mineures qui disent où le contrat a un trou.
+
+Le nom du fichier vient de la branche, ce qui le rend retrouvable sans index :
+`fabrique/garde-fous-git` → `journal/2026-08-03-fabrique-garde-fous-git.md`.
+
+Chaque anomalie porte quatre champs. `Symptôme` et `Cause` sont en prose libre.
+Les deux autres ont un **vocabulaire fermé**, et `./init.sh --check` le vérifie :
+
+```
+**Detecte par** — `utilisateur`
+**Action** — `garde-fou` — pourquoi, en une ligne.
+```
+
+| `Detecte par` | qui a rattrapé, du moins cher au plus cher |
+|---|---|
+| `compilateur` | immédiat, coût nul |
+| `test` | avant même de lancer |
+| `CI` | avant la fusion |
+| `relecture` | humaine ou outillée, avant livraison |
+| `auteur` | en cours de travail, après coup |
+| `utilisateur` | après livraison : un aller-retour, et un garde-fou manquant |
+| `production` | après déploiement |
+
+| `Action` | ce que l'anomalie devrait changer |
+|---|---|
+| `rien` | réparée, rien à en tirer |
+| `contrat` | ce fichier dit quelque chose de faux, ou ne dit rien |
+| `garde-fou` | `--check`, `--pret` ou un hook devrait le voir |
+| `outillage` | un plugin, un LSP, un agent manque |
+| `comportement` | façon de travailler, aucun artefact à changer |
+| `arbitrage` | demande une décision humaine, pas un correctif |
+
+**Le vocabulaire est fermé parce que le lecteur peut être un agent.** En prose
+libre, « moi », « la critique impeccable » et « le compilateur » ne s'agrègent
+pas : la distribution que ce journal promet n'est plus calculable. Ce n'est pas
+une crainte théorique — les deux premières entrées ont produit treize valeurs en
+six catégories informelles, dont aucune ne suivait le vocabulaire que le gabarit
+proposait déjà. Un vocabulaire non vérifié n'est pas un vocabulaire.
+
+`Detecte par` est **ordonné par coût croissant**, et c'est ce qui rentabilise le
+journal. L'agrégat utile n'est pas le nombre d'anomalies mais **jusqu'où la
+distribution glisse vers la droite** : une masse sur `utilisateur` et
+`production` dit que les garde-fous laissent passer ; une masse sur
+`compilateur`, `test` et `CI` dit qu'ils tiennent, quel qu'en soit le nombre.
+
+Ce journal enregistre les **anomalies**, pas le déroulé : ce qui a surpris, cassé,
+ou s'est révélé faux — y compris tes propres erreurs de raisonnement, qui sont
+les plus utiles et les plus faciles à taire. Ce que le changement fait va dans le
+message de commit ; ce qu'il a coûté d'apprendre va ici.
+
+Deux vérifications le tiennent, dans l'ordre de dureté :
+
+- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, ou si
+  l'entrée est encore le gabarit nu — sans ce second test, le geste deviendrait
+  une case à cocher vide ;
+- `./init.sh --check`, donc la CI, refuse un gabarit nu **committé**. Une entrée
+  non suivie par git est un travail en cours et ne se juge pas : c'est ce qui
+  laisse `--check` vert entre l'ouverture de la branche et le premier commit.
+
+Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur. Une
+entrée vide et une entrée jamais ouverte ne disent pas la même chose.
+
+Le `greffier` ne peut pas remplir le journal — il n'a pas d'outil d'édition, et
+c'est délibéré. Il butera sur `--pret` et rapportera : seul celui qui a fait le
+travail connaît les anomalies qu'il a rencontrées.
+
+### L'agent `analyste`
+
+Un journal que personne ne relit est un coût sans contrepartie. L'`analyste` est
+le lecteur :
+
+```
+Agent(subagent_type: "analyste")   # lançable en tâche de fond
+```
+
+Il agrège les deux champs fermés, cherche les causes qui reviennent d'une branche
+à l'autre, et rend un plan de trois à six actions groupées par `Action` — les
+`contrat` ensemble, les `garde-fou` ensemble. Les `arbitrage` ne sont pas des
+actions : il les liste à part, telles quelles, ce sont des questions pour toi.
+
+Comme le `greffier`, il est restreint à `Bash`, `Read` et `Grep` : **il rend son
+plan dans sa réponse, il n'écrit aucun fichier.** C'est ce qui le rend lançable
+en tâche de fond sans risque, et ce qui laisse la décision à qui la doit.
+
+Deux consignes le tiennent au réel : ne pas compter une entrée marquée
+rétrospective comme une mesure fiable, et ne pas proposer de garde-fou pour une
+anomalie déjà rattrapée par le compilateur ou par un test — elle ne coûte rien,
+le garde-fou coûterait plus.
 
 ### L'agent `greffier`
 
