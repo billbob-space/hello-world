@@ -46,7 +46,7 @@ jobs:
           APRES: ${{ github.sha }}
         run: |
           set -euo pipefail
-          toutes='["cadran","hello-world"]'
+          toutes='["cadran","hello-world","ramure"]'
 
           if [ "$EVENT" = pull_request ]; then base="$BASE_PR"; else base="$AVANT"; fi
 
