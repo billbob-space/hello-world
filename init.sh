@@ -473,7 +473,22 @@ jobs:
               # images publiees correspondent aux Dockerfile courants.
               apps="$toutes"
             else
-              liste=$(printf '%s\n' "$changed" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u)
+              # Un repertoire sous apps/ n'est une application que s'il porte un
+              # app.yml : c'est la definition qu'applique discover_apps, et la
+              # seule qui vaille. Un chemin ne suffit pas. Sans ce filtre, un
+              # fichier depose sous apps/<nom>/ avant que l'application n'existe
+              # — une specification, une note — fait reclamer a la CI le test.sh
+              # et le Dockerfile d'une app qui n'est pas encore ecrite, et le
+              # job echoue sur un repertoire de documentation.
+              # Le filtre porte sur l'arbre APRES le commit : une app ajoutee
+              # dans ce meme commit a deja son app.yml et reste donc detectee,
+              # ce qui fait bien construire sa premiere image.
+              # Un if, et non « [ -f ] && printf » : l'etape tourne sous set -e,
+              # un test faux ferait sortir la boucle en code 1 et echouer le job.
+              liste=$(printf '%s\n' "$changed" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+                        | while IFS= read -r a; do
+                            if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
+                          done)
               if [ -n "$liste" ]; then
                 apps="[$(printf '%s\n' "$liste" | sed 's/.*/"&"/' | paste -sd, -)]"
               else
@@ -1290,7 +1305,13 @@ apps_touchees() {  # les apps modifiees depuis la base, travail non committe inc
   {
     git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
     git status --porcelain 2>/dev/null | cut -c4- || true
-  } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u
+  } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+    | while IFS= read -r a; do
+        # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
+        # ferait sortir la boucle en code 1, donc la substitution de commande,
+        # donc le script entier — et --pret s'arreterait sans rien dire.
+        if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
+      done
 }
 
 if [ -n "$BRANCHE" ]; then
