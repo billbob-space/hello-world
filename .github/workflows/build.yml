@@ -205,26 +205,43 @@ jobs:
       - name: toutes les images du compose sont tirables
         run: |
           set -euo pipefail
-          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml)
+          # sort -u : la meme image peut etre referencee par plusieurs services
+          # — une app et son worker partagent la leur — et l'inspecter deux fois
+          # ne prouve rien de plus.
+          prefix='ghcr.io/billbob-space/hello-world/'
+          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml | LC_ALL=C sort -u)
           if [ ${#images[@]} -eq 0 ]; then
             echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
             exit 1
           fi
-          manquantes=()
+          manquantes=() tierces=()
           for img in "${images[@]}"; do
             if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
               echo "  ok   $img"
-            else
+            elif [ "${img#"$prefix"}" != "$img" ]; then
+              # Image de la fabrique : ce job vient de la publier et s'est
+              # authentifie sur ghcr.io. Absente, elle emporterait la stack.
               echo "  KO   $img"
               manquantes+=("$img")
+            else
+              # Image tierce : ce job ne s'authentifie que sur ghcr.io, une
+              # inspection qui echoue ne prouve donc pas que l'image manque —
+              # elle peut n'etre qu'inaccessible d'ici. Bloquer la-dessus
+              # refuserait un deploiement sain.
+              echo "  ??   $img (image tierce, non verifiable depuis ce job)"
+              tierces+=("$img")
             fi
+          done
+          for img in "${tierces[@]-}"; do
+            [ -n "$img" ] || continue
+            echo "::warning::image tierce non verifiee : $img — ce job ne s'authentifie que sur ghcr.io ; le deploiement continue, le serveur la tirera lui-meme"
           done
           if [ ${#manquantes[@]} -gt 0 ]; then
             printf '::error::image absente du registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
             exit 1
           fi
-          echo "${#images[@]} image(s) verifiee(s)"
+          echo "${#images[@]} image(s) distincte(s) verifiee(s)"
 
       # Le tag :main est mutable : une image reconstruite ne change pas une
       # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne

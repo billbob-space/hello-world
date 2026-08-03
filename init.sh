@@ -46,10 +46,12 @@
 # memes sections volumes: et env: qu'une app.
 #
 # Le compose genere porte donc TROIS sortes de services, et une seule est
-# routee : <app> (labels Traefik, authentification, priority=100),
+# routee : <app> (labels de routage, authentification, priority=100),
 # <app>-<nom> (annexe prive) et <nom> (partage). Les deux dernieres ne portent
-# AUCUN label Traefik ; elles vivent sur le meme reseau, ou seuls leurs voisins
-# les joignent par leur nom de service.
+# qu'un seul label, « traefik.enable=false » — et c'est bien un label qu'il leur
+# faut, pas son absence : avec exposedByDefault, le defaut de Traefik, un
+# conteneur sans le moindre label recoit quand meme un routeur, donc une URL, et
+# sans authentification.
 #
 # Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
 # TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
@@ -251,6 +253,16 @@ map_all() {  # map_all <flux> <index> <cle> — toutes les valeurs, une par lign
   if [ -z "${1-}" ]; then return 0; fi
   printf '%s\n' "$1" | awk -F'\t' -v i="$2" -v k="$3" '$1 == i && $2 == k { print $3 }'
 }
+map_keys() {  # map_keys <flux> <index> — les cles distinctes de cet element
+  if [ -z "${1-}" ]; then return 0; fi
+  printf '%s\n' "$1" | awk -F'\t' -v i="$2" '$1 == i && !vu[$2]++ { print $2 }'
+}
+
+# Les seules cles lues dans une entree services: ou shared_services:. Toute
+# autre est ignoree par le generateur — en silence, ce qui est le probleme :
+# « labels: [traefik.enable=false] » ecrit a la main donne le sentiment d'avoir
+# durci un service sans qu'une ligne du compose bouge.
+AUX_KEYS=" name image memory command volumes env "
 
 COMPOSE=compose.yaml
 LEGACY_COMPOSE=docker-compose.yml
@@ -371,6 +383,46 @@ check_volume_list() {  # check_volume_list <proprietaire> <etiquette> <specs> �
   done <<<"$specs"
 }
 
+# command: n'est pas une porte derobee vers les secrets. env: refuse deja toute
+# valeur litterale ; sans ce controle, « command: --requirepass p4ssw0rd » place
+# la meme valeur en clair dans fabrique.yml ET dans compose.yaml, deux fichiers
+# suivis par git. On refuse donc toute cle qui evoque un secret des qu'elle porte
+# une valeur litterale — les formes sans valeur, elles, restent admises.
+CMD_SECRET_RE='(requirepass|password|passwd|secret|token|api[-_]?key|auth|key)'
+
+check_command() {  # check_command <commande> — pose VERR
+  VERR=""
+  local cmd="${1-}" key val t i
+  local -a toks=()
+  [ -n "$cmd" ] || return 0
+  read -ra toks <<<"$cmd"
+  for (( i = 0; i < ${#toks[@]}; i++ )); do
+    t="${toks[$i]}"
+    val=""
+    case "$t" in
+      -*=*) key="${t%%=*}"; val="${t#*=}" ;;
+      -*)   key="$t"
+            # « --cle valeur » : le token suivant n'est une valeur que s'il
+            # n'est pas lui-meme une option.
+            if [ $(( i + 1 )) -lt ${#toks[@]} ]; then
+              case "${toks[$(( i + 1 ))]}" in -*) ;; *) val="${toks[$(( i + 1 ))]}" ;; esac
+            fi ;;
+      *=*)  key="${t%%=*}"; val="${t#*=}" ;;
+      *)    continue ;;
+    esac
+    key="${key#--}"; key="${key#-}"
+    printf '%s' "$key" | grep -qiE "$CMD_SECRET_RE" || continue
+    # Option sans valeur litterale : rien n'entre dans le depot.
+    [ -n "$val" ] || continue
+    # ${VAR} : la valeur est injectee par l'infrastructure au « compose up »,
+    # elle n'est pas dans le depot. C'est la forme prevue.
+    case "$val" in *'${'*|*'$('*) continue ;; esac
+    VERR="command : la cle '$key' porte une valeur litterale et son nom evoque un secret. La valeur — masquee ici — serait publiee : fabrique.yml comme compose.yaml sont suivis par git. env: est la porte prevue pour cela, il ne prend que le NOM de la variable et l'infrastructure injecte la valeur ; reference-la au besoin dans la commande sous la forme \${NOM}. Une option sans valeur litterale reste admise, par exemple « --maxmemory 96mb »."
+    return 1
+  done
+  return 0
+}
+
 check_env_name() {  # check_env_name <element> — env: est une liste de NOMS
   VERR=""
   case "$1" in
@@ -488,7 +540,7 @@ mem_to_mb() {  # 128m -> 128, 1g -> 1024
 # container_name. Un doublon y est legal en YAML et silencieux : la derniere cle
 # gagne, la premiere disparait du deploiement sans un mot. D'ou le registre.
 collect_problems() {
-  local a i n p name svc img mem v e d
+  local a i n p name svc img mem v e d cmd
   declare -A owner_of=()
   VOL_OWNER=()
 
@@ -515,6 +567,8 @@ collect_problems() {
     name=$(map_one "$SHARED_RECORDS" "$i" name)
     [ -n "$name" ] || continue
     check_volume_list "$name" "[$name]" "$(map_all "$SHARED_RECORDS" "$i" volumes)"
+    cmd=$(map_one "$SHARED_RECORDS" "$i" command)
+    [ -z "$cmd" ] || check_command "$cmd" || printf "[%s] %s\n" "$name" "$VERR"
     while IFS= read -r e; do
       [ -n "$e" ] || continue
       check_env_name "$e" || printf "[%s] %s\n" "$name" "$VERR"
@@ -564,12 +618,54 @@ collect_problems() {
       # Le proprietaire des volumes d'une annexe est l'APP : c'est ce qui permet
       # a un worker de monter le meme volume nomme que son service principal.
       check_volume_list "$a" "$p services '$name' :" "$(map_all "$A_SERVICES" "$i" volumes)"
+      cmd=$(map_one "$A_SERVICES" "$i" command)
+      [ -z "$cmd" ] || check_command "$cmd" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
       while IFS= read -r e; do
         [ -n "$e" ] || continue
         check_env_name "$e" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
       done < <(map_all "$A_SERVICES" "$i" env)
     done
   done
+}
+
+# Les avertissements : ce qui ne casse rien, mais ne fait pas ce que son auteur
+# croit. Separe de collect_problems, dont chaque ligne est bloquante.
+collect_warnings() {
+  local a n i name k
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    [ -n "$name" ] || continue
+    while IFS= read -r k; do
+      [ -n "$k" ] || continue
+      case "$AUX_KEYS" in *" $k "*) continue ;; esac
+      printf "fabrique.yml shared_services '%s' : cle inconnue '%s' ignoree\n" "$name" "$k"
+    done < <(map_keys "$SHARED_RECORDS" "$i")
+  done
+  for a in "${APPS[@]-}"; do
+    [ -n "$a" ] || continue
+    load_app "$a"
+    n=$(map_count "$A_SERVICES")
+    for (( i = 0; i < n; i++ )); do
+      name=$(map_one "$A_SERVICES" "$i" name)
+      [ -n "$name" ] || continue
+      while IFS= read -r k; do
+        [ -n "$k" ] || continue
+        case "$AUX_KEYS" in *" $k "*) continue ;; esac
+        printf "[%s] services '%s' : cle inconnue '%s' ignoree\n" "$a" "$name" "$k"
+      done < <(map_keys "$A_SERVICES" "$i")
+    done
+  done
+}
+
+show_warnings() {  # les affiche via warn(), sans jamais faire echouer
+  local avert l
+  avert=$(collect_warnings)
+  [ -n "$avert" ] || return 0
+  while IFS= read -r l; do
+    [ -n "$l" ] || continue
+    warn "$l"
+  done <<<"$avert"
 }
 
 require_clean_manifests() {
@@ -763,17 +859,28 @@ aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <commande>
     # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
     # l'image locale deja presente et sert silencieusement la version d'avant.
     pull_policy: always
-    # Service NON ROUTE : pas un seul label de routage ici, donc aucune URL,
-    # aucun routeur, aucun middleware a oublier. Il vit sur $NETWORK, ou ses
-    # voisins le joignent par « $svc ». Aucun port publie non plus.
+    # Service NON ROUTE : aucune URL, aucun middleware a oublier. Il vit sur
+    # $NETWORK, ou ses voisins le joignent par « $svc ». Aucun port publie non
+    # plus. Ce n'est PAS l'absence de label qui l'en retire — voir « labels: »
+    # plus bas, qui est la seule chose a le faire.
     logging:
       driver: json-file
       options:
         max-size: "$LOG_MAX_SIZE"
         max-file: "$LOG_MAX_FILE"
     networks: [$NETWORK]
+    # LE label qui compte sur un service non route : c'est le seul qui RETIRE du
+    # routage. Sans lui, exposedByDefault suffit a creer un routeur sans
+    # authentification, et un LABEL traefik.* grave dans l'image publierait une
+    # route que ce fichier ne peut pas ecraser. Inoffensif si le serveur pose
+    # deja exposedByDefault: false, indispensable sinon.
+    labels:
+      - "traefik.enable=false"
 YAML
-  [ -z "$cmd" ] || printf '    command: %s\n' "$(json_argv "$cmd")"
+  if [ -n "$cmd" ]; then
+    check_command "$cmd" || { echo "ERREUR : $svc — $VERR" >&2; exit 1; }
+    printf '    command: %s\n' "$(json_argv "$cmd")"
+  fi
   emit_volumes "$owner" "$vols"
   emit_env "$envs"
   printf '  # <<< %s\n' "$svc"
@@ -906,26 +1013,29 @@ emit_compose() {
 # Genere par init.sh depuis fabrique.yml et apps/*/app.yml.
 # NE PAS EDITER — ./init.sh --check refuse un compose desynchronise.
 #
-# Une seule stack dockhand, un service par application activee. Le rayon de
-# souffle est commun : une erreur dans un bloc fait echouer le deploiement de
-# toute la fabrique.
+# Une seule stack dockhand : toutes les applications activees, leurs services
+# annexes et les services partages. Le rayon de souffle est commun : une erreur
+# dans un bloc fait echouer le deploiement de toute la fabrique.
 #
 # TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
 # SEULE EST ROUTEE :
 #
 #   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
-#                  Seule sorte a porter des labels Traefik : un routeur, une
+#                  Seule sorte a porter des labels de ROUTAGE : un routeur, une
 #                  URL https://<app>.$DOMAIN, un middleware
 #                  d'authentification Google et priority=100.
 #   <app>-<nom>    service annexe prive d'une application (section services:
-#                  de son app.yml). AUCUN label Traefik.
+#                  de son app.yml). Un seul label : traefik.enable=false.
 #   <nom>          service partage par plusieurs applications (shared_services
-#                  dans fabrique.yml). AUCUN label Traefik non plus.
+#                  dans fabrique.yml). Le meme unique label.
 #
 # Les trois vivent sur le meme reseau $NETWORK et se joignent entre elles par
 # leur nom de service ; aucune ne publie de port sur l'hote. Ce qui expose un
-# service a Internet, ce sont ses labels Traefik, pas le reseau : un conteneur
-# sans label n'est joignable que par ses voisins.
+# service a Internet, ce sont ses labels Traefik, pas le reseau — mais l'absence
+# de label n'est PAS une protection : avec exposedByDefault, qui est le DEFAUT,
+# un conteneur sans le moindre label recoit quand meme un routeur, donc une URL,
+# et sans middleware d'authentification. Seul traefik.enable=false l'en retire ;
+# c'est pourquoi il est pose sur chaque service non route ci-dessous.
 #
 # Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
 # Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le
@@ -956,10 +1066,20 @@ YAML
 # « compose up » et les conserve entre deux deploiements. Leur contenu initial,
 # proprietaire compris, est celui du repertoire dans l'image : rien n'est a
 # preparer sur l'hote, mais le Dockerfile doit chown le chemin avant son USER.
+#
+# « name: » est OBLIGATOIRE sous chaque entree. Sans lui, Compose prefixe le nom
+# du projet et le volume REEL s'appelle <projet>_<nom> : une sauvegarde lancee
+# sur le nom court monterait alors un volume que Docker viendrait de creer VIDE,
+# tar archiverait un repertoire vide et la commande sortirait en 0. La stack
+# etant unique, le prefixe de projet n'apporte rien — on le retire, et le nom
+# reel redevient egal au nom documente.
 volumes:
 YAML
     local v
-    while IFS= read -r v; do [ -n "$v" ] && printf '  %s:\n' "$v"; done <<<"$vols"
+    while IFS= read -r v; do
+      [ -n "$v" ] || continue
+      printf '  %s:\n    name: %s\n' "$v" "$v"
+    done <<<"$vols"
   fi
 
   cat <<YAML
@@ -1205,26 +1325,43 @@ jobs:
       - name: toutes les images du compose sont tirables
         run: |
           set -euo pipefail
-          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml)
+          # sort -u : la meme image peut etre referencee par plusieurs services
+          # — une app et son worker partagent la leur — et l'inspecter deux fois
+          # ne prouve rien de plus.
+          prefix='__REGISTRY__/__ORG__/__REPO__/'
+          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml | LC_ALL=C sort -u)
           if [ ${#images[@]} -eq 0 ]; then
             echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
             exit 1
           fi
-          manquantes=()
+          manquantes=() tierces=()
           for img in "${images[@]}"; do
             if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
               echo "  ok   $img"
-            else
+            elif [ "${img#"$prefix"}" != "$img" ]; then
+              # Image de la fabrique : ce job vient de la publier et s'est
+              # authentifie sur __REGISTRY__. Absente, elle emporterait la stack.
               echo "  KO   $img"
               manquantes+=("$img")
+            else
+              # Image tierce : ce job ne s'authentifie que sur __REGISTRY__, une
+              # inspection qui echoue ne prouve donc pas que l'image manque —
+              # elle peut n'etre qu'inaccessible d'ici. Bloquer la-dessus
+              # refuserait un deploiement sain.
+              echo "  ??   $img (image tierce, non verifiable depuis ce job)"
+              tierces+=("$img")
             fi
+          done
+          for img in "${tierces[@]-}"; do
+            [ -n "$img" ] || continue
+            echo "::warning::image tierce non verifiee : $img — ce job ne s'authentifie que sur __REGISTRY__ ; le deploiement continue, le serveur la tirera lui-meme"
           done
           if [ ${#manquantes[@]} -gt 0 ]; then
             printf '::error::image absente du registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
             exit 1
           fi
-          echo "${#images[@]} image(s) verifiee(s)"
+          echo "${#images[@]} image(s) distincte(s) verifiee(s)"
 
       # Le tag :main est mutable : une image reconstruite ne change pas une
       # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne
@@ -1519,6 +1656,10 @@ DERIVES=(compose.yaml .github/workflows/build.yml .claude/settings.json
 scaffold_app() {
   local a="$1" dir="apps/$1"
   valid_name "$a" || exit 1
+  if [ "$DRYRUN" = 1 ]; then
+    warn "--dry-run : $dir/ n'est pas echafaude (app.yml, .dockerignore, test.sh, README.md, PRODUCT.md seraient crees)"
+    return 0
+  fi
   if [ -d "$dir" ] && [ "$FORCE" = 0 ]; then
     echo "ERREUR : $dir existe deja (--force pour reecrire ses fichiers d'echafaudage)." >&2
     exit 1
@@ -1584,9 +1725,12 @@ ui: $ui
 # needs: [redis]
 
 # Services annexes propres a cette application. Chacun devient le service
-# « $a-<name> », sans AUCUN label Traefik : il n'a pas d'URL, seuls ses voisins
-# du reseau le joignent, par ce nom. « name » et « image » sont obligatoires ;
+# « $a-<name> », non route : init.sh lui pose « traefik.enable=false », le seul
+# label qui RETIRE du routage, et il n'a donc pas d'URL — seuls ses voisins du
+# reseau le joignent, par ce nom. « name » et « image » sont obligatoires ;
 # « memory » (defaut 128m), « command », « volumes » et « env » sont libres.
+# « command » est validee comme « env » : une valeur litterale sur une cle qui
+# evoque un secret (--requirepass, --api-key, PASSWORD=...) est refusee.
 # Ses volumes portent le nom de l'APP, pas le sien : « donnees:/data » ici monte
 # le meme volume « $a-donnees » que la section volumes: ci-dessus. C'est ainsi
 # qu'un worker partage les donnees de son service principal.
@@ -1708,12 +1852,28 @@ set_key() {  # set_key <fichier> <cle> <valeur> — preserve commentaires et ord
   fi
 }
 
+# --dry-run doit tenir sa promesse ICI aussi : app.yml est la source de verite,
+# et l'ecrire est le seul geste de ce script qui ne se regenere pas. On montre
+# donc ce qui changerait, sans toucher au fichier. Les artefacts derives affiches
+# ensuite refletent bien les valeurs demandees : app_get lit SET avant le fichier.
 apply_target_options() {
   [ -n "$TARGET" ] || return 0
   [ ${#SET[@]} -gt 0 ] || return 0
-  local f="apps/$TARGET/app.yml" k
-  [ -f "$f" ] || { echo "ERREUR : $f introuvable — ./init.sh --add $TARGET" >&2; exit 1; }
+  local f="apps/$TARGET/app.yml" k cur
+  if [ ! -f "$f" ]; then
+    [ "$DRYRUN" = 1 ] && { warn "$f n'existe pas — rien a modifier (--dry-run)"; return 0; }
+    echo "ERREUR : $f introuvable — ./init.sh --add $TARGET" >&2; exit 1
+  fi
   for k in "${!SET[@]}"; do
+    if [ "$DRYRUN" = 1 ]; then
+      cur=$(yget "$f" "$k" "")
+      if [ "$cur" = "${SET[$k]}" ]; then
+        ok "$f : $k = ${SET[$k]} (deja cette valeur)"
+      else
+        warn "$f : $k passerait de '${cur:-absent}' a '${SET[$k]}' — --dry-run n'ecrit rien"
+      fi
+      continue
+    fi
     set_key "$f" "$k" "${SET[$k]}"
     ok "apps/$TARGET/app.yml : $k = ${SET[$k]}"
   done
@@ -1757,13 +1917,27 @@ service_yaml() {  # service_yaml <fichier> <nom> — le bloc du service
   ' "$1"
 }
 
-SANS_AUTH=() ROUTES_PARASITES=() COMPOSE_VOL_REFS=()
+SANS_AUTH=() ROUTES_PARASITES=() ROUTAGE_OUVERT=() COMPOSE_VOL_REFS=()
 
 compose_volumes_decl() {  # noms declares par le bloc volumes: de premier niveau
   awk '
     /^volumes:[[:space:]]*$/ { v=1; next }
     /^[^[:space:]#]/         { v=0 }
     v && /^  [^[:space:]#]/  { n=$0; sub(/^  /,"",n); sub(/:.*$/,"",n); print n }
+  ' "$1"
+}
+
+# Le nom REEL d'un volume declare au premier niveau, c'est-a-dire la valeur de sa
+# cle « name: ». Absente, Compose prefixe le nom du projet et le nom reel n'est
+# plus celui qu'on documente — une sauvegarde lancee sur le nom court monterait
+# alors un volume vide tout juste cree et sortirait en 0.
+compose_volume_realname() {  # compose_volume_realname <fichier> <nom declare>
+  awk -v want="$2" '
+    /^volumes:[[:space:]]*$/ { v=1; next }
+    /^[^[:space:]#]/         { v=0; cur=0 }
+    !v { next }
+    /^  [^[:space:]#]/ { n=$0; sub(/^  /,"",n); sub(/:.*$/,"",n); cur=(n==want); next }
+    cur && /^[[:space:]]*name:/ { s=$0; sub(/^[[:space:]]*name:[[:space:]]*/,"",s); print s; exit }
   ' "$1"
 }
 
@@ -1799,20 +1973,36 @@ check_block_volumes() {  # check_block_volumes <service> <proprietaire> <bloc>
   return 0
 }
 
-# Un service annexe ou partage. Le controle qui compte : AUCUN label de routage.
-# Un label Traefik pose ici publierait une URL sur un service que personne n'a
-# pense a proteger — c'est le meme accident que « SANS AUTHENTIFICATION
-# CONFORME », vu de l'autre bout.
+# Un service annexe ou partage. Le controle qui compte est INVERSE de
+# l'intuition : l'etat sain n'est pas « aucun label », c'est « traefik.enable=false ».
+# Un conteneur sans le moindre label recoit un routeur des que exposedByDefault
+# est actif — le defaut de Traefik — et Docker fusionne dans le conteneur les
+# labels graves dans l'IMAGE, qu'aucune ligne du compose ne peut ecraser. Dans
+# les deux cas la route est publiee sans middleware : c'est le meme accident que
+# « SANS AUTHENTIFICATION CONFORME », vu de l'autre bout. Le label de retrait est
+# donc obligatoire, et tout autre label traefik.* reste interdit.
 check_aux_service() {  # check_aux_service <service> <proprietaire> <memoire> <sorte>
-  local svc="$1" owner="$2" mem="$3" sorte="$4" p="[$1]" blk
+  local svc="$1" owner="$2" mem="$3" sorte="$4" p="[$1]" blk nocom autres
   blk=$(service_yaml "$COMPOSE" "$svc")
   if [ -z "$blk" ]; then bad "$p aucun service dans $COMPOSE — lance ./init.sh"; return; fi
 
-  if grep -qiE 'traefik\.' <<<"$blk" || grep -qE '^[[:space:]]*labels:[[:space:]]*$' <<<"$blk"; then
-    bad "$p LABEL TRAEFIK SUR UN SERVICE NON ROUTE ($sorte) — il publierait une URL sans authentification"
+  # Les commentaires du bloc parlent des labels : les lire comme des labels
+  # ferait de l'explication elle-meme une erreur.
+  nocom=$(grep -vE '^[[:space:]]*#' <<<"$blk" || true)
+
+  if grep -qE '^[[:space:]]*-[[:space:]]*"?traefik\.enable=false"?[[:space:]]*$' <<<"$nocom"; then
+    ok "$p traefik.enable=false ($sorte, retire du routage)"
+  else
+    bad "$p SANS traefik.enable=false ($sorte) — un service non route DOIT porter ce label : sans lui, exposedByDefault lui cree un routeur sans authentification, et un label grave dans l'image publierait une route que le compose n'ecrase pas"
+    ROUTAGE_OUVERT+=("$svc")
+  fi
+
+  autres=$(grep -iE 'traefik\.' <<<"$nocom" | grep -vE '^[[:space:]]*-[[:space:]]*"?traefik\.enable=false"?[[:space:]]*$' || true)
+  if [ -n "$autres" ]; then
+    bad "$p LABEL TRAEFIK SUR UN SERVICE NON ROUTE ($sorte) — il publierait une URL sans authentification : $(printf '%s' "$autres" | tr -s ' \n' ' ')"
     ROUTES_PARASITES+=("$svc")
   else
-    ok "$p aucun label traefik ($sorte, non route)"
+    ok "$p aucun autre label traefik ($sorte, non route)"
   fi
 
   grep -qE '^[[:space:]]*ports:' <<<"$blk" \
@@ -1947,16 +2137,36 @@ check_app_files() {
     # non une erreur — le chown peut prendre des formes que ce grep ne voit pas —
     # mais c'est le dernier moment ou le piege est encore rattrapable : apres, il
     # se manifeste en production par des donnees qui ne s'ecrivent pas.
-    local vv
-    for vv in "${A_VOLUMES[@]-}"; do
+    #
+    # Les volumes de l'app, PLUS ceux de ses services annexes qui tournent sur
+    # SON image : le conteneur qui les monte est alors construit par ce meme
+    # Dockerfile, et le piege du proprietaire y est identique. Un volume declare
+    # uniquement dans une annexe n'aurait sinon aucun filet.
+    local vv vlist nsvc isvc simg seen=" "
+    vlist=$(
+      for vv in "${A_VOLUMES[@]-}"; do
+        [ -n "$vv" ] || continue
+        printf '%s\n' "$vv"
+      done
+      nsvc=$(map_count "$A_SERVICES")
+      for (( isvc = 0; isvc < nsvc; isvc++ )); do
+        simg=$(map_one "$A_SERVICES" "$isvc" image)
+        case "$simg" in
+          "$REGISTRY/$ORG/$REPO/$APP:"*) map_all "$A_SERVICES" "$isvc" volumes ;;
+        esac
+      done
+    )
+    while IFS= read -r vv; do
       [ -n "$vv" ] || continue
       check_volume "$APP" "$vv" || continue
+      case "$seen" in *" $VOL_PATH "*) continue ;; esac
+      seen="$seen$VOL_PATH "
       if grep -i 'chown' "$d/Dockerfile" | grep -qF -- "$VOL_PATH"; then
         ok "$p volume '$VOL_NAME' : $VOL_PATH est chown dans le Dockerfile"
       else
         warn "$p volume '$vv' : aucun chown de $VOL_PATH dans $d/Dockerfile — le volume nomme herite du proprietaire du repertoire dans l'image ; sans « mkdir -p $VOL_PATH && chown <uid>:<uid> $VOL_PATH » avant la directive USER, le volume appartiendra a root et l'app non-root ne pourra pas y ecrire"
       fi
-    done
+    done <<<"$vlist"
   elif [ "$A_ENABLED" = true ]; then
     bad "$p $d/Dockerfile absent — l'app est activee mais rien ne peut la construire"
   else
@@ -1993,8 +2203,10 @@ if [ "$CHECK" = 1 ]; then
   if [ -n "$probs" ]; then
     while IFS= read -r l; do bad "$l"; nprobs=$(( nprobs + 1 )); done <<<"$probs"
   else
-    ok "volumes, env, needs, noms de service : fabrique.yml et apps/*/app.yml conformes"
+    ok "volumes, env, needs, commandes, noms de service : fabrique.yml et apps/*/app.yml conformes"
   fi
+  # Ce qui n'est pas faux, mais ne fait pas ce que son auteur croit.
+  show_warnings
 
   # 1. Reproductibilite : le fichier committe correspond-il aux manifestes ?
   # Ce controle-la est le seul capable de prouver que compose.yaml decrit bien
@@ -2062,6 +2274,21 @@ if [ "$CHECK" = 1 ]; then
         ok "aucun volume monte, aucun bloc volumes: de premier niveau"
       else
         ok "bloc volumes: de premier niveau — $(printf '%s\n' "$vref" | wc -l | tr -d ' ') volume(s), exactement ceux montes par les services"
+        # Le nom documente doit etre le nom REEL. Sans « name: », Compose
+        # prefixe le nom de projet : « docker compose --project-name mastack
+        # config » rend alors {"ramure-donnees": {"name": "mastack_ramure-donnees"}},
+        # et la commande de sauvegarde documentee monte un volume vide que Docker
+        # vient de creer — tar archive un repertoire vide et SORT EN 0.
+        for v in $vref; do
+          reel=$(compose_volume_realname "$COMPOSE" "$v")
+          if [ "$reel" = "$v" ]; then
+            ok "volume '$v' : name: $v — le nom reel est le nom documente"
+          elif [ -z "$reel" ]; then
+            bad "volume '$v' : cle name: absente du bloc de premier niveau — Compose prefixerait le nom de projet, le volume reel s'appellerait <projet>_$v et une sauvegarde lancee sur '$v' archiverait un volume vide en sortant en 0"
+          else
+            bad "volume '$v' : name: $reel — le nom reel differe du nom declare"
+          fi
+        done
       fi
     else
       for v in $(comm -13 <(printf '%s\n' "$vdecl") <(printf '%s\n' "$vref")); do
@@ -2199,6 +2426,15 @@ if [ "$CHECK" = 1 ]; then
     echo "  Le contrat n'a pas de palier public. Ne pousse pas."
     echo
   fi
+  if [ ${#ROUTAGE_OUVERT[@]} -gt 0 ]; then
+    printf '\033[41;97m  %d SERVICE(S) NON ROUTE(S) SANS traefik.enable=false  \033[0m\n' "${#ROUTAGE_OUVERT[@]}"
+    for a in "${ROUTAGE_OUVERT[@]}"; do printf '    %s\n' "$a"; done
+    echo "  Ce n'est pas l'absence de label qui retire un service du routage : avec"
+    echo "  exposedByDefault — le defaut de Traefik — un conteneur sans label recoit"
+    echo "  un routeur, donc une URL, et sans middleware d'authentification. Un seul"
+    echo "  label la retire : traefik.enable=false. Lance ./init.sh. Ne pousse pas."
+    echo
+  fi
   if [ ${#ROUTES_PARASITES[@]} -gt 0 ]; then
     printf '\033[41;97m  %d SERVICE(S) NON ROUTE(S) PORTANT DES LABELS TRAEFIK  \033[0m\n' "${#ROUTES_PARASITES[@]}"
     for a in "${ROUTES_PARASITES[@]}"; do printf '    %s\n' "$a"; done
@@ -2229,8 +2465,11 @@ compute_tooling
 # Un manifeste invalide ne doit pas produire un compose « plausible mais faux » :
 # la fabrique s'arrete ici, avant d'ecrire quoi que ce soit.
 require_clean_manifests
+show_warnings
 
-if [ ! -f fabrique.yml ]; then
+if [ ! -f fabrique.yml ] && [ "$DRYRUN" = 1 ]; then
+  warn "fabrique.yml serait cree — --dry-run n'ecrit rien"
+elif [ ! -f fabrique.yml ]; then
   cat > fabrique.yml <<YAML
 # Valeurs communes a toutes les applications de la fabrique.
 # Modifie ce fichier puis relance ./init.sh.
@@ -2249,7 +2488,9 @@ log_max_file: $LOG_MAX_FILE
 
 # Services partages par plusieurs applications. Ils vivent sur $NETWORK, sont
 # joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
-# aucun label Traefik, donc aucune URL. Une app declare sa dependance avec
+# init.sh leur pose « traefik.enable=false », le seul label qui RETIRE du
+# routage — l'absence de label ne suffirait pas, exposedByDefault leur creerait
+# un routeur sans authentification. Une app declare sa dependance avec
 # « needs: [redis] » dans son app.yml, et un needs vers un service absent d'ici
 # est une erreur de generation, pas une panne au demarrage.
 #

@@ -1,26 +1,29 @@
 # Genere par init.sh depuis fabrique.yml et apps/*/app.yml.
 # NE PAS EDITER — ./init.sh --check refuse un compose desynchronise.
 #
-# Une seule stack dockhand, un service par application activee. Le rayon de
-# souffle est commun : une erreur dans un bloc fait echouer le deploiement de
-# toute la fabrique.
+# Une seule stack dockhand : toutes les applications activees, leurs services
+# annexes et les services partages. Le rayon de souffle est commun : une erreur
+# dans un bloc fait echouer le deploiement de toute la fabrique.
 #
 # TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
 # SEULE EST ROUTEE :
 #
 #   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
-#                  Seule sorte a porter des labels Traefik : un routeur, une
+#                  Seule sorte a porter des labels de ROUTAGE : un routeur, une
 #                  URL https://<app>.apps.billbob.ovh, un middleware
 #                  d'authentification Google et priority=100.
 #   <app>-<nom>    service annexe prive d'une application (section services:
-#                  de son app.yml). AUCUN label Traefik.
+#                  de son app.yml). Un seul label : traefik.enable=false.
 #   <nom>          service partage par plusieurs applications (shared_services
-#                  dans fabrique.yml). AUCUN label Traefik non plus.
+#                  dans fabrique.yml). Le meme unique label.
 #
 # Les trois vivent sur le meme reseau apps_net et se joignent entre elles par
 # leur nom de service ; aucune ne publie de port sur l'hote. Ce qui expose un
-# service a Internet, ce sont ses labels Traefik, pas le reseau : un conteneur
-# sans label n'est joignable que par ses voisins.
+# service a Internet, ce sont ses labels Traefik, pas le reseau — mais l'absence
+# de label n'est PAS une protection : avec exposedByDefault, qui est le DEFAUT,
+# un conteneur sans le moindre label recoit quand meme un routeur, donc une URL,
+# et sans middleware d'authentification. Seul traefik.enable=false l'en retire ;
+# c'est pourquoi il est pose sur chaque service non route ci-dessous.
 #
 # Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
 # Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le

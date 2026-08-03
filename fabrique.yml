@@ -15,7 +15,9 @@ log_max_file: 3
 
 # Services partages par plusieurs applications. Ils vivent sur apps_net, sont
 # joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
-# aucun label Traefik, donc aucune URL. Une app declare sa dependance avec
+# init.sh leur pose « traefik.enable=false », le seul label qui RETIRE du
+# routage — l'absence de label ne suffirait pas, exposedByDefault leur creerait
+# un routeur sans authentification. Une app declare sa dependance avec
 # « needs: [redis] » dans son app.yml, et un needs vers un service absent d'ici
 # est une erreur de generation, pas une panne au demarrage.
 #
