@@ -1,89 +1,78 @@
 # Contrat de déploiement — billbob.ovh
 
-Ce dépôt est une **fabrique** : il héberge plusieurs applications, chacune avec
-son code, son PRD, son URL et son palier d'exposition, toutes déployées
-ensemble dans **une seule stack dockhand**. Les règles ci-dessous sont imposées
-par l'infrastructure : les enfreindre ne provoque pas une erreur claire, mais un
+Ce dépôt est une **fabrique** : plusieurs applications, chacune avec son code,
+son PRD, son URL et son palier d'exposition, toutes déployées ensemble dans
+**une seule stack dockhand**. Les règles ci-dessous sont imposées par
+l'infrastructure : les enfreindre ne provoque pas une erreur claire, mais un
 déploiement qui échoue en silence.
 
-**Le nom d'une application est celui de son répertoire sous `apps/`.** C'est lui
-qui devient le sous-domaine, le nom de conteneur et le nom de routeur Traefik ;
-il doit donc être un label DNS valide. L'organisation, le dépôt et le domaine
-sont dans `fabrique.yml`.
+**Le nom d'une application est celui de son répertoire sous `apps/`** : il
+devient le sous-domaine, le nom de conteneur et le nom de routeur Traefik, il
+doit donc être un label DNS valide. Org, dépôt et domaine sont dans
+`fabrique.yml`.
 
 ## Comment tu réponds
 
-**En français, simplement, et pour quelqu'un qui n'est pas technicien.** Celui
-qui te lit décide de ce qu'on construit ; il ne lit pas le code. Une réponse
-qu'il ne comprend pas ne vaut rien, quelle que soit la qualité du travail
-qu'elle décrit.
+**En français, simplement, pour quelqu'un qui n'est pas technicien.** Celui qui
+te lit décide de ce qu'on construit ; il ne lit pas le code. Une réponse qu'il
+ne comprend pas ne vaut rien, quelle que soit la qualité du travail décrit.
 
-- **Toujours en français** — les réponses, les questions, les explications.
-- **Court.** Quelques phrases, ou une liste de trois à cinq puces. Ce qui a été
-  fait, ce qui reste, ce qui bloque. Le reste encombre.
-- **Vulgarise.** Dis l'effet, pas le mécanisme : « le site répond à nouveau »
-  plutôt que « le healthcheck du conteneur repasse healthy ». Un terme technique
-  ne s'emploie que s'il est indispensable, et il s'explique alors en quelques
-  mots, la première fois.
-- **Pas de jargon décoratif** — ni noms de fichiers, ni options de commande, ni
-  extraits de code, sauf si on te les demande ou s'il y a un geste à faire, et
-  alors la commande exacte, seule.
-- **Dis franchement ce qui ne va pas.** Un échec annoncé en clair vaut mieux
-  qu'un succès prudent : « ça ne marche pas encore, voilà pourquoi » est une
-  réponse utile.
+- **Toujours en français** — réponses, questions, explications.
+- **Court** — quelques phrases, ou trois à cinq puces : ce qui est fait, ce qui
+  reste, ce qui bloque. Le reste encombre.
+- **Vulgarise** — dis l'effet, pas le mécanisme : « le site répond à nouveau »
+  plutôt que « le healthcheck repasse healthy ». Un terme technique ne s'emploie
+  que s'il est indispensable, et s'explique alors en quelques mots.
+- **Pas de jargon décoratif** — ni noms de fichiers, ni options, ni extraits de
+  code, sauf demande ou geste à faire ; alors la commande exacte, seule.
+- **Dis franchement ce qui ne va pas** — « ça ne marche pas encore, voilà
+  pourquoi » est une réponse utile.
 
 **Cette règle vaut pour ce que tu dis, pas pour ce que tu écris dans le dépôt.**
-Les messages de commit, les entrées de `journal/`, les `README` et les corps de
-PR gardent toute leur précision technique : leur lecteur est un développeur ou un
-agent, et ils ont chacun leur exigence propre, décrite plus bas. Vulgariser un
-message de commit lui ferait perdre ce qui le rend utile.
+Messages de commit, entrées de `journal/`, `README` et corps de PR gardent toute
+leur précision technique : leur lecteur est un développeur ou un agent.
 
 ## Arborescence
 
 ```
-apps/<nom>/          une application. `--add` y écrit app.yml, .dockerignore,
-                     test.sh, README.md, PRODUCT.md ; le Dockerfile et le code
-                     sont à toi
-journal/             une entrée par branche : les anomalies rencontrées
-compose.yaml         GÉNÉRÉ — la stack entière : les trois sortes de services, et —
-                     seulement si au moins un service monte un volume — le bloc
-                     volumes: qui les déclare
-fabrique.yml         valeurs communes : org, dépôt, registre, domaine, réseau, plafonds,
-                     et shared_services — les services partagés par plusieurs apps
-init.sh              le générateur
+apps/<nom>/    une application. `--add` y écrit app.yml, .dockerignore, test.sh,
+               README.md, PRODUCT.md ; le Dockerfile et le code sont à toi
+journal/       une entrée par branche : les anomalies rencontrées
+compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
+               bloc volumes: si et seulement si un service en monte un
+fabrique.yml   valeurs communes : org, dépôt, registre, domaine, réseau,
+               plafonds, et shared_services
+init.sh        le générateur
 ```
 
-Ce qui est **partagé** : la stack, la CI, le réseau, le domaine, les services de
-`shared_services`, l'outillage Claude Code. Ce qui **appartient à chaque app** :
-son code, son `Dockerfile`, son PRD, son URL, son palier d'exposition, ses
-volumes, ses services annexes, ses tests.
+**Partagé** : la stack, la CI, le réseau, le domaine, `shared_services`,
+l'outillage Claude Code. **Propre à chaque app** : son code, son `Dockerfile`,
+son PRD, son URL, son palier d'exposition, ses volumes, ses services annexes,
+ses tests.
 
 ## Démarrage
 
 ```bash
-./init.sh                 # régénère compose.yaml, la CI et l'outillage
-./init.sh --check         # vérifie les manifestes, puis le dépôt service par service
-./init.sh --list          # état des applications
-./init.sh --add <nom>     # échafaude apps/<nom>/
-./init.sh --dry-run       # montre ce qui changerait, sans rien écrire
-./init.sh --branches-fusionnees   # quelles branches distantes peuvent être supprimées
+./init.sh                          # régénère compose.yaml, la CI et l'outillage
+./init.sh --check                  # vérifie les manifestes, puis le dépôt service par service
+./init.sh --list                   # état des applications
+./init.sh --add <nom>              # échafaude apps/<nom>/
+./init.sh --dry-run                # montre ce qui changerait, sans rien écrire
+./init.sh --branches-fusionnees    # quelles branches distantes peuvent être supprimées
 ```
 
-`--dry-run` n'écrit **rien**, y compris l'`app.yml` qu'un `--app <nom> --enable`
-modifierait : il affiche l'ancienne et la nouvelle valeur, puis le diff des
-artefacts tels qu'ils seraient avec elle.
+`--dry-run` n'écrit **rien**, pas même l'`app.yml` qu'un `--enable` modifierait :
+il affiche l'ancienne et la nouvelle valeur, puis le diff des artefacts.
 
 `init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
-et le choix de la technologie t'appartient, app par app.
-
-Les artefacts dérivés — `compose.yaml`, le workflow, `.claude/`, `go.work` —
-sont **toujours réécrits**. C'est ce qui garantit qu'une app ajoutée ne peut pas
-manquer du déploiement.
+et le choix de la technologie t'appartient, app par app. Les artefacts dérivés —
+`compose.yaml`, le workflow, `.claude/`, `go.work` — sont **toujours réécrits** :
+c'est ce qui garantit qu'une app ajoutée ne peut pas manquer du déploiement.
 
 ## `apps/<nom>/app.yml` — les valeurs que tu décides
 
-Un fichier par application. **`init.sh` ne le réécrit jamais** : il est la
-source de vérité, tu l'édites à la main.
+Un fichier par application. **`init.sh` ne le réécrit jamais** : il est la source
+de vérité, tu l'édites à la main.
 
 ```yaml
 enabled: true              # false = dans le dépôt, mais hors du compose
@@ -103,34 +92,29 @@ valent alors que pour l'app ciblée :
 
 ```bash
 ./init.sh --app mon-app --port 3000 --health /health \
-          --health-cmd 'curl -fsS http://localhost:3000/health' \
-          --exposure google
+          --health-cmd 'curl -fsS http://localhost:3000/health' --exposure google
 ```
 
-**`enabled: false` n'est pas un brouillon, c'est une protection.** La stack est
-unique : référencer une image qui n'existe pas encore ferait échouer le
-`compose up` de **toutes** les apps. Une app neuve naît donc désactivée, et
-n'entre dans le compose qu'une fois sa première image publiée.
+**`enabled: false` n'est pas un brouillon, c'est une protection.** La stack étant
+unique, référencer une image qui n'existe pas encore ferait échouer le `compose
+up` de **toutes** les apps. Une app neuve naît désactivée et n'entre dans le
+compose qu'une fois sa première image publiée.
 
-**`health_cmd` est le piège le plus fréquent.** Il s'exécute *dans* ton
-conteneur : l'outil qu'il appelle doit exister dans l'image finale. `wget` est
-présent dans les images Alpine et BusyBox, `curl` rarement sans installation.
-Une image `scratch` ou `distroless` n'a **aucun shell** : mets alors
-`health_cmd: none`. Un healthcheck qui échoue rend le conteneur malsain en
-permanence, sans que l'app soit en cause.
+**`health_cmd` est le piège le plus fréquent** : il s'exécute *dans* ton
+conteneur, l'outil qu'il appelle doit donc exister dans l'image finale. `wget`
+est présent en Alpine et BusyBox, `curl` rarement. Une image `scratch` ou
+`distroless` n'a **aucun shell** : mets `health_cmd: none`. Un healthcheck qui
+échoue rend le conteneur malsain en permanence, sans que l'app soit en cause.
 
-**`stack` et `ui` ne changent rien au déploiement.** Ils déterminent l'outillage
-décrit plus bas. Renseigne-les dès que tu as choisi ta technologie, puis relance
-`./init.sh`. `.claude/settings.json` étant un réglage **de projet**, l'outillage
-est l'**union** de ce que demandent toutes les apps du dépôt — y compris les
-apps désactivées, dont il faut bien pouvoir écrire le code.
+**`stack` et `ui` ne changent rien au déploiement**, seulement l'outillage décrit
+plus bas. `.claude/settings.json` étant un réglage **de projet**, l'outillage est
+l'**union** de ce que demandent toutes les apps, y compris les désactivées.
 
 ### Quatre sections optionnelles : `volumes:`, `env:`, `needs:`, `services:`
 
-Elles n'ont **aucun équivalent en ligne de commande** : elles s'écrivent à la
-main dans `app.yml`. Une app qui n'en porte aucune produit exactement le bloc
-compose d'avant leur existence — les déclarer n'est jamais un passage obligé,
-c'est une demande explicite.
+Sans équivalent en ligne de commande : elles s'écrivent à la main. Une app qui
+n'en porte aucune produit exactement le bloc compose d'avant leur existence — les
+déclarer est une demande explicite, jamais un passage obligé.
 
 ```yaml
 volumes:
@@ -147,91 +131,64 @@ services:                       # services annexes, privés de cette app
       - donnees:/var/lib/ramure # le MÊME volume que l'app : partage voulu
 ```
 
-Le lecteur YAML d'`init.sh` est volontairement minimal — listes en ligne
-`[a, b]` ou en bloc `- a`, et des listes de mappings dont chaque élément peut
-porter une liste, mais pas un niveau de plus ; ni ancre, ni bloc multi-lignes :
-un parseur général serait ici une source de bogues muets. La contrepartie est
-qu'une **clé mal orthographiée n'est pas une erreur, elle est ignorée**. Dans une
-entrée `services:` ou `shared_services:`, `init.sh` l'**avertit** — `[ramure]
-services 'worker' : cle inconnue 'labels' ignoree` — parce que le piège y est
-double : écrire `labels: [traefik.enable=false]` à la main donne le sentiment
-d'avoir durci un service sans qu'une ligne du compose bouge. L'avertissement ne
-bloque pas : après avoir édité une de ces sections, relance `./init.sh` et relis
-ton bloc dans `compose.yaml` — c'est le seul endroit qui dise ce qui a vraiment
-été lu.
+**Le lecteur YAML d'`init.sh` est volontairement minimal** — listes en ligne
+`[a, b]` ou en bloc `- a`, listes de mappings dont chaque élément peut porter une
+liste, mais pas un niveau de plus ; ni ancre, ni bloc multi-lignes. Conséquence :
+une **clé mal orthographiée est ignorée, pas refusée**. Dans `services:` et
+`shared_services:`, `init.sh` l'avertit (`cle inconnue 'labels' ignoree`) sans
+bloquer — écrire `labels:` à la main donne le sentiment d'avoir durci un service
+sans qu'une ligne du compose bouge. Après avoir édité une de ces sections,
+relance `./init.sh` et relis ton bloc dans `compose.yaml` : c'est le seul endroit
+qui dise ce qui a vraiment été lu.
 
-**`env:` ne porte que des noms.** Un élément contenant un `=` est refusé à la
-génération, qui n'écrit alors aucun artefact : le dépôt est public, et un secret
-y entrerait par cette porte pour toujours. Le nom lui-même doit correspondre à
-`^[A-Z][A-Z0-9_]*$` — majuscules, chiffres et tirets bas, une lettre en tête :
-`lastfm_key` est refusé au même titre qu'un `=`, et le message le dit. `init.sh`
-émet `- NOM=${NOM:-}`, dont
-la valeur vient de l'environnement du serveur. Le défaut vide est délibéré — un
-nom non défini côté serveur ferait sinon échouer le `compose up` de la stack
-entière —, mais il se paie : ta variable arrive **vide** au lieu de manquer, et
-c'est à ton app de traiter la chaîne vide comme une absence plutôt que de partir
-avec une clé d'API vide. Les noms attendus se déclarent aussi dans ton `README`.
+**`env:` ne porte que des noms**, conformes à `^[A-Z][A-Z0-9_]*$`. Un `=`, ou un
+`lastfm_key`, fait échouer la génération, qui n'écrit alors aucun artefact : le
+dépôt est public. `init.sh` émet `- NOM=${NOM:-}`, dont la valeur vient de
+l'environnement du serveur. Le défaut vide est délibéré — un nom non défini côté
+serveur ferait sinon échouer le `compose up` de la stack entière — mais il se
+paie : ta variable arrive **vide** au lieu de manquer, et c'est à ton app de
+traiter la chaîne vide comme une absence. Déclare aussi les noms dans ton
+`README`.
 
-**`needs:` est vérifié à la génération.** Un nom qui ne correspond à aucun
-`shared_services` de `fabrique.yml` fait échouer `./init.sh` en listant les
-services déclarés : le partage oublié devient une erreur de génération, pas un
-`depends_on` pointant dans le vide ni une panne au démarrage. Ce que `depends_on`
-garantit s'arrête au **démarrage** du conteneur voisin, pas à sa disponibilité :
-ton app doit survivre à un `redis` qui n'accepte pas encore de connexion.
+**`needs:` est vérifié à la génération** : un nom absent de `shared_services`
+fait échouer `./init.sh`, plutôt qu'un `depends_on` pointant dans le vide. Mais ce
+que `depends_on` garantit s'arrête au **démarrage** du conteneur voisin, pas à sa
+disponibilité : ton app doit survivre à un `redis` qui n'accepte pas encore de
+connexion.
 
 **`services:` — des annexes privées de l'app.** `name` et `image` sont
-obligatoires : une annexe n'est pas construite pour elle-même par la CI, son
-image doit exister quelque part — le plus souvent celle de l'app,
-`.../<app>:main`, lancée avec une `command` différente. `memory` vaut `128m` par
-défaut ; `command` s'écrit en scalaire — découpée sur les espaces, comme une ligne
-de shell — ou en **liste** YAML (`[a, b]` ou `- a`), chaque élément étant alors un
-argument tel quel ; elle est émise en forme exec, **entière**, et `volumes:` et
-`env:` obéissent aux mêmes règles que ci-dessus. Une annexe devient le service
-`<app>-<name>` — et **ses volumes appartiennent à l'app, pas à elle** :
-`donnees:/var/lib/ramure` dans le worker monte le même `ramure-donnees` que
-l'app. C'est ainsi qu'un worker partage les données de son service principal, et
-c'est la raison d'être du préfixe.
+obligatoires : la CI ne construit que les `apps/<nom>/`, l'image d'une annexe doit
+donc exister ailleurs — le plus souvent celle de l'app, `.../<app>:main`, lancée
+avec une `command` différente. `memory` vaut `128m` par défaut. `command` s'écrit
+en scalaire — découpée sur les espaces, guillemets respectés — ou en **liste**
+YAML, chaque élément étant alors un argument tel quel ; elle est lue et émise **en
+entier**, en forme exec. Une annexe devient le service `<app>-<name>`, et **ses
+volumes appartiennent à l'app, pas à elle** : `donnees:/var/lib/ramure` dans le
+worker monte le même `ramure-donnees` que l'app — c'est ainsi qu'un worker partage
+les données de son service principal, et c'est la raison d'être du préfixe.
 
-**Les secrets n'ont qu'une porte, et elle regarde le résultat.** Aucun contrôle
-n'est plus attaché à un champ. Il y en a eu un, sur `command:`, et il a été
-contourné trois fois de suite : `["sh", "-c", "… --requirepass X"]` — un seul
-jeton, sans tiret ni `=`, donc ignoré —, puis `--requirepass -X`, où la valeur
-était prise pour une option, puis `health_cmd`, qui n'entrait pas par `command:`
-du tout. La leçon n'était pas qu'il manquait une règle de plus : un contrôle par
-**nom de clé** a autant de trous que le manifeste a de champs, et un de plus à
-chaque champ ajouté.
+**Les secrets n'ont qu'une porte, et elle regarde le résultat**, jamais un champ :
+un contrôle par nom de clé a autant de trous que le manifeste a de champs. Celui
+qui existait sur `command:` a été contourné trois fois — un `sh -c` en jeton
+unique, une valeur commençant par `-` prise pour une option, puis `health_cmd`,
+qui n'entrait pas par `command:` du tout.
 
-Avant d'écrire quoi que ce soit — et de nouveau dans `--check` —, `init.sh`
-**scanne les fichiers produits et les manifestes** : `compose.yaml`,
-`fabrique.yml`, `apps/*/app.yml`. Il y cherche un motif, et un seul :
-`<mot-secret><séparateur><valeur littérale>`, où le mot est `requirepass`,
-`password`, `passwd`, `secret`, `token`, `api-key`, `secret-key`, `private-key`,
-`access-key`, `auth-token`… ou le `://utilisateur:motdepasse@` d'une URL, et où
-le séparateur est l'espace, `=` ou `:`. **Une valeur commençant par `-` compte
-comme une valeur** : c'est précisément par là qu'on est passé la dernière fois.
-`command:`, `health_cmd`, `sh -c` et la porte que quelqu'un ouvrira demain sont
-couverts par le même contrôle, parce qu'il regarde **ce qui est écrit** et non
-par où c'est entré. L'échec nomme le **fichier et la ligne**, et ne réimprime
-jamais la valeur.
+Avant d'écrire quoi que ce soit — et de nouveau dans `--check` — `init.sh`
+**scanne `compose.yaml`, `fabrique.yml` et les `apps/*/app.yml`** à la recherche
+d'un motif et d'un seul : `<mot-secret><séparateur><valeur littérale>`, où le mot
+est `requirepass`, `password`, `passwd`, `secret`, `token`, `api-key`,
+`secret-key`, `private-key`, `access-key`, `auth-token`… ou le
+`://utilisateur:motdepasse@` d'une URL, et le séparateur l'espace, `=` ou `:`.
+**Une valeur commençant par `-` compte comme une valeur.** L'échec nomme le
+fichier et la ligne, sans jamais réimprimer la valeur.
 
-Deux formes restent admises, et ce sont les deux bonnes : `${VAR}` et `$(...)`,
-dont la valeur est injectée par l'infrastructure — `--requirepass
-${REDIS_PASSWORD}` —, et un **chemin**, forme du secret monté en fichier —
-`--password-file /run/secrets/pw`. Refuser le second pousserait à écrire le
-secret en clair à la place. Les faux positifs sont évités par la **frontière
-gauche** et non par une liste d'exceptions : le mot doit ouvrir la ligne en clé
-YAML, ou être collé à la ponctuation d'une option ou d'un identifiant. `key` et
-`auth` seuls ne déclenchent donc rien, et `--notify-keyspace-events Ex`,
-`--tls-key-file /certs/k.pem`, `--auth-host=trust` passent — là où le contrôle
-par champ, lui, refusait `--password-file /run/secrets/pw` : un faux positif qui
-poussait à faire pire.
-
-`command:` n'a donc plus de validation propre. Elle reste lue **en entier** :
-écrite en liste, elle est recollée en argv avant d'être émise — un lecteur qui ne
-verrait que le premier élément publierait une commande tronquée, sans un mot
-d'alerte — et une liste en ligne est découpée **en tenant compte des
-guillemets**, sans quoi `["postgres", "-c", "a=x,y"]` partirait avec deux
-guillemets orphelins dans son argv.
+Deux formes restent admises, et ce sont les bonnes : `${VAR}` ou `$(...)`,
+injectés par l'infrastructure (`--requirepass ${REDIS_PASSWORD}`), et un
+**chemin**, forme du secret monté en fichier (`--password-file /run/secrets/pw`).
+Les faux positifs sont évités par la **frontière gauche** — le mot doit ouvrir la
+ligne en clé YAML ou être collé à la ponctuation d'une option : `key` et `auth`
+seuls ne déclenchent rien, et `--notify-keyspace-events Ex`,
+`--tls-key-file /certs/k.pem`, `--auth-host=trust` passent.
 
 ## Ajouter une application
 
@@ -249,20 +206,16 @@ git commit                                    # commit 1 : la CI publie l'image
 git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2 : le déploiement
 ```
 
-**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`.**
-`--add` réécrit `compose.yaml` (le bloc commenté de l'app désactivée), le
-workflow (le nom de l'app entre dans la liste des images à construire) et
-`.gitignore` (le binaire de l'app) ; s'il introduit un langage ou un `ui: true`
-nouveau, `.claude/` ; et dès que le module Go existe, `go.work`. N'ajouter que
-`apps/<nom>` produit un commit **désynchronisé** : le job `contrat` échoue en
-CI sur « compose.yaml désynchronisé des manifestes », avant même la
-construction. Le commit 2, lui, ne touche que `app.yml` et `compose.yaml` :
-`--enable` ne réécrit rien d'autre.
+**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`** :
+`--add` réécrit `compose.yaml`, le workflow et `.gitignore` ; s'il introduit un
+langage ou un `ui: true` nouveau, `.claude/` ; et dès que le module Go existe,
+`go.work`. N'ajouter que `apps/<nom>` fait échouer le job `contrat` en CI sur
+« compose.yaml désynchronisé des manifestes », avant même la construction. Le
+commit 2 ne touche que `app.yml` et `compose.yaml`.
 
-Le chemin en un seul commit fonctionne aussi — la construction précède le
-garde-fou dans la même exécution — mais la séquence en deux commits fait
-arriver l'échec « l'image ne se construit pas » sur un commit qui, lui, **ne
-peut pas** casser la stack des autres.
+Le chemin en un seul commit fonctionne aussi, mais la séquence en deux fait
+arriver l'échec « l'image ne se construit pas » sur un commit qui, lui, **ne peut
+pas** casser la stack des autres.
 
 Si la nouvelle app introduit un langage absent du dépôt, recolle
 `.claude/cloud-setup.sh` dans le champ *Setup script* de ton environnement.
@@ -279,20 +232,16 @@ une seule est joignable depuis Internet :
 | `<nom>` | `shared_services` de `fabrique.yml` | `traefik.enable=false`, **et lui seul** |
 
 **Ce qui expose un service à Internet, ce sont ses labels, pas le réseau.** Les
-trois sortes vivent sur `apps_net`, se joignent entre elles par leur nom de
-service et ne publient aucun port sur l'hôte.
+trois sortes vivent sur `apps_net`, se joignent par leur nom de service et ne
+publient aucun port sur l'hôte.
 
 **Mais l'absence de label ne retire rien du routage — c'est l'inverse de
-l'intuition, et ça se vérifie.** Traefik tourne par défaut avec
-`exposedByDefault`, et il crée alors un routeur pour un conteneur **qui ne porte
-aucun label** : un `nginx` sans le moindre label posé sur `apps_net` apparaît
-dans l'API Traefik en `vr-redis@docker | Host(vr-redis) | middlewares None` —
-donc joignable, et **sans authentification**. Docker fusionne par ailleurs les
-labels gravés dans l'**image** avec ceux du conteneur : une image tierce, ou
-compromise, portant un `LABEL traefik.*` publierait un routeur que `compose.yaml`
-ne peut pas écraser, puisqu'il porte un autre nom. C'est exactement le mécanisme
-qui fait interdire tout `LABEL traefik.*` dans un `Dockerfile` — sauf que
-l'image d'une annexe ou d'un service partagé, elle, ne vient pas de toi.
+l'intuition.** Traefik tourne par défaut avec `exposedByDefault` : un conteneur
+**qui ne porte aucun label** obtient quand même un routeur, joignable et **sans
+authentification**. Docker fusionne par ailleurs les labels gravés dans l'**image**
+avec ceux du conteneur : une image tierce, ou compromise, portant un
+`LABEL traefik.*` publierait un routeur que `compose.yaml` ne peut pas écraser,
+puisqu'il porte un autre nom.
 
 Un seul label **retire** réellement un service du routage, et `init.sh` le pose
 **systématiquement** sur chaque annexe et chaque service partagé :
@@ -302,24 +251,20 @@ Un seul label **retire** réellement un service du routage, et `init.sh` le pose
       - "traefik.enable=false"
 ```
 
-Il est inoffensif si le serveur pose déjà `exposedByDefault: false`, et
-indispensable sinon. `./init.sh --check` en fait donc un KO bloquant **dans les
-deux sens** : un service non routé qui ne le porte pas est refusé — au même titre
-qu'une app sans authentification conforme —, et tout **autre** label `traefik.*`
-sur ce même service l'est aussi, puisqu'il publierait une URL qu'aucun middleware
-ne protège.
+Inoffensif si le serveur pose déjà `exposedByDefault: false`, indispensable sinon.
+`./init.sh --check` en fait un KO bloquant **dans les deux sens** : un service non
+routé qui ne le porte pas est refusé, et tout **autre** label `traefik.*` sur ce
+service l'est aussi, puisqu'il publierait une URL qu'aucun middleware ne protège.
 
-L'espace de noms étant plat, `<app>`, `<app>-<nom>` et `<nom>` se disputent les
-mêmes noms de service et de conteneur. Une app nommée `redis` face à un
-`shared_services` nommé `redis` est un doublon de clé YAML : légal, silencieux,
-la dernière gagne et la première disparaît du déploiement sans un mot. `init.sh`
-refuse donc la collision au lieu de la générer.
+**L'espace de noms étant plat**, `<app>`, `<app>-<nom>` et `<nom>` se disputent les
+mêmes noms. Une app nommée `redis` face à un `shared_services` nommé `redis` est un
+doublon de clé YAML : légal, silencieux, la dernière gagne et la première disparaît
+du déploiement sans un mot. `init.sh` refuse la collision au lieu de la générer.
 
 ### `shared_services` — un exemplaire pour toute la fabrique
 
 Un service dont plusieurs apps ont besoin ne se duplique pas : il se déclare une
-fois dans `fabrique.yml`, avec les mêmes sections `volumes:` et `env:` qu'une
-app.
+fois dans `fabrique.yml`, avec les mêmes sections `volumes:` et `env:` qu'une app.
 
 ```yaml
 shared_services:
@@ -331,100 +276,71 @@ shared_services:
       - donnees:/data            # volume nommé « redis-donnees »
 ```
 
-Son `image` est tirée telle quelle : la CI ne construit que les `apps/<nom>/`. Le
-garde-fou de CI inspecte **chaque** image du compose, dédoublonnée, avant l'appel
-du webhook, et les traite **toutes pareil** : une seule introuvable, fût-elle
-tierce, refuse le déploiement. `docker buildx imagetools inspect` interroge le
-registre en **anonyme** quand il n'a pas d'identifiants — l'inspection de
-`valkey/valkey:8-alpine` sort en 0 sans le moindre login, la même avec une faute
-de frappe sort en 1. Une image tierce mal orthographiée ou disparue est donc un
-fait constatable ici, et non un droit manquant ; la laisser passer ferait échouer
-le `docker compose up`, atomique pour la stack, c'est-à-dire tomber **toutes** les
-apps — exactement ce que ce garde-fou existe pour empêcher. En revanche
-`fabrique.yml` est commun : le modifier fait **reconstruire toutes les apps** au
-prochain passage en CI, puisque plus rien ne garantit que les images publiées
+Son `image` est tirée telle quelle. Le garde-fou de CI inspecte **chaque** image du
+compose, dédoublonnée, avant l'appel du webhook, et les traite **toutes pareil** :
+une seule introuvable, fût-elle tierce, refuse le déploiement — `docker buildx
+imagetools inspect` interroge le registre en **anonyme** faute d'identifiants, donc
+une image tierce mal orthographiée est un fait constatable ici, pas un droit
+manquant. La laisser passer ferait tomber **toutes** les apps, le `compose up`
+étant atomique.
+
+`fabrique.yml` étant commun, le modifier fait **reconstruire toutes les apps** au
+prochain passage en CI : plus rien ne garantit alors que les images publiées
 correspondent aux manifestes courants.
 
-**Le budget mémoire compte les trois sortes.** `memory_budget` plafonne la somme
-de tous les `mem_limit` : un worker à 64 Mo et un Redis à 128 Mo y pèsent autant
-qu'une app, parce que l'OOM killer ne fait pas la différence et que tout démarre
-d'un coup. `./init.sh --check` affiche la somme, le nombre de services et
-avertit au-delà du plafond.
+**Le budget mémoire compte les trois sortes.** `memory_budget` plafonne la somme de
+tous les `mem_limit` : un worker à 64 Mo et un Redis à 128 Mo y pèsent autant qu'une
+app, parce que l'OOM killer ne fait pas la différence et que tout démarre d'un coup.
+`--check` affiche la somme, le nombre de services, et avertit au-delà.
 
 ## Les volumes nommés — ce qui survit au redéploiement
 
 Le système de fichiers d'un conteneur est jeté à chaque déploiement : ce qui doit
-persister se déclare dans `volumes:`, et rien d'autre ne survit. La forme est
-`<nom>:<chemin conteneur>[:ro]` — le nom logique à gauche doit correspondre à
-`^[a-z0-9][a-z0-9-]*$`, le chemin à droite être absolu, `:ro` est le seul suffixe
-admis. `donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
-**`ramure-donnees`** : c'est le préfixe du propriétaire qui empêche deux apps de
-se marcher dessus, et deux propriétaires qui produiraient le même nom réel sont
-refusés. Un `/` à gauche est un bind mount, et il est refusé à la génération.
+persister se déclare dans `volumes:`, et **rien d'autre ne survit**. La forme est
+`<nom>:<chemin conteneur>[:ro]` — nom logique à gauche conforme à
+`^[a-z0-9][a-z0-9-]*$`, chemin absolu à droite, `:ro` seul suffixe admis.
 
-**Ce que tu y gagnes : zéro action sur l'hôte, jamais, pour aucune app.**
-`docker compose up` crée le volume au premier démarrage et le conserve entre deux
-déploiements. Pas de `mkdir` sur le serveur avant une première mise en ligne, pas
-de `chown` manuel, pas de chemin d'hôte à valider — donc pas de premier
-déploiement qui échoue parce que personne n'a préparé le répertoire. C'est
-exactement ce que coûtait un bind mount : quand le répertoire source n'existe
-pas, Docker le crée **en root**, l'app tourne en non-root, elle n'y écrit jamais.
+`donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
+**`ramure-donnees`** : c'est le préfixe du propriétaire qui empêche deux apps de se
+marcher dessus, et deux propriétaires produisant le même nom réel sont refusés.
 
-**Le piège n'a pas disparu pour autant : il a déménagé dans ton `Dockerfile`.**
-Au premier montage, Docker recopie dans le volume vide le contenu du répertoire
-**tel qu'il existe dans l'image**, propriétaire compris — c'est donc l'image qui
-décide à qui appartient le volume. Répertoire absent de l'image, ou appartenant à
-root : le volume appartient à root, et ton app non-root ne peut pas y écrire. Le
-symptôme est « l'app démarre et perd tout » — jamais un message clair, juste des
-données qui ne s'écrivent pas. La parade tient en une ligne, **avant** `USER` :
+**Un `/` à gauche est un bind mount, refusé à la génération.** Il faudrait créer le
+chemin d'hôte à la main avant le premier déploiement, et Docker créerait un
+répertoire absent **en root** — que l'app, non-root, n'écrirait jamais. Les volumes
+nommés existent pour supprimer ce geste : `docker compose up` crée le volume au
+premier démarrage et le conserve entre deux déploiements. **Aucune action sur
+l'hôte, jamais, pour aucune app.**
+
+**Le piège a déménagé dans ton `Dockerfile`.** Au premier montage, Docker recopie
+dans le volume vide le contenu du répertoire **tel qu'il existe dans l'image**,
+propriétaire compris : répertoire absent de l'image, ou appartenant à root, et le
+volume appartient à root — ton app non-root ne peut pas y écrire. Le symptôme est
+« l'app démarre et perd tout », jamais un message clair. La parade tient en une
+ligne, **avant** `USER` :
 
 ```dockerfile
 RUN mkdir -p /var/lib/ramure && chown 10001:10001 /var/lib/ramure
 USER 10001:10001
 ```
 
-`./init.sh --check` relit ton `Dockerfile` et **avertit** — sans bloquer, un
-`chown` prenant des formes qu'un grep ne voit pas — quand un chemin monté n'y est
-jamais donné à personne. C'est le dernier moment où le piège se rattrape avant la
-production.
+`./init.sh --check` relit ton `Dockerfile` et **avertit** — sans bloquer, un `chown`
+prenant des formes qu'un grep ne voit pas — quand un chemin monté n'y est jamais
+donné à personne. C'est le dernier moment où le piège se rattrape avant la
+production. L'avertissement couvre les volumes de l'app **plus** ceux de ses annexes
+bâties sur l'image de l'app (`ghcr.io/<org>/<dépôt>/<app>:*`) ; restent hors de
+portée, faute de `Dockerfile` ici, une annexe sur image **tierce** et les volumes
+des `shared_services`.
 
-Ce que cet avertissement couvre exactement : les volumes de l'app, **plus** ceux
-de ses services annexes dont l'`image` est celle de l'app
-(`ghcr.io/<org>/<dépôt>/<app>:*`) — le conteneur qui les monte est alors construit
-par ce même `Dockerfile`, et le piège du propriétaire y est identique. Un volume
-déclaré **uniquement** dans une annexe est donc couvert lui aussi. Les chemins
-sont dédoublonnés, et l'avertissement suppose un `Dockerfile` présent. Restent
-hors de sa portée, faute de `Dockerfile` dans ce dépôt : une annexe qui tourne sur
-une image **tierce**, et les volumes des `shared_services`.
+**`name:` — pourquoi le compose porte deux fois le même nom.** Compose préfixe par
+défaut les volumes de premier niveau par le nom du projet : le volume réel
+s'appellerait `<projet>_ramure-donnees`, et la commande de sauvegarde ci-dessous,
+montant le nom court, le ferait **créer vide** par Docker — `tar` archiverait un
+répertoire vide et **sortirait en 0**, l'illusion parfaite d'une sauvegarde.
+`init.sh` émet donc `name: <nom>` sous chaque entrée, et `--check` refuse un bloc où
+il manque. Corollaire : le nom devient **global à l'hôte** ; le préfixe par nom
+d'app rend une collision avec une autre stack improbable, pas impossible.
 
-**Le nom réel est le nom documenté — et c'est `name:` qui le garantit.** Compose
-préfixe par défaut toute entrée du bloc `volumes:` de premier niveau par le nom du
-projet : `docker compose --project-name mastack config` rend alors
-`{"ramure-donnees": {"name": "mastack_ramure-donnees"}}`. La commande de
-sauvegarde ci-dessous monterait `ramure-donnees`, que Docker **créerait vide** au
-passage, `tar` archiverait un répertoire vide et la commande **sortirait en 0** —
-l'illusion parfaite d'une sauvegarde. `init.sh` émet donc `name: <nom>` sous
-chaque entrée : la stack étant unique, le préfixe de projet n'apporte rien, et le
-nom réel redevient égal au nom documenté. `--check` refuse un bloc où il manque.
-
-**Migration — une stack qui a déjà tourné sans `name:`.** Ses volumes réels
-s'appellent `<projet>_<nom>` et ils deviennent **orphelins** au premier
-déploiement du compose corrigé : celui-ci monte le nom court, que Docker crée
-**vide** au passage. L'app repart donc sans ses données, sans une erreur — le
-mode d'échec silencieux que `name:` supprime, déplacé d'un cran. Recopie
-**avant** ce déploiement, stack arrêtée :
-
-```bash
-docker volume ls --format '{{.Name}}' | grep ramure-donnees   # <projet>_ramure-donnees ?
-docker run --rm -v <projet>_ramure-donnees:/ancien -v ramure-donnees:/neuf \
-  alpine sh -c 'cp -a /ancien/. /neuf/'
-```
-
-`cp -a` conserve les propriétaires : l'app tourne en non-root, un `cp` ordinaire
-lui rendrait un volume qu'elle ne peut pas écrire. Le `docker volume rm` de
-l'ancien attend d'avoir vérifié le neuf — il est irréversible.
-
-**Sauvegarder, et effacer.** Un volume nommé ne s'ouvre pas avec un `cat` : son
+**Sauvegarder, effacer, borner.** Un volume nommé ne s'ouvre pas avec un `cat` : son
 contenu passe par un conteneur jetable, lancé côté serveur.
 
 ```bash
@@ -432,85 +348,74 @@ docker run --rm -v ramure-donnees:/d -v "$PWD":/sortie alpine \
   tar czf /sortie/ramure-donnees.tgz -C /d .
 ```
 
-**Le disque du serveur est à 92 %**, et un volume, contrairement à un journal,
-n'a aucune borne : il grossit jusqu'à ce que la stack entière n'ait plus de place.
-Un volume de cache doit donc être **borné par ton code et jetable** — ce que ton
-app ne sait pas reconstruire n'a rien à y faire. Et la séparation entre ce qui se
-sauvegarde et ce qui s'efface doit se lire **dans les noms** : `donnees` se
-sauvegarde, `cache` se supprime. Celui qui fait de la place à trois heures du
-matin n'aura que ces noms pour décider, et `docker volume rm` est irréversible.
+**Le disque du serveur est à 92 %**, et un volume n'a aucune borne : il grossit
+jusqu'à ce que la stack entière n'ait plus de place. Un volume de cache doit donc
+être **borné par ton code et jetable** — ce que ton app ne sait pas reconstruire n'a
+rien à y faire. Et la séparation entre ce qui se sauvegarde et ce qui s'efface doit
+se lire **dans les noms** : `donnees` se sauvegarde, `cache` se supprime. Celui qui
+fait de la place à trois heures du matin n'aura que ces noms pour décider, et
+`docker volume rm` est irréversible.
 
-Le reste est vérifié pour toi, à la génération comme au `--check` : le même nom
-deux fois dans une liste, ou deux volumes sur le même chemin conteneur — le
-second masquerait le premier — sont refusés ; le bloc `volumes:` de premier
-niveau du compose est généré et doit déclarer **exactement** les volumes montés.
-Un montage dont le nom manque à ce bloc n'est **pas** réinterprété en bind mount :
-Compose **refuse le projet entier**, avant qu'un seul conteneur ne démarre —
-`service "ramure" refers to undefined volume donnees: invalid compose project`,
-et le `compose up` de toute la stack s'arrête là. Une app désactivée ne contribue
-aucun volume, puisqu'aucun de ses services n'est émis.
+Le reste est vérifié pour toi, à la génération comme au `--check` : le même nom deux
+fois dans une liste, ou deux volumes sur le même chemin conteneur — le second
+masquerait le premier — sont refusés ; le bloc `volumes:` de premier niveau doit
+déclarer **exactement** les volumes montés, chacun avec son `name:`. Un montage
+absent de ce bloc n'est **pas** réinterprété en bind mount : Compose refuse le projet
+entier, avant qu'un seul conteneur ne démarre. Une app désactivée ne contribue aucun
+volume, puisqu'aucun de ses services n'est émis.
+
 ## Comment on travaille : branche, puis commits par étapes
 
 **Jamais de modification directe sur `main`.** Une branche s'ouvre dès la
-**première** modification, et elle est nommée `<app>/<sujet>` — ou
-`fabrique/<sujet>` pour ce qui touche `init.sh`, `fabrique.yml`, la CI, le
-contrat ou l'outillage. Le préfixe dit quel périmètre est en jeu, donc quel
-rayon de souffle, avant même d'ouvrir le diff.
+**première** modification, nommée `<app>/<sujet>` — ou `fabrique/<sujet>` pour ce qui
+touche `init.sh`, `fabrique.yml`, la CI, le contrat ou l'outillage. Le préfixe dit
+quel rayon de souffle est en jeu, avant même d'ouvrir le diff.
 
 ```bash
 ./init.sh --branche cadran/fuseaux-multiples
 ./init.sh --branche fabrique/garde-fous-git
 ```
 
-Le nom est validé avant la création : préfixe connu, sujet en minuscules. La
-branche part de `origin/main`, jamais du HEAD courant — greffée sur une autre
-branche de travail, elle traînerait ses commits dans sa PR.
+Le nom est validé avant la création : préfixe connu, sujet en minuscules. La branche
+part de `origin/main`, jamais du HEAD courant — greffée sur une autre branche de
+travail, elle traînerait ses commits dans sa PR.
 
-**Une exception, subie et non choisie : `claude/<sujet>`.** Le harnais cloud
-assigne lui-même le nom de la branche et interdit de pousser ailleurs. Ce préfixe
-est donc accepté pour **rejoindre** une branche existante — sans quoi une session
-cloud ne pourrait pas ouvrir son entrée de journal — mais refusé pour en **créer**
-une : personne ne le choisit.
+**Une exception, subie et non choisie : `claude/<sujet>`.** Le harnais cloud assigne
+lui-même le nom de la branche et interdit de pousser ailleurs. Ce préfixe est donc
+accepté pour **rejoindre** une branche existante — sans quoi une session cloud ne
+pourrait pas ouvrir son entrée de journal — mais refusé pour en **créer** une. Il ne
+dit rien du périmètre : sur une telle branche, le rayon de souffle se lit dans le
+champ `Périmètre` de l'entrée de journal, et nulle part ailleurs. Renseigne-le tôt.
 
-Il ne dit rien du périmètre, et c'est sa seule limite. Sur une branche
-`claude/<sujet>`, le rayon de souffle se lit dans le champ `Périmètre` de
-l'entrée de journal et dans le diff, pas dans le nom. Renseigne-le tôt.
+**Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
+
+```bash
+./init.sh --pret     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
+```
+
+`--pret` ne relance que les apps réellement modifiées depuis la base. Chaque commit
+est ainsi relisable seul et ne casse rien. On pousse à chaque commit ; **la pull
+request vient à la fin**, une fois l'ensemble cohérent.
 
 ### La fin de vie d'une branche ne t'appartient pas
 
-**Une session cloud ouvre des branches et ne peut pas en fermer.** Le relais git
-du harnais refuse la suppression de refs — `HTTP 403` sur `git-receive-pack`, et
-`git` affiche ensuite `Everything up-to-date`, qui ressemble à un succès. Le
-serveur MCP GitHub expose `create_branch` sans son inverse. Les branches
-fusionnées s'accumulent donc, et rien ne le signale.
+**Une session cloud ouvre des branches et ne peut pas en fermer.** Le relais git du
+harnais refuse la suppression de refs — `HTTP 403` sur `git-receive-pack`, puis `git`
+affiche `Everything up-to-date`, qui ressemble à un succès. Le serveur MCP GitHub
+expose `create_branch` sans son inverse. Les branches fusionnées s'accumulent donc,
+et rien ne le signale.
 
 ```bash
 ./init.sh --branches-fusionnees    # dit quoi supprimer, ne supprime rien
 ```
 
 Le critère est l'**équivalence de patch**, pas l'appartenance à l'ascendance de
-`main` : cette dernière se trompe dans les deux sens. Elle classe « non
-fusionnée » une branche simplement écrasée en un commit, et ne dit rien d'une
-branche dont la PR est fusionnée mais qui porte des commits écrits **après**.
-
-Sa limite est dans le nom de sa seconde section, `à regarder` : un patch inédit
-ne prouve pas un travail perdu. Un contenu repris à un autre chemin, ou refait à
-la main, produit un patch différent — la commande le remonte plutôt que de
-proposer une suppression qu'elle ne sait pas justifier. Compare avant de conclure.
-
-**Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque
-commit :
-
-```bash
-./init.sh --pret     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
-```
-
-`--pret` ne relance que les apps réellement modifiées depuis la base : sur une
-fabrique qui grandit, tout relancer à chaque commit coûterait plus que ça ne
-rapporte. Chaque commit est ainsi relisable seul et ne casse rien — c'est ce qui
-rend la relecture simple, et c'est le seul intérêt de committer souvent. On
-pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ensemble
-cohérent.
+`main` : cette dernière se trompe dans les deux sens — elle classe « non fusionnée »
+une branche écrasée en un commit, et ne dit rien d'une branche dont la PR est
+fusionnée mais qui porte des commits écrits **après**. Sa limite est dans le nom de
+sa seconde section, `à regarder` : un patch inédit ne prouve pas un travail perdu —
+un contenu repris ailleurs ou refait à la main produit un patch différent. Compare
+avant de conclure.
 
 ### Deux garde-fous, parce qu'une règle écrite s'oublie
 
@@ -519,27 +424,27 @@ cohérent.
 | `.claude/garde-branche.sh` (`PreToolUse`) | refuse toute édition tant que HEAD est sur `main`, et donne la commande exacte |
 | `.claude/garde-commit.sh` (`Stop`) | refuse de terminer sur un arbre de travail sale |
 
-Ils sont générés par `init.sh` comme le reste de `.claude/`, et `--check` refuse
-qu'ils divergent de leur générateur. Aucun des deux ne dépend de `jq` ni de
-`python` : un garde-fou qui ne démarre pas sur une machine dépouillée ne garde
-rien.
-
-Le garde-fou de branche n'ouvre pas la branche à ta place : le nom doit dire le
-sujet, et seul celui qui édite le connaît.
+Générés par `init.sh` comme le reste de `.claude/`, et `--check` refuse qu'ils
+divergent de leur générateur. Aucun ne dépend de `jq` ni de `python` : un garde-fou
+qui ne démarre pas sur une machine dépouillée ne garde rien. Le garde-fou de branche
+n'ouvre pas la branche à ta place : seul celui qui édite connaît le sujet.
 
 ### Le journal des anomalies
 
 **Une branche, une entrée dans `journal/`.** Elle s'ouvre avec la branche —
-`./init.sh --branche` la crée préremplie, il n'y a pas de geste à retenir — et se
-remplit **au fil du travail**, pas à la fin. Écrite à chaud, elle retient les
-anomalies mineures ; reconstituée en fin de branche, elle ne garde que les
-spectaculaires. Or ce sont les mineures qui disent où le contrat a un trou.
+`./init.sh --branche` la crée préremplie — et se remplit **au fil du travail**, pas à
+la fin : écrite à chaud elle retient les anomalies mineures, reconstituée elle ne
+garde que les spectaculaires. Or ce sont les mineures qui disent où le contrat a un
+trou. Le nom du fichier vient de la branche : `fabrique/garde-fous-git` →
+`journal/2026-08-03-fabrique-garde-fous-git.md`.
 
-Le nom du fichier vient de la branche, ce qui le rend retrouvable sans index :
-`fabrique/garde-fous-git` → `journal/2026-08-03-fabrique-garde-fous-git.md`.
+Ce journal enregistre les **anomalies**, pas le déroulé : ce qui a surpris, cassé ou
+s'est révélé faux — y compris tes propres erreurs de raisonnement, les plus utiles et
+les plus faciles à taire. Ce que le changement fait va dans le message de commit ; ce
+qu'il a coûté d'apprendre va ici.
 
-Chaque anomalie porte quatre champs. `Symptôme` et `Cause` sont en prose libre.
-Les deux autres ont un **vocabulaire fermé**, et `./init.sh --check` le vérifie :
+Chaque anomalie porte quatre champs. `Symptôme` et `Cause` sont en prose libre. Les
+deux autres ont un **vocabulaire fermé**, et `--check` le vérifie :
 
 ```
 **Detecte par** — `utilisateur`
@@ -565,145 +470,92 @@ Les deux autres ont un **vocabulaire fermé**, et `./init.sh --check` le vérifi
 | `comportement` | façon de travailler, aucun artefact à changer |
 | `arbitrage` | demande une décision humaine, pas un correctif |
 
-**Le vocabulaire est fermé parce que le lecteur peut être un agent.** En prose
-libre, « moi », « la critique impeccable » et « le compilateur » ne s'agrègent
-pas : la distribution que ce journal promet n'est plus calculable. Ce n'est pas
-une crainte théorique — les deux premières entrées ont produit treize valeurs en
-six catégories informelles, dont aucune ne suivait le vocabulaire que le gabarit
-proposait déjà. Un vocabulaire non vérifié n'est pas un vocabulaire.
+**Le vocabulaire est fermé parce que le lecteur peut être un agent** : en prose libre,
+« moi », « la critique impeccable » et « le compilateur » ne s'agrègent pas, et la
+distribution que ce journal promet n'est plus calculable. `Detecte par` est **ordonné
+par coût croissant**, et c'est ce qui le rentabilise : l'agrégat utile n'est pas le
+nombre d'anomalies mais **jusqu'où la distribution glisse vers la droite** — une masse
+sur `utilisateur` et `production` dit que les garde-fous laissent passer, une masse
+sur `compilateur`, `test` et `CI` dit qu'ils tiennent, quel qu'en soit le nombre.
 
-`Detecte par` est **ordonné par coût croissant**, et c'est ce qui rentabilise le
-journal. L'agrégat utile n'est pas le nombre d'anomalies mais **jusqu'où la
-distribution glisse vers la droite** : une masse sur `utilisateur` et
-`production` dit que les garde-fous laissent passer ; une masse sur
-`compilateur`, `test` et `CI` dit qu'ils tiennent, quel qu'en soit le nombre.
-
-Ce journal enregistre les **anomalies**, pas le déroulé : ce qui a surpris, cassé,
-ou s'est révélé faux — y compris tes propres erreurs de raisonnement, qui sont
-les plus utiles et les plus faciles à taire. Ce que le changement fait va dans le
-message de commit ; ce qu'il a coûté d'apprendre va ici.
-
-### L'en-tête : `Périmètre` et `Mode`
-
-Deux champs portent sur l'**entrée entière**, et `--check` les vérifie comme les
-deux précédents :
+**L'en-tête porte deux champs, vérifiés eux aussi :**
 
 ```
 Périmètre : fabrique
 Mode : `chaud`
 ```
 
-`Périmètre` — les apps touchées, ou `fabrique`. Sur une branche `claude/<sujet>`,
-dont le préfixe est imposé par le harnais et ne dit rien du rayon de souffle,
-c'est le **seul** endroit où il se lit. Le laisser au gabarit fait échouer
-`--check`.
+`Périmètre` — les apps touchées, ou `fabrique` ; le laisser au gabarit fait échouer
+`--check`. `Mode` — vocabulaire fermé : `chaud` (valeur du gabarit et cas normal,
+puisque `--branche` ouvre l'entrée en même temps que la branche) ou `retrospective`,
+qui dit qu'elle a été reconstituée après coup. L'`analyste` lit une entrée
+rétrospective mais s'interdit d'en tirer une mesure — encore faut-il qu'il puisse la
+trouver, ce qu'un champ vérifié garantit là où une phrase en prose ne le faisait pas.
 
-`Mode` — vocabulaire fermé, `chaud` ou `retrospective`. `chaud` est la valeur du
-gabarit et le cas normal, puisque `--branche` ouvre l'entrée en même temps que la
-branche ; `retrospective` dit qu'elle a été reconstituée après coup, donc qu'elle
-ne garde que les anomalies spectaculaires. L'`analyste` la lit mais s'interdit
-d'en tirer une mesure — et pour cela il faut qu'il puisse la **trouver** :
-la consigne reposait auparavant sur une phrase en prose, dont le seul filet était
-un `grep` sur « rétrospectiv|reconstitu » qui attrapait aussi le titre d'une
-anomalie *parlant* d'une reconstitution sans en être une.
+Deux vérifications tiennent l'ensemble, dans l'ordre de dureté :
 
-Deux vérifications le tiennent, dans l'ordre de dureté :
-
-- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, si
-  l'entrée est encore le gabarit nu, ou si son en-tête est incomplet — sans ces
-  tests, le geste deviendrait une case à cocher vide ;
+- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, si elle est
+  encore le gabarit nu, ou si son en-tête est incomplet ;
 - `./init.sh --check`, donc la CI, refuse un gabarit nu ou un en-tête incomplet
-  **committé**. Une entrée non suivie par git est un travail en cours et ne se
-  juge pas : c'est ce qui laisse `--check` vert entre l'ouverture de la branche et
-  le premier commit.
+  **committé**. Une entrée non suivie par git est un travail en cours et ne se juge
+  pas — c'est ce qui laisse `--check` vert entre l'ouverture de la branche et le
+  premier commit.
 
-Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur. Une
+Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur : une
 entrée vide et une entrée jamais ouverte ne disent pas la même chose.
 
-Le `greffier` ne peut pas remplir le journal — il n'a pas d'outil d'édition, et
-c'est délibéré. Il butera sur `--pret` et rapportera : seul celui qui a fait le
-travail connaît les anomalies qu'il a rencontrées.
-
-### L'agent `analyste`
-
-Un journal que personne ne relit est un coût sans contrepartie. L'`analyste` est
-le lecteur :
+### Les agents `analyste` et `greffier`
 
 ```
-Agent(subagent_type: "analyste")   # lançable en tâche de fond
+Agent(subagent_type: "analyste")   # lit le journal, rend un plan
+Agent(subagent_type: "greffier")   # branche, vérifie, committe et pousse
 ```
 
-Il agrège les deux champs fermés, cherche les causes qui reviennent d'une branche
-à l'autre, et rend un plan de trois à six actions groupées par `Action` — les
-`contrat` ensemble, les `garde-fou` ensemble. Les `arbitrage` ne sont pas des
-actions : il les liste à part, telles quelles, ce sont des questions pour toi.
+Tous deux sont restreints à `Bash`, `Read` et `Grep`, et **lançables en tâche de
+fond**. **L'absence d'outil d'édition n'est pas un détail de configuration** : c'est
+ce qui garantit qu'un agent lancé en fond ne peut pas modifier le dépôt pendant que
+tu travailles dessus.
 
-Comme le `greffier`, il est restreint à `Bash`, `Read` et `Grep` : **il rend son
-plan dans sa réponse, il n'écrit aucun fichier.** C'est ce qui le rend lançable
-en tâche de fond sans risque, et ce qui laisse la décision à qui la doit.
-
-Deux consignes le tiennent au réel : ne pas compter une entrée marquée
+L'`analyste` agrège les deux champs fermés, cherche les causes qui reviennent d'une
+branche à l'autre, et rend **dans sa réponse** un plan de trois à six actions
+groupées par `Action` — les `arbitrage` listés à part, tels quels : ce sont des
+questions pour toi. Deux consignes le tiennent au réel : ne pas compter une entrée
 rétrospective comme une mesure fiable, et ne pas proposer de garde-fou pour une
-anomalie déjà rattrapée par le compilateur ou par un test — elle ne coûte rien,
-le garde-fou coûterait plus.
+anomalie déjà rattrapée par le compilateur ou par un test.
 
-### L'agent `greffier`
+Le `greffier` s'arrête et rapporte si `./init.sh --pret` échoue — réparer n'est pas
+son rôle. Il ne réécrit jamais l'histoire (`--force`, `--amend`, `rebase`,
+`reset --hard`, `merge` lui sont interdits) et n'ouvre pas de pull request. Il ne peut
+pas non plus remplir le journal, et c'est délibéré : seul celui qui a fait le travail
+connaît les anomalies rencontrées.
 
-Les trois gestes — brancher, vérifier, committer et pousser — se délèguent :
-
-```
-Agent(subagent_type: "greffier")   # lançable en tâche de fond
-```
-
-Il est restreint à `Bash`, `Read` et `Grep`. **L'absence d'outil d'édition n'est
-pas un détail de configuration** : c'est ce qui garantit qu'un agent lancé en
-fond ne peut pas modifier le dépôt pendant que tu travailles dessus. Si
-`./init.sh --pret` échoue, il s'arrête et rapporte — réparer n'est pas son rôle.
-Il ne réécrit jamais l'histoire (`--force`, `--amend`, `rebase`, `reset --hard`,
-`merge` lui sont interdits) et n'ouvre pas de pull request.
-
-**Le registre des agents est lu au démarrage de la session.** Un agent ajouté en
-cours de session n'est donc invocable qu'à la session suivante — exactement le
-même piège que les plugins, et pour la même raison. En attendant, sa séquence
-s'exécute à la main, elle tient en quatre commandes.
+**Le registre des agents est lu au démarrage de la session** : un agent ajouté en
+cours de session n'est invocable qu'à la suivante — même piège que les plugins.
 
 ### La pull request se lit en trente secondes
 
-Un corps de PR n'est pas un compte rendu. Il sert à décider **s'il faut relire,
-et par où commencer** : une phrase sur ce que fait le changement, trois à cinq
-puces sur ce qui compte, ce qui a été vérifié en chiffres, et les points
-d'attention avant fusion. Le reste encombre.
+Un corps de PR n'est pas un compte rendu : il sert à décider **s'il faut relire, et
+par où commencer**. Une phrase sur ce que fait le changement, trois à cinq puces sur
+ce qui compte, ce qui a été vérifié en chiffres, les points d'attention avant fusion.
+`.github/pull_request_template.md`, généré, en donne la forme — remplis ses sections,
+ne les invente pas.
 
-`.github/pull_request_template.md`, généré, en donne la forme — remplis ses
-sections, ne les invente pas.
-
-Le raisonnement détaillé, lui, va dans les **messages de commit**, où il reste
-attaché au changement qu'il explique et survit à la fusion. C'est aussi ce qui
-rend le découpage en étapes payant : quatre commits bien décrits valent mieux
-qu'un long corps de PR que personne ne relira.
+Le raisonnement détaillé va dans les **messages de commit**, où il reste attaché au
+changement qu'il explique et survit à la fusion. Quatre commits bien décrits valent
+mieux qu'un long corps de PR que personne ne relira.
 
 ## Le rayon de souffle
 
-Une seule stack, donc un seul `docker compose up`, atomique pour l'ensemble.
-Une erreur dans le bloc d'une app fait échouer le déploiement de **toutes** les
-autres, y compris celles que tu n'as pas touchées. Trois garde-fous en
-découlent, et c'est pour cela qu'ils existent :
-
-- `enabled` — une app entre dans le compose après son image, jamais avant ;
-- le garde-fou de CI — le webhook n'est appelé qu'après avoir vérifié que
-  **chaque** image référencée par le compose est tirable : celles de la fabrique,
-  celles des annexes et des services partagés, et les images **tierces**, dont
-  l'inspection anonyme aboutit sans login. Le pire cas devient « rien n'est
-  déployé » au lieu de « tout tombe » ;
-- `./init.sh --check` — vérification **par service**, les trois sortes, jamais
-  par recherche globale dans le fichier.
+Une seule stack, donc un seul `docker compose up`, atomique : une erreur dans le bloc
+d'une app fait échouer le déploiement de **toutes** les autres, y compris celles que
+tu n'as pas touchées. C'est la raison d'être des trois garde-fous décrits plus haut —
+`enabled`, l'inspection des images en CI, et le `--check` service par service — et la
+raison pour laquelle aucun ne se contourne.
 
 ## Ton outillage — les plugins Claude Code
 
-`init.sh` écrit un `.claude/settings.json` **versionné** : tout clone du dépôt —
-toi, un autre agent, une session cloud, la CI — repart avec le même outillage.
-
-Le socle, présent dans tous les dépôts :
+`init.sh` écrit un `.claude/settings.json` **versionné** : tout clone du dépôt — toi,
+un autre agent, une session cloud, la CI — repart avec le même outillage.
 
 | Plugin | Ce qu'il apporte |
 |---|---|
@@ -715,128 +567,52 @@ Le socle, présent dans tous les dépôts :
 | `context7` | Documentation **à jour** des bibliothèques — consulte-le plutôt que ta mémoire |
 | `github` | PR, Actions, GHCR |
 
-S'y ajoutent, selon les `apps/*/app.yml` : **un serveur LSP par langage présent
-dans la fabrique** — il te donne les erreurs du compilateur après chaque
-édition, pour zéro contexte — et, dès qu'**une seule** app porte `ui: true`,
-`frontend-design`, `playwright` et `impeccable`.
-
-### Un seul endroit installe : le setup script de l'environnement
+S'y ajoutent, selon les `apps/*/app.yml` : **un serveur LSP par langage présent dans
+la fabrique** — les erreurs du compilateur après chaque édition, pour zéro contexte —
+et, dès qu'**une seule** app porte `ui: true`, `frontend-design`, `playwright` et
+`impeccable`.
 
 **Déclarer un plugin ne l'installe pas**, et aucun script du dépôt ne peut s'en
-charger. Sur `claude.ai/code`, **Claude Code charge les plugins avant de les
-installer** : un hook `SessionStart` s'exécute après ce chargement, donc les
-plugins atterriraient sur le disque sans jamais servir. Et `/reload-plugins` est
-une commande du terminal, absente du web — comme `/plugin`, `/resume` ou
-`/clear`. Chaque session cloud démarrant sur une VM neuve, le cas se
-représenterait à chaque fois.
-
-Le seul point d'accroche assez tôt est le **setup script de l'environnement**,
-qui tourne avant le lancement de Claude Code. `init.sh` en génère le contenu —
-les plugins, plus **le binaire de chaque serveur LSP** de la fabrique : l'image
-cloud fournit les compilateurs, jamais les serveurs de langage, et sans ce
-binaire le plugin est installé mais inerte. Les installations partent en
-parallèle — le setup script doit tenir sous cinq minutes.
+charger : sur `claude.ai/code`, Claude Code **charge les plugins avant de les
+installer**, donc un hook `SessionStart` les déposerait sur le disque sans qu'ils
+servent — et `/reload-plugins` n'existe pas sur le web. Le seul point d'accroche assez
+tôt est le **setup script de l'environnement**, qui tourne avant le lancement de
+Claude Code. `init.sh` en génère le contenu : les plugins, plus **le binaire de chaque
+serveur LSP** — l'image cloud fournit les compilateurs, jamais les serveurs de
+langage, et sans ce binaire le plugin est installé mais inerte. Les installations
+partent en parallèle : le script doit tenir sous cinq minutes.
 
 ```bash
 cat .claude/cloud-setup.sh     # à coller dans le champ "Setup script"
 ```
 
 Sur `claude.ai/code` : icône nuage au-dessus de la zone de saisie → engrenage de
-l'environnement → champ **Setup script**. Le résultat est figé dans un instantané
-du disque, donc le script ne rejoue qu'après modification de l'environnement ou
-expiration du cache (~7 jours) — les sessions suivantes démarrent avec
-l'outillage déjà en place.
+l'environnement → champ **Setup script**. Le résultat est figé dans un instantané du
+disque : le script ne rejoue qu'après modification de l'environnement ou expiration du
+cache (~7 jours). Si le serveur de langage ne s'installe pas en une commande à travers
+l'allowlist réseau, le script généré pose un `TODO` explicite plutôt qu'une commande
+inventée : complète-le avant de le coller. Cette configuration vit **hors du dépôt**,
+dans ton compte, et `init.sh` ne peut pas la mettre à jour : après un `./init.sh` qui
+change un `stack` ou un `ui`, recolle le fichier — `--check` signale l'écart.
 
-Pour les stacks dont le serveur de langage ne s'installe pas en une commande à
-travers l'allowlist réseau, le script généré pose un `TODO` explicite plutôt
-qu'une commande inventée : complète-le avant de le coller.
+Puisqu'aucun hook ne peut installer à temps, `.claude/check-plugins.sh` se contente de
+rapporter : il s'exécute à chaque ouverture de session et écrit dans ton contexte
+`Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents.` — une ligne quand
+tout va bien, sinon la liste des manquants et le geste qui répare. Il vérifie deux
+choses qui peuvent diverger : le plugin dans le cache local, et le **binaire** de
+chaque LSP sur la machine. Un rapport qui annonce des manquants signifie que le setup
+script est absent, périmé, ou n'a pas encore rejoué.
 
-Cette configuration vit **hors du dépôt**, dans ton compte : `init.sh` ne peut
-pas la mettre à jour. Après un `./init.sh` qui change un `stack` ou un `ui` —
-donc après l'ajout d'une app dans un langage nouveau — recolle le fichier.
-`./init.sh --check` signale l'écart entre les deux listes.
-
-### Le hook `SessionStart` ne fait que rapporter
-
-Puisqu'aucun hook ne peut installer à temps, celui du dépôt se contente de dire
-ce qui manque. `.claude/check-plugins.sh` s'exécute à chaque ouverture de
-session et écrit son rapport sur la sortie standard — donc dans ton contexte :
-
-```
-Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents.
-```
-
-Une ligne quand tout va bien, quel que soit le nombre d'applications ; sinon la
-liste des manquants et le geste qui répare. Il vérifie deux choses distinctes :
-le plugin présent dans le cache local, et — pour chaque LSP — **le binaire
-présent sur la machine**, les deux pouvant diverger. Lance-le à la main pour le voir tout de suite :
-
-```bash
-./.claude/check-plugins.sh
-```
-
-Un rapport qui annonce des manquants signifie que le setup script de ton
-environnement est absent, périmé, ou n'a pas encore rejoué.
-
-`.claude/settings.local.json` est ignoré par git : c'est là que vont tes
-préférences personnelles, jamais dans le fichier versionné. Et **jamais de bloc
-`env` dans `.claude/settings.json`** : il est public par construction, y poser un
-jeton le publie. `./init.sh --check` refuse un settings qui en contient un.
-
-## Les volumes nommés — ce qui survit au redéploiement
-
-Le système de fichiers d'un conteneur est jeté à chaque déploiement. Ce qui doit
-persister se déclare dans `volumes:`, et **rien d'autre ne survit**. La forme est
-`<nom>:<chemin conteneur>[:ro]` : le nom logique à gauche en minuscules, chiffres
-et tirets, le chemin à droite absolu, `:ro` seul suffixe admis.
-
-`donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
-**`ramure-donnees`**. C'est le préfixe du propriétaire qui empêche deux apps de
-se marcher dessus sans s'être concertées, et deux apps qui produiraient le même
-nom réel sont refusées — à la génération, pas seulement à `--check`.
-
-**Un `/` à gauche est refusé.** Ce serait un bind mount, donc un chemin d'hôte à
-créer à la main sur le serveur avant le premier déploiement. Les volumes nommés
-existent précisément pour supprimer ce geste : `docker compose up` crée le volume
-seul et le conserve entre deux déploiements. **Aucune action sur l'hôte, jamais.**
-
-### Le piège : c'est le `Dockerfile` qui fixe les droits
-
-Un volume nommé hérite du propriétaire du répertoire **tel qu'il existe dans
-l'image**. Si le chemin monté n'y existe pas, Docker le crée en `root` — et ton
-app, qui tourne en `USER` non root, ne peut pas y écrire. Le symptôme est « l'app
-démarre et perd tout », sans erreur claire.
-
-Crée donc le répertoire et donne-le à ton utilisateur **avant `USER`** :
-
-```dockerfile
-RUN mkdir -p /var/lib/mon-app && chown 10001 /var/lib/mon-app
-USER app
-```
-
-`./init.sh --check` avertit quand un chemin monté n'est ni créé ni `chown` dans
-le `Dockerfile`. C'est un avertissement et non un refus : la préparation peut
-prendre une forme que le contrôle ne reconnaît pas.
-
-### `name:` — pourquoi le compose porte deux fois le même nom
-
-Compose préfixe les volumes de premier niveau par le nom du projet. Sans `name:`,
-le volume réel s'appellerait `<projet>_ramure-donnees`, et une commande de
-sauvegarde montant le nom court archiverait un volume **vide en sortant en
-succès**. `init.sh` émet donc `name:` sous chaque volume : ce qui est écrit dans
-`compose.yaml` est ce qui existe sur l'hôte.
-
-Corollaire à connaître avant d'ajouter un premier volume à une stack déjà en
-service : le nom devient **global à l'hôte**. Si d'autres stacks tournent sur le
-même serveur, un nom déjà pris serait partagé. Le préfixe par nom d'app rend la
-collision improbable, il ne la rend pas impossible.
+`.claude/settings.local.json` est ignoré par git : c'est là que vont tes préférences
+personnelles. Et **jamais de bloc `env` dans `.claude/settings.json`** — il est public
+par construction, y poser un jeton le publie ; `--check` refuse un settings qui en
+contient un.
 
 ## Les trois paliers d'exposition
 
-Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
-et appliqué par Traefik avant que la requête ne parvienne au conteneur. Le choix
-se fait app par app — deux applications de la fabrique peuvent parfaitement ne
-pas avoir le même :
+Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`, et
+appliqué par Traefik avant que la requête ne parvienne au conteneur. Le choix se fait
+app par app.
 
 | `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
 |---|---|---|---|
@@ -844,144 +620,108 @@ pas avoir le même :
 | `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | Une app dont la surface ne touche que des API tierces ou du contenu non sensible, ou dont les données sont strictement cloisonnées par utilisateur |
 | `public` | `public` | **Tout le monde, sans authentification** | Une app destinée à des gens qui n'ont pas de compte, dont rien de sensible ne vit côté serveur |
 
-Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte
-Google, le second n'exige rien.
+Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte Google, le
+second n'exige rien.
 
-En `private` et `google`, l'identité de l'utilisateur connecté arrive dans
-l'en-tête HTTP **`X-Forwarded-User`** (son adresse e-mail). Traefik le **réécrit
-à chaque requête**, il n'est donc pas usurpable.
+En `private` et `google`, l'identité de l'utilisateur arrive dans l'en-tête
+**`X-Forwarded-User`** (son adresse e-mail). Traefik le **réécrit à chaque requête**,
+il n'est donc pas usurpable.
 
-**Ne code pas de système de comptes.** Si tu dois cloisonner des données par
-utilisateur, `X-Forwarded-User` est la **seule** source d'identité admissible —
-et jamais un identifiant fourni par le client (paramètre d'URL, corps de
-requête, cookie applicatif). En palier `google`, ce cloisonnement n'est pas
-optionnel : n'importe qui peut se connecter, donc chaque utilisateur ne doit
-voir que ses propres données.
+**Ne code pas de système de comptes.** Pour cloisonner des données par utilisateur,
+`X-Forwarded-User` est la **seule** source d'identité admissible — jamais un
+identifiant fourni par le client (URL, corps de requête, cookie applicatif). En palier
+`google`, ce cloisonnement n'est pas optionnel : n'importe qui peut se connecter.
 
-### Ce que `public` implique — à lire avant de le choisir
+**Ce que `public` implique — à lire avant de le choisir.** Aucune authentification
+n'a lieu, **donc Traefik ne pose ni n'écrase `X-Forwarded-User`** : l'en-tête devient
+entièrement contrôlé par le client, et une app qui le lirait croirait identifier un
+utilisateur sur une valeur forgée. `--check` **refuse** une app qui lit
+`X-Forwarded-User` en `exposure: public`. Quatre contraintes non négociables en
+découlent :
 
-Aucune authentification n'a lieu, **donc Traefik ne pose ni n'écrase
-`X-Forwarded-User`**. L'en-tête devient entièrement contrôlé par le client :
-n'importe qui peut l'envoyer avec la valeur qu'il veut. Une app qui le lirait
-sur ce palier croirait identifier un utilisateur en lisant une valeur forgée.
-`./init.sh --check` **refuse** une app qui lit `X-Forwarded-User` en
-`exposure: public`.
-
-Il en découle quatre contraintes, non négociables :
-
-- **Pas d'état par utilisateur côté serveur** — ni compte, ni session, ni
-  données nominatives. Ce qui est propre à un visiteur reste sur son appareil
+- **Pas d'état par utilisateur côté serveur** — ni compte, ni session, ni données
+  nominatives. Ce qui est propre à un visiteur reste sur son appareil
   (`localStorage`, `IndexedDB`).
-- **Rien de sensible ne transite** — clés d'API tierces comprises. Tout ce que
-  le navigateur reçoit est, par construction, public.
-- **Le rate-limit n'est pas une protection** — le palier en pose un (50 req/s
-  par IP, rafale 100), mais l'app doit encaisser du trafic non sollicité :
-  robots d'indexation, scanners, curieux.
-- **L'URL finira par être trouvée.** Ne compte jamais sur le fait qu'elle n'est
-  pas publiée.
+- **Rien de sensible ne transite** — clés d'API tierces comprises. Tout ce que le
+  navigateur reçoit est, par construction, public.
+- **Le rate-limit n'est pas une protection** — le palier en pose un (50 req/s par IP,
+  rafale 100), mais l'app doit encaisser du trafic non sollicité.
+- **L'URL finira par être trouvée.** Ne compte jamais sur le fait qu'elle n'est pas
+  publiée.
 
-La stack étant unique, une app publique voisine d'apps privées ne les expose
-pas : chaque routeur porte son propre middleware, et `--check` le vérifie
-service par service.
-
-Si tu hésites entre deux paliers, prends le plus fermé : `private` se desserre
-en une ligne, l'inverse a déjà exposé les données.
+Une app publique voisine d'apps privées ne les expose pas : chaque routeur porte son
+propre middleware, et `--check` le vérifie service par service. Si tu hésites entre
+deux paliers, prends le plus fermé : `private` se desserre en une ligne, l'inverse a
+déjà exposé les données.
 
 ## Règles impératives
 
-- **Un `Dockerfile` par app, dans `apps/<nom>/`**, construction multi-étapes,
-  image finale **< 200 Mo**. Le disque du serveur est à 92 % — une image lourde
-  est refusée. Le contexte de construction est `apps/<nom>`, pas la racine :
-  c'est ce qui empêche une édition dans une app d'invalider le cache des autres.
+- **Un `Dockerfile` par app, dans `apps/<nom>/`**, construction multi-étapes, image
+  finale **< 200 Mo** — le disque du serveur est à 92 %. Le contexte de construction
+  est `apps/<nom>`, pas la racine : c'est ce qui empêche une édition dans une app
+  d'invalider le cache des autres.
 - **L'app tourne en utilisateur non root** (`USER` dans le `Dockerfile`).
-- **Ne publie aucun port.** Pas de section `ports:`. Traefik joint le conteneur
-  par le réseau Docker `apps_net`. Deux apps peuvent écouter sur le même port :
-  chacune est dans son conteneur, rien n'est publié sur l'hôte.
-- **Le fichier Compose s'appelle `compose.yaml`**, à la racine. C'est le nom
-  canonique de la Compose Spec, et le seul que `dockhand` ouvre côté serveur :
-  un `docker-compose.yml` lui renvoie « Compose file not found » et le
-  déploiement s'arrête là. Il est **généré** et porte N services des trois
-  sortes, plus — **uniquement si au moins un service monte un volume** — le bloc
-  `volumes:` de premier niveau : une fabrique sans volume produit un compose qui
-  n'en porte aucun, et `--check` valide alors « aucun volume monté, aucun bloc
-  `volumes:` ». Ne l'édite jamais à la main, `./init.sh --check` refuse un
-  compose désynchronisé.
-- **Le routage vit dans les labels du `compose.yaml`**, générés par
-  `init.sh`. N'y touche pas : le middleware du palier d'exposition et
-  `priority=100` y sont posés — cette priorité est ce qui empêche un serveur
-  catch-all de capter l'URL et de servir un 404 silencieux. Ton bloc est un
-  parmi N : une erreur dedans fait échouer le déploiement de toutes les apps.
-- **Chaque app déclare ses tests dans `apps/<nom>/test.sh`**, exécutable. La CI
-  ne lance que ce fichier ; la fabrique n'a pas à connaître ton langage.
+- **Ne publie aucun port.** Pas de section `ports:`. Traefik joint le conteneur par
+  `apps_net` ; deux apps peuvent écouter sur le même port, rien n'est publié sur
+  l'hôte.
+- **Le fichier Compose s'appelle `compose.yaml`**, à la racine : c'est le seul nom que
+  `dockhand` ouvre côté serveur — un `docker-compose.yml` lui renvoie « Compose file
+  not found ». Il est **généré**, ne l'édite jamais à la main.
+- **Le routage vit dans les labels du `compose.yaml`**, générés. N'y touche pas : le
+  middleware du palier et `priority=100` y sont posés — cette priorité empêche un
+  serveur catch-all de capter l'URL et de servir un 404 silencieux.
+- **Chaque app déclare ses tests dans `apps/<nom>/test.sh`**, exécutable. La CI ne
+  lance que ce fichier ; la fabrique n'a pas à connaître ton langage.
 - **Aucun `LABEL traefik.*` dans l'image**, sans exception — ni écrit dans le
-  `Dockerfile`, ni **hérité de l'image de base**. Docker fusionne les labels de
-  l'image dans ceux du conteneur : un label de routage gravé dans l'image
-  publierait un routeur **supplémentaire**, que le compose ne peut pas écraser
+  `Dockerfile`, ni **hérité de l'image de base**. Un label de routage gravé dans
+  l'image publie un routeur **supplémentaire**, que le compose ne peut pas écraser
   puisqu'il porte un autre nom — donc **sans authentification**. `--check` lit le
   `Dockerfile`, où un label hérité n'apparaît pas ; la CI inspecte donc en plus
-  l'**image construite**, seul endroit où il se voit, et refuse la construction.
-  Si l'image de base en porte un, il faut en changer : ce label ne se retire pas
-  depuis le compose — et le service principal étant routé, le
-  `traefik.enable=false` des services non routés ne le couvre pas.
-- **Aucun secret** dans le dépôt ni dans l'image. Les valeurs sensibles sont
-  injectées par l'infrastructure via l'environnement ; déclare les noms attendus
-  dans `env:` et dans le `README`, jamais les valeurs — un `=` dans `env:` fait
-  échouer la génération, précisément pour que ce chemin reste fermé.
-- **Ce qui doit survivre au redéploiement vit dans un volume nommé**, déclaré
-  dans `volumes:`, et le `Dockerfile` `chown` son chemin avant `USER`. Le reste
-  du système de fichiers du conteneur est jeté à chaque déploiement.
+  l'**image construite** et refuse la construction. Si l'image de base en porte un, il
+  faut en changer.
+- **Aucun secret** dans le dépôt ni dans l'image : déclare les noms attendus dans
+  `env:` et dans le `README`, jamais les valeurs.
+- **Ce qui doit survivre au redéploiement vit dans un volume nommé**, et le
+  `Dockerfile` `chown` son chemin avant `USER`.
 - **Écris les logs sur la sortie standard**, pas dans un fichier.
 - **L'app doit démarrer sans intervention** : pas de migration manuelle, pas de
   question interactive, pas de fichier à créer à la main.
 
 ## Ce qui ne t'appartient pas
 
-D'abord ce qui **t'appartient désormais**, et qui relevait autrefois du serveur :
-une base de données, un cache, un volume persistant, un service annexe. Ce ne
-sont **plus** des décisions d'infrastructure. `shared_services`, `services:` et
-`volumes:` les font entrer dans le contrat — tu les déclares, `./init.sh` les
-génère, le déploiement les crée. Ne demande pas dans un `README` ce que tu peux
-écrire dans un manifeste.
+D'abord ce qui **t'appartient désormais**, et qui relevait autrefois du serveur : une
+base de données, un cache, un volume persistant, un service annexe.
+`shared_services`, `services:` et `volumes:` les font entrer dans le contrat — tu les
+déclares, `./init.sh` les génère, le déploiement les crée. Ne demande pas dans un
+`README` ce que tu peux écrire dans un manifeste.
 
-De ce que ton travail sur une app peut rencontrer, cinq choses restent hors de
-ce dépôt, et elles ne se traitent pas de la même façon. **Un fait** — tu vis
-avec :
+**Un fait, avec lequel tu vis** — la **topologie réseau** : `apps_net` est
+`external: true`, il existe déjà côté serveur, tout comme Traefik, le résolveur TLS,
+le DNS et la liste blanche des comptes.
 
-| Hors du dépôt | Pourquoi |
-|---|---|
-| la **topologie réseau** | `apps_net` est `external: true`, il existe déjà côté serveur ; Traefik, le résolveur TLS, le DNS et la liste blanche des comptes vivent au même endroit |
+**Une demande, la seule** à laquelle s'applique « écris-le dans ton `README` et
+arrête-toi » — les **valeurs** des secrets : tu écris le *nom* de la variable dans
+`env:` et dans ton `README`, rien de plus ; l'infrastructure injecte la valeur.
 
-**Une demande** — la seule à laquelle s'applique « écris-le dans ton `README` et
-arrête-toi » : tu la formules, la décision se prend côté serveur, et tu ne peux
-pas la satisfaire toi-même.
-
-| Hors du dépôt | Ce que tu écris, et rien de plus |
-|---|---|
-| les **valeurs** des secrets | le **nom** de la variable, dans `env:` et dans ton `README` ; l'infrastructure injecte la valeur côté serveur |
-
-**Trois refus** — ce ne sont pas des demandes négociables : le contrat les
-refuse, et il offre déjà l'alternative. Les écrire dans un `README` n'attendrait
-qu'une réponse qui ne viendra pas ; la réponse est dans la colonne de droite.
+**Trois refus** — pas des demandes négociables : le contrat les refuse et offre déjà
+l'alternative, inutile de les écrire dans un `README`.
 
 | Refusé | Pourquoi | À la place |
 |---|---|---|
-| un **port publié** sur l'hôte | rien ne se publie sur l'hôte ; aucune section `ports:` n'est générée, et `--check` en refuse une | **Traefik** joint ton conteneur par `apps_net`, sur le `port:` de ton `app.yml` |
-| un **bind mount** depuis un chemin de l'hôte | Docker créerait le répertoire absent **en root** et ton app non-root n'y écrirait jamais ; refusé à la génération | un **volume nommé** dans `volumes:` — créé par `docker compose up`, zéro action sur l'hôte |
+| un **port publié** sur l'hôte | rien ne se publie sur l'hôte ; `--check` refuse une section `ports:` | **Traefik** joint ton conteneur par `apps_net`, sur le `port:` de ton `app.yml` |
+| un **bind mount** depuis un chemin de l'hôte | Docker créerait le répertoire absent **en root** et ton app non-root n'y écrirait jamais | un **volume nommé** dans `volumes:` — créé par `docker compose up`, zéro action sur l'hôte |
 | une **exposition sans authentification** | il n'existe pas de troisième palier | `private` ou `google`, et `X-Forwarded-User` pour cloisonner par utilisateur |
 
-Ces cinq-là sont celles que **le code d'une app** rencontre. Elles ne sont pas
-tout ce qui vit hors du dépôt : le **réglage une fois pour toutes** de la
-fabrique elle-même y vit aussi — l'accès en lecture aux paquets GHCR, les deux
-secrets `DOCKHAND_*` du dépôt GitHub, l'option *Force redeployment* de la stack
-`dockhand`, et l'enregistrement DNS du sous-domaine. Ils ne se posent pas app
-par app, et le [`README`](README.md) les documente ; n'écris pas de demande
-pour eux.
+Le **réglage une fois pour toutes** de la fabrique vit lui aussi hors du dépôt — accès
+en lecture aux paquets GHCR, secrets `DOCKHAND_*` du dépôt GitHub, option *Force
+redeployment* de la stack `dockhand`, enregistrement DNS du sous-domaine. Il ne se
+pose pas app par app, le [`README`](README.md) le documente, n'écris pas de demande
+pour lui.
 
-Quand tu travailles sur une app, **les fichiers des autres apps ne t'appartiennent
-pas non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.claude/`,
-`go.work`. Tu changes `apps/<nom>/app.yml` — ou `fabrique.yml` si c'est un
-service partagé, en sachant qu'il est commun à toutes les apps — et tu relances
-`./init.sh`.
+Quand tu travailles sur une app, **les fichiers des autres apps ne t'appartiennent pas
+non plus**, ni les artefacts générés : `compose.yaml`, `.github/`, `.claude/`,
+`go.work`. Tu changes `apps/<nom>/app.yml` — ou `fabrique.yml` si c'est un service
+partagé, en sachant qu'il est commun à toutes les apps — et tu relances `./init.sh`.
 
 ## Avant de pousser
 
@@ -989,20 +729,18 @@ service partagé, en sachant qu'il est commun à toutes les apps — et tu relan
 ./init.sh --check
 ```
 
-Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`,
-noms de service —, parce qu'un `app.yml` faux ne pourrait produire qu'un « compose
-désynchronisé » dont le vrai motif serait perdu ; puis il compare chaque artefact
-dérivé à ce qu'`init.sh` écrirait aujourd'hui ; puis il relit le compose
-**service par service**, les trois sortes — dont le `traefik.enable=false` de
-chaque service non routé —, et vérifie que le bloc `volumes:` déclare exactement
-les volumes montés, chacun avec son `name:`. Les avertissements — un `chown` qu'il
-ne trouve pas, une clé inconnue ignorée, un budget mémoire dépassé — ne bloquent
-pas ; les KO, si.
+Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`, noms de
+service —, parce qu'un `app.yml` faux ne produirait qu'un « compose désynchronisé »
+dont le vrai motif serait perdu ; puis il compare chaque artefact dérivé à ce
+qu'`init.sh` écrirait aujourd'hui ; puis il relit le compose **service par service**,
+les trois sortes, et vérifie que le bloc `volumes:` déclare exactement les volumes
+montés, chacun avec son `name:`. Les avertissements — un `chown` introuvable, une clé
+inconnue ignorée, un budget mémoire dépassé — ne bloquent pas ; les KO, si.
 
-Le même contrôle tourne en CI, en verrou de tous les autres jobs : avec une
-stack partagée, un compose faux fusionné casserait toutes les apps à la fois.
+Le même contrôle tourne en CI, en verrou de tous les autres jobs : avec une stack
+partagée, un compose faux fusionné casserait toutes les apps à la fois.
 
-Le déploiement se déclenche à chaque fusion sur `main` : seules les apps
-modifiées sont reconstruites et publiées sur GHCR, puis un unique appel de
-webhook fait récupérer la stack entière par le serveur. Compte deux à trois
-minutes entre la fusion et la mise en ligne.
+Le déploiement se déclenche à chaque fusion sur `main` : seules les apps modifiées sont
+reconstruites et publiées sur GHCR, puis un unique appel de webhook fait récupérer la
+stack entière par le serveur. Compte deux à trois minutes entre la fusion et la mise
+en ligne.
