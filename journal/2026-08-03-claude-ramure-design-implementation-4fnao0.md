@@ -2,6 +2,7 @@
 
 Branche : `claude/ramure-design-implementation-4fnao0`
 Périmètre : apps/ramure
+Mode : `retrospective`
 
 > **Entrée rétrospective.** Cette branche a vécu et fusionné avant que le journal
 > n'existe : ce qui suit est reconstitué, pas écrit à chaud. Les anomalies

@@ -2,6 +2,7 @@
 
 Branche : `fabrique/journal-des-anomalies`
 Périmètre : fabrique
+Mode : `chaud`
 
 Première entrée écrite avec le mécanisme qu'elle décrit.
 

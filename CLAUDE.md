@@ -220,14 +220,39 @@ ou s'est révélé faux — y compris tes propres erreurs de raisonnement, qui s
 les plus utiles et les plus faciles à taire. Ce que le changement fait va dans le
 message de commit ; ce qu'il a coûté d'apprendre va ici.
 
+### L'en-tête : `Périmètre` et `Mode`
+
+Deux champs portent sur l'**entrée entière**, et `--check` les vérifie comme les
+deux précédents :
+
+```
+Périmètre : fabrique
+Mode : `chaud`
+```
+
+`Périmètre` — les apps touchées, ou `fabrique`. Sur une branche `claude/<sujet>`,
+dont le préfixe est imposé par le harnais et ne dit rien du rayon de souffle,
+c'est le **seul** endroit où il se lit. Le laisser au gabarit fait échouer
+`--check`.
+
+`Mode` — vocabulaire fermé, `chaud` ou `retrospective`. `chaud` est la valeur du
+gabarit et le cas normal, puisque `--branche` ouvre l'entrée en même temps que la
+branche ; `retrospective` dit qu'elle a été reconstituée après coup, donc qu'elle
+ne garde que les anomalies spectaculaires. L'`analyste` la lit mais s'interdit
+d'en tirer une mesure — et pour cela il faut qu'il puisse la **trouver** :
+la consigne reposait auparavant sur une phrase en prose, dont le seul filet était
+un `grep` sur « rétrospectiv|reconstitu » qui attrapait aussi le titre d'une
+anomalie *parlant* d'une reconstitution sans en être une.
+
 Deux vérifications le tiennent, dans l'ordre de dureté :
 
-- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, ou si
-  l'entrée est encore le gabarit nu — sans ce second test, le geste deviendrait
-  une case à cocher vide ;
-- `./init.sh --check`, donc la CI, refuse un gabarit nu **committé**. Une entrée
-  non suivie par git est un travail en cours et ne se juge pas : c'est ce qui
-  laisse `--check` vert entre l'ouverture de la branche et le premier commit.
+- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, si
+  l'entrée est encore le gabarit nu, ou si son en-tête est incomplet — sans ces
+  tests, le geste deviendrait une case à cocher vide ;
+- `./init.sh --check`, donc la CI, refuse un gabarit nu ou un en-tête incomplet
+  **committé**. Une entrée non suivie par git est un travail en cours et ne se
+  juge pas : c'est ce qui laisse `--check` vert entre l'ouverture de la branche et
+  le premier commit.
 
 Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur. Une
 entrée vide et une entrée jamais ouverte ne disent pas la même chose.

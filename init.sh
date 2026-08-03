@@ -949,7 +949,7 @@ MD
 }
 
 emit_analyste() {
-  render __DETECTE__ "$JOURNAL_DETECTE" __ACTION__ "$JOURNAL_ACTION" <<'MD'
+  render __DETECTE__ "$JOURNAL_DETECTE" __ACTION__ "$JOURNAL_ACTION" __MODE__ "$JOURNAL_MODE" <<'MD'
 ---
 name: analyste
 description: Relit journal/ — le journal des anomalies de la fabrique — et en tire un plan d'amelioration ordonne. A lancer periodiquement, ou quand on se demande ou poser le prochain garde-fou. Ne modifie rien.
@@ -967,6 +967,10 @@ vocabulaire ferme, faits pour etre agreges :
 
     Detecte par   __DETECTE__
     Action        __ACTION__
+
+L'entree entiere en porte un troisieme, dans son en-tete :
+
+    Mode          __MODE__
 
 `Detecte par` est **ordonne par cout croissant**. Une anomalie rattrapee par le
 compilateur n'a rien coute ; la meme rattrapee par l'utilisateur a coute un
@@ -1003,14 +1007,21 @@ Groupe par `Action` : les `contrat` se corrigent ensemble, les `garde-fou`
 aussi. Les `arbitrage` ne sont pas des actions — ce sont des questions a poser a
 l'humain : liste-les a part, telles quelles.
 
-**4. Ce que le journal ne dit pas.** Les entrees marquees comme retrospectives
-sont reconstituees, donc incompletes du cote des anomalies mineures. Dis-le
-plutot que de conclure sur elles.
+**4. Ce que le journal ne dit pas.** Les entrees en `Mode : retrospective` sont
+reconstituees, donc incompletes du cote des anomalies mineures. Recense-les
+d'abord, et rends la distribution en deux colonnes — total, et hors
+retrospective :
+
+    grep -l '^Mode : `retrospective`' journal/*.md
+
+Ne les cherche pas en prose : « retrospectiv|reconstitu » matche aussi le titre
+d'une anomalie qui *parle* d'une reconstitution sans en etre une. Dis quelle
+part du corpus elles pesent plutot que de conclure sur elles.
 
 ## Ce que tu ne fais jamais
 
 - ecrire ou modifier un fichier, ouvrir une branche, committer ;
-- compter une entree marquee retrospective comme une mesure fiable ;
+- compter une entree en `Mode : retrospective` comme une mesure fiable ;
 - proposer un garde-fou pour une anomalie deja rattrapee par le compilateur ou
   par un test : elle ne coute rien, le garde-fou couterait plus.
 MD
@@ -1404,7 +1415,7 @@ apps_touchees() {  # les apps modifiees depuis la base, travail non committe inc
 # index : fabrique/journal-des-anomalies -> journal/<date>-fabrique-journal-des-anomalies.md
 # La date est figee a la creation, donc on retrouve par suffixe, jamais par date.
 
-# Deux champs sont a vocabulaire ferme, parce que le lecteur du journal peut
+# Trois champs sont a vocabulaire ferme, parce que le lecteur du journal peut
 # etre un agent qui en tire des plans d'amelioration : en prose libre, « moi »,
 # « la critique impeccable » et « le compilateur » ne s'agregent pas, et la
 # distribution que le journal promet n'est pas calculable. Constate sur les deux
@@ -1415,15 +1426,33 @@ apps_touchees() {  # les apps modifiees depuis la base, travail non committe inc
 # plus elle a coute. L'agregat utile est « jusqu'ou la distribution glisse vers
 # la droite », pas un simple decompte.
 #
-# Les etiquettes des deux champs s'ecrivent sans accents — « Detecte par », pas
-# « Detecte par » accentue — comme tout le markdown genere par ce fichier. Le
+# MODE porte sur l'entree entiere, pas sur une anomalie. Il vaut « chaud » quand
+# l'entree a ete remplie au fil du travail, « retrospective » quand elle a ete
+# reconstituee apres coup — auquel cas les anomalies mineures manquent, et
+# l'analyste doit s'interdire d'en tirer une mesure. Ce champ existe parce que
+# cette consigne reposait sur une phrase en prose : le seul moyen de trouver les
+# entrees concernees etait un grep sur « retrospectiv|reconstitu », qui matchait
+# aussi le titre d'une anomalie *parlant* d'une reconstitution sans en etre une.
+# Un vocabulaire suggere n'est pas un vocabulaire — la lecon de l'anomalie 4 de
+# fabrique/journal-des-anomalies, rejouee un cran au-dessus.
+#
+# Les etiquettes de DETECTE et ACTION s'ecrivent sans accents — « Detecte par »,
+# pas « Detecte par » accentue — comme tout le markdown genere par ce fichier. Le
 # motif de verification reste ainsi en ASCII pur, insensible a la locale, et la
 # prose accentuee vit dans Symptome et Cause qui ne sont pas verifies.
+#
+# PERIMETRE fait exception et porte ses accents : le gabarit l'emettait en ASCII,
+# et les trois auteurs sur trois l'ont reecrit « Perimetre » accentue. Un
+# vocabulaire que personne n'ecrit comme il est genere n'est pas tenable ; le
+# gabarit suit donc l'usage. Le motif reste insensible a la locale parce qu'il
+# compare des octets litteraux, pas des classes de caracteres.
 
 JOURNAL_DIR=journal
 JOURNAL_MARQUEUR=REMPLIS-MOI   # present = gabarit nu ; retire = entree ecrite
 JOURNAL_DETECTE='compilateur|test|CI|relecture|auteur|utilisateur|production'
 JOURNAL_ACTION='rien|contrat|garde-fou|outillage|comportement|arbitrage'
+JOURNAL_MODE='chaud|retrospective'
+JOURNAL_PERIMETRE_VIDE='<apps touchees, ou fabrique>'   # le gabarit, tel quel
 
 journal_slug() { printf '%s' "${1//\//-}"; }
 
@@ -1441,6 +1470,7 @@ journal_ouvre() {  # journal_ouvre <branche> — cree l'entree si elle n'existe 
   mkdir -p "$JOURNAL_DIR"
   f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$(journal_slug "$br").md"
   render __BRANCHE__ "$br" __DATE__ "$(date -u +%Y-%m-%d)" __MARQUEUR__ "$JOURNAL_MARQUEUR" \
+         __PERIMETRE__ "$JOURNAL_PERIMETRE_VIDE" \
     > "$f" <<'MD'
 # __DATE__ — __BRANCHE__
 
@@ -1474,10 +1504,24 @@ journal_ouvre() {  # journal_ouvre <branche> — cree l'entree si elle n'existe 
 
      Une session sans anomalie est une entree valide — ecris « Aucune anomalie »
      et retire ce commentaire. Une entree vide et une entree jamais ouverte ne
-     disent pas la meme chose. -->
+     disent pas la meme chose.
+
+     Deux champs d'en-tete sont verifies eux aussi :
+
+     Perimetre — les apps touchees, ou « fabrique ». Sur une branche claude/*,
+     dont le prefixe est impose par le harnais et ne dit rien du perimetre,
+     c'est le SEUL endroit ou se lit le rayon de souffle. Remplis-le tot.
+
+     Mode — `chaud` si cette entree est remplie au fil du travail, valeur par
+     defaut et cas normal puisque --branche l'ouvre en meme temps que la
+     branche ; `retrospective` si elle est reconstituee apres coup. Une entree
+     retrospective ne garde que les anomalies spectaculaires : l'analyste la
+     lit, mais s'interdit d'en tirer une mesure. Mentir ici ne coute rien a qui
+     ecrit et fausse tout ce qui se calcule ensuite. -->
 
 Branche : `__BRANCHE__`
-Perimetre : <apps touchees, ou fabrique>
+Périmètre : __PERIMETRE__
+Mode : `chaud`
 
 ## Anomalies
 
@@ -1492,6 +1536,24 @@ Perimetre : <apps touchees, ou fabrique>
 **Action** — `rien` — pourquoi, en une ligne.
 MD
   ok "journal : entree ouverte ($f)"
+}
+
+# journal_entete <fichier> — verifie les deux champs d'en-tete de l'entree. Un
+# bad par manquement, retour non nul si l'un cloche.
+#
+# Partage entre --check, qui ne juge que les entrees suivies par git, et --pret,
+# qui juge celle de la branche courante alors qu'elle est encore non suivie : un
+# controle qui ne vaudrait qu'en --check n'arriverait qu'apres le commit qu'il
+# aurait du empecher.
+journal_entete() {
+  local e="$1" faute=0
+  grep -qE "^Mode *: *\`($JOURNAL_MODE)\`" "$e" \
+    || { bad "$e : champ 'Mode' absent ou hors vocabulaire — $JOURNAL_MODE"; faute=1; }
+  grep -qF "$JOURNAL_PERIMETRE_VIDE" "$e" \
+    && { bad "$e : 'Périmètre' est reste au gabarit — sur une branche claude/*, c'est le seul endroit ou se lit le rayon de souffle"; faute=1; }
+  grep -qE '^Périmètre *: *[^[:space:]]' "$e" \
+    || { bad "$e : champ 'Périmètre' absent"; faute=1; }
+  return "$faute"
 }
 
 if [ -n "$BRANCHE" ]; then
@@ -1587,6 +1649,8 @@ if [ "$PRET" = 1 ]; then
       bad "journal : aucune entree pour $courante (./init.sh --branche $courante l'ouvre)"
     elif grep -q "$JOURNAL_MARQUEUR" "$entree"; then
       bad "journal : $entree est encore le gabarit nu — ecris-y les anomalies de cette branche"
+    elif ! journal_entete "$entree"; then
+      : # journal_entete a deja dit ce qui manque
     else
       ok "journal : $entree"
     fi
@@ -1911,6 +1975,7 @@ if [ "$CHECK" = 1 ]; then
       faute=0
       grep -q "$JOURNAL_MARQUEUR" "$e" && { bad "$e : gabarit nu committe"; faute=1; }
       grep -q '^## Anomalies' "$e" || { bad "$e : section '## Anomalies' absente"; faute=1; }
+      journal_entete "$e" || faute=1
 
       # Chaque anomalie doit porter ses deux champs fermes. Compter les titres et
       # les champs valides suffit : un jeton hors vocabulaire ne matche pas, donc
