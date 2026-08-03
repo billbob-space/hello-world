@@ -11,6 +11,33 @@ qui devient le sous-domaine, le nom de conteneur et le nom de routeur Traefik ;
 il doit donc être un label DNS valide. L'organisation, le dépôt et le domaine
 sont dans `fabrique.yml`.
 
+## Comment tu réponds
+
+**En français, simplement, et pour quelqu'un qui n'est pas technicien.** Celui
+qui te lit décide de ce qu'on construit ; il ne lit pas le code. Une réponse
+qu'il ne comprend pas ne vaut rien, quelle que soit la qualité du travail
+qu'elle décrit.
+
+- **Toujours en français** — les réponses, les questions, les explications.
+- **Court.** Quelques phrases, ou une liste de trois à cinq puces. Ce qui a été
+  fait, ce qui reste, ce qui bloque. Le reste encombre.
+- **Vulgarise.** Dis l'effet, pas le mécanisme : « le site répond à nouveau »
+  plutôt que « le healthcheck du conteneur repasse healthy ». Un terme technique
+  ne s'emploie que s'il est indispensable, et il s'explique alors en quelques
+  mots, la première fois.
+- **Pas de jargon décoratif** — ni noms de fichiers, ni options de commande, ni
+  extraits de code, sauf si on te les demande ou s'il y a un geste à faire, et
+  alors la commande exacte, seule.
+- **Dis franchement ce qui ne va pas.** Un échec annoncé en clair vaut mieux
+  qu'un succès prudent : « ça ne marche pas encore, voilà pourquoi » est une
+  réponse utile.
+
+**Cette règle vaut pour ce que tu dis, pas pour ce que tu écris dans le dépôt.**
+Les messages de commit, les entrées de `journal/`, les `README` et les corps de
+PR gardent toute leur précision technique : leur lecteur est un développeur ou un
+agent, et ils ont chacun leur exigence propre, décrite plus bas. Vulgariser un
+message de commit lui ferait perdre ce qui le rend utile.
+
 ## Arborescence
 
 ```
