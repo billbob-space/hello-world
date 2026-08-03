@@ -2,6 +2,7 @@
 
 Branche : `claude/analyze-cleanup-merged-branches-12gta2`
 Périmètre : hello-world — plus un constat d'outillage sur le nettoyage des branches
+Mode : `chaud`
 
 Demande initiale : analyser les branches et supprimer celles qui sont fusionnées.
 La suppression s'est révélée impossible depuis une session cloud ; l'analyse a en
