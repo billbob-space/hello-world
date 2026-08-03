@@ -1373,8 +1373,12 @@ apply_target_options() {
 # Convention : <app>/<sujet>, ou fabrique/<sujet> pour ce qui touche init.sh, la
 # CI, le contrat ou l'outillage. Le prefixe dit quel perimetre est en jeu — donc
 # quel rayon de souffle — avant meme d'ouvrir le diff.
+#
+# Une exception, subie et non choisie : le harnais cloud assigne des branches
+# claude/<sujet>. Voir la validation plus bas.
 
 BASE=$(fab base_branch main)
+PREFIXE_HARNAIS=claude
 
 apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
   {
@@ -1501,12 +1505,29 @@ if [ -n "$BRANCHE" ]; then
     exit 1
   fi
 
+  # Le harnais cloud assigne lui-meme le nom de la branche, sous la forme
+  # claude/<sujet>, et interdit de pousser ailleurs. Ce prefixe ne dit rien du
+  # perimetre — c'est sa limite, pas une faute : la branche n'a pas choisi son
+  # nom. Le refuser rendait --branche inutilisable en session cloud, donc
+  # empechait d'y ouvrir l'entree de journal. Il est accepte pour rejoindre une
+  # branche existante, jamais pour en creer une : personne ne choisit ce prefixe.
   connu=0
   [ "$prefixe" = fabrique ] && connu=1
   for a in "${APPS[@]}"; do [ "$a" = "$prefixe" ] && connu=1; done
+  if [ "$prefixe" = "$PREFIXE_HARNAIS" ]; then
+    if git show-ref --verify --quiet "refs/heads/$BRANCHE"; then
+      connu=1
+    else
+      echo "ERREUR : le prefixe '$PREFIXE_HARNAIS' est celui du harnais cloud, qui l'assigne lui-meme." >&2
+      echo "Il ne se choisit pas : pour une branche neuve, prends <app>/<sujet> ou fabrique/<sujet>." >&2
+      echo "Apps disponibles : ${APPS[*]}" >&2
+      exit 1
+    fi
+  fi
   if [ "$connu" = 0 ]; then
     echo "ERREUR : prefixe '$prefixe' inconnu." >&2
-    echo "Attendu : ${APPS[*]} fabrique" >&2
+    echo "Attendu : <app>/<sujet>, ou fabrique/<sujet> pour l'infrastructure." >&2
+    echo "Apps disponibles : ${APPS[*]}" >&2
     exit 1
   fi
 

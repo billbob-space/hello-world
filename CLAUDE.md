@@ -125,6 +125,16 @@ Le nom est validé avant la création : préfixe connu, sujet en minuscules. La
 branche part de `origin/main`, jamais du HEAD courant — greffée sur une autre
 branche de travail, elle traînerait ses commits dans sa PR.
 
+**Une exception, subie et non choisie : `claude/<sujet>`.** Le harnais cloud
+assigne lui-même le nom de la branche et interdit de pousser ailleurs. Ce préfixe
+est donc accepté pour **rejoindre** une branche existante — sans quoi une session
+cloud ne pourrait pas ouvrir son entrée de journal — mais refusé pour en **créer**
+une : personne ne le choisit.
+
+Il ne dit rien du périmètre, et c'est sa seule limite. Sur une branche
+`claude/<sujet>`, le rayon de souffle se lit dans le champ `Périmètre` de
+l'entrée de journal et dans le diff, pas dans le nom. Renseigne-le tôt.
+
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque
 commit :
 
