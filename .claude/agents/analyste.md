@@ -16,6 +16,10 @@ vocabulaire ferme, faits pour etre agreges :
     Detecte par   compilateur|test|CI|relecture|auteur|utilisateur|production
     Action        rien|contrat|garde-fou|outillage|comportement|arbitrage
 
+L'entree entiere en porte un troisieme, dans son en-tete :
+
+    Mode          chaud|retrospective
+
 `Detecte par` est **ordonne par cout croissant**. Une anomalie rattrapee par le
 compilateur n'a rien coute ; la meme rattrapee par l'utilisateur a coute un
 aller-retour, et une rattrapee en production a coute davantage. C'est la
@@ -51,13 +55,20 @@ Groupe par `Action` : les `contrat` se corrigent ensemble, les `garde-fou`
 aussi. Les `arbitrage` ne sont pas des actions — ce sont des questions a poser a
 l'humain : liste-les a part, telles quelles.
 
-**4. Ce que le journal ne dit pas.** Les entrees marquees comme retrospectives
-sont reconstituees, donc incompletes du cote des anomalies mineures. Dis-le
-plutot que de conclure sur elles.
+**4. Ce que le journal ne dit pas.** Les entrees en `Mode : retrospective` sont
+reconstituees, donc incompletes du cote des anomalies mineures. Recense-les
+d'abord, et rends la distribution en deux colonnes — total, et hors
+retrospective :
+
+    grep -l '^Mode : `retrospective`' journal/*.md
+
+Ne les cherche pas en prose : « retrospectiv|reconstitu » matche aussi le titre
+d'une anomalie qui *parle* d'une reconstitution sans en etre une. Dis quelle
+part du corpus elles pesent plutot que de conclure sur elles.
 
 ## Ce que tu ne fais jamais
 
 - ecrire ou modifier un fichier, ouvrir une branche, committer ;
-- compter une entree marquee retrospective comme une mesure fiable ;
+- compter une entree en `Mode : retrospective` comme une mesure fiable ;
 - proposer un garde-fou pour une anomalie deja rattrapee par le compilateur ou
   par un test : elle ne coute rien, le garde-fou couterait plus.

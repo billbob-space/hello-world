@@ -2,6 +2,7 @@
 
 Branche : `fabrique/prefixe-impose-par-le-harnais`
 Périmètre : fabrique
+Mode : `chaud`
 
 Résolution de l'`arbitrage` ouvert par l'entrée
 [`claude/ramure-design-implementation-4fnao0`](2026-08-03-claude-ramure-design-implementation-4fnao0.md),
