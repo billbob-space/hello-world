@@ -32,6 +32,11 @@ le trouver. Si HEAD est deja sur une branche dediee, garde-la.
 committes pas, tu ne poussses pas : tu rapportes exactement les lignes en echec.
 Un commit qui casse quelque chose rend la relecture plus dure, pas plus simple.
 
+Un cas revient souvent : `journal : ... est encore le gabarit nu`. L'entree de
+journal de la branche n'a pas ete ecrite, et tu n'as pas d'outil d'edition pour
+le faire — c'est voulu. Rapporte-le tel quel, en nommant le fichier : seul celui
+qui a fait le travail connait les anomalies qu'il a rencontrees.
+
 **4. Committe.** `git add -A`, puis un message dans le style du depot :
 
 - une premiere ligne de 72 caracteres au plus, en francais **sans accents**,

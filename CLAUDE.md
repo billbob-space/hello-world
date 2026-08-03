@@ -15,6 +15,7 @@ sont dans `fabrique.yml`.
 
 ```
 apps/<nom>/          une application : app.yml, Dockerfile, test.sh, PRODUCT.md, code
+journal/             une entrée par branche : les anomalies rencontrées
 compose.yaml         GÉNÉRÉ — la stack, un service par app activée
 fabrique.yml         valeurs communes : org, dépôt, registre, domaine, réseau, plafonds
 init.sh              le générateur
@@ -152,6 +153,52 @@ rien.
 
 Le garde-fou de branche n'ouvre pas la branche à ta place : le nom doit dire le
 sujet, et seul celui qui édite le connaît.
+
+### Le journal des anomalies
+
+**Une branche, une entrée dans `journal/`.** Elle s'ouvre avec la branche —
+`./init.sh --branche` la crée préremplie, il n'y a pas de geste à retenir — et se
+remplit **au fil du travail**, pas à la fin. Écrite à chaud, elle retient les
+anomalies mineures ; reconstituée en fin de branche, elle ne garde que les
+spectaculaires. Or ce sont les mineures qui disent où le contrat a un trou.
+
+Le nom du fichier vient de la branche, ce qui le rend retrouvable sans index :
+`fabrique/garde-fous-git` → `journal/2026-08-03-fabrique-garde-fous-git.md`.
+
+Chaque anomalie porte quatre champs, dont un fait tout le travail :
+
+| Champ | |
+|---|---|
+| **Symptôme** | ce qui a été observé |
+| **Cause** | ce qui l'a produit |
+| **Détecté par** | test, CI, relecture, hasard, **ou l'utilisateur** |
+| **Ce que ça devrait changer** | contrat, garde-fou, outillage, ou rien |
+
+« Détecté par » est ce qui rentabilise le journal. Une anomalie rattrapée par la
+CI n'a rien coûté ; la même rattrapée par l'utilisateur a coûté un aller-retour,
+et pointe un garde-fou manquant. Relue périodiquement, la distribution de ce
+champ dit où poser le prochain.
+
+Ce journal enregistre les **anomalies**, pas le déroulé : ce qui a surpris, cassé,
+ou s'est révélé faux — y compris tes propres erreurs de raisonnement, qui sont
+les plus utiles et les plus faciles à taire. Ce que le changement fait va dans le
+message de commit ; ce qu'il a coûté d'apprendre va ici.
+
+Deux vérifications le tiennent, dans l'ordre de dureté :
+
+- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, ou si
+  l'entrée est encore le gabarit nu — sans ce second test, le geste deviendrait
+  une case à cocher vide ;
+- `./init.sh --check`, donc la CI, refuse un gabarit nu **committé**. Une entrée
+  non suivie par git est un travail en cours et ne se juge pas : c'est ce qui
+  laisse `--check` vert entre l'ouverture de la branche et le premier commit.
+
+Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur. Une
+entrée vide et une entrée jamais ouverte ne disent pas la même chose.
+
+Le `greffier` ne peut pas remplir le journal — il n'a pas d'outil d'édition, et
+c'est délibéré. Il butera sur `--pret` et rapportera : seul celui qui a fait le
+travail connaît les anomalies qu'il a rencontrées.
 
 ### L'agent `greffier`
 

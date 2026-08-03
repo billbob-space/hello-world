@@ -8,7 +8,7 @@
 #   ./init.sh --app NOM ...   applique les options ci-dessous a cette app
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
-#   ./init.sh --branche NOM   cree la branche de travail : <app|fabrique>/<sujet>
+#   ./init.sh --branche NOM   cree la branche de travail, et son entree de journal
 #   ./init.sh --pret          verifie que l'etape en cours est committable
 #
 # Options — elles ne valent que pour l'app ciblee par --add ou --app :
@@ -25,7 +25,8 @@
 # Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
 # TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
-# il est la source de verite, edite a la main ou par --app.
+# il est la source de verite, edite a la main ou par --app. Il en va de meme des
+# entrees de journal/ : echafaudees une fois, ecrites a la main ensuite.
 #
 # Le script ne genere NI Dockerfile NI code applicatif : le choix de la
 # technologie appartient a l'agent. Voir CLAUDE.md.
@@ -968,6 +969,11 @@ le trouver. Si HEAD est deja sur une branche dediee, garde-la.
 committes pas, tu ne poussses pas : tu rapportes exactement les lignes en echec.
 Un commit qui casse quelque chose rend la relecture plus dure, pas plus simple.
 
+Un cas revient souvent : `journal : ... est encore le gabarit nu`. L'entree de
+journal de la branche n'a pas ete ecrite, et tu n'as pas d'outil d'edition pour
+le faire — c'est voulu. Rapporte-le tel quel, en nommant le fichier : seul celui
+qui a fait le travail connait les anomalies qu'il a rencontrees.
+
 **4. Committe.** `git add -A`, puis un message dans le style du depot :
 
 - une premiere ligne de 72 caracteres au plus, en francais **sans accents**,
@@ -1293,6 +1299,68 @@ apps_touchees() {  # les apps modifiees depuis la base, travail non committe inc
   } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u
 }
 
+# --- le journal des anomalies ---------------------------------------------------
+#
+# Une entree par branche, ouverte avec elle et remplie au fil du travail. Ecrite
+# a chaud, elle retient les anomalies mineures ; reconstituee a la fin, elle ne
+# garde que les spectaculaires — or ce sont les mineures qui disent ou le
+# contrat a un trou.
+#
+# La branche donne le nom du fichier, ce qui rend l'entree retrouvable sans
+# index : fabrique/journal-des-anomalies -> journal/<date>-fabrique-journal-des-anomalies.md
+# La date est figee a la creation, donc on retrouve par suffixe, jamais par date.
+
+JOURNAL_DIR=journal
+JOURNAL_MARQUEUR=REMPLIS-MOI   # present = gabarit nu ; retire = entree ecrite
+
+journal_slug() { printf '%s' "${1//\//-}"; }
+
+journal_entree() {  # journal_entree <branche> — le chemin de l'entree, ou vide
+  local m
+  m=$(ls "$JOURNAL_DIR"/*-"$(journal_slug "$1")".md 2>/dev/null | head -1)
+  printf '%s' "$m"
+}
+
+journal_ouvre() {  # journal_ouvre <branche> — cree l'entree si elle n'existe pas
+  local br="$1" f
+  f=$(journal_entree "$br")
+  [ -n "$f" ] && { ok "journal : entree existante ($f)"; return 0; }
+
+  mkdir -p "$JOURNAL_DIR"
+  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$(journal_slug "$br").md"
+  render __BRANCHE__ "$br" __DATE__ "$(date -u +%Y-%m-%d)" __MARQUEUR__ "$JOURNAL_MARQUEUR" \
+    > "$f" <<'MD'
+# __DATE__ — __BRANCHE__
+
+<!-- __MARQUEUR__ : retire ce commentaire quand l'entree dit quelque chose.
+
+     Une anomalie par bloc, ecrite quand tu la rencontres. Le champ qui compte
+     est « Detecte par » : il mesure si les garde-fous font leur travail. Une
+     anomalie rattrapee par la CI n'a rien coute ; la meme rattrapee par
+     l'utilisateur a coute un aller-retour, et signale un garde-fou manquant.
+
+     Une session sans anomalie est une entree valide — ecris « Aucune anomalie »
+     et retire ce commentaire. Une entree vide et une entree jamais ouverte ne
+     disent pas la meme chose. -->
+
+Branche : `__BRANCHE__`
+Perimetre : <apps touchees, ou fabrique>
+
+## Anomalies
+
+### 1. <ce qui a mal tourne, en une ligne>
+
+**Symptome** — ce qui a ete observe.
+
+**Cause** — ce qui l'a produit.
+
+**Detecte par** — test | CI | relecture | hasard | l'utilisateur
+
+**Ce que ca devrait changer** — contrat | garde-fou | outillage | rien
+MD
+  ok "journal : entree ouverte ($f)"
+}
+
 if [ -n "$BRANCHE" ]; then
   discover_apps
   prefixe=${BRANCHE%%/*}; sujet=${BRANCHE#*/}
@@ -1330,6 +1398,9 @@ if [ -n "$BRANCHE" ]; then
     fi
     ok "branche creee : $BRANCHE"
   fi
+  # L'entree s'ouvre avec la branche : c'est le seul moment ou le geste est
+  # gratuit, et le seul qui permette d'ecrire les anomalies a chaud.
+  journal_ouvre "$BRANCHE"
   exit 0
 fi
 
@@ -1356,6 +1427,20 @@ if [ "$PRET" = 1 ]; then
     grep -E 'KO' /tmp/.pret-check.$$ | sed 's/^/      /' || true
   fi
   rm -f /tmp/.pret-check.$$
+
+  # Le journal se verifie ici et pas seulement en CI : rendu a la relecture de
+  # la PR, le detail des anomalies est deja perdu. Le gabarit nu ne compte pas —
+  # sans ce second test, le geste deviendrait une case a cocher vide.
+  if [ "$courante" != "$BASE" ]; then
+    entree=$(journal_entree "$courante")
+    if [ -z "$entree" ]; then
+      bad "journal : aucune entree pour $courante (./init.sh --branche $courante l'ouvre)"
+    elif grep -q "$JOURNAL_MARQUEUR" "$entree"; then
+      bad "journal : $entree est encore le gabarit nu — ecris-y les anomalies de cette branche"
+    else
+      ok "journal : $entree"
+    fi
+  fi
 
   # Seules les apps reellement touchees depuis la base : sur une fabrique qui
   # grandit, tout relancer a chaque commit couterait plus que ca ne rapporte.
@@ -1606,7 +1691,7 @@ if [ "$CHECK" = 1 ]; then
   # reorganisation incomplete — le risque propre a une fabrique qui deplace des
   # applications. Boucle `for` et non tube : bad() doit rester dans ce shell.
   morts=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     for cible in $(grep -oE '\]\([^)#:]+\.md\)' "$src" | sed -E 's/^\]\((.*)\)$/\1/'); do
       [ -f "$(dirname "$src")/$cible" ] || { bad "lien mort : $src -> $cible"; morts=$((morts+1)); }
@@ -1661,7 +1746,27 @@ if [ "$CHECK" = 1 ]; then
     bad ".claude/cloud-setup.sh absent — les plugins resteraient inertes en session cloud"
   fi
 
-  # 6. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
+  # 6. Journal des anomalies. Une entree suivie par git est une entree livree :
+  # elle doit dire quelque chose. Une entree non suivie est un travail en cours,
+  # et ne se juge pas — c'est ce qui laisse --check vert entre l'ouverture de la
+  # branche et le premier commit, sans rien relacher en CI, ou tout est suivi.
+  echo
+  echo "-- journal"
+  if [ -d "$JOURNAL_DIR" ]; then
+    nues=0 total=0
+    for e in "$JOURNAL_DIR"/[0-9]*.md; do
+      [ -f "$e" ] || continue
+      git ls-files --error-unmatch "$e" >/dev/null 2>&1 || continue
+      total=$((total+1))
+      grep -q "$JOURNAL_MARQUEUR" "$e" && { bad "$e : gabarit nu committe"; nues=$((nues+1)); }
+      grep -q '^## Anomalies' "$e" || bad "$e : section '## Anomalies' absente"
+    done
+    [ "$nues" -eq 0 ] && ok "$total entree(s) de journal, aucune vide"
+  else
+    warn "aucun journal/ — la premiere ./init.sh --branche l'ouvrira"
+  fi
+
+  # 7. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
   # caractere — gh[p]_ — pour que ce script, lui-meme suivi par git, ne se
   # detecte pas comme fuite a chaque lancement.
   echo
