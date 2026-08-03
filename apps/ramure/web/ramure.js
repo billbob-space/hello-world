@@ -561,7 +561,8 @@ function dessineNoeud(artiste, pos, rayon, genre) {
   if (!image) {
     const t = el("text", {
       class: "noeud__nom", y: rayon * 0.18, "font-size": rayon * 0.7,
-      "font-family": "Fraunces, serif", opacity: .42, "stroke-width": 0,
+      "font-family": "Bodoni Moda, Didot, serif", "font-weight": 700,
+      opacity: .42, "stroke-width": 0,
     });
     t.textContent = initiales(artiste.nom);
     g.appendChild(t);

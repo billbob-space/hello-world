@@ -25,7 +25,7 @@ const RESSOURCES = [
   "ramure.css",
   "ramure.js",
   "manifest.webmanifest",
-  "fonts/fraunces.woff2",
+  "fonts/bodoni-moda.woff2",
   "fonts/archivo.woff2",
 ];
 

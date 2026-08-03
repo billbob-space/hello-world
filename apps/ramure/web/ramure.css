@@ -28,9 +28,9 @@
    sans dependance a un CDN. */
 
 @font-face {
-  font-family: "Fraunces";
-  src: url("fonts/fraunces.woff2") format("woff2");
-  font-weight: 100 900;
+  font-family: "Bodoni Moda";
+  src: url("fonts/bodoni-moda.woff2") format("woff2");
+  font-weight: 400 900;
   font-display: swap;
   font-style: normal;
 }
@@ -65,12 +65,16 @@
   --duree-promotion: 480ms;
   --duree-courte: 180ms;
 
-  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  /* Le didone est le lettrage historique de la planche botanique : les
+     planches du XIXe legendent leurs specimens dans cette famille, et son
+     contraste extreme entre pleins et delies est ce qui evoque la gravure.
+     C'est aussi ce qui impose de le tenir A GROSSE TAILLE et en graisse
+     soutenue : sur fond sombre, un delie de didone en petit corps disparait.
+     Il ne sert donc qu'au titrage — la marque, le nom du centre, les titres de
+     panneau — jamais au texte courant, qui est en Archivo. */
+  --serif: "Bodoni Moda", Didot, "Bodoni MT", Georgia, serif;
   --sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  /* La graisse optique de Fraunces : le wonk et la douceur de la fonte
-     variable ne sont pas exposes par ce fichier woff2, on module donc la
-     graisse seule. */
   --hauteur-poignee: 3.25rem;
 }
 
@@ -374,7 +378,7 @@ button, input, select { font: inherit; color: inherit; }
   place-items: center;
   font-family: var(--serif);
   font-size: clamp(1.5rem, 4vw, 2.6rem);
-  font-weight: 500;
+  font-weight: 700;
   color: rgba(231, 239, 233, .28);
   background: linear-gradient(155deg, var(--taillis), var(--nuit));
 }
@@ -420,14 +424,18 @@ button, input, select { font: inherit; color: inherit; }
   max-width: 58rem;
 }
 
-/* La marque. Fraunces en graisse moyenne, tres large interlettrage : le
-   lettrage d'une etiquette de specimen, pas un logo de start-up. */
+/* La marque, gravee plutot que dessinee : didone en graisse soutenue, tres
+   large interlettrage. C'est le lettrage d'une legende de planche, pas un logo
+   de start-up. */
 .marque {
   font-family: var(--serif);
   font-size: clamp(2.1rem, 5.2vw, 3.5rem);
-  font-weight: 500;
+  /* 600 et non 500 : les delies du didone s'amincissent sur fond sombre, ou
+     l'anti-crenelage les mange. L'interlettrage large est ce qui fait lire le
+     mot comme la legende gravee d'une planche plutot que comme un logo. */
+  font-weight: 600;
   line-height: .95;
-  letter-spacing: .005em;
+  letter-spacing: .085em;
   text-transform: uppercase;
 }
 .marque__mot { display: inline-block; }
@@ -604,8 +612,9 @@ button, input, select { font: inherit; color: inherit; }
 }
 .noeud--centre .noeud__nom {
   font-family: var(--serif);
-  font-size: calc(var(--taille-libelle, 13px) * 1.45);
-  font-weight: 600;
+  font-size: calc(var(--taille-libelle, 13px) * 1.5);
+  font-weight: 700;
+  letter-spacing: .01em;
 }
 .noeud--heritier .noeud__nom {
   font-size: calc(var(--taille-libelle, 13px) * .82);
@@ -735,8 +744,8 @@ button, input, select { font: inherit; color: inherit; }
 }
 .etat-ecran__titre {
   font-family: var(--serif);
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: 1.45rem;
+  font-weight: 700;
   margin-bottom: .5rem;
 }
 .etat-ecran[data-genre="panne"] .etat-ecran__titre { color: var(--ecorce); }
@@ -820,14 +829,15 @@ button, input, select { font: inherit; color: inherit; }
   place-items: center;
   font-family: var(--serif);
   font-size: 1.5rem;
+  font-weight: 700;
   color: rgba(231, 239, 233, .3);
 }
 
 .fiche__identite { min-width: 0; flex: 1; }
 .fiche__nom {
   font-family: var(--serif);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.55rem;
+  font-weight: 700;
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
@@ -930,6 +940,13 @@ button, input, select { font: inherit; color: inherit; }
 }
 .album__texte { min-width: 0; flex: 1; overflow: hidden; }
 .album__titre {
+  /* display:block est INDISPENSABLE, pas cosmetique.
+     text-overflow n'a aucun effet sur une boite en ligne : un <span> laisse en
+     display:inline deborde son conteneur, se fait couper net par l'overflow de
+     l'ancetre, et n'affiche jamais de points de suspension. Le titre parait
+     alors tronque au milieu d'un mot, comme si le panneau etait trop etroit —
+     alors que toute la chaine de largeurs est correcte. */
+  display: block;
   font-size: .875rem;
   font-weight: 500;
   overflow: hidden;
@@ -1018,7 +1035,7 @@ button, input, select { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--vitre);
   flex: none;
 }
-.panneau__titre { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+.panneau__titre { font-family: var(--serif); font-size: 1.4rem; font-weight: 700; }
 .panneau__chapeau { padding: .8rem 1.1rem 0; color: var(--lichen); font-size: .875rem; }
 .panneau .filtres { padding: .8rem 1.1rem 0; }
 .panneau__corps { padding: 1.1rem; overflow-y: auto; flex: 1; min-height: 0; }
@@ -1149,9 +1166,12 @@ button, input, select { font: inherit; color: inherit; }
   padding: .5rem .8rem;
 }
 .fiche__poignee-nom {
-  font-family: var(--serif);
+  /* Sous ~1,1 rem, les delies du didone se cassent sur fond sombre : cette
+     etiquette reste donc en Archivo. Un titrage illisible n'est pas un
+     titrage. */
   font-size: .9375rem;
   font-weight: 600;
+  letter-spacing: .04em;
   color: var(--craie);
   max-width: 100%;
   overflow: hidden;
@@ -1193,8 +1213,13 @@ button, input, select { font: inherit; color: inherit; }
     border: 1px solid var(--vitre);
     border-radius: 3px;
   }
+  /* Une seule rangee sur grand ecran. Enroulee, la barre descend sur la scene
+     et masque les noeuds du haut de l'anneau — le canevas est deja cadre pour
+     l'eviter, il ne peut pas deviner qu'elle a grandi. */
+  .barre__rang--principal { flex-wrap: nowrap; }
+  .barre__actions { flex: 0 0 auto; justify-content: flex-end; gap: .4rem; }
   .barre__actions .bouton__texte { display: inline; }
-  .barre__actions .bouton { min-width: 0; padding: .5rem .8rem; justify-content: flex-start; }
+  .barre__actions .bouton { flex: 0 0 auto; min-width: 0; padding: .5rem .8rem; justify-content: flex-start; }
 
   .camera-outils { bottom: 1rem; right: 1rem; }
 
