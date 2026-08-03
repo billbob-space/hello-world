@@ -734,8 +734,12 @@ service —, parce qu'un `app.yml` faux ne produirait qu'un « compose désynchr
 dont le vrai motif serait perdu ; puis il compare chaque artefact dérivé à ce
 qu'`init.sh` écrirait aujourd'hui ; puis il relit le compose **service par service**,
 les trois sortes, et vérifie que le bloc `volumes:` déclare exactement les volumes
-montés, chacun avec son `name:`. Les avertissements — un `chown` introuvable, une clé
-inconnue ignorée, un budget mémoire dépassé — ne bloquent pas ; les KO, si.
+montés, chacun avec son `name:`. Il relit enfin les documents du dépôt — contrat,
+`README`, PRD, entrées de journal — pour y refuser un lien mort et **deux titres `##`
+identiques dans un même fichier** : deux chapitres de même nom sont deux sources de
+vérité sur le même sujet, et elles finissent par diverger. Les avertissements — un
+`chown` introuvable, une clé inconnue ignorée, un budget mémoire dépassé — ne bloquent
+pas ; les KO, si.
 
 Le même contrôle tourne en CI, en verrou de tous les autres jobs : avec une stack
 partagée, un compose faux fusionné casserait toutes les apps à la fois.

@@ -3527,6 +3527,32 @@ if [ "$CHECK" = 1 ]; then
   done
   [ "$morts" -eq 0 ] && ok "aucun lien mort entre les documents"
 
+  # Deux sections de meme titre dans un meme document sont deux sources de
+  # verite sur le meme sujet : le lecteur tombe sur l'une et ignore l'autre,
+  # rien ne les tient d'accord, et elles divergent. CLAUDE.md a porte « Les
+  # volumes nommes » en double pendant plusieurs fusions, chaque exemplaire
+  # ayant fini par contenir un fait que l'autre n'avait pas. Le diff d'une PR ne
+  # le montre pas : deux blocs ajoutes a 400 lignes d'ecart ne se ressemblent
+  # pas, et le controle de liens morts, seul a lire ces fichiers, ne regardait
+  # que les liens.
+  #
+  # Seul le niveau 2 est verifie. Un sous-titre repete sous deux parents
+  # differents est legitime — apps/hello-world/DESIGN.md porte quatre
+  # « Named Rules », une par famille — alors que deux chapitres de meme nom dans
+  # un meme document ne le sont jamais. Comparaison sur la ligne entiere, octet
+  # a octet : pas de normalisation, donc pas de faux positif sur la casse ou les
+  # accents.
+  doublons=0
+  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
+    [ -f "$src" ] || continue
+    while IFS= read -r titre; do
+      [ -n "$titre" ] || continue
+      bad "titre de section en double : $src -> $titre"
+      doublons=$((doublons+1))
+    done < <(grep -E '^## ' "$src" | LC_ALL=C sort | LC_ALL=C uniq -d)
+  done
+  [ "$doublons" -eq 0 ] && ok "aucun titre de section en double"
+
   # 5. Outillage de l'agent.
   echo
   echo "-- outillage"
