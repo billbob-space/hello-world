@@ -20,6 +20,32 @@
 #   --ui / --no-ui      l'app sert une interface web         (defaut no)
 #   --enable / --disable  presente dans le compose, ou non   (defaut : enable)
 #
+# Quatre sections OPTIONNELLES, editees a la main dans apps/NOM/app.yml — elles
+# n'ont pas d'equivalent en ligne de commande, et une app qui n'en porte aucune
+# produit exactement le meme bloc compose qu'avant leur existence :
+#
+#   volumes:   points de montage « <sous-repertoire>:<chemin conteneur>[:ro] ».
+#              Le cote hote n'est jamais ecrit a la main : il est derive de
+#              host_data_root (fabrique.yml) + le nom de l'app. La traversee de
+#              repertoire est donc impossible, pas seulement interdite.
+#   env:       NOMS des variables a passer depuis l'hote — jamais de valeurs.
+#              Un element contenant un « = » est refuse : le depot est public.
+#   needs:     services partages de fabrique.yml dont l'app depend. Un nom non
+#              declare la-bas est une erreur de generation, pas une panne au
+#              demarrage. Emet un depends_on sur le service principal.
+#   services:  services annexes propres a l'app — « name », « image », et au
+#              choix « memory », « command », « volumes », « env ».
+#
+# fabrique.yml gagne de son cote deux cles : host_data_root (racine des points
+# de montage cote hote) et shared_services (services partages par plusieurs
+# applications : un Redis commun, un Directus).
+#
+# Le compose genere porte donc TROIS sortes de services, et une seule est
+# routee : <app> (labels Traefik, authentification, priority=100),
+# <app>-<nom> (annexe prive) et <nom> (partage). Les deux dernieres ne portent
+# AUCUN label Traefik ; elles vivent sur le meme reseau, ou seuls leurs voisins
+# les joignent par leur nom de service.
+#
 # Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
 # TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
@@ -93,6 +119,134 @@ app_get() {  # app_get <app> <cle> <defaut> — l'option CLI ne vaut que pour --
   yget "apps/$a/app.yml" "$k" "$d"
 }
 
+# --- listes YAML : un sous-ensemble restreint, et rien de plus -------------------
+#
+# yget et app_get ne lisent que des scalaires en colonne 0. Les sections
+# volumes, env, needs, services et shared_services sont des listes : elles ont
+# leurs propres lecteurs. Ce ne sont pas des parseurs YAML generaux — c'est
+# delibere, un parseur general dans ce script serait une source de bogues muets.
+# Le sous-ensemble accepte, et lui seul :
+#
+#   cle: [a, b]                 liste en ligne, elements separes par des virgules
+#   cle:                        liste en bloc, un « - » par element
+#     - a
+#     - b
+#   cle:                        liste de mappings (services, shared_services)
+#     - premiere: valeur        la premiere paire ouvre un element
+#       autre: valeur           les suivantes appartiennent au meme element
+#       imbriquee:              une liste en bloc sous un element
+#         - x
+#       en_ligne: [x, y]        ou une liste en ligne
+#
+# Pas d'ancres, pas de blocs multi-lignes, pas de troisieme niveau. Comme dans
+# yget, le CR d'une edition Windows, le commentaire de fin de ligne et les
+# guillemets sont retires ; une ligne entierement commentee est ignoree, ce qui
+# rend inoffensif l'exemple commente de shared_services dans fabrique.yml.
+
+ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
+  [ -f "$1" ] || return 0
+  tr -d '\r' < "$1" | awk -v k="$2" '
+    BEGIN { Q = sprintf("%c", 39); inlist = 0 }
+    function clean(s,   f, l) {
+      sub(/[ \t]+#.*$/, "", s)
+      gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s)
+      f = substr(s, 1, 1); l = substr(s, length(s), 1)
+      if (length(s) >= 2 && f == l && (f == "\"" || f == Q)) s = substr(s, 2, length(s) - 2)
+      return s
+    }
+    function flow(v,   n, i, parts, e) {
+      sub(/^\[/, "", v); sub(/\]$/, "", v)
+      n = split(v, parts, ",")
+      for (i = 1; i <= n; i++) { e = clean(parts[i]); if (e != "") print e }
+    }
+    /^[ \t]*$/ { next }
+    {
+      p = match($0, /[^ \t]/); ind = p - 1; s = substr($0, p)
+      if (substr(s, 1, 1) == "#") next
+      if (ind == 0) {
+        inlist = 0
+        if (index(s, k ":") == 1) {
+          v = clean(substr(s, length(k) + 2))
+          if (v == "") inlist = 1
+          else if (substr(v, 1, 1) == "[") flow(v)
+        }
+        next
+      }
+      if (!inlist) next
+      if (s ~ /^-([ \t]|$)/) {
+        r = s; sub(/^-[ \t]*/, "", r); r = clean(r)
+        if (r != "") print r
+        next
+      }
+      inlist = 0
+    }
+  '
+}
+
+ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>valeur »
+  [ -f "$1" ] || return 0
+  tr -d '\r' < "$1" | awk -v k="$2" '
+    BEGIN { Q = sprintf("%c", 39); st = 0; idx = -1; dash = -1; pend = "" }
+    function clean(s,   f, l) {
+      sub(/[ \t]+#.*$/, "", s)
+      gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s)
+      f = substr(s, 1, 1); l = substr(s, length(s), 1)
+      if (length(s) >= 2 && f == l && (f == "\"" || f == Q)) s = substr(s, 2, length(s) - 2)
+      return s
+    }
+    function flow(key, v,   n, i, parts, e) {
+      sub(/^\[/, "", v); sub(/\]$/, "", v)
+      n = split(v, parts, ",")
+      for (i = 1; i <= n; i++) { e = clean(parts[i]); if (e != "") print idx "\t" key "\t" e }
+    }
+    function pair(t,   kk, vv) {
+      if (t !~ /^[A-Za-z_][A-Za-z0-9_]*:/) return
+      kk = t; sub(/:.*$/, "", kk)
+      vv = clean(substr(t, length(kk) + 2))
+      if (vv == "") { pend = kk; return }
+      pend = ""
+      if (substr(vv, 1, 1) == "[") { flow(kk, vv); return }
+      print idx "\t" kk "\t" vv
+    }
+    /^[ \t]*$/ { next }
+    {
+      p = match($0, /[^ \t]/); ind = p - 1; s = substr($0, p)
+      if (substr(s, 1, 1) == "#") next
+      if (ind == 0) {
+        st = 0
+        if (index(s, k ":") == 1 && clean(substr(s, length(k) + 2)) == "") {
+          st = 1; idx = -1; dash = -1; pend = ""
+        }
+        next
+      }
+      if (!st) next
+      if (s ~ /^-([ \t]|$)/) {
+        r = s; sub(/^-[ \t]*/, "", r)
+        if (dash < 0 || ind == dash) { dash = ind; idx++; pend = ""; if (r != "") pair(r); next }
+        if (ind > dash) { if (pend != "" && r != "") print idx "\t" pend "\t" clean(r); next }
+        st = 0; next
+      }
+      if (idx >= 0 && ind > dash) pair(s)
+      else st = 0
+    }
+  '
+}
+
+# Accesseurs sur le flux produit par ymaps. Passer le flux en argument plutot que
+# de relire le fichier evite de reparser N fois le meme manifeste.
+map_count() {  # map_count <flux> — nombre d'elements
+  if [ -z "${1-}" ]; then echo 0; return; fi
+  printf '%s\n' "$1" | awk -F'\t' 'BEGIN { m = -1 } { if ($1 + 0 > m) m = $1 + 0 } END { print m + 1 }'
+}
+map_one() {  # map_one <flux> <index> <cle> — premiere valeur scalaire
+  if [ -z "${1-}" ]; then return 0; fi
+  printf '%s\n' "$1" | awk -F'\t' -v i="$2" -v k="$3" '$1 == i && $2 == k { print $3; exit }'
+}
+map_all() {  # map_all <flux> <index> <cle> — toutes les valeurs, une par ligne
+  if [ -z "${1-}" ]; then return 0; fi
+  printf '%s\n' "$1" | awk -F'\t' -v i="$2" -v k="$3" '$1 == i && $2 == k { print $3 }'
+}
+
 COMPOSE=compose.yaml
 LEGACY_COMPOSE=docker-compose.yml
 
@@ -109,11 +263,115 @@ IMAGE_MAX_MB=$(fab image_max_mb 200)
 LOG_MAX_SIZE=$(fab log_max_size 10m)
 LOG_MAX_FILE=$(fab log_max_file 3)
 
+# Racine des points de montage cote hote. Le cote hote d'un volume n'est JAMAIS
+# ecrit dans un manifeste : il est derive de cette racine et du nom du
+# proprietaire. C'est ce qui rend la traversee de repertoire impossible par
+# construction — un app.yml ne peut pas nommer un chemin hors de son sous-arbre.
+HOST_DATA_ROOT=$(fab host_data_root /home/ubuntu/DockerConfig/My-Apps)
+HOST_DATA_ROOT=${HOST_DATA_ROOT%/}
+case "$HOST_DATA_ROOT" in
+  /*) ;;
+  *) echo "ERREUR : fabrique.yml — host_data_root doit etre un chemin absolu (recu : $HOST_DATA_ROOT)" >&2; exit 1 ;;
+esac
+
 # --- applications ---------------------------------------------------------------
 
 valid_name() {  # label DNS : ni tiret en tete ni tiret en queue
   printf '%s' "$1" | grep -qE '^[a-z0-9]([a-z0-9-]{0,29}[a-z0-9])?$' && return 0
   echo "ERREUR : nom d'app invalide : '$1' — il devient un sous-domaine." >&2
+  return 1
+}
+
+valid_svc_name() {  # nom d'un service annexe ou partage : meme regle qu'une app
+  printf '%s' "$1" | grep -qE '^[a-z0-9]([a-z0-9-]{0,29}[a-z0-9])?$'
+}
+
+# --- validation des sections optionnelles ---------------------------------------
+#
+# Chaque validateur pose VERR et rend 1 ; il n'ecrit rien et ne sort jamais. Les
+# deux appelants en font ce qu'ils veulent : la generation en meurt avec un
+# message explicite, --check en fait une ligne KO parmi les autres. Une seule
+# implementation, donc pas de divergence possible entre les deux chemins.
+VERR="" HOST_SPEC=""
+
+check_volume() {  # check_volume <proprietaire> <spec> — pose HOST_SPEC
+  local owner="$1" spec="$2" sub rest cpath mode
+  VERR="" HOST_SPEC=""
+  case "$spec" in
+    *:*) ;;
+    *) VERR="volume '$spec' invalide : forme attendue <sous-repertoire>:<chemin conteneur>[:ro]"; return 1 ;;
+  esac
+  sub="${spec%%:*}"; rest="${spec#*:}"
+  cpath="${rest%%:*}"
+  if [ "$cpath" = "$rest" ]; then mode=""; else mode="${rest#*:}"; fi
+
+  if ! printf '%s' "$sub" | grep -qE '^[a-z0-9][a-z0-9._-]*$'; then
+    VERR="volume '$spec' invalide : le sous-repertoire '$sub' doit correspondre a ^[a-z0-9][a-z0-9._-]*\$ — ni /, ni .., ni chemin absolu, ni chaine vide. Le cote hote est toujours derive de $HOST_DATA_ROOT/$owner/ et ne s'ecrit pas a la main."
+    return 1
+  fi
+  case "$sub" in
+    *..*) VERR="volume '$spec' invalide : '..' interdit dans le sous-repertoire — la traversee de repertoire est impossible par construction."; return 1 ;;
+  esac
+  case "$cpath" in
+    /*) ;;
+    *) VERR="volume '$spec' invalide : le chemin conteneur '$cpath' doit etre absolu (commencer par /)."; return 1 ;;
+  esac
+  case "$cpath" in
+    *..*) VERR="volume '$spec' invalide : '..' interdit dans le chemin conteneur."; return 1 ;;
+  esac
+  case "$mode" in
+    ""|ro) ;;
+    *) VERR="volume '$spec' invalide : ':$mode' — le seul suffixe autorise est ':ro'."; return 1 ;;
+  esac
+  HOST_SPEC="$HOST_DATA_ROOT/$owner/$sub:$cpath${mode:+:$mode}"
+  return 0
+}
+
+check_env_name() {  # check_env_name <element> — env: est une liste de NOMS
+  VERR=""
+  case "$1" in
+    *=*) VERR="env : '$1' contient un '=' — env: ne prend que des NOMS de variables, jamais de valeurs. Un secret n'entre pas dans le depot par cette porte : l'infrastructure injecte la valeur."; return 1 ;;
+  esac
+  if printf '%s' "$1" | grep -qE '^[A-Z][A-Z0-9_]*$'; then return 0; fi
+  VERR="env : '$1' n'est pas un nom de variable valide — attendu ^[A-Z][A-Z0-9_]*\$."
+  return 1
+}
+
+# --- services partages de fabrique.yml ------------------------------------------
+
+SHARED_RECORDS="" SHARED_NAMES=() SHARED_ERRS=()
+
+load_shared() {
+  SHARED_NAMES=() SHARED_ERRS=()
+  SHARED_RECORDS=$(ymaps fabrique.yml shared_services)
+  local n i name image mem
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    if [ -z "$name" ]; then
+      SHARED_ERRS+=("fabrique.yml — shared_services[$i] n'a pas de 'name' : il donne le nom de service et le nom d'hote sur $NETWORK")
+      continue
+    fi
+    if ! valid_svc_name "$name"; then
+      SHARED_ERRS+=("fabrique.yml — shared_services : nom invalide '$name' — attendu un label DNS (minuscules, chiffres, tirets), il devient un nom de service et un container_name")
+    fi
+    image=$(map_one "$SHARED_RECORDS" "$i" image)
+    if [ -z "$image" ]; then
+      SHARED_ERRS+=("fabrique.yml — shared_services '$name' sans 'image' : un service partage n'est pas construit par la CI, son image doit etre nommee")
+    fi
+    mem=$(map_one "$SHARED_RECORDS" "$i" memory); mem=${mem:-128m}
+    if ! printf '%s' "$mem" | grep -qE '^[0-9]+[bkmgBKMG]?$'; then
+      SHARED_ERRS+=("fabrique.yml — shared_services '$name' : memory invalide '$mem'")
+    fi
+    SHARED_NAMES+=("$name")
+  done
+}
+
+shared_exists() {
+  local s
+  for s in "${SHARED_NAMES[@]-}"; do
+    if [ "$s" = "$1" ]; then return 0; fi
+  done
   return 1
 }
 
@@ -143,6 +401,14 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
   A_STACK=$(app_get "$APP" stack none)
   A_UI=$(app_get "$APP" ui false)
 
+  # Les quatre sections optionnelles. Absentes, elles donnent des listes vides
+  # et un flux vide : le bloc compose emis est alors, au caractere pres, celui
+  # d'avant leur existence.
+  mapfile -t A_VOLUMES < <(ylist "apps/$APP/app.yml" volumes)
+  mapfile -t A_ENV     < <(ylist "apps/$APP/app.yml" env)
+  mapfile -t A_NEEDS   < <(ylist "apps/$APP/app.yml" needs)
+  A_SERVICES=$(ymaps "apps/$APP/app.yml" services)
+
   case "$A_EXPOSURE" in
     private) A_MW=forwardauth ;;       # whitelist de comptes Google
     google)  A_MW=forwardauth-open ;;  # tout compte Google authentifie
@@ -164,6 +430,117 @@ mem_to_mb() {  # 128m -> 128, 1g -> 1024
     *k) echo $(( n / 1024 )) ;;
     *)  echo $(( n / 1048576 )) ;;
   esac
+}
+
+# --- validation d'ensemble des manifestes ---------------------------------------
+#
+# Ecrit un probleme par ligne sur la sortie standard, rien si tout va bien, et ne
+# sort jamais en erreur : la generation en meurt (require_clean_manifests),
+# --check en fait des lignes KO. Chaque message nomme son service — le controle
+# reste par service, jamais par recherche globale dans un fichier.
+#
+# Le compose est plat : les trois sortes de services — <app>, <app>-<annexe> et
+# <partage> — se disputent le meme espace de noms de service ET de
+# container_name. Un doublon y est legal en YAML et silencieux : la derniere cle
+# gagne, la premiere disparait du deploiement sans un mot. D'ou le registre.
+collect_problems() {
+  local a i n p name svc img mem v e d
+  declare -A owner_of=()
+
+  for e in "${SHARED_ERRS[@]-}"; do
+    [ -n "$e" ] && printf '%s\n' "$e"
+  done
+
+  for a in "${APPS[@]-}"; do
+    [ -n "$a" ] || continue
+    owner_of[$a]="l'application apps/$a"
+  done
+
+  for name in "${SHARED_NAMES[@]-}"; do
+    [ -n "$name" ] || continue
+    if [ -n "${owner_of[$name]+x}" ]; then
+      printf "collision de nom de service : le service partage '%s' de fabrique.yml porte un nom deja pris par %s — le compose est plat, l'un des deux disparaitrait en silence\n" "$name" "${owner_of[$name]}"
+    else
+      owner_of[$name]="le service partage '$name' de fabrique.yml"
+    fi
+  done
+
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    [ -n "$name" ] || continue
+    while IFS= read -r v; do
+      [ -n "$v" ] || continue
+      check_volume "$name" "$v" || printf "[%s] %s\n" "$name" "$VERR"
+    done < <(map_all "$SHARED_RECORDS" "$i" volumes)
+    while IFS= read -r e; do
+      [ -n "$e" ] || continue
+      check_env_name "$e" || printf "[%s] %s\n" "$name" "$VERR"
+    done < <(map_all "$SHARED_RECORDS" "$i" env)
+  done
+
+  for a in "${APPS[@]-}"; do
+    [ -n "$a" ] || continue
+    load_app "$a"
+    p="[$a]"
+
+    for v in "${A_VOLUMES[@]-}"; do
+      [ -n "$v" ] || continue
+      check_volume "$a" "$v" || printf '%s %s\n' "$p" "$VERR"
+    done
+    for e in "${A_ENV[@]-}"; do
+      [ -n "$e" ] || continue
+      check_env_name "$e" || printf '%s %s\n' "$p" "$VERR"
+    done
+    for d in "${A_NEEDS[@]-}"; do
+      [ -n "$d" ] || continue
+      if ! shared_exists "$d"; then
+        printf "%s needs: '%s' ne correspond a aucun shared_services declare dans fabrique.yml (declares : %s) — declare-le la-bas, sinon depends_on pointerait dans le vide\n" \
+          "$p" "$d" "$([ ${#SHARED_NAMES[@]} -gt 0 ] && printf '%s ' "${SHARED_NAMES[@]}" || printf 'aucun')"
+      fi
+    done
+
+    n=$(map_count "$A_SERVICES")
+    for (( i = 0; i < n; i++ )); do
+      name=$(map_one "$A_SERVICES" "$i" name)
+      if [ -z "$name" ]; then
+        printf "%s services[%d] n'a pas de 'name' : il donne le nom de service '%s-<name>'\n" "$p" "$i" "$a"
+        continue
+      fi
+      if ! valid_svc_name "$name"; then
+        printf "%s services : nom d'annexe invalide '%s' — attendu un label DNS (minuscules, chiffres, tirets), il devient le nom de service et le container_name '%s-%s'\n" "$p" "$name" "$a" "$name"
+        continue
+      fi
+      svc="$a-$name"
+      if [ -n "${owner_of[$svc]+x}" ]; then
+        printf "%s collision de nom de service : l'annexe '%s' produit '%s', deja pris par %s\n" "$p" "$name" "$svc" "${owner_of[$svc]}"
+      else
+        owner_of[$svc]="le service annexe '$name' de apps/$a"
+      fi
+      img=$(map_one "$A_SERVICES" "$i" image)
+      [ -n "$img" ] || printf "%s services '%s' sans 'image' : un service annexe n'est pas construit par la CI, son image doit etre nommee\n" "$p" "$name"
+      mem=$(map_one "$A_SERVICES" "$i" memory); mem=${mem:-128m}
+      printf '%s' "$mem" | grep -qE '^[0-9]+[bkmgBKMG]?$' \
+        || printf "%s services '%s' : memory invalide '%s'\n" "$p" "$name" "$mem"
+      while IFS= read -r v; do
+        [ -n "$v" ] || continue
+        check_volume "$a" "$v" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
+      done < <(map_all "$A_SERVICES" "$i" volumes)
+      while IFS= read -r e; do
+        [ -n "$e" ] || continue
+        check_env_name "$e" || printf "%s services '%s' : %s\n" "$p" "$name" "$VERR"
+      done < <(map_all "$A_SERVICES" "$i" env)
+    done
+  done
+}
+
+require_clean_manifests() {
+  local probs l
+  probs=$(collect_problems)
+  [ -n "$probs" ] || return 0
+  echo "ERREUR : manifestes invalides — aucun artefact n'a ete genere." >&2
+  while IFS= read -r l; do printf '  %s\n' "$l" >&2; done <<<"$probs"
+  exit 1
 }
 
 # LSP par langage. STACK_CANON dedoublonne les alias : go et golang sont la meme
@@ -261,6 +638,115 @@ render() {
   printf '%s\n' "$t"
 }
 
+json_argv() {  # « --mode worker » -> ["--mode", "worker"] — forme exec
+  local -a w=(); local out="" sep="" x
+  read -ra w <<<"$1"
+  for x in "${w[@]}"; do
+    x=${x//\\/\\\\}; x=${x//\"/\\\"}
+    out="$out$sep\"$x\""; sep=", "
+  done
+  printf '[%s]' "$out"
+}
+
+emit_volumes() {  # emit_volumes <proprietaire> <specs, une par ligne>
+  local owner="$1" specs="$2" v first=1
+  [ -n "$specs" ] || return 0
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    check_volume "$owner" "$v" || { echo "ERREUR : $owner — $VERR" >&2; exit 1; }
+    if [ "$first" = 1 ]; then printf '    volumes:\n'; first=0; fi
+    printf '      - %s\n' "$HOST_SPEC"
+  done <<<"$specs"
+}
+
+emit_env() {  # emit_env <noms, un par ligne>
+  local specs="$1" e first=1
+  [ -n "$specs" ] || return 0
+  while IFS= read -r e; do
+    [ -n "$e" ] || continue
+    check_env_name "$e" || { echo "ERREUR : $VERR" >&2; exit 1; }
+    if [ "$first" = 1 ]; then printf '    environment:\n'; first=0; fi
+    # La valeur vient de l'environnement du serveur, jamais du depot. Le defaut
+    # vide evite qu'un nom non defini cote hote fasse echouer le compose entier.
+    printf '      - %s=${%s:-}\n' "$e" "$e"
+  done <<<"$specs"
+}
+
+# Bloc commun aux services annexes et aux services partages : meme forme, meme
+# journalisation bornee, meme reseau — et AUCUN label de routage. C'est la seule
+# difference qui compte : un service sans label n'a pas d'URL, il n'est joignable
+# que par ses voisins du reseau, par son nom de service.
+aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <commande> <volumes> <env> <legende>
+  local svc="$1" owner="$2" image="$3" mem="$4" cmd="$5" vols="$6" envs="$7" legend="$8"
+  cat <<YAML
+
+  # >>> $svc — $legend
+  $svc:
+    image: $image
+    container_name: $svc
+    restart: unless-stopped
+    mem_limit: $mem
+    # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
+    # l'image locale deja presente et sert silencieusement la version d'avant.
+    pull_policy: always
+    # Service NON ROUTE : pas un seul label de routage ici, donc aucune URL,
+    # aucun routeur, aucun middleware a oublier. Il vit sur $NETWORK, ou ses
+    # voisins le joignent par « $svc ». Aucun port publie non plus.
+    logging:
+      driver: json-file
+      options:
+        max-size: "$LOG_MAX_SIZE"
+        max-file: "$LOG_MAX_FILE"
+    networks: [$NETWORK]
+YAML
+  [ -z "$cmd" ] || printf '    command: %s\n' "$(json_argv "$cmd")"
+  emit_volumes "$owner" "$vols"
+  emit_env "$envs"
+  printf '  # <<< %s\n' "$svc"
+}
+
+aux_services_block() {  # services annexes de l'app chargee par load_app
+  local n i name image mem cmd
+  n=$(map_count "$A_SERVICES")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$A_SERVICES" "$i" name)
+    [ -n "$name" ] || continue
+    image=$(map_one "$A_SERVICES" "$i" image)
+    mem=$(map_one "$A_SERVICES" "$i" memory); mem=${mem:-128m}
+    cmd=$(map_one "$A_SERVICES" "$i" command)
+    # Le proprietaire des volumes est l'APP, pas l'annexe : le service annexe
+    # partage le sous-arbre de donnees de son application.
+    aux_block "$APP-$name" "$APP" "$image" "$mem" "$cmd" \
+      "$(map_all "$A_SERVICES" "$i" volumes)" \
+      "$(map_all "$A_SERVICES" "$i" env)" \
+      "service annexe de $APP — apps/$APP/app.yml"
+  done
+}
+
+shared_services_block() {
+  local n i name image mem cmd
+  n=$(map_count "$SHARED_RECORDS")
+  [ "$n" -gt 0 ] || return 0
+  cat <<YAML
+
+  # ===== services partages — fabrique.yml, cle shared_services =====
+  # Un seul exemplaire pour toute la fabrique, joignable par son nom de service
+  # depuis n'importe quelle app d'$NETWORK, et jamais route vers l'exterieur.
+  # Une app declare sa dependance avec « needs: » dans son app.yml.
+YAML
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    [ -n "$name" ] || continue
+    image=$(map_one "$SHARED_RECORDS" "$i" image)
+    mem=$(map_one "$SHARED_RECORDS" "$i" memory); mem=${mem:-128m}
+    cmd=$(map_one "$SHARED_RECORDS" "$i" command)
+    aux_block "$name" "$name" "$image" "$mem" "$cmd" \
+      "$(map_all "$SHARED_RECORDS" "$i" volumes)" \
+      "$(map_all "$SHARED_RECORDS" "$i" env)" \
+      "service partage — fabrique.yml"
+  done
+}
+
 service_block() {  # bloc de service de l'app chargee par load_app
   local health
   if [ "$A_HEALTH_CMD" = none ]; then
@@ -310,8 +796,24 @@ $health
       - "traefik.http.services.$APP.loadbalancer.server.port=$A_PORT"
       - "traefik.docker.network=$NETWORK"
     networks: [$NETWORK]
-  # <<< $APP
 YAML
+  # Les trois sections optionnelles, dans cet ordre. Toutes absentes — le cas de
+  # toute app qui ignore leur existence — n'ecrivent pas une ligne : le bloc
+  # ci-dessus se referme alors exactement comme avant.
+  emit_volumes "$APP" "$(printf '%s\n' "${A_VOLUMES[@]-}")"
+  emit_env "$(printf '%s\n' "${A_ENV[@]-}")"
+  local d needs="" sep=""
+  for d in "${A_NEEDS[@]-}"; do
+    [ -n "$d" ] || continue
+    shared_exists "$d" || {
+      echo "ERREUR : $APP — needs: '$d' ne correspond a aucun shared_services de fabrique.yml." >&2; exit 1; }
+    needs="$needs$sep$d"; sep=", "
+  done
+  if [ -n "$needs" ]; then
+    printf '    # Services partages dont cette app depend (needs: dans app.yml).\n'
+    printf '    depends_on: [%s]\n' "$needs"
+  fi
+  printf '  # <<< %s\n' "$APP"
 }
 
 disabled_note() {
@@ -333,13 +835,34 @@ emit_compose() {
 # Une seule stack dockhand, un service par application activee. Le rayon de
 # souffle est commun : une erreur dans un bloc fait echouer le deploiement de
 # toute la fabrique.
+#
+# TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
+# SEULE EST ROUTEE :
+#
+#   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
+#                  Seule sorte a porter des labels Traefik : un routeur, une
+#                  URL https://<app>.$DOMAIN, un middleware
+#                  d'authentification Google et priority=100.
+#   <app>-<nom>    service annexe prive d'une application (section services:
+#                  de son app.yml). AUCUN label Traefik.
+#   <nom>          service partage par plusieurs applications (shared_services
+#                  dans fabrique.yml). AUCUN label Traefik non plus.
+#
+# Les trois vivent sur le meme reseau $NETWORK et se joignent entre elles par
+# leur nom de service ; aucune ne publie de port sur l'hote. Ce qui expose un
+# service a Internet, ce sont ses labels Traefik, pas le reseau : un conteneur
+# sans label n'est joignable que par ses voisins.
+#
+# Le cote hote des points de montage n'est jamais ecrit a la main : il est
+# derive de host_data_root (fabrique.yml) et du nom du proprietaire.
 services:
 YAML
   local a
   for a in "${APPS[@]}"; do
     load_app "$a"
-    if [ "$A_ENABLED" = true ]; then service_block; else disabled_note; fi
+    if [ "$A_ENABLED" = true ]; then service_block; aux_services_block; else disabled_note; fi
   done
+  shared_services_block
   cat <<YAML
 
 networks:
@@ -931,6 +1454,40 @@ exposure: $exposure
 # Outillage de l'agent, sans effet sur le deploiement :
 stack: $stack
 ui: $ui
+
+# --- Quatre sections OPTIONNELLES. Absentes, elles n'ecrivent pas une ligne
+# --- dans compose.yaml. Decommente celles dont tu as besoin.
+
+# Points de montage sur l'hote : <sous-repertoire>:<chemin conteneur>[:ro]
+# Le cote hote n'est PAS a ecrire ici : il est derive de host_data_root
+# (fabrique.yml) et du nom de l'app. Le volume ci-dessous serait monte depuis
+# $HOST_DATA_ROOT/$a/donnees. Le sous-repertoire doit correspondre a
+# ^[a-z0-9][a-z0-9._-]*\$ — donc ni /, ni .., ni chemin absolu : la traversee de
+# repertoire est impossible, pas seulement interdite. Seul suffixe admis : :ro
+# volumes:
+#   - donnees:/var/lib/$a
+#   - cache:/var/cache/$a:ro
+
+# NOMS des variables d'environnement a passer depuis l'hote. JAMAIS de valeurs :
+# un element contenant un « = » est refuse a la generation. L'infrastructure
+# injecte la valeur cote serveur ; declare le nom attendu dans le README.
+# env: [LASTFM_API_KEY]
+
+# Services partages de la fabrique dont cette app depend (shared_services dans
+# fabrique.yml). Verifie a la generation : un nom non declare la-bas est une
+# erreur, pas une panne au demarrage. Emet un depends_on sur ce service.
+# needs: [redis]
+
+# Services annexes propres a cette application. Chacun devient le service
+# « $a-<name> », sans AUCUN label Traefik : il n'a pas d'URL, seuls ses voisins
+# du reseau le joignent, par ce nom. « name » et « image » sont obligatoires ;
+# « memory » (defaut 128m), « command », « volumes » et « env » sont libres.
+# Ses volumes sont montes sous la racine de l'app, pas la sienne.
+# services:
+#   - name: worker
+#     image: $REGISTRY/$ORG/$REPO/$a:main
+#     memory: 64m
+#     command: --mode worker
 YAML
   ok "$dir/app.yml"
 
@@ -1055,6 +1612,10 @@ apply_target_options() {
   done
 }
 
+# --- services partages : lus une fois, pour tous les modes -----------------------
+
+load_shared
+
 # --- --list ---------------------------------------------------------------------
 
 if [ "$LIST" = 1 ]; then
@@ -1089,7 +1650,79 @@ service_yaml() {  # service_yaml <fichier> <nom> — le bloc du service
   ' "$1"
 }
 
-SANS_AUTH=()
+SANS_AUTH=() ROUTES_PARASITES=()
+
+# Points de montage d'un bloc de service, verifies dans CE bloc — pas par un
+# grep global sur le fichier, qui ne saurait pas a qui appartient la ligne.
+check_block_volumes() {  # check_block_volumes <service> <proprietaire> <bloc>
+  local svc="$1" owner="$2" blk="$3" p="[$1]" v n=0 ko=0 prefix="$HOST_DATA_ROOT/$2/"
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    n=$(( n + 1 ))
+    case "$v" in
+      "$prefix"*) ;;
+      *) bad "$p volume hors racine : '$v' — le cote hote doit etre sous $prefix"; ko=1 ;;
+    esac
+    case "$v" in
+      *..*) bad "$p volume contenant '..' : '$v' — traversee de repertoire"; ko=1 ;;
+    esac
+  done < <(awk '
+      /^[[:space:]]*volumes:[[:space:]]*$/ { inv = 1; next }
+      inv && /^[[:space:]]*-[[:space:]]/   { s = $0; sub(/^[[:space:]]*-[[:space:]]*/, "", s); print s; next }
+      { inv = 0 }
+    ' <<<"$blk")
+  [ "$n" -eq 0 ] && return 0
+  [ "$ko" -eq 0 ] && ok "$p $n point(s) de montage, tous sous $prefix"
+  return 0
+}
+
+# Un service annexe ou partage. Le controle qui compte : AUCUN label de routage.
+# Un label Traefik pose ici publierait une URL sur un service que personne n'a
+# pense a proteger — c'est le meme accident que « SANS AUTHENTIFICATION
+# CONFORME », vu de l'autre bout.
+check_aux_service() {  # check_aux_service <service> <proprietaire> <memoire> <sorte>
+  local svc="$1" owner="$2" mem="$3" sorte="$4" p="[$1]" blk
+  blk=$(service_yaml "$COMPOSE" "$svc")
+  if [ -z "$blk" ]; then bad "$p aucun service dans $COMPOSE — lance ./init.sh"; return; fi
+
+  if grep -qiE 'traefik\.' <<<"$blk" || grep -qE '^[[:space:]]*labels:[[:space:]]*$' <<<"$blk"; then
+    bad "$p LABEL TRAEFIK SUR UN SERVICE NON ROUTE ($sorte) — il publierait une URL sans authentification"
+    ROUTES_PARASITES+=("$svc")
+  else
+    ok "$p aucun label traefik ($sorte, non route)"
+  fi
+
+  grep -qE '^[[:space:]]*ports:' <<<"$blk" \
+    && bad "$p section ports: interdite — rien ne se publie sur l'hote" || ok "$p aucun port publie"
+  grep -qF "$NETWORK" <<<"$blk"                && ok "$p sur $NETWORK"     || bad "$p absent du reseau $NETWORK"
+  grep -qF "container_name: $svc" <<<"$blk"    && ok "$p container_name"   || bad "$p container_name absent ou different"
+  grep -qF "mem_limit: $mem" <<<"$blk"         && ok "$p mem_limit"        || bad "$p mem_limit different du manifeste"
+  grep -qF "restart: unless-stopped" <<<"$blk" && ok "$p restart"          || bad "$p restart absent"
+  grep -qF "pull_policy: always" <<<"$blk"     && ok "$p pull_policy"      || bad "$p pull_policy absent — servirait l'image locale perimee"
+  grep -qF "max-size:" <<<"$blk"               && ok "$p journaux bornes"  || bad "$p logging absent — journal non borne"
+  check_block_volumes "$svc" "$owner" "$blk"
+}
+
+# Les services que compose.yaml doit contenir, les trois sortes confondues.
+expected_services() {
+  local a n i name
+  for a in "${APPS[@]-}"; do
+    [ -n "$a" ] || continue
+    load_app "$a"
+    [ "$A_ENABLED" = true ] || continue
+    printf '%s\n' "$a"
+    n=$(map_count "$A_SERVICES")
+    for (( i = 0; i < n; i++ )); do
+      name=$(map_one "$A_SERVICES" "$i" name)
+      [ -n "$name" ] && printf '%s-%s\n' "$a" "$name"
+    done
+  done
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    [ -n "$name" ] && printf '%s\n' "$name"
+  done
+}
 
 check_service() {
   load_app "$1"
@@ -1122,6 +1755,38 @@ check_service() {
   has "max-size:"                                                   && ok "$p journaux bornes"       || bad "$p logging absent — journal non borne"
   grep -qE '^[[:space:]]*ports:' <<<"$blk" && bad "$p section ports: interdite — Traefik joint le conteneur par le reseau" || ok "$p aucun port publie"
   grep -qF "$NETWORK" <<<"$blk"            && ok "$p sur $NETWORK" || bad "$p absent du reseau $NETWORK"
+
+  check_block_volumes "$APP" "$APP" "$blk"
+  local d
+  for d in "${A_NEEDS[@]-}"; do
+    [ -n "$d" ] || continue
+    if grep -qE "^[[:space:]]*depends_on:.*[][, ]$d[],]" <<<"$blk"; then
+      ok "$p depends_on $d (needs:)"
+    else
+      bad "$p needs: $d n'apparait pas dans le depends_on du compose — lance ./init.sh"
+    fi
+  done
+
+  # Les services annexes de cette app, un par un.
+  local n i name mem
+  n=$(map_count "$A_SERVICES")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$A_SERVICES" "$i" name)
+    [ -n "$name" ] || continue
+    mem=$(map_one "$A_SERVICES" "$i" memory); mem=${mem:-128m}
+    check_aux_service "$APP-$name" "$APP" "$mem" "annexe de $APP"
+  done
+}
+
+check_shared_services() {
+  local n i name mem
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    name=$(map_one "$SHARED_RECORDS" "$i" name)
+    [ -n "$name" ] || continue
+    mem=$(map_one "$SHARED_RECORDS" "$i" memory); mem=${mem:-128m}
+    check_aux_service "$name" "$name" "$mem" "partage"
+  done
 }
 
 check_app_files() {
@@ -1174,13 +1839,30 @@ if [ "$CHECK" = 1 ]; then
     [ "$A_ENABLED" = true ] && APPS_ACTIVES+=("$a")
   done
 
-  echo "Verification — fabrique $ORG/$REPO : ${#APPS[@]} app(s), ${#APPS_ACTIVES[@]} activee(s)"
+  echo "Verification — fabrique $ORG/$REPO : ${#APPS[@]} app(s), ${#APPS_ACTIVES[@]} activee(s), ${#SHARED_NAMES[@]} service(s) partage(s)"
   echo
+
+  # 0. Les manifestes eux-memes. Ce controle vient en premier : si un app.yml
+  # decrit un volume qui sort de sa racine ou un needs vers un service qui
+  # n'existe pas, la generation ne peut pas aboutir, et comparer les artefacts
+  # derives ne dirait que « desynchronise » — le vrai motif serait perdu.
+  echo "-- manifestes"
+  probs=$(collect_problems)
+  nprobs=0
+  if [ -n "$probs" ]; then
+    while IFS= read -r l; do bad "$l"; nprobs=$(( nprobs + 1 )); done <<<"$probs"
+  else
+    ok "volumes, env, needs, noms de service : fabrique.yml et apps/*/app.yml conformes"
+  fi
 
   # 1. Reproductibilite : le fichier committe correspond-il aux manifestes ?
   # Ce controle-la est le seul capable de prouver que compose.yaml decrit bien
   # les apps/*/app.yml — aucune liste de grep ne le saura jamais.
+  echo
   echo "-- artefacts derives"
+  if [ "$nprobs" -gt 0 ]; then
+    warn "comparaison sautee : les manifestes ci-dessus doivent d'abord etre corriges"
+  else
   for f in "${DERIVES[@]}"; do
     if [ "$f" = go.work ] && ! emit go.work >/dev/null 2>&1; then
       [ -f go.work ] && bad "go.work present mais aucune app Go" || ok "go.work sans objet"
@@ -1194,14 +1876,16 @@ if [ "$CHECK" = 1 ]; then
       bad "$f desynchronise des manifestes — lance ./init.sh (--dry-run pour voir l'ecart)"
     fi
   done
+  fi
 
-  # 2. Le compose, service par service.
+  # 2. Le compose, service par service — les trois sortes.
   echo
   echo "-- services"
   if [ ! -f "$COMPOSE" ]; then
     bad "$COMPOSE absent — lance ./init.sh"
   else
     for a in "${APPS_ACTIVES[@]}"; do check_service "$a"; done
+    check_shared_services
 
     # Un doublon de cle YAML est legal et silencieux : la derniere gagne, la
     # premiere disparait du deploiement sans un mot.
@@ -1218,11 +1902,11 @@ if [ "$CHECK" = 1 ]; then
     # chaque conteneur par son IP sur le reseau. Trois apps sur 8080 sont
     # parfaitement correctes — un controle d'unicite serait un faux positif.
 
-    if diff <(printf '%s\n' "${APPS_ACTIVES[@]-}" | LC_ALL=C sort) \
+    if diff <(expected_services | LC_ALL=C sort) \
             <(services_list "$COMPOSE" | LC_ALL=C sort) >/dev/null 2>&1; then
-      ok "$COMPOSE couvre exactement les apps activees"
+      ok "$COMPOSE couvre exactement les services attendus (apps activees, annexes, partages)"
     else
-      bad "ecart entre apps/*/app.yml et les services de $COMPOSE — lance ./init.sh"
+      bad "ecart entre les manifestes et les services de $COMPOSE — lance ./init.sh"
     fi
 
     if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
@@ -1240,16 +1924,29 @@ if [ "$CHECK" = 1 ]; then
   # depassement fait tuer un voisin par l'OOM killer.
   echo
   echo "-- fabrique"
-  total=0
+  # Les trois sortes comptent : un Redis partage et un worker annexe occupent la
+  # meme RAM qu'une app, et l'OOM killer ne fait pas la difference.
+  total=0 nserv=0
   for a in "${APPS_ACTIVES[@]-}"; do
     [ -n "$a" ] || continue
-    total=$(( total + $(mem_to_mb "$(app_get "$a" memory 128m)") ))
+    load_app "$a"
+    total=$(( total + $(mem_to_mb "$A_MEMORY") )); nserv=$(( nserv + 1 ))
+    n=$(map_count "$A_SERVICES")
+    for (( i = 0; i < n; i++ )); do
+      m=$(map_one "$A_SERVICES" "$i" memory)
+      total=$(( total + $(mem_to_mb "${m:-128m}") )); nserv=$(( nserv + 1 ))
+    done
+  done
+  n=$(map_count "$SHARED_RECORDS")
+  for (( i = 0; i < n; i++ )); do
+    m=$(map_one "$SHARED_RECORDS" "$i" memory)
+    total=$(( total + $(mem_to_mb "${m:-128m}") )); nserv=$(( nserv + 1 ))
   done
   cap=$(mem_to_mb "$MEMORY_BUDGET")
   if [ "$total" -le "$cap" ]; then
-    ok "memoire engagee ${total} Mo / ${cap} Mo"
+    ok "memoire engagee ${total} Mo / ${cap} Mo sur ${nserv} service(s), les trois sortes comprises"
   else
-    warn "memoire engagee ${total} Mo au-dela du plafond ${cap} Mo de fabrique.yml — verifie la RAM du serveur"
+    warn "memoire engagee ${total} Mo sur ${nserv} service(s), au-dela du plafond ${cap} Mo de fabrique.yml — verifie la RAM du serveur"
   fi
 
   # Un fichier de routage oublie a cote reste une seconde source de verite, que
@@ -1339,6 +2036,14 @@ if [ "$CHECK" = 1 ]; then
     echo "  Le contrat n'a pas de palier public. Ne pousse pas."
     echo
   fi
+  if [ ${#ROUTES_PARASITES[@]} -gt 0 ]; then
+    printf '\033[41;97m  %d SERVICE(S) NON ROUTE(S) PORTANT DES LABELS TRAEFIK  \033[0m\n' "${#ROUTES_PARASITES[@]}"
+    for a in "${ROUTES_PARASITES[@]}"; do printf '    %s\n' "$a"; done
+    echo "  Un service annexe ou partage n'a pas d'URL : il ne porte aucun label de"
+    echo "  routage. Un label pose ici publierait une route qu'aucun middleware ne"
+    echo "  protege. Ne pousse pas."
+    echo
+  fi
   [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s)."; exit 1; }
   echo "Contrat respecte. Tu peux pousser sur main."
   exit 0
@@ -1358,6 +2063,10 @@ discover_apps
 apply_target_options
 compute_tooling
 
+# Un manifeste invalide ne doit pas produire un compose « plausible mais faux » :
+# la fabrique s'arrete ici, avant d'ecrire quoi que ce soit.
+require_clean_manifests
+
 if [ ! -f fabrique.yml ]; then
   cat > fabrique.yml <<YAML
 # Valeurs communes a toutes les applications de la fabrique.
@@ -1374,6 +2083,36 @@ memory_budget: $MEMORY_BUDGET   # plafond de la somme des mem_limit
 image_max_mb: $IMAGE_MAX_MB
 log_max_size: $LOG_MAX_SIZE     # cap des journaux json-file, par service
 log_max_file: $LOG_MAX_FILE
+
+# Racine des points de montage cote hote. Un sous-repertoire par application :
+# un volume « donnees:/var/lib/app » declare par l'app « ramure » est monte
+# depuis $HOST_DATA_ROOT/ramure/donnees. Le cote hote
+# n'est jamais ecrit dans un app.yml — c'est ce qui rend la traversee de
+# repertoire impossible plutot que simplement interdite.
+host_data_root: $HOST_DATA_ROOT
+
+# Services partages par plusieurs applications. Ils vivent sur $NETWORK, sont
+# joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
+# aucun label Traefik, donc aucune URL. Une app declare sa dependance avec
+# « needs: [redis] » dans son app.yml, et un needs vers un service absent d'ici
+# est une erreur de generation, pas une panne au demarrage.
+#
+# Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
+#
+# shared_services:
+#   - name: redis
+#     image: valkey/valkey:8-alpine
+#     memory: 128m
+#     command: --maxmemory 96mb --maxmemory-policy allkeys-lru
+#     volumes:
+#       - donnees:/data
+#   - name: directus
+#     image: directus/directus:11
+#     memory: 512m
+#     env: [DIRECTUS_KEY, DIRECTUS_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD]
+#     volumes:
+#       - base:/directus/database
+#       - fichiers:/directus/uploads
 YAML
   ok "fabrique.yml"
 fi

@@ -4,6 +4,26 @@
 # Une seule stack dockhand, un service par application activee. Le rayon de
 # souffle est commun : une erreur dans un bloc fait echouer le deploiement de
 # toute la fabrique.
+#
+# TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
+# SEULE EST ROUTEE :
+#
+#   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
+#                  Seule sorte a porter des labels Traefik : un routeur, une
+#                  URL https://<app>.apps.billbob.ovh, un middleware
+#                  d'authentification Google et priority=100.
+#   <app>-<nom>    service annexe prive d'une application (section services:
+#                  de son app.yml). AUCUN label Traefik.
+#   <nom>          service partage par plusieurs applications (shared_services
+#                  dans fabrique.yml). AUCUN label Traefik non plus.
+#
+# Les trois vivent sur le meme reseau apps_net et se joignent entre elles par
+# leur nom de service ; aucune ne publie de port sur l'hote. Ce qui expose un
+# service a Internet, ce sont ses labels Traefik, pas le reseau : un conteneur
+# sans label n'est joignable que par ses voisins.
+#
+# Le cote hote des points de montage n'est jamais ecrit a la main : il est
+# derive de host_data_root (fabrique.yml) et du nom du proprietaire.
 services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh
