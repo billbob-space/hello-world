@@ -828,9 +828,19 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
     [ "$mode" = "$reste" ] && mode=""
     case "$chemin" in /*) ;; *) echo "ERREUR : $APP — volume '$v' : le chemin conteneur doit etre absolu." >&2; exit 1 ;; esac
     case "$mode" in ""|ro) ;; *) echo "ERREUR : $APP — volume '$v' : ':ro' est le seul suffixe admis (recu : ':$mode')." >&2; exit 1 ;; esac
+    # A_VOL_NOMS porte le nom REEL — celui du volume sur l'hote, prefixe par
+    # l'app — parce qu'il sert a detecter une collision entre deux apps.
+    # A_VOLUMES porte le nom LOGIQUE, tel qu'ecrit dans app.yml : tous ses
+    # consommateurs le passent a check_volume(), qui prefixe lui-meme. Le
+    # prefixer ici aussi le posait DEUX fois — « hello-world-hello-world-donnees »
+    # au lieu de « hello-world-donnees ». Rien n'echouait : le compose restait
+    # coherent avec lui-meme, mais le nom reel cessait d'etre celui que
+    # memory/volumes.md documente, donc celui que la commande de sauvegarde
+    # monte — et une sauvegarde lancee sur le nom documente aurait archive un
+    # volume vide en sortant en 0.
     A_VOL_NOMS+=("$APP-$nom")
     A_VOL_CHEMINS+=("$chemin")
-    A_VOLUMES+=("$APP-$nom:$chemin${mode:+:$mode}")
+    A_VOLUMES+=("$nom:$chemin${mode:+:$mode}")
   done < <(ylist "apps/$APP/app.yml" volumes)
 }
 
