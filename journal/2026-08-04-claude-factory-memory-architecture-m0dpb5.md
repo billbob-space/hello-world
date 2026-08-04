@@ -94,3 +94,58 @@ d'arborescence après avoir remarqué des fichiers mal placés.
 `apps/*/` soit un doublon exact d'un `apps/<nom>/PRODUCT.md` ou `README.md` : un
 domicile par app. Corrigé : le fichier supprimé, les cinq renvois du plan
 `ramure-v2` (non encore exécuté) redirigés vers `apps/ramure/PRODUCT.md`.
+
+### 5. Un lien relatif s'est cassé en changeant de répertoire, silencieusement
+
+**Symptome** — En déplaçant le chapitre « Ce qui ne t'appartient pas » vers
+`memory/perimetre.md`, un lien markdown vers le README de la racine — valide
+depuis `CLAUDE.md` — pointait après coup vers un fichier inexistant dans
+`memory/`. Rien ne l'aurait montré sans relancer `--check` juste après.
+
+**Cause** — Un déplacement de contenu markdown change le répertoire de
+référence de tous ses liens relatifs, et rien ne le rappelle en écrivant le
+fichier. Le contrôle de liens morts existant l'a rattrapé immédiatement — c'est
+lui qui a nommé le fichier et la cible manquante — mais seulement parce que
+`--check` tournait après chaque déplacement, comme le prévoyait le plan.
+
+**Detecte par** — `auteur` — `./init.sh --check`, relancé après le déplacement,
+avant tout commit.
+
+**Action** — `rien` — le garde-fou existant (liens morts) a fait exactement ce
+pour quoi il existe ; la parade est déjà le rythme du plan, pas un nouveau
+contrôle.
+
+### 6. Un découpage de plage par ligne a effacé les trois lignes d'un tableau
+
+**Symptome** — En condensant le chapitre des paliers d'exposition (tâche 4), un
+premier découpage par numéro de ligne (`sed -n '1,199p'`) s'est arrêté juste
+après l'en-tête du tableau des trois paliers, sans ses trois lignes de données.
+Le tableau généré ne portait plus que ses deux premières lignes — repéré en
+relisant le fichier après coup, avant `--check`.
+
+**Cause** — Compter une plage de lignes à la main, dans un fichier qui vient
+d'être modifié par l'étape précédente, se trompe facilement d'une ligne — le
+tableau suivait immédiatement le paragraphe que je pensais couper après. Aucun
+contrôle ne vérifie qu'un tableau markdown garde ses lignes de données après une
+édition.
+
+**Detecte par** — `auteur` — relecture du fichier immédiatement après l'édition,
+avant `--check` et avant tout commit.
+
+**Action** — `comportement` — après un découpage de plage par numéro de ligne
+sur un fichier tout juste modifié, relire le résultat avant de continuer, pas
+seulement compter les lignes retirées/ajoutées.
+
+### 7. Décrire un lien cassé dans le journal a cassé le journal lui-même
+
+**Symptome** — En rédigeant l'anomalie 5 ci-dessus, citer littéralement l'ancien
+lien fautif entre apostrophes inverses (markdown pour markdown) a produit la
+même syntaxe `](...)` que le contrôle de liens morts recherche. `--check` a
+échoué sur ce fichier de journal, pour un lien qui n'en était pas un — il
+décrivait un lien, il n'en posait pas.
+
+**Detecte par** — `compilateur` — `--check`, immédiatement, avant tout commit.
+
+**Action** — `rien` — corrigé en reformulant sans la syntaxe entre crochets ;
+le contrôle a raison de refuser toute occurrence du motif, décrire un lien
+cassé sans le montrer littéralement est la bonne habitude à prendre.
