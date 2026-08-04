@@ -1,10 +1,12 @@
 # Comment on travaille — le détail
 
-Quand lire : avant de remplir une entrée de journal, de lancer l'`analyste`
-ou le `greffier`, ou de conclure qu'une branche peut être supprimée.
+Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branche a
+coûté, de lancer l'`analyste` ou le `greffier`, ou de conclure qu'une branche peut
+être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
-`garde-commit.sh` refuse un arbre sale
+fermés par anomalie ; --pret — relevé de coût manquant ou périmé, en avertissement ;
+hook — `garde-branche.sh` refuse d’éditer sur `main`, `garde-commit.sh` refuse un
+arbre sale
 
 ## La fin de vie d'une branche ne t'appartient pas
 
@@ -113,6 +115,47 @@ Deux vérifications tiennent l'ensemble, dans l'ordre de dureté :
 
 Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur : une
 entrée vide et une entrée jamais ouverte ne disent pas la même chose.
+
+## Le relevé de coût — `./init.sh --cout`
+
+**La consommation d'une branche ne vit pas dans le dépôt.** Elle est écrite au fil
+de l'échange dans le fichier de conversation du conteneur, sous
+`~/.claude/projects/<chemin-du-dépôt>/`, un fichier JSON par ligne. Ce conteneur est
+éphémère : quand il disparaît, le chiffre disparaît avec lui, et **aucun outil ne le
+reconstitue**. D'où une commande qui le fige dans l'entrée de journal, seul endroit
+du dépôt qui appartienne à la branche.
+
+```bash
+./init.sh --cout              # relève, affiche, et écrit le bloc dans l'entrée
+./init.sh --cout --dry-run    # affiche seulement
+```
+
+Le bloc est **généré, jamais recopié à la main** : il est délimité par deux
+commentaires markdown et remplacé en place à chaque relance. Il porte les quatre
+postes — entrée, écriture de cache, lecture de cache, sortie — parce qu'ils ne se
+facturent pas au même prix, et un total en dollars et en euros.
+
+| Ce qui est lu | Où | Pourquoi là |
+|---|---|---|
+| jetons consommés | fichier de conversation du conteneur | seule source, éphémère |
+| tarifs par modèle, en dollars par million de jetons | `fabrique.yml`, clé `tarifs` | change avec les modèles, se met à jour à la main |
+| taux de change et sa date | `fabrique.yml`, `taux_usd_eur` / `taux_date` | figés : un contrôle qui appelle le réseau échoue le jour où le réseau manque |
+| écriture de cache à 1,25x l'entrée, lecture à 0,1x | `init.sh` | vrai pour toute l'API, indépendant du modèle |
+
+`--pret` compare le total consigné à celui de la conversation et **avertit sans
+bloquer** — quand le bloc manque, et quand il a dérivé de plus d'un dixième. Il
+avertit plutôt qu'il ne refuse parce que le relevé peut encore s'écrire au commit
+suivant ; il se répète à chaque étape parce qu'une branche fusionnée sans lui a
+perdu le sien pour de bon.
+
+Quatre limites, toutes dites par la commande elle-même :
+
+- il ne voit que les sessions **du conteneur courant** — celles d'un conteneur
+  précédent sont perdues, et le bloc écrit combien il en a lues ;
+- un modèle absent de `tarifs` est compté en jetons mais **pas en argent** ;
+- au-delà de quatre-vingt-dix jours, le taux de change est signalé comme vieux ;
+- c'est un **prix d'API, pas une facture** : sous abonnement, rien n'est refacturé
+  à ce tarif. Le montant se lit comme une valeur de consommation.
 
 ## Les agents `analyste` et `greffier`
 
