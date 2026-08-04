@@ -1,7 +1,7 @@
 # 2026-08-04 — claude/factory-validation-full-stack-6rpjlv
 
 Branche : `claude/factory-validation-full-stack-6rpjlv`
-Périmètre : fabrique, ardoise
+Périmètre : fabrique, ardoise, compteur
 Mode : `chaud`
 
 > Validation de bout en bout de la fabrique par une application volontairement
