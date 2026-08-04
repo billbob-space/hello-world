@@ -202,3 +202,58 @@ inventé.
 elle doit venir d'un instrument externe à l'agent — le tableau de bord de
 facturation, ou un export de la plateforme — pas d'une estimation produite par
 la session qu'elle est censée mesurer.
+
+### 8. Phase 5 (bout en bout) : ce que ça a pris pour sortir du dépôt
+
+**Symptôme** — construire l'image et monter la stack a exigé un contournement
+que rien dans le contrat ne prévoit. `docker build` du `Dockerfile` réel
+échoue dans cet environnement (`RUN go mod download` : `tls: failed to verify
+certificate: x509: certificate signed by unknown authority`, y compris avec
+`--network host`), parce que l'environnement de développement fait passer les
+sorties HTTPS par un proxy qui re-signe le trafic — un conteneur Docker n'en
+hérite pas et ne connaît pas son autorité de certification. Contourné en
+construisant depuis un `Dockerfile` **jamais committé**, hors dépôt, qui copie
+`/root/.ccr/ca-bundle.crt` dans l'étage de build.
+
+**Cause** — c'est une propriété de **cet environnement de développement**, pas
+du contrat de la fabrique : le contrat ne promet nulle part que `docker build`
+fonctionne en local, et la CI, elle, a un accès réseau direct. Rien à corriger
+dans `init.sh`. Mais rien ne le dit non plus : un agent qui découvre ceci pour
+la première fois perd du temps à se demander si le `Dockerfile` est en cause.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — une ligne dans `memory/outillage.md` ou le `README`
+de la fabrique, disant qu'un `docker build` local dans cet environnement exige
+de faire confiance à `/root/.ccr/ca-bundle.crt` dans l'étage de build (ou de
+construire ailleurs), pour que le prochain agent ne le redécouvre pas seul.
+
+Une fois la construction possible, la stack réelle a validé ce que rien avant
+ne pouvait montrer : les huit critères d'acceptation du PRD (A1 à A8), contre
+un Postgres 17 et un Valkey 8 véritables, orchestrés à la main puis via
+`e2e/lancer.sh` et une suite Playwright committée (`apps/ardoise/e2e/`) — A3
+(conteneurs **détruits et recréés**, le volume `ardoise-donnees` a rendu les
+lignes intactes), A6 (`redis` arrêté en cours de service, lectures et
+écritures continuent), A7 (l'application démarrée **sans base du tout**
+répond `200` sur `/healthz` et `503` en français sur `/api/lignes`, puis se
+rétablit sans redémarrer quand la base arrive en retard), A8 (le parcours
+navigateur complet, provenance affichée comprise).
+
+### 9. Une hypothèse fausse sur le DOM, rattrapée par le test lui-même
+
+**Symptôme** — le premier jet du test e2e « 140 caractères refusés » échouait :
+le navigateur **tronque lui-même** la valeur d'un `<textarea maxlength="140">`
+posée par script, y compris hors saisie utilisateur, ce que je n'avais pas
+anticipé. La ligne de 150 caractères n'atteignait donc jamais le serveur à
+141+ caractères — le test constatait un succès (`201`), pas un refus.
+
+**Cause** — une hypothèse fausse sur le DOM : je pensais `maxlength` limité à
+la saisie utilisateur (frappe, collage), pas à une affectation programmatique
+de `.value`. Corrigé en testant ce que le navigateur fait réellement (la
+valeur reste plafonnée à 140), la règle serveur (R2) restant seule couverte,
+exhaustivement, par `domaine_test.go`.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — rattrapée avant tout commit, rien à en tirer pour la
+fabrique.
