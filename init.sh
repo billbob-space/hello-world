@@ -338,6 +338,7 @@ CERT_RESOLVER=$(fab cert_resolver letsencrypt)
 SECURITY_HEADERS=$(fab security_headers security-headers@file)
 MEMORY_BUDGET=$(fab memory_budget 1024m)
 IMAGE_MAX_MB=$(fab image_max_mb 200)
+CLAUDE_MAX_LIGNES=$(fab claude_max_lignes 250)
 LOG_MAX_SIZE=$(fab log_max_size 10m)
 LOG_MAX_FILE=$(fab log_max_file 3)
 
@@ -3624,6 +3625,18 @@ if [ "$CHECK" = 1 ]; then
     [ "$ecart" -eq 0 ] && ok "sommaire du contrat : exactement les $(printf '%s\n' "$reels" | grep -c .) fichier(s) de memory/"
   else
     warn "aucun memory/ — le contrat porte tout"
+  fi
+
+  # Le contrat a grossi jusqu'a 750 lignes parce que rien ne bornait sa taille :
+  # chaque anomalie rattrapee y ajoutait un paragraphe, aucun ne le quittait.
+  # Avertissement et non KO — un contrat a 260 lignes n'est pas un defaut de
+  # deploiement — mais la derive doit se voir a chaque --check, sinon elle
+  # recommence.
+  if [ -f CLAUDE.md ]; then
+    cl=$(grep -c '' CLAUDE.md)
+    [ "$cl" -le "$CLAUDE_MAX_LIGNES" ] \
+      && ok "CLAUDE.md $cl lignes / $CLAUDE_MAX_LIGNES" \
+      || warn "CLAUDE.md $cl lignes, au-dela de $CLAUDE_MAX_LIGNES — sors un sujet dans memory/ plutot que d'elargir le contrat"
   fi
 
   # 5. Outillage de l'agent.

@@ -154,22 +154,14 @@ champ `Périmètre` de l'entrée de journal, et nulle part ailleurs. Renseigne-l
 
 `--pret` ne relance que les apps réellement modifiées depuis la base. Chaque commit
 est ainsi relisable seul et ne casse rien. On pousse à chaque commit ; **la pull
-request vient à la fin**, une fois l'ensemble cohérent.
+request vient à la fin**, une fois l'ensemble cohérent. Son corps sert à décider
+s'il faut relire et par où commencer, pas à rendre compte : une phrase, trois à
+cinq puces, ce qui a été vérifié en chiffres — `.github/pull_request_template.md`,
+généré, en donne la forme. Le raisonnement détaillé va dans les **messages de
+commit**, où il survit à la fusion.
 
 Les vocabulaires fermés du journal, les deux agents, les deux garde-fous et la
 fin de vie d’une branche : `memory/travail.md`.
-
-### La pull request se lit en trente secondes
-
-Un corps de PR n'est pas un compte rendu : il sert à décider **s'il faut relire, et
-par où commencer**. Une phrase sur ce que fait le changement, trois à cinq puces sur
-ce qui compte, ce qui a été vérifié en chiffres, les points d'attention avant fusion.
-`.github/pull_request_template.md`, généré, en donne la forme — remplis ses sections,
-ne les invente pas.
-
-Le raisonnement détaillé va dans les **messages de commit**, où il reste attaché au
-changement qu'il explique et survit à la fusion. Quatre commits bien décrits valent
-mieux qu'un long corps de PR que personne ne relira.
 
 ## Le rayon de souffle
 
@@ -232,25 +224,12 @@ refus et leurs alternatives : `memory/perimetre.md`.
 ./init.sh --check
 ```
 
-Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`, noms de
-service —, parce qu'un `app.yml` faux ne produirait qu'un « compose désynchronisé »
-dont le vrai motif serait perdu ; puis il compare chaque artefact dérivé à ce
-qu'`init.sh` écrirait aujourd'hui ; puis il relit le compose **service par service**,
-les trois sortes, et vérifie que le bloc `volumes:` déclare exactement les volumes
-montés, chacun avec son `name:`. Il relit enfin les documents du dépôt — contrat,
-`README`, PRD, entrées de journal — pour y refuser un lien mort et **deux titres `##`
-identiques dans un même fichier** : deux chapitres de même nom sont deux sources de
-vérité sur le même sujet, et elles finissent par diverger. Les avertissements — un
-`chown` introuvable, une clé inconnue ignorée, un budget mémoire dépassé — ne bloquent
-pas ; les KO, si.
-
-Le même contrôle tourne en CI, en verrou de tous les autres jobs : avec une stack
-partagée, un compose faux fusionné casserait toutes les apps à la fois.
-
-Le déploiement se déclenche à chaque fusion sur `main` : seules les apps modifiées sont
-reconstruites et publiées sur GHCR, puis un unique appel de webhook fait récupérer la
-stack entière par le serveur. Compte deux à trois minutes entre la fusion et la mise
-en ligne.
+Manifestes, puis artefacts dérivés, puis le compose service par service, puis les
+documents du dépôt. Les avertissements ne bloquent pas, les KO si. Le même contrôle
+tourne en CI, en verrou de tous les autres jobs : avec une stack partagée, un
+compose faux fusionné casserait toutes les apps à la fois. Le déploiement se
+déclenche à chaque fusion sur `main` — deux à trois minutes jusqu'à la mise en
+ligne.
 
 ## Le sommaire de `memory/`
 
