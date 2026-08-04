@@ -122,7 +122,7 @@ sortie des trois métiers hors sujet demande une décision.
 <!-- cout : genere par ./init.sh --cout, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-04 à 21:26 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-04 à 21:31 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -130,11 +130,11 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 14 172 | 0,07 $ |
-| Écriture de cache | 576 477 | 2,57 $ |
-| Lecture de cache | 17 000 627 | 7,99 $ |
-| Sortie | 143 006 | 3,12 $ |
-| **Total** | **17 734 282** | **13,75 $ — 11,94 €** |
+| Entrée | 14 328 | 0,07 $ |
+| Écriture de cache | 953 590 | 2,75 $ |
+| Lecture de cache | 24 135 477 | 10,08 $ |
+| Sortie | 220 637 | 3,59 $ |
+| **Total** | **25 324 032** | **16,50 $ — 14,33 €** |
 
-<!-- cout-total: 17734282 -->
+<!-- cout-total: 25324032 -->
 <!-- /cout -->
