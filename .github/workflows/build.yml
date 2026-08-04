@@ -32,6 +32,17 @@ jobs:
       - uses: actions/checkout@v4
       - run: ./init.sh --check
 
+  # Le verrou verifie le depot ; celui-ci verifie le VERROU. init.sh etait le
+  # seul programme du depot que rien ne testait, alors qu'un « ok » errone de sa
+  # part laisse passer une faute dans toutes les apps a la fois. Job separe et
+  # non etape du job contrat : chaque cas recopie le depot et relance --check,
+  # les deux jobs durent donc autant l'un que l'autre et tournent en parallele.
+  tests-du-generateur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./test-init.sh
+
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -140,7 +151,7 @@ jobs:
 
   # Une matrice vide fait echouer le job : d'ou le garde sur '[]'.
   test:
-    needs: [contrat, detect]
+    needs: [contrat, tests-du-generateur, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     strategy:
@@ -157,7 +168,7 @@ jobs:
         run: ./apps/${{ matrix.app }}/test.sh
 
   build:
-    needs: [contrat, detect, test]
+    needs: [contrat, tests-du-generateur, detect, test]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     permissions:
@@ -266,7 +277,7 @@ jobs:
           fi
 
   deploy:
-    needs: [contrat, detect, test, build]
+    needs: [contrat, tests-du-generateur, detect, test, build]
     # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
     # reconstruire, mais le compose a change) doit laisser passer, un build en
     # echec doit bloquer. Sinon un commit a moitie construit referencerait une

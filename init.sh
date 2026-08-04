@@ -135,31 +135,6 @@ yget() {  # yget <fichier> <cle> <defaut>
   printf '%s' "${v:-$d}"
 }
 
-# ylist lit une section en liste — la seule forme imbriquee que ce parseur
-# connaisse, et elle lui a ete ajoutee pour volumes: uniquement. La section se
-# ferme des qu'une ligne reprend en colonne 0 : c'est ce qui evite de lire les
-# cles suivantes comme des elements. Les lignes vides et les commentaires a
-# l'interieur sont sautes.
-ylist() {  # ylist <fichier> <cle> — un element par ligne
-  local f="$1" k="$2" v
-  [ -f "$f" ] || return 0
-  tr -d '\r' < "$f" | awk -v k="$k" '
-    $0 ~ "^" k ":[[:space:]]*$"        { inside = 1; next }
-    inside && /^[^[:space:]#]/         { inside = 0 }
-    inside && /^[[:space:]]*#/         { next }
-    inside && /^[[:space:]]*$/         { next }
-    inside && /^[[:space:]]*-[[:space:]]*/ {
-      sub(/^[[:space:]]*-[[:space:]]*/, "")
-      sub(/[[:space:]]+#.*$/, "")
-      sub(/[[:space:]]+$/, "")
-      if (length($0)) print
-    }
-  ' | while IFS= read -r v; do
-        v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
-        printf '%s\n' "$v"
-      done
-}
-
 fab() { yget fabrique.yml "$1" "$2"; }
 
 app_get() {  # app_get <app> <cle> <defaut> — l'option CLI ne vaut que pour --app
@@ -828,9 +803,19 @@ load_app() {  # load_app <app> — peuple APP et A_*, valide, sort en erreur sin
     [ "$mode" = "$reste" ] && mode=""
     case "$chemin" in /*) ;; *) echo "ERREUR : $APP — volume '$v' : le chemin conteneur doit etre absolu." >&2; exit 1 ;; esac
     case "$mode" in ""|ro) ;; *) echo "ERREUR : $APP — volume '$v' : ':ro' est le seul suffixe admis (recu : ':$mode')." >&2; exit 1 ;; esac
+    # A_VOL_NOMS porte le nom REEL — celui du volume sur l'hote, prefixe par
+    # l'app — parce qu'il sert a detecter une collision entre deux apps.
+    # A_VOLUMES porte le nom LOGIQUE, tel qu'ecrit dans app.yml : tous ses
+    # consommateurs le passent a check_volume(), qui prefixe lui-meme. Le
+    # prefixer ici aussi le posait DEUX fois — « hello-world-hello-world-donnees »
+    # au lieu de « hello-world-donnees ». Rien n'echouait : le compose restait
+    # coherent avec lui-meme, mais le nom reel cessait d'etre celui que
+    # memory/volumes.md documente, donc celui que la commande de sauvegarde
+    # monte — et une sauvegarde lancee sur le nom documente aurait archive un
+    # volume vide en sortant en 0.
     A_VOL_NOMS+=("$APP-$nom")
     A_VOL_CHEMINS+=("$chemin")
-    A_VOLUMES+=("$APP-$nom:$chemin${mode:+:$mode}")
+    A_VOLUMES+=("$nom:$chemin${mode:+:$mode}")
   done < <(ylist "apps/$APP/app.yml" volumes)
 }
 
@@ -2783,20 +2768,20 @@ check_app_files() {
   [ -f "$d/PRODUCT.md" ]   && ok "$p PRODUCT.md"    || warn "$p pas de PRD"
 }
 
-if [ "$CHECK" = 1 ]; then
-  discover_apps
-  [ ${#APPS[@]} -gt 0 ] || { echo "ERREUR : aucune app sous apps/ — ./init.sh --add <nom>" >&2; exit 1; }
-  compute_tooling
+# --- les huit sections de --check -----------------------------------------------
+#
+# Une fonction par section, dans l'ordre ou --check les imprime. Elles etaient un
+# seul bloc de 464 lignes en ligne droite, hors de toute fonction : on ne pouvait
+# en exercer aucune sans lancer les sept autres, ce qui interdisait de tester le
+# verrou de CI autrement qu'en entier.
+#
+# Aucune ne declare de variable locale, et c'est VOULU : « probs » et « nprobs »,
+# poses par check_manifestes, sont relus par check_artefacts, qui saute la
+# comparaison quand les manifestes sont deja faux. FAILED, lui, doit rester celui
+# du shell appelant — d'ou des appels ordinaires, jamais un tube ni un sous-shell,
+# faute de quoi --check sortirait en 0 en ayant affiche des KO.
 
-  APPS_ACTIVES=()
-  for a in "${APPS[@]}"; do
-    load_app "$a"
-    [ "$A_ENABLED" = true ] && APPS_ACTIVES+=("$a")
-  done
-
-  echo "Verification — fabrique $ORG/$REPO : ${#APPS[@]} app(s), ${#APPS_ACTIVES[@]} activee(s), ${#SHARED_NAMES[@]} service(s) partage(s)"
-  echo
-
+check_manifestes() {
   # 0. Les manifestes eux-memes. Ce controle vient en premier : si un app.yml
   # decrit un volume qui sort de sa racine ou un needs vers un service qui
   # n'existe pas, la generation ne peut pas aboutir, et comparer les artefacts
@@ -2815,6 +2800,9 @@ if [ "$CHECK" = 1 ]; then
   # 1. Reproductibilite : le fichier committe correspond-il aux manifestes ?
   # Ce controle-la est le seul capable de prouver que compose.yaml decrit bien
   # les apps/*/app.yml — aucune liste de grep ne le saura jamais.
+}
+
+check_artefacts() {
   echo
   echo "-- artefacts derives"
   if [ "$nprobs" -gt 0 ]; then
@@ -2859,6 +2847,9 @@ if [ "$CHECK" = 1 ]; then
   fi
 
   # 2. Le compose, service par service — les trois sortes.
+}
+
+check_services() {
   echo
   echo "-- services"
   if [ ! -f "$COMPOSE" ]; then
@@ -2933,6 +2924,9 @@ if [ "$CHECK" = 1 ]; then
   fi
 
   # 3. Les fichiers de chaque app.
+}
+
+check_applications() {
   echo
   echo "-- applications"
   for a in "${APPS[@]}"; do check_app_files "$a"; done
@@ -2941,6 +2935,9 @@ if [ "$CHECK" = 1 ]; then
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.
+}
+
+check_fabrique() {
   echo
   echo "-- fabrique"
   # Les trois sortes comptent : un Redis partage et un worker annexe occupent la
@@ -3096,6 +3093,9 @@ if [ "$CHECK" = 1 ]; then
   fi
 
   # 5. Outillage de l'agent.
+}
+
+check_outillage() {
   echo
   echo "-- outillage"
   if [ -f .claude/settings.json ]; then
@@ -3162,6 +3162,9 @@ if [ "$CHECK" = 1 ]; then
   # elle doit dire quelque chose. Une entree non suivie est un travail en cours,
   # et ne se juge pas — c'est ce qui laisse --check vert entre l'ouverture de la
   # branche et le premier commit, sans rien relacher en CI, ou tout est suivi.
+}
+
+check_journal() {
   echo
   echo "-- journal"
   if [ -d "$JOURNAL_DIR" ]; then
@@ -3195,6 +3198,9 @@ if [ "$CHECK" = 1 ]; then
   # 7. Secrets. Les motifs de jeton sont ecrits avec une classe d'un seul
   # caractere — gh[p]_ — pour que ce script, lui-meme suivi par git, ne se
   # detecte pas comme fuite a chaque lancement.
+}
+
+check_secrets() {
   echo
   echo "-- secrets"
   # Le meme scan qu'a la generation, sur les memes fichiers — mais ici sur le
@@ -3217,6 +3223,32 @@ if [ "$CHECK" = 1 ]; then
   else
     ok "aucun secret evident dans les fichiers suivis"
   fi
+
+}
+
+if [ "$CHECK" = 1 ]; then
+  discover_apps
+  [ ${#APPS[@]} -gt 0 ] || { echo "ERREUR : aucune app sous apps/ — ./init.sh --add <nom>" >&2; exit 1; }
+  compute_tooling
+
+  APPS_ACTIVES=()
+  for a in "${APPS[@]}"; do
+    load_app "$a"
+    [ "$A_ENABLED" = true ] && APPS_ACTIVES+=("$a")
+  done
+
+  echo "Verification — fabrique $ORG/$REPO : ${#APPS[@]} app(s), ${#APPS_ACTIVES[@]} activee(s), ${#SHARED_NAMES[@]} service(s) partage(s)"
+  echo
+
+
+  check_manifestes
+  check_artefacts
+  check_services
+  check_applications
+  check_fabrique
+  check_outillage
+  check_journal
+  check_secrets
 
   echo
   if [ ${#SANS_AUTH[@]} -gt 0 ]; then
