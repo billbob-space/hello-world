@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Genere par init.sh — hook PreToolUse : refuse d'ecrire directement sur main.
+# Hook PreToolUse : refuse d'ecrire directement sur main.
 #
 # La fabrique ouvre une branche des la PREMIERE modification. Une regle ecrite
 # dans CLAUDE.md s'oublie ; un hook, lui, s'execute. Il ne cree pas la branche

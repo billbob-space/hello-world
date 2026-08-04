@@ -6,8 +6,10 @@ Tenu par : --check — `settings.json` présent et sans bloc `env`, scripts
 analysables, `cloud-setup.sh` aligné sur les plugins et les LSP ; hook —
 `check-plugins.sh` rapporte à chaque ouverture de session
 
-`init.sh` écrit un `.claude/settings.json` **versionné** : tout clone du dépôt — toi,
-un autre agent, une session cloud, la CI — repart avec le même outillage.
+`.claude/settings.json` est un fichier ordinaire et **versionné** : tout clone
+du dépôt — toi, un autre agent, une session cloud, la CI — repart avec le même
+outillage. Il se retouche à la main quand une app introduit un `stack` ou un
+`ui` nouveau ; `--check` avertit si un plugin attendu n'y figure pas.
 
 | Plugin | Ce qu'il apporte |
 |---|---|
@@ -29,7 +31,7 @@ charger : sur `claude.ai/code`, Claude Code **charge les plugins avant de les
 installer**, donc un hook `SessionStart` les déposerait sur le disque sans qu'ils
 servent — et `/reload-plugins` n'existe pas sur le web. Le seul point d'accroche assez
 tôt est le **setup script de l'environnement**, qui tourne avant le lancement de
-Claude Code. `init.sh` en génère le contenu : les plugins, plus **le binaire de chaque
+Claude Code. `.claude/cloud-setup.sh`, édité à la main, en porte le contenu : les plugins, plus **le binaire de chaque
 serveur LSP** — l'image cloud fournit les compilateurs, jamais les serveurs de
 langage, et sans ce binaire le plugin est installé mais inerte. Les installations
 partent en parallèle : le script doit tenir sous cinq minutes.
@@ -44,8 +46,9 @@ disque : le script ne rejoue qu'après modification de l'environnement ou expira
 cache (~7 jours). Si le serveur de langage ne s'installe pas en une commande à travers
 l'allowlist réseau, le script généré pose un `TODO` explicite plutôt qu'une commande
 inventée : complète-le avant de le coller. Cette configuration vit **hors du dépôt**,
-dans ton compte, et `init.sh` ne peut pas la mettre à jour : après un `./init.sh` qui
-change un `stack` ou un `ui`, recolle le fichier — `--check` signale l'écart.
+dans ton compte, et rien ne la met à jour automatiquement : après avoir édité
+`.claude/cloud-setup.sh` pour un `stack` ou un `ui` nouveau, recolle le fichier
+— `--check` signale l'écart entre ce qui est déclaré et ce que les apps exigent.
 
 Puisqu'aucun hook ne peut installer à temps, `.claude/check-plugins.sh` se contente de
 rapporter : il s'exécute à chaque ouverture de session et écrit dans ton contexte

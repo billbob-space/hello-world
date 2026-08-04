@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
-# Genere par init.sh — hook Stop : refuse de terminer sur un arbre de travail
-# sale.
+# Hook Stop : refuse de terminer sur un arbre de travail sale.
 #
 # Committer a chaque etape verifiee est ce qui evite la PR de mille lignes que
 # personne ne relit vraiment. Le hook ne committe pas a votre place : il refuse

@@ -19,7 +19,7 @@ de travail.
 
     ./init.sh --branche <prefixe>/<sujet>
 
-Le prefixe est l'app touchee — parmi : cadran hello-world ramure — ou `fabrique` si le
+Le prefixe est l'app touchee — le nom de son repertoire sous `apps/` — ou `fabrique` si le
 changement porte sur `init.sh`, `fabrique.yml`, `compose.yaml`, `.github/`,
 `.claude/` ou la documentation racine. Si plusieurs apps sont touchees a la
 fois, c'est un changement transverse : prefixe `fabrique`.

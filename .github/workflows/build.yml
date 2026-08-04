@@ -1,5 +1,9 @@
-# Genere par init.sh — une construction par app modifiee, un seul deploiement.
-# NE PAS EDITER — ./init.sh --check refuse un workflow desynchronise.
+# Fichier ordinaire, edite directement. Aucune valeur de fabrique.yml n'y est
+# figee : le job detect les relit a chaque run et les publie en sortie ; les
+# jobs build et deploy les consomment via needs.detect.outputs.*. ./init.sh
+# --check verifie que ce fichier existe, que son job contrat lance
+# ./init.sh --check, et qu'aucune occurrence figee du registre, de l'org ou
+# du depot ne s'y est glissee.
 name: build
 
 on:
@@ -33,10 +37,26 @@ jobs:
     outputs:
       apps: ${{ steps.choix.outputs.apps }}
       deploy: ${{ steps.choix.outputs.deploy }}
+      registry: ${{ steps.fab.outputs.registry }}
+      org: ${{ steps.fab.outputs.org }}
+      repo: ${{ steps.fab.outputs.repo }}
+      image_max_mb: ${{ steps.fab.outputs.image_max_mb }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Ces quatre valeurs vivaient recopiees dans ce fichier a la generation.
+      # Les relire ici, a chaque run, c'est ce qui permet a ce fichier de ne
+      # plus dependre d'un generateur : un changement dans fabrique.yml se voit
+      # au prochain run, sans repasser par ./init.sh.
+      - id: fab
+        run: |
+          set -euo pipefail
+          val() { sed -nE "s/^$1:[[:space:]]*([^[:space:]#]+).*/\1/p" fabrique.yml; }
+          echo "registry=$(val registry)"       >> "$GITHUB_OUTPUT"
+          echo "org=$(val org)"                 >> "$GITHUB_OUTPUT"
+          echo "repo=$(val repo)"                >> "$GITHUB_OUTPUT"
+          echo "image_max_mb=$(val image_max_mb)" >> "$GITHUB_OUTPUT"
       - id: choix
         env:
           EVENT: ${{ github.event_name }}
@@ -46,7 +66,17 @@ jobs:
           APRES: ${{ github.sha }}
         run: |
           set -euo pipefail
-          toutes='["cadran","hello-world","ramure"]'
+          # La liste complete des apps, activees ou non : la CI les teste et
+          # les construit sans egard a enabled, qui ne pilote que le compose.
+          # Calculee ici plutot que figee a la generation.
+          liste_toutes=$(for d in apps/*/; do
+                           a="${d%/}"; a="${a#apps/}"
+                           [ -f "apps/$a/app.yml" ] && printf '%s\n' "$a"
+                         done)
+          toutes='[]'
+          if [ -n "$liste_toutes" ]; then
+            toutes="[$(printf '%s\n' "$liste_toutes" | sed 's/.*/"&"/' | paste -sd, -)]"
+          fi
 
           if [ "$EVENT" = pull_request ]; then base="$BASE_PR"; else base="$AVANT"; fi
 
@@ -145,7 +175,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ needs.detect.outputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # CONSTRUIRE D'ABORD EN LOCAL, PUBLIER ENSUITE. Entre les deux se glisse le
@@ -178,12 +208,12 @@ jobs:
           # ensemble ici, c'est la meme condition inversee.
           load: ${{ github.event_name == 'pull_request' }}
           tags: |
-            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
-            ghcr.io/billbob-space/hello-world/${{ matrix.app }}:${{ github.sha }}
+            ${{ needs.detect.outputs.registry }}/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}/${{ matrix.app }}:main
+            ${{ needs.detect.outputs.registry }}/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}/${{ matrix.app }}:${{ github.sha }}
           # Rattache le paquet au depot : ses permissions suivent alors celles
           # du depot, et un seul identifiant de lecture couvre toutes les apps.
           labels: |
-            org.opencontainers.image.source=https://github.com/billbob-space/hello-world
+            org.opencontainers.image.source=https://github.com/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}
           # Identifie la version deployee ; le Dockerfile en fait ce qu'il veut,
           # l'ignorer est sans consequence.
           build-args: |
@@ -197,7 +227,7 @@ jobs:
       - name: labels et taille de l'image
         run: |
           set -euo pipefail
-          image=ghcr.io/billbob-space/hello-world/${{ matrix.app }}:main
+          image=${{ needs.detect.outputs.registry }}/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}/${{ matrix.app }}:main
           if [ "${{ github.event_name }}" != pull_request ]; then
             docker pull "$image"
           fi
@@ -231,8 +261,8 @@ jobs:
 
           size=$(docker image inspect "$image" --format '{{.Size}}')
           echo "Image ${{ matrix.app }} : $((size / 1024 / 1024)) Mo"
-          if [ "$size" -gt $((200 * 1024 * 1024)) ]; then
-            echo "::warning::image au-dela de 200 Mo — le serveur est a 92 % de disque"
+          if [ "$size" -gt $(( ${{ needs.detect.outputs.image_max_mb }} * 1024 * 1024 )) ]; then
+            echo "::warning::image au-dela de ${{ needs.detect.outputs.image_max_mb }} Mo — le serveur est a 92 % de disque"
           fi
 
   deploy:
@@ -259,7 +289,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ needs.detect.outputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -280,18 +310,16 @@ jobs:
             exit 1
           fi
           # TOUTES les images sont verifiees, les TIERCES COMPRISES, et un echec
-          # bloque. Ne pas les bloquer sous pretexte que ce job « ne s'authentifie
-          # que sur ghcr.io » serait faux : « docker buildx imagetools
-          # inspect » interroge le registre en ANONYME quand il n'a pas
-          # d'identifiants, et l'inspection d'une image publique aboutit sans
-          # login — mesure, docker deconnecte de tout registre : l'inspection de
-          # valkey/valkey:8-alpine sort en 0, la meme avec une faute de frappe
-          # sort en 1. Une image tierce mal orthographiee ou disparue ferait
-          # echouer le « docker compose up », atomique pour la stack entiere : la
-          # laisser passer, c'est deployer une fabrique qui tombe TOUTE. Une image
-          # tierce reellement privee est le seul faux positif possible, et elle
-          # n'aurait de toute facon pas sa place dans un compose que le serveur
-          # tire sans identifiants.
+          # bloque. « docker buildx imagetools inspect » interroge le registre en
+          # ANONYME quand il n'a pas d'identifiants, et l'inspection d'une image
+          # publique aboutit sans login — mesure, docker deconnecte de tout
+          # registre : l'inspection de valkey/valkey:8-alpine sort en 0, la meme
+          # avec une faute de frappe sort en 1. Une image tierce mal
+          # orthographiee ou disparue ferait echouer le « docker compose up »,
+          # atomique pour la stack entiere : la laisser passer, c'est deployer
+          # une fabrique qui tombe TOUTE. Une image tierce reellement privee est
+          # le seul faux positif possible, et elle n'aurait de toute facon pas sa
+          # place dans un compose que le serveur tire sans identifiants.
           manquantes=()
           for img in "${images[@]}"; do
             if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
