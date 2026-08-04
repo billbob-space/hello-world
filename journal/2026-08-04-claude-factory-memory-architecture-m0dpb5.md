@@ -173,3 +173,28 @@ par `run:` (`^\s*-?\s*run:\s*\./init\.sh --check\s*$`), qui ne peut plus
 matcher une phrase de commentaire. Le plan a fait ce pour quoi il est écrit :
 aucun contrôle ne s'est jamais retrouvé committé sans avoir été mis en échec
 une fois.
+
+### 9. Le plan listait six passages documentaires faux, en oubliait un septième
+
+**Symptome** — Le plan du lot 2 (tâche 4) énumérait précisément six passages
+de `CLAUDE.md` et de `memory/` affirmant que le workflow ou `.claude/`
+étaient générés. Le balayage de vérification prévu en dernière étape
+(`grep -rn "génère\|réécrit" ...`) en a trouvé un septième, non listé : la
+toute première commande d'exemple du contrat, dans « Démarrage » —
+`./init.sh # régénère compose.yaml, la CI et l'outillage` — le genre de
+ligne qu'on relit sans la voir parce qu'elle est là depuis le début.
+
+**Cause** — Le plan avait été écrit en repérant les passages par lecture des
+chapitres susceptibles d'en parler (« Ajouter une application », « Ton
+outillage »), pas par grep systématique sur le mot « régénère » lui-même.
+Une commande d'exemple en tête de fichier n'appartient à aucun des deux
+chapitres et n'a donc pas été vue à l'écriture du plan.
+
+**Detecte par** — `auteur` — le balayage `grep` de l'étape de vérification,
+exécuté avant le commit de la tâche 4, exactement pour ce cas.
+
+**Action** — `rien` — corrigée sur le coup. Aucun garde-fou à ajouter : un
+`grep` a suffi une fois qu'il a été lancé sur le bon mot ; ce qui manquait
+n'était pas un contrôle mais l'avoir fait plus tôt, dans l'écriture du plan
+plutôt qu'à sa vérification. Les deux endroits produisent le même résultat,
+seul l'ordre change.
