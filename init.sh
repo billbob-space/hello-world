@@ -2710,6 +2710,10 @@ JOURNAL_ACTION='rien|contrat|garde-fou|outillage|comportement|arbitrage'
 JOURNAL_MODE='chaud|retrospective'
 JOURNAL_PERIMETRE_VIDE='<apps touchees, ou fabrique>'   # le gabarit, tel quel
 
+# Le vocabulaire ferme de « Tenu par », en-tete des fichiers de memory/. « rien »
+# n'y figure pas volontairement : il est refuse, et le message d'aide le rappelle.
+MEMORY_TENU='--check|CI|hook'
+
 journal_slug() { printf '%s' "${1//\//-}"; }
 
 journal_entree() {  # journal_entree <branche> — le chemin de l'entree, ou vide
@@ -3519,7 +3523,7 @@ if [ "$CHECK" = 1 ]; then
   # reorganisation incomplete — le risque propre a une fabrique qui deplace des
   # applications. Boucle `for` et non tube : bad() doit rester dans ce shell.
   morts=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md memory/*.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     for cible in $(grep -oE '\]\([^)#:]+\.md\)' "$src" | sed -E 's/^\]\((.*)\)$/\1/'); do
       [ -f "$(dirname "$src")/$cible" ] || { bad "lien mort : $src -> $cible"; morts=$((morts+1)); }
@@ -3543,7 +3547,7 @@ if [ "$CHECK" = 1 ]; then
   # a octet : pas de normalisation, donc pas de faux positif sur la casse ou les
   # accents.
   doublons=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md memory/*.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     while IFS= read -r titre; do
       [ -n "$titre" ] || continue
@@ -3552,6 +3556,32 @@ if [ "$CHECK" = 1 ]; then
     done < <(grep -E '^## ' "$src" | LC_ALL=C sort | LC_ALL=C uniq -d)
   done
   [ "$doublons" -eq 0 ] && ok "aucun titre de section en double"
+
+  # Les fichiers de memory/ portent l'explication des regles que --check tient
+  # deja. « Quand lire » les rend utilisables sans etre lus en entier, et « Tenu
+  # par » est le critere de sortie rendu executable : une regle que rien ne
+  # rattrape n'a pas le droit de quitter le contrat, sinon l'alleger revient a la
+  # perdre. C'est le seul controle du depot qui refuse une valeur *correcte* —
+  # « rien » est un aveu, pas une faute de frappe.
+  if [ -d memory ]; then
+    fautes=0 nb=0
+    for m in memory/*.md; do
+      [ -f "$m" ] || continue
+      nb=$((nb+1))
+      grep -qE '^Quand lire *: *[^[:space:]]' "$m" \
+        || { bad "$m : ligne 'Quand lire :' absente ou vide — le sommaire ne saura pas quand l'ouvrir"; fautes=$((fautes+1)); }
+      if grep -qE '^Tenu par *: *`?rien`?([[:space:]]|$)' "$m"; then
+        bad "$m : 'Tenu par : rien' — une regle que rien ne rattrape reste dans CLAUDE.md"
+        fautes=$((fautes+1))
+      elif ! grep -qE "^Tenu par *: *($MEMORY_TENU)" "$m"; then
+        bad "$m : champ 'Tenu par' absent ou hors vocabulaire — $MEMORY_TENU|rien"
+        fautes=$((fautes+1))
+      fi
+    done
+    [ "$fautes" -eq 0 ] && ok "$nb fichier(s) memory/ : en-tete complet, chaque sujet tenu par un controle"
+  else
+    warn "aucun memory/ — le contrat porte tout"
+  fi
 
   # 5. Outillage de l'agent.
   echo
