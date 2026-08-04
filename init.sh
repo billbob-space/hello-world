@@ -3557,6 +3557,27 @@ if [ "$CHECK" = 1 ]; then
   done
   [ "$doublons" -eq 0 ] && ok "aucun titre de section en double"
 
+  # Une PRD ou un README d'app n'a qu'un domicile : apps/<nom>/PRODUCT.md ou
+  # apps/<nom>/README.md. Un exemplaire identique ailleurs dans le depot a
+  # echappe a l'arborescence -- le cas reel : un agent redigeant un plan a
+  # copie-colle le PRD d'une app existante dans docs/ au lieu d'y renvoyer,
+  # au lieu de lire le fichier a sa place. Comparaison octet a octet (cmp -s),
+  # aucune dependance nouvelle. Les autres apps/ sont hors perimetre : deux
+  # apps peuvent legitimement partager un PRD a leur amorçage, ce n'est pas ce
+  # qu'on detecte ici.
+  evades=0
+  for canon in apps/*/PRODUCT.md apps/*/README.md; do
+    [ -f "$canon" ] || continue
+    while IFS= read -r autre; do
+      [ -n "$autre" ] || continue
+      [ "$autre" = "$canon" ] && continue
+      case "$autre" in apps/*) continue ;; esac
+      cmp -s "$canon" "$autre" \
+        && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
+    done < <(git ls-files '*.md')
+  done
+  [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
+
   # Les fichiers de memory/ portent l'explication des regles que --check tient
   # deja. « Quand lire » les rend utilisables sans etre lus en entier, et « Tenu
   # par » est le critere de sortie rendu executable : une regle que rien ne

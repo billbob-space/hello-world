@@ -70,3 +70,27 @@ coût est diffus : il se paie à chaque correction, jamais d'un coup.
 **Action** — `outillage` — l'outillage sort du générateur (lot 2 de la
 conception) ; `--check` vérifie une propriété utile au lieu d'une égalité au
 gabarit.
+
+### 4. Un PRD d'app existant avait échappé dans `docs/`, dupliqué à l'octet
+
+**Symptome** — `docs/PRD-RAMURE.md` (625 lignes) était strictement identique,
+octet pour octet (`cmp -s`), à `apps/ramure/PRODUCT.md` déjà présent et déployé.
+Aucun contrôle ne le voyait : le contrôle de liens morts ne regarde que les
+liens markdown, pas le contenu des fichiers.
+
+**Cause** — Introduit en un seul commit (« ramure-v2 : PRD et plan
+d'implementation des lots MVP et V1 », PR #32) : en écrivant le plan de
+`apps/ramure-v2/` — une réécriture prévue de `ramure`, pas un produit distinct —
+l'agent a copié le PRD existant dans `docs/` au lieu d'y renvoyer directement.
+Le journal avait déjà signalé le même motif sur une branche abandonnée
+(`2026-08-03-claude-analyze-cleanup-merged-branches-12gta2.md`, anomalie 5),
+mais sans garde-fou pour l'empêcher, il s'est reproduit sur une branche
+différente et a fusionné.
+
+**Detecte par** — `utilisateur` — l'utilisateur a demandé un garde-fou
+d'arborescence après avoir remarqué des fichiers mal placés.
+
+**Action** — `garde-fou` — `--check` refuse maintenant qu'un fichier hors de
+`apps/*/` soit un doublon exact d'un `apps/<nom>/PRODUCT.md` ou `README.md` : un
+domicile par app. Corrigé : le fichier supprimé, les cinq renvois du plan
+`ramure-v2` (non encore exécuté) redirigés vers `apps/ramure/PRODUCT.md`.
