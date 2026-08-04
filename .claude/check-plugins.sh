@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Genere par init.sh — rapport d'outillage, lance par le hook SessionStart.
+# Rapport d'outillage, lance par le hook SessionStart.
 #
 # Il n'installe rien, et c'est delibere : un hook s'execute APRES que Claude
 # Code a charge ses plugins. Il arrive donc toujours trop tard pour reparer
@@ -12,7 +12,7 @@
 # une ligne quand tout va bien, quel que soit le nombre d'applications, le
 # detail seulement quand il y a un trou.
 #
-# Pour changer la liste : edite stack/ui dans un apps/*/app.yml, puis ./init.sh
+# Pour changer la liste : edite directement PLUGINS et TRIPLETS ci-dessous.
 
 set -u
 

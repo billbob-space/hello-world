@@ -1484,223 +1484,6 @@ $uses
 EOF
 }
 
-emit_settings() {
-  local enabled="" i sep marketplaces=""
-  for i in "${!PLUGIN_IDS[@]}"; do
-    sep=","; [ "$i" -eq $(( ${#PLUGIN_IDS[@]} - 1 )) ] && sep=""
-    enabled="$enabled    \"${PLUGIN_IDS[$i]}\": true$sep
-"
-  done
-  # claude-plugins-official est enregistree d'office par Claude Code : seule une
-  # marketplace tierce doit etre declaree ici.
-  if [ "$UI_ANY" = true ]; then
-    marketplaces='  "extraKnownMarketplaces": {
-    "impeccable": {
-      "source": { "source": "github", "repo": "pbakaus/impeccable" }
-    }
-  },
-'
-  fi
-  render __MARKETPLACES__ "$marketplaces" __ENABLED__ "$enabled" <<'JSON'
-{
-__MARKETPLACES__  "enabledPlugins": {
-__ENABLED__  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/check-plugins.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-branche.sh\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/garde-commit.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  }
-}
-JSON
-}
-
-emit_check_plugins() {
-  render \
-    __PLUGINS__ "${PLUGIN_IDS[*]}" \
-    __TRIPLETS__ "${LSP_TRIPLETS[*]-}" \
-    <<'SH'
-#!/usr/bin/env bash
-#
-# Genere par init.sh — rapport d'outillage, lance par le hook SessionStart.
-#
-# Il n'installe rien, et c'est delibere : un hook s'execute APRES que Claude
-# Code a charge ses plugins. Il arrive donc toujours trop tard pour reparer
-# quoi que ce soit — mais juste a temps pour dire ce qui manque. L'installation
-# appartient au setup script de l'environnement (.claude/cloud-setup.sh), seul
-# point d'accroche anterieur au lancement de Claude Code.
-#
-# Sa sortie standard est injectee dans le contexte de l'agent A CHAQUE SESSION :
-# une ligne quand tout va bien, quel que soit le nombre d'applications, le
-# detail seulement quand il y a un trou.
-#
-# Pour changer la liste : edite stack/ui dans un apps/*/app.yml, puis ./init.sh
-
-set -u
-
-PLUGINS="__PLUGINS__"
-# plugin:binaire:stack — un triplet par serveur de langage attendu
-TRIPLETS="__TRIPLETS__"
-
-# Un plugin installe = un repertoire non vide dans le cache local, range sous
-# <marketplace>/<nom>. installed_plugins.json n'est pas lu : ce manifeste
-# survit a un cache efface, et decrirait alors un outillage disparu.
-n=0 total=0 manquants=""
-for p in $PLUGINS; do
-  total=$(( total + 1 ))
-  d="$HOME/.claude/plugins/cache/${p#*@}/${p%@*}"
-  if [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]; then
-    n=$(( n + 1 ))
-  else
-    manquants="$manquants $p"
-  fi
-done
-
-# Un plugin LSP peut etre installe et pourtant inerte : Claude Code lance le
-# binaire en clair, il doit exister sur la machine. Les deux etats divergent.
-lsp_ok=0 lsp_total=0 lsp_detail=""
-for t in $TRIPLETS; do
-  plugin=${t%%:*}; reste=${t#*:}; bin=${reste%%:*}; stack=${reste##*:}
-  # Si le plugin lui-meme manque, il est deja dans la liste ci-dessous :
-  # inutile de le dire deux fois, et il serait faux de l'annoncer installe.
-  case " $manquants " in *" $plugin@claude-plugins-official "*) continue ;; esac
-  lsp_total=$(( lsp_total + 1 ))
-  if command -v "$bin" >/dev/null 2>&1; then
-    lsp_ok=$(( lsp_ok + 1 ))
-  else
-    lsp_detail="$lsp_detail
-  $bin ABSENT — $plugin est installe mais inerte : aucun diagnostic $stack apres edition."
-  fi
-done
-
-if [ "$lsp_total" -gt 0 ]; then
-  echo "Outillage : $n/$total plugins installes, $lsp_ok/$lsp_total serveurs LSP presents."
-else
-  echo "Outillage : $n/$total plugins installes."
-fi
-[ -n "$manquants" ] && {
-  echo "  manquants :$manquants"
-  echo "  -> colle .claude/cloud-setup.sh dans le champ Setup script de l'environnement : claude.ai/code, icone nuage, engrenage."
-}
-[ -n "$lsp_detail" ] && {
-  echo "$lsp_detail"
-  echo "  -> leurs commandes d'installation sont dans .claude/cloud-setup.sh."
-}
-
-# Toujours 0 : un rapport ne fait pas echouer l'ouverture d'une session.
-exit 0
-SH
-}
-
-emit_garde_branche() {
-  render __BASE__ "$BASE" <<'SH'
-#!/usr/bin/env bash
-#
-# Genere par init.sh — hook PreToolUse : refuse d'ecrire directement sur __BASE__.
-#
-# La fabrique ouvre une branche des la PREMIERE modification. Une regle ecrite
-# dans CLAUDE.md s'oublie ; un hook, lui, s'execute. Il ne cree pas la branche
-# lui-meme : le nom doit dire le sujet, et seul celui qui edite le connait.
-#
-# Aucune dependance : ni jq ni python. Un garde-fou qui ne demarre pas sur une
-# machine depouillee ne garde rien.
-
-set -u
-BASE="__BASE__"
-
-entree=$(cat)
-
-git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
-racine=$(git rev-parse --show-toplevel)
-courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-[ "$courante" = "$BASE" ] || exit 0
-
-# Un fichier hors du depot ne concerne pas cette regle : le hook n'a pas a
-# bloquer l'edition d'un brouillon ou d'une note personnelle. Chemin illisible
-# = on protege, par defaut.
-cible=$(printf '%s' "$entree" | sed -nE 's/.*"file_path"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' | head -1)
-case "$cible" in
-  "$racine"/*) ;;
-  "")          ;;
-  *) exit 0 ;;
-esac
-
-raison="Modification refusee : HEAD est sur $BASE.\n\nLa fabrique ouvre une branche des la premiere modification, nommee <app>/<sujet> — ou fabrique/<sujet> pour init.sh, la CI, le contrat ou l'outillage.\n\n  ./init.sh --branche <app>/<sujet>\n\nPuis recommence cette modification."
-
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$raison"
-exit 0
-SH
-}
-
-emit_garde_commit() {
-  render __BASE__ "$BASE" <<'SH'
-#!/usr/bin/env bash
-#
-# Genere par init.sh — hook Stop : refuse de terminer sur un arbre de travail
-# sale.
-#
-# Committer a chaque etape verifiee est ce qui evite la PR de mille lignes que
-# personne ne relit vraiment. Le hook ne committe pas a votre place : il refuse
-# seulement de laisser du travail non enregistre derriere lui.
-
-set -u
-BASE="__BASE__"
-
-entree=$(cat)
-
-# Garde anti-boucle. Quand ce hook a deja bloque et que la main est revenue,
-# stop_hook_active vaut true : bloquer de nouveau ferait tourner en rond. En cas
-# de doute on laisse passer — se tromper dans ce sens ne coute qu'un rappel
-# manque, se tromper dans l'autre bloque la session.
-case "$entree" in *'"stop_hook_active"'*true*) exit 0 ;; esac
-
-git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
-cd "$(git rev-parse --show-toplevel)" 2>/dev/null || exit 0
-
-courante=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-[ "$courante" = "$BASE" ] && exit 0
-
-sale=$(git status --porcelain 2>/dev/null)
-[ -n "$sale" ] || exit 0
-n=$(printf '%s\n' "$sale" | grep -c . || true)
-
-raison="$n fichier(s) non committe(s) sur $courante.\n\nLa fabrique committe a chaque etape verifiee, pour que la relecture se fasse commit par commit plutot qu'en bloc a la fin.\n\n  ./init.sh --pret                    # l'etape est-elle committable ?\n  git add -A && git commit\n  git push -u origin $courante\n\nL'agent greffier fait ces trois gestes d'un coup. Si ce travail ne doit deliberement pas etre committe, dis-le explicitement."
-
-printf '{"decision":"block","reason":"%s"}\n' "$raison"
-exit 0
-SH
-}
-
 emit_pr_template() {
   cat <<'MD'
 <!-- Une pull request se lit en trente secondes. Elle sert a decider s'il faut
@@ -1876,111 +1659,12 @@ du message, le nombre de fichiers.
 MD
 }
 
-emit_cloud_setup() {
-  local a launches="" todos="" plugin_lines marketplace=""
-  # Les installations partent toutes en parallele : le setup script doit tenir
-  # sous ~5 minutes, et seul un serveur de langage depasse la minute.
-  for a in "${LSP_TRIPLETS[@]-}"; do
-    [ -n "$a" ] || continue
-    local plugin=${a%%:*} reste=${a#*:} bin stack
-    bin=${reste%%:*}; stack=${reste##*:}
-    lsp_for "$stack"
-    if [ -n "$LSP_INSTALL" ]; then
-      launches="$launches
-( $LSP_INSTALL ) >/tmp/$bin-setup.log 2>&1 &
-pids+=(\$!) noms+=($bin)
-"
-    else
-      todos="$todos
-# TODO : installer $bin. Le plugin $plugin est declare, mais sans ce binaire il
-# reste inerte — et aucune installation en une commande n'est connue pour la
-# stack $stack a travers l'allowlist reseau. Ajoute-la ici, puis recolle.
-"
-    fi
-  done
-  plugin_lines=$(printf '    %s \\\n' "${PLUGIN_IDS[@]}")
-  plugin_lines=${plugin_lines% \\}
-  [ "$UI_ANY" = true ] && marketplace='claude plugin marketplace add pbakaus/impeccable || true'
-
-  render \
-    __LAUNCHES__ "$launches" \
-    __TODOS__ "$todos" \
-    __MARKETPLACE__ "$marketplace" \
-    __PLUGIN_LINES__ "$plugin_lines" \
-    <<'SH'
-#!/usr/bin/env bash
-#
-# Genere par init.sh — A COLLER dans le champ "Setup script" de l'environnement
-# cloud : claude.ai/code, icone nuage au-dessus de la zone de saisie, engrenage
-# de l'environnement. Ce fichier n'est jamais execute par le depot ni par la CI.
-#
-# Pourquoi il existe. En session cloud, Claude Code charge les plugins AVANT de
-# les installer : un hook SessionStart s'execute apres ce chargement, et
-# /reload-plugins n'existe pas sur le web. Les plugins y atterriraient sur le
-# disque sans jamais servir — et comme chaque session cloud demarre sur une VM
-# neuve, le cas se represente a chaque fois. Ce script, lui, tourne avant le
-# lancement de Claude Code, et son resultat est fige dans un instantane du
-# disque : il ne rejoue qu'apres modification de l'environnement ou expiration
-# du cache (~7 jours). C'est le seul endroit qui installe l'outillage ; le hook
-# du depot ne fait que le verifier.
-#
-# Deux contraintes imposees par l'infrastructure cloud :
-#   - sortir en 0, sinon la session refuse de demarrer — d'ou les || true ;
-#   - tenir sous ~5 minutes, sinon le cache ne se construit pas.
-#
-# Cette liste vit hors du depot : apres un ./init.sh qui change une stack ou un
-# ui, recolle ce fichier dans l'environnement. ./init.sh --check signale l'ecart.
-
-set -u
-
-# --- serveurs de langage : absents de l'image de base ---
-# L'image cloud fournit les compilateurs, jamais les serveurs de langage. Sans
-# ces binaires, les plugins LSP sont installes mais inertes : aucun diagnostic
-# apres edition. Toutes les installations partent en parallele.
-pids=() noms=()
-__LAUNCHES__
-__TODOS__
-# --- plugins Claude Code ---
-# Le setup script tourne en root, avec un PATH plus maigre que celui de la
-# session : le binaire vit dans l'image node embarquee par Claude Code.
-command -v claude >/dev/null || export PATH="/opt/node22/bin:$PATH"
-
-# Avant le premier lancement de Claude Code, aucune marketplace n'est
-# enregistree — pas meme l'officielle. La declarer ici separe un setup script
-# qui installe d'un qui echoue en silence.
-claude plugin marketplace add anthropics/claude-plugins-official || true
-__MARKETPLACE__
-for p in \
-__PLUGIN_LINES__
-do
-  claude plugin install "$p" || echo "   echec : $p" >&2
-done
-
-for i in "${!pids[@]}"; do
-  wait "${pids[$i]}" || { echo "echec ${noms[$i]} :" >&2; tail -3 "/tmp/${noms[$i]}-setup.log" >&2; }
-  if command -v "${noms[$i]}" >/dev/null || [ -x "/usr/local/bin/${noms[$i]}" ]; then
-    echo "${noms[$i]} present."
-  else
-    echo "${noms[$i]} absent — son plugin restera inerte." >&2
-  fi
-done
-
-# Toujours 0 : un outil manquant degrade l'outillage, il ne doit pas empecher
-# la session de demarrer.
-exit 0
-SH
-}
 
 # --- artefacts derives ----------------------------------------------------------
 
 emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
   case "$1" in
     compose.yaml)                 emit_compose ;;
-    .claude/settings.json)        emit_settings ;;
-    .claude/check-plugins.sh)     emit_check_plugins ;;
-    .claude/cloud-setup.sh)       emit_cloud_setup ;;
-    .claude/garde-branche.sh)     emit_garde_branche ;;
-    .claude/garde-commit.sh)      emit_garde_commit ;;
     .claude/agents/greffier.md)   emit_greffier ;;
     .claude/agents/analyste.md)   emit_analyste ;;
     .github/pull_request_template.md) emit_pr_template ;;
@@ -1989,9 +1673,6 @@ emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
 }
 
 DERIVES=(compose.yaml .github/pull_request_template.md
-         .claude/settings.json
-         .claude/check-plugins.sh .claude/cloud-setup.sh
-         .claude/garde-branche.sh .claude/garde-commit.sh
          .claude/agents/greffier.md .claude/agents/analyste.md go.work)
 
 # --- --add ----------------------------------------------------------------------
@@ -3293,11 +2974,23 @@ if [ "$CHECK" = 1 ]; then
     grep -q '"env"' .claude/settings.json \
       && bad "bloc \"env\" dans .claude/settings.json versionne — n'y mets jamais de secret" \
       || ok "aucun bloc env dans le settings versionne"
+    # settings.json n'est plus regenere a chaque app.yml touchant stack/ui :
+    # avertit, sans bloquer, quand un plugin attendu par les apps courantes n'y
+    # figure pas — le meme principe deja applique a cloud-setup.sh plus bas.
+    manque=0
+    for p in "${PLUGIN_IDS[@]}"; do
+      grep -qF "\"$p\":" .claude/settings.json || manque=$((manque+1))
+    done
+    [ "$manque" -eq 0 ] && ok "settings.json : ${#PLUGIN_IDS[@]} plugin(s) attendu(s), tous declares" \
+                        || warn "settings.json : $manque plugin(s) attendu(s) absent(s) — une app declare un stack ou un ui sans son plugin"
   else
-    bad ".claude/settings.json absent — lance ./init.sh"
+    bad ".claude/settings.json absent — c'est un fichier ordinaire desormais : recree-le a la main"
   fi
   [ -x .claude/check-plugins.sh ] && ok "rapport d'outillage executable" \
                                   || bad ".claude/check-plugins.sh absent ou non executable"
+  for h in .claude/garde-branche.sh .claude/garde-commit.sh; do
+    [ -x "$h" ] && ok "$h executable" || bad "$h absent ou non executable"
+  done
 
   # Les scripts generes le sont par substitution de fragments : une erreur du
   # generateur produit un fichier plausible mais inanalysable, qui echouerait

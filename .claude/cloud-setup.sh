@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Genere par init.sh — A COLLER dans le champ "Setup script" de l'environnement
+# Fichier ordinaire, a COLLER dans le champ "Setup script" de l'environnement
 # cloud : claude.ai/code, icone nuage au-dessus de la zone de saisie, engrenage
 # de l'environnement. Ce fichier n'est jamais execute par le depot ni par la CI.
 #
@@ -18,8 +18,9 @@
 #   - sortir en 0, sinon la session refuse de demarrer — d'ou les || true ;
 #   - tenir sous ~5 minutes, sinon le cache ne se construit pas.
 #
-# Cette liste vit hors du depot : apres un ./init.sh qui change une stack ou un
-# ui, recolle ce fichier dans l'environnement. ./init.sh --check signale l'ecart.
+# Cette liste vit hors du depot : apres avoir edite ce fichier pour une
+# stack ou un ui nouveau, recolle-le dans l'environnement. ./init.sh --check
+# signale l'ecart entre les plugins declares ici et ceux qu'exigent les apps.
 
 set -u
 
