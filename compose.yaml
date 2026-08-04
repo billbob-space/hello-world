@@ -4,13 +4,15 @@
 # Une seule stack dockhand. Le rayon de souffle est commun : une erreur dans un
 # bloc fait echouer le deploiement de toute la fabrique.
 #
-# DEUX SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
+# TROIS SORTES DE SERVICES cohabitent ici, dans un espace de noms plat, et UNE
 # SEULE EST ROUTEE :
 #
 #   <app>          l'application elle-meme, decrite par apps/<app>/app.yml.
 #                  Seule sorte a porter des labels de ROUTAGE : un routeur, une
 #                  URL https://<app>.apps.billbob.ovh, un middleware
 #                  d'authentification Google et priority=100.
+#   <app>-<nom>    service annexe prive d'une application (section services:
+#                  de son app.yml). Un seul label : traefik.enable=false.
 #   <nom>          service partage par plusieurs applications (shared_services
 #                  dans fabrique.yml). Le meme unique label.
 #
@@ -21,13 +23,94 @@
 # un conteneur sans le moindre label recoit quand meme un routeur, donc une URL,
 # et sans middleware d'authentification. Seul traefik.enable=false l'en retire ;
 # c'est pourquoi il est pose sur chaque service non route ci-dessous.
+#
+# Les points de montage sont des VOLUMES NOMMES Docker, jamais des bind mounts.
+# Un volume s'appelle <proprietaire>-<nom> — le proprietaire etant l'app ou le
+# service partage qui le declare — et « docker compose up » le cree tout seul :
+# aucune action prealable sur l'hote, pour aucune app, jamais. Au premier
+# montage, Docker recopie dans le volume vide le contenu du repertoire tel qu'il
+# existe dans l'IMAGE : C'EST DONC LE DOCKERFILE QUI FIXE LE PROPRIETAIRE. Une
+# app en non-root doit creer son repertoire et le chown AVANT sa directive
+# USER, sinon le volume appartient a root et elle ne peut pas y ecrire.
 services:
 
-  # >>> ardoise — DESACTIVEE (enabled: false dans apps/ardoise/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+  # >>> ardoise — apps/ardoise/app.yml — https://ardoise.apps.billbob.ovh
+  ardoise:
+    image: ghcr.io/billbob-space/hello-world/ardoise:main
+    container_name: ardoise
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.ardoise.rule=Host(`ardoise.apps.billbob.ovh`)"
+      - "traefik.http.routers.ardoise.entrypoints=websecure"
+      - "traefik.http.routers.ardoise.priority=100"
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.ardoise.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.ardoise.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ardoise.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+    # Services partages dont cette app depend (needs: dans app.yml).
+    depends_on: [redis]
   # <<< ardoise
+
+  # >>> ardoise-base — service annexe de ardoise — apps/ardoise/app.yml
+  ardoise-base:
+    image: postgres:17-alpine
+    container_name: ardoise-base
+    restart: unless-stopped
+    mem_limit: 192m
+    # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
+    # l'image locale deja presente et sert silencieusement la version d'avant.
+    pull_policy: always
+    # Service NON ROUTE : aucune URL, aucun middleware a oublier. Il vit sur
+    # apps_net, ou ses voisins le joignent par « ardoise-base ». Aucun port publie non
+    # plus. Ce n'est PAS l'absence de label qui l'en retire — voir « labels: »
+    # plus bas, qui est la seule chose a le faire.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [apps_net]
+    # LE label qui compte sur un service non route : c'est le seul qui RETIRE du
+    # routage. Sans lui, exposedByDefault suffit a creer un routeur sans
+    # authentification, et un LABEL traefik.* grave dans l'image publierait une
+    # route que ce fichier ne peut pas ecraser. Inoffensif si le serveur pose
+    # deja exposedByDefault: false, indispensable sinon.
+    labels:
+      - "traefik.enable=false"
+    volumes:
+      - ardoise-donnees:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+  # <<< ardoise-base
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh
   cadran:
@@ -194,6 +277,21 @@ services:
       - "traefik.enable=false"
     command: ["valkey-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
   # <<< redis
+
+# Volumes nommes montes par les services ci-dessus. Docker les cree au premier
+# « compose up » et les conserve entre deux deploiements. Leur contenu initial,
+# proprietaire compris, est celui du repertoire dans l'image : rien n'est a
+# preparer sur l'hote, mais le Dockerfile doit chown le chemin avant son USER.
+#
+# « name: » est OBLIGATOIRE sous chaque entree. Sans lui, Compose prefixe le nom
+# du projet et le volume REEL s'appelle <projet>_<nom> : une sauvegarde lancee
+# sur le nom court monterait alors un volume que Docker viendrait de creer VIDE,
+# tar archiverait un repertoire vide et la commande sortirait en 0. La stack
+# etant unique, le prefixe de projet n'apporte rien — on le retire, et le nom
+# reel redevient egal au nom documente.
+volumes:
+  ardoise-donnees:
+    name: ardoise-donnees
 
 networks:
   apps_net:
