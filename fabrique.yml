@@ -71,15 +71,8 @@ taux_date: 2026-08-04     # source : Frankfurter, reference BCE
 # « --notify-keyspace-events Ex », « --tls-key-file /certs/k.pem »,
 # « --auth-host=trust ».
 #
-# Liste vide par defaut. Forme attendue — decommente et adapte pour en declarer :
+# Forme attendue pour un service qui aurait besoin d'un volume ou de secrets :
 #
-# shared_services:
-#   - name: redis
-#     image: valkey/valkey:8-alpine
-#     memory: 128m
-#     command: ["redis-server", "--maxmemory", "96mb", "--notify-keyspace-events", "Ex"]
-#     volumes:
-#       - donnees:/data
 #   - name: directus
 #     image: directus/directus:11
 #     memory: 512m
@@ -87,3 +80,24 @@ taux_date: 2026-08-04     # source : Frankfurter, reference BCE
 #     volumes:
 #       - base:/directus/database
 #       - fichiers:/directus/uploads
+
+shared_services:
+  # Le cache de la fabrique. Un exemplaire pour toutes les apps : les cles sont
+  # prefixees par l'app qui les ecrit, sans quoi deux applications ecrivant
+  # « lignes » s'ecraseraient en silence.
+  #
+  # AUCUN volume, et trois reglages contre trois risques nommes :
+  #   --save ""             ne rien ecrire sur un disque a 92 % pour une donnee
+  #                         que l'app sait reconstruire en une lecture ;
+  #   --maxmemory 64mb      un service sans borne grossit jusqu'a faire tomber
+  #   --maxmemory-policy    la stack entiere, mem_limit ne faisant que le tuer ;
+  #   allkeys-lru           l'eviction remplace la panne.
+  #
+  # Aucune authentification : redis n'est joignable que depuis apps_net, aucun
+  # port n'est publie sur l'hote, et un mot de passe serait un nom de plus a
+  # definir cote serveur — dont l'absence arriverait VIDE, donc en panne
+  # silencieuse au demarrage de la stack entiere.
+  - name: redis
+    image: valkey/valkey:8-alpine
+    memory: 96m
+    command: ["valkey-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]

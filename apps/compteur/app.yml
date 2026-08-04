@@ -1,0 +1,35 @@
+# Parametres de deploiement de compteur.
+# Le nom de l'app — donc son URL — est celui du repertoire : apps/compteur/
+# Ce fichier n'est JAMAIS reecrit par init.sh : edite-le, puis relance ./init.sh
+#
+# enabled: false = l'app vit dans le depot mais n'entre pas dans compose.yaml.
+# Passe-le a true une fois sa premiere image publiee sur le registre.
+enabled: false
+port: 8080
+memory: 128m
+health_path: /healthz
+health_cmd: wget --spider -q http://localhost:8080/healthz
+exposure: google
+# Outillage de l'agent, sans effet sur le deploiement :
+stack: go
+ui: true
+
+# Le mot de passe de la base — meme forme que sur ardoise, un secret par NOM,
+# la valeur injectee cote serveur.
+env: [POSTGRES_PASSWORD]
+
+# Le cache est le MEME service que celui declare par ardoise dans
+# fabrique.yml — rien a ajouter la-bas. C'est le point de ce PRP : verifier
+# qu'un shared_services sert vraiment plusieurs applications sans qu'elles se
+# marchent dessus (cles prefixees : compteur:valeur, a cote de
+# ardoise:lignes).
+needs: [redis]
+
+# La base. Annexe privee, volume compteur-donnees.
+services:
+  - name: base
+    image: postgres:17-alpine
+    memory: 160m
+    volumes:
+      - donnees:/var/lib/postgresql/data
+    env: [POSTGRES_PASSWORD]

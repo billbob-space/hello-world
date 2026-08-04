@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ardoise</title>
+<link rel="stylesheet" href="/ardoise.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Ardoise</h1>
+    <p class="provenance" id="provenance" aria-live="polite"></p>
+  </header>
+
+  <form id="formulaire">
+    <textarea id="texte" maxlength="140" rows="3"
+      placeholder="Ecris ta ligne..." aria-label="Nouvelle ligne"></textarea>
+    <div class="barre">
+      <span id="compteur">140 caracteres restants</span>
+      <button type="submit">Ecrire</button>
+    </div>
+    <p class="erreur" id="erreur" role="alert"></p>
+  </form>
+
+  <ul id="lignes" aria-label="Les dernieres lignes"></ul>
+</main>
+<script src="/ardoise.js"></script>
+</body>
+</html>
