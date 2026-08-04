@@ -154,11 +154,83 @@ services:
     networks: [apps_net]
   # <<< cadran
 
-  # >>> compteur — DESACTIVEE (enabled: false dans apps/compteur/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+  # >>> compteur — apps/compteur/app.yml — https://compteur.apps.billbob.ovh
+  compteur:
+    image: ghcr.io/billbob-space/hello-world/compteur:main
+    container_name: compteur
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.compteur.rule=Host(`compteur.apps.billbob.ovh`)"
+      - "traefik.http.routers.compteur.entrypoints=websecure"
+      - "traefik.http.routers.compteur.priority=100"
+      # forwardauth-open = tout compte Google, login obligatoire
+      # (exposure google). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.compteur.middlewares=forwardauth-open,security-headers@file"
+      - "traefik.http.routers.compteur.tls.certresolver=letsencrypt"
+      - "traefik.http.services.compteur.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+    # Services partages dont cette app depend (needs: dans app.yml).
+    depends_on: [redis]
   # <<< compteur
+
+  # >>> compteur-base — service annexe de compteur — apps/compteur/app.yml
+  compteur-base:
+    image: postgres:17-alpine
+    container_name: compteur-base
+    restart: unless-stopped
+    mem_limit: 160m
+    # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
+    # l'image locale deja presente et sert silencieusement la version d'avant.
+    pull_policy: always
+    # Service NON ROUTE : aucune URL, aucun middleware a oublier. Il vit sur
+    # apps_net, ou ses voisins le joignent par « compteur-base ». Aucun port publie non
+    # plus. Ce n'est PAS l'absence de label qui l'en retire — voir « labels: »
+    # plus bas, qui est la seule chose a le faire.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [apps_net]
+    # LE label qui compte sur un service non route : c'est le seul qui RETIRE du
+    # routage. Sans lui, exposedByDefault suffit a creer un routeur sans
+    # authentification, et un LABEL traefik.* grave dans l'image publierait une
+    # route que ce fichier ne peut pas ecraser. Inoffensif si le serveur pose
+    # deja exposedByDefault: false, indispensable sinon.
+    labels:
+      - "traefik.enable=false"
+    volumes:
+      - compteur-donnees:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+  # <<< compteur-base
 
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
@@ -292,6 +364,8 @@ services:
 volumes:
   ardoise-donnees:
     name: ardoise-donnees
+  compteur-donnees:
+    name: compteur-donnees
 
 networks:
   apps_net:
