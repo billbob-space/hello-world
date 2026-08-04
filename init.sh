@@ -3600,6 +3600,28 @@ if [ "$CHECK" = 1 ]; then
       fi
     done
     [ "$fautes" -eq 0 ] && ok "$nb fichier(s) memory/ : en-tete complet, chaque sujet tenu par un controle"
+
+    # Le sommaire est la seule partie de memory/ chargee en permanence : s'il
+    # ment, un sujet devient invisible — un fichier absent du sommaire ne sera
+    # jamais ouvert, un fichier promis et absent envoie chercher une page qui
+    # n'existe pas. Meme exigence que le bloc volumes: de premier niveau du
+    # compose : il declare EXACTEMENT ce qui existe. Seules les lignes de
+    # tableau comptent (ancrees sur '|') : une mention en prose n'est pas une
+    # entree de sommaire.
+    ecart=0
+    cites=$(grep -E '^\|' CLAUDE.md | grep -oE 'memory/[a-z0-9-]+\.md' | LC_ALL=C sort -u)
+    reels=$(cd memory && ls *.md 2>/dev/null | sed 's#^#memory/#' | LC_ALL=C sort -u)
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      printf '%s\n' "$cites" | grep -qxF "$f" \
+        || { bad "sommaire : $f existe mais n'est pas dans le sommaire de CLAUDE.md — il ne sera jamais ouvert"; ecart=$((ecart+1)); }
+    done <<<"$reels"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      [ -f "$f" ] \
+        || { bad "sommaire : CLAUDE.md annonce $f, qui n'existe pas"; ecart=$((ecart+1)); }
+    done <<<"$cites"
+    [ "$ecart" -eq 0 ] && ok "sommaire du contrat : exactement les $(printf '%s\n' "$reels" | grep -c .) fichier(s) de memory/"
   else
     warn "aucun memory/ — le contrat porte tout"
   fi

@@ -685,3 +685,12 @@ Le déploiement se déclenche à chaque fusion sur `main` : seules les apps modi
 reconstruites et publiées sur GHCR, puis un unique appel de webhook fait récupérer la
 stack entière par le serveur. Compte deux à trois minutes entre la fusion et la mise
 en ligne.
+
+## Le sommaire de `memory/`
+
+Avant d'agir sur un de ces sujets, lis son fichier. Le contrat n'en garde que
+l'essentiel ; le détail, les formes admises et les pièges y sont.
+
+| Sujet | Fichier | Quand le lire |
+|---|---|---|
+| Volumes nommés | `memory/volumes.md` | avant d'ajouter ou de renommer un `volumes:` |
