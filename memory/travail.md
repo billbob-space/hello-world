@@ -33,10 +33,11 @@ avant de conclure.
 | `.claude/garde-branche.sh` (`PreToolUse`) | refuse toute édition tant que HEAD est sur `main`, et donne la commande exacte |
 | `.claude/garde-commit.sh` (`Stop`) | refuse de terminer sur un arbre de travail sale |
 
-Générés par `init.sh` comme le reste de `.claude/`, et `--check` refuse qu'ils
-divergent de leur générateur. Aucun ne dépend de `jq` ni de `python` : un garde-fou
-qui ne démarre pas sur une machine dépouillée ne garde rien. Le garde-fou de branche
-n'ouvre pas la branche à ta place : seul celui qui édite connaît le sujet.
+Fichiers ordinaires dans `.claude/`, édités directement ; `--check` vérifie
+qu'ils existent et portent le bit exécutable. Aucun ne dépend de `jq` ni de
+`python` : un garde-fou qui ne démarre pas sur une machine dépouillée ne garde
+rien. Le garde-fou de branche n'ouvre pas la branche à ta place : seul celui
+qui édite connaît le sujet.
 
 ## Le journal des anomalies
 

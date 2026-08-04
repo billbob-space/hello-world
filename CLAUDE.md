@@ -54,7 +54,7 @@ ses tests.
 ## Démarrage
 
 ```bash
-./init.sh                          # régénère compose.yaml, la CI et l'outillage
+./init.sh                          # régénère compose.yaml et go.work depuis les manifestes
 ./init.sh --check                  # vérifie les manifestes, puis le dépôt service par service
 ./init.sh --list                   # état des applications
 ./init.sh --add <nom>              # échafaude apps/<nom>/
@@ -66,9 +66,11 @@ ses tests.
 il affiche l'ancienne et la nouvelle valeur, puis le diff des artefacts.
 
 `init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
-et le choix de la technologie t'appartient, app par app. Les artefacts dérivés —
-`compose.yaml`, le workflow, `.claude/`, `go.work` — sont **toujours réécrits** :
-c'est ce qui garantit qu'une app ajoutée ne peut pas manquer du déploiement.
+et le choix de la technologie t'appartient, app par app. Deux artefacts sont
+**toujours réécrits**, fonction directe des manifestes : `compose.yaml` et
+`go.work`. Le reste — le workflow de CI, `.claude/` — est ordinaire, à éditer
+directement ; `--check` en vérifie l'existence et les propriétés qui comptent,
+pas l'égalité à un générateur.
 
 ## `apps/<nom>/app.yml` — les valeurs que tu décides
 
@@ -85,7 +87,7 @@ Deux commits, dans cet ordre : **construire d'abord, brancher ensuite.**
 ./init.sh --add ma-nouvelle-app --stack go --exposure private
 # écris apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
 ./init.sh --check
-git add apps/ma-nouvelle-app compose.yaml .github .gitignore .claude go.work
+git add apps/ma-nouvelle-app compose.yaml .gitignore go.work  # + .claude si édité
 git commit                                    # commit 1 : la CI publie l'image
 
 ./init.sh --app ma-nouvelle-app --enable      # une fois l'image publiée
@@ -93,12 +95,12 @@ git commit                                    # commit 1 : la CI publie l'image
 git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2 : le déploiement
 ```
 
-**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`** :
-`--add` réécrit `compose.yaml`, le workflow et `.gitignore` ; s'il introduit un
-langage ou un `ui: true` nouveau, `.claude/` ; et dès que le module Go existe,
-`go.work`. N'ajouter que `apps/<nom>` fait échouer le job `contrat` en CI sur
-« compose.yaml désynchronisé des manifestes », avant même la construction. Le
-commit 2 ne touche que `app.yml` et `compose.yaml`.
+**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`** : `--add`
+réécrit `compose.yaml`, `.gitignore` et, dès que le module Go existe, `go.work`.
+N'ajouter que `apps/<nom>` fait échouer le job `contrat` en CI sur « compose.yaml
+désynchronisé des manifestes », avant même la construction. S'il introduit un langage
+ou un `ui: true` nouveau, édite `.claude/settings.json` et `.claude/cloud-setup.sh` —
+`--check` avertit si un plugin manque. Le commit 2 ne touche que `app.yml` et `compose.yaml`.
 
 Le chemin en un seul commit fonctionne aussi, mais la séquence en deux fait
 arriver l'échec « l'image ne se construit pas » sur un commit qui, lui, **ne peut
@@ -173,13 +175,13 @@ raison pour laquelle aucun ne se contourne.
 
 ## Ton outillage
 
-`init.sh` écrit un `.claude/settings.json` **versionné** : tout clone repart avec
-le même outillage. **Déclarer un plugin ne l'installe pas** — seul le *setup
-script* de l'environnement cloud le fait, et `.claude/cloud-setup.sh` en porte le
-contenu à recoller après tout changement de `stack` ou de `ui`. Liste des
-plugins, serveurs LSP, et le rapport d’ouverture de session :
-`memory/outillage.md`. **Jamais de bloc `env` dans `.claude/settings.json`** : il
-est public par construction.
+`.claude/settings.json` est un fichier ordinaire, **versionné** : tout clone
+repart avec le même outillage. **Déclarer un plugin ne l'installe pas** — seul
+le *setup script* de l'environnement cloud le fait, et `.claude/cloud-setup.sh`
+en porte le contenu à recoller après tout changement de `stack` ou de `ui`.
+Liste des plugins, serveurs LSP, et le rapport d'ouverture de session :
+`memory/outillage.md`. **Jamais de bloc `env` dans `.claude/settings.json`** :
+il est public par construction.
 
 ## Les trois paliers d'exposition
 
