@@ -8,7 +8,8 @@
 >
 > **Ce PRP consomme** : rien. C'est le premier de la série. Ses seules entrées
 > sont le contrat de déploiement (`../../../../CLAUDE.md`), l'index de la série
-> ([README.md](README.md)) et le PRD ([PRD-RAMURE.md](../../../PRD-RAMURE.md)).
+> ([README.md](README.md)) et le PRD ([PRODUCT.md](../../../../apps/ramure/PRODUCT.md)),
+> déjà dans le dépôt : ramure-v2 en est une réécriture, pas un produit distinct.
 >
 > **Ce PRP produit**, et c'est ce dont les huit PRP suivants dépendent :
 >
@@ -24,7 +25,7 @@
 > apps/ramure-v2/Dockerfile      golang:1.23-alpine -> alpine:3.20, USER ramure (uid 10001)
 > apps/ramure-v2/test.sh         exécutable — go vet ./... && go test ./...
 > apps/ramure-v2/README.md       LASTFM_API_KEY, RAMURE_DATA_DIR (noms seulement)
-> apps/ramure-v2/PRODUCT.md      copie conforme de docs/PRD-RAMURE.md
+> apps/ramure-v2/PRODUCT.md      copie conforme de apps/ramure/PRODUCT.md
 > apps/ramure-v2/go.mod
 > apps/ramure-v2/web/index.html  page d'accueil provisoire, remplacée par PRP 06
 >
@@ -86,7 +87,7 @@ l'affiche.
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/.dockerignore`
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/test.sh`, `apps/ramure-v2/README.md`, `apps/ramure-v2/PRODUCT.md`
 - Modifier (régénérés par `./init.sh`) : `compose.yaml`, `.github/workflows/build.yml`, `.gitignore`
-- Créer : `apps/ramure-v2/PRODUCT.md` — écrasé par la copie de `docs/PRD-RAMURE.md`
+- Créer : `apps/ramure-v2/PRODUCT.md` — écrasé par la copie de `apps/ramure/PRODUCT.md`
 - Test : bloc bash ci-dessous, lancé depuis la racine du dépôt (non versionné : le livrable est l'échafaudage lui-même)
 
 **Interfaces :**
@@ -140,8 +141,8 @@ grep -qE '^(volumes|env):.*=' "$A"           && echoue "une VALEUR est ecrite da
 [ -f apps/ramure-v2/.dockerignore ] || echoue "apps/ramure-v2/.dockerignore absent"
 
 # Le PRD devient la propriete de l'app : c'est lui que liront les PRP suivants.
-cmp -s docs/PRD-RAMURE.md apps/ramure-v2/PRODUCT.md \
-    || echoue "PRODUCT.md n'est pas la copie conforme de docs/PRD-RAMURE.md"
+cmp -s apps/ramure/PRODUCT.md apps/ramure-v2/PRODUCT.md \
+    || echoue "PRODUCT.md n'est pas la copie conforme de apps/ramure/PRODUCT.md"
 
 # L'app est connue du compose SANS y avoir de service, et connue de la CI.
 grep -q '>>> ramure-v2 — DESACTIVEE' compose.yaml \
@@ -177,7 +178,7 @@ cd /home/user/hello-world
           --stack go --exposure google --ui \
           --port 8080 --health /healthz \
           --health-cmd 'wget --spider -q http://localhost:8080/healthz'
-cp docs/PRD-RAMURE.md apps/ramure-v2/PRODUCT.md
+cp apps/ramure/PRODUCT.md apps/ramure-v2/PRODUCT.md
 ```
 
 Les quatre sections optionnelles n'ont **aucun équivalent en ligne de commande** :

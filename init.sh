@@ -338,6 +338,7 @@ CERT_RESOLVER=$(fab cert_resolver letsencrypt)
 SECURITY_HEADERS=$(fab security_headers security-headers@file)
 MEMORY_BUDGET=$(fab memory_budget 1024m)
 IMAGE_MAX_MB=$(fab image_max_mb 200)
+CLAUDE_MAX_LIGNES=$(fab claude_max_lignes 250)
 LOG_MAX_SIZE=$(fab log_max_size 10m)
 LOG_MAX_FILE=$(fab log_max_file 3)
 
@@ -2710,6 +2711,10 @@ JOURNAL_ACTION='rien|contrat|garde-fou|outillage|comportement|arbitrage'
 JOURNAL_MODE='chaud|retrospective'
 JOURNAL_PERIMETRE_VIDE='<apps touchees, ou fabrique>'   # le gabarit, tel quel
 
+# Le vocabulaire ferme de « Tenu par », en-tete des fichiers de memory/. « rien »
+# n'y figure pas volontairement : il est refuse, et le message d'aide le rappelle.
+MEMORY_TENU='--check|CI|hook'
+
 journal_slug() { printf '%s' "${1//\//-}"; }
 
 journal_entree() {  # journal_entree <branche> — le chemin de l'entree, ou vide
@@ -3519,7 +3524,7 @@ if [ "$CHECK" = 1 ]; then
   # reorganisation incomplete — le risque propre a une fabrique qui deplace des
   # applications. Boucle `for` et non tube : bad() doit rester dans ce shell.
   morts=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md memory/*.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     for cible in $(grep -oE '\]\([^)#:]+\.md\)' "$src" | sed -E 's/^\]\((.*)\)$/\1/'); do
       [ -f "$(dirname "$src")/$cible" ] || { bad "lien mort : $src -> $cible"; morts=$((morts+1)); }
@@ -3543,7 +3548,7 @@ if [ "$CHECK" = 1 ]; then
   # a octet : pas de normalisation, donc pas de faux positif sur la casse ou les
   # accents.
   doublons=0
-  for src in README.md CLAUDE.md PRODUCT.md apps/*/*.md journal/*.md; do
+  for src in README.md CLAUDE.md PRODUCT.md memory/*.md apps/*/*.md journal/*.md; do
     [ -f "$src" ] || continue
     while IFS= read -r titre; do
       [ -n "$titre" ] || continue
@@ -3552,6 +3557,87 @@ if [ "$CHECK" = 1 ]; then
     done < <(grep -E '^## ' "$src" | LC_ALL=C sort | LC_ALL=C uniq -d)
   done
   [ "$doublons" -eq 0 ] && ok "aucun titre de section en double"
+
+  # Une PRD ou un README d'app n'a qu'un domicile : apps/<nom>/PRODUCT.md ou
+  # apps/<nom>/README.md. Un exemplaire identique ailleurs dans le depot a
+  # echappe a l'arborescence -- le cas reel : un agent redigeant un plan a
+  # copie-colle le PRD d'une app existante dans docs/ au lieu d'y renvoyer,
+  # au lieu de lire le fichier a sa place. Comparaison octet a octet (cmp -s),
+  # aucune dependance nouvelle. Les autres apps/ sont hors perimetre : deux
+  # apps peuvent legitimement partager un PRD a leur amorçage, ce n'est pas ce
+  # qu'on detecte ici.
+  evades=0
+  for canon in apps/*/PRODUCT.md apps/*/README.md; do
+    [ -f "$canon" ] || continue
+    while IFS= read -r autre; do
+      [ -n "$autre" ] || continue
+      [ "$autre" = "$canon" ] && continue
+      case "$autre" in apps/*) continue ;; esac
+      cmp -s "$canon" "$autre" \
+        && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
+    done < <(git ls-files '*.md')
+  done
+  [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
+
+  # Les fichiers de memory/ portent l'explication des regles que --check tient
+  # deja. « Quand lire » les rend utilisables sans etre lus en entier, et « Tenu
+  # par » est le critere de sortie rendu executable : une regle que rien ne
+  # rattrape n'a pas le droit de quitter le contrat, sinon l'alleger revient a la
+  # perdre. C'est le seul controle du depot qui refuse une valeur *correcte* —
+  # « rien » est un aveu, pas une faute de frappe.
+  if [ -d memory ]; then
+    fautes=0 nb=0
+    for m in memory/*.md; do
+      [ -f "$m" ] || continue
+      nb=$((nb+1))
+      grep -qE '^Quand lire *: *[^[:space:]]' "$m" \
+        || { bad "$m : ligne 'Quand lire :' absente ou vide — le sommaire ne saura pas quand l'ouvrir"; fautes=$((fautes+1)); }
+      if grep -qE '^Tenu par *: *`?rien`?([[:space:]]|$)' "$m"; then
+        bad "$m : 'Tenu par : rien' — une regle que rien ne rattrape reste dans CLAUDE.md"
+        fautes=$((fautes+1))
+      elif ! grep -qE "^Tenu par *: *($MEMORY_TENU)" "$m"; then
+        bad "$m : champ 'Tenu par' absent ou hors vocabulaire — $MEMORY_TENU|rien"
+        fautes=$((fautes+1))
+      fi
+    done
+    [ "$fautes" -eq 0 ] && ok "$nb fichier(s) memory/ : en-tete complet, chaque sujet tenu par un controle"
+
+    # Le sommaire est la seule partie de memory/ chargee en permanence : s'il
+    # ment, un sujet devient invisible — un fichier absent du sommaire ne sera
+    # jamais ouvert, un fichier promis et absent envoie chercher une page qui
+    # n'existe pas. Meme exigence que le bloc volumes: de premier niveau du
+    # compose : il declare EXACTEMENT ce qui existe. Seules les lignes de
+    # tableau comptent (ancrees sur '|') : une mention en prose n'est pas une
+    # entree de sommaire.
+    ecart=0
+    cites=$(grep -E '^\|' CLAUDE.md | grep -oE 'memory/[a-z0-9-]+\.md' | LC_ALL=C sort -u)
+    reels=$(cd memory && ls *.md 2>/dev/null | sed 's#^#memory/#' | LC_ALL=C sort -u)
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      printf '%s\n' "$cites" | grep -qxF "$f" \
+        || { bad "sommaire : $f existe mais n'est pas dans le sommaire de CLAUDE.md — il ne sera jamais ouvert"; ecart=$((ecart+1)); }
+    done <<<"$reels"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      [ -f "$f" ] \
+        || { bad "sommaire : CLAUDE.md annonce $f, qui n'existe pas"; ecart=$((ecart+1)); }
+    done <<<"$cites"
+    [ "$ecart" -eq 0 ] && ok "sommaire du contrat : exactement les $(printf '%s\n' "$reels" | grep -c .) fichier(s) de memory/"
+  else
+    warn "aucun memory/ — le contrat porte tout"
+  fi
+
+  # Le contrat a grossi jusqu'a 750 lignes parce que rien ne bornait sa taille :
+  # chaque anomalie rattrapee y ajoutait un paragraphe, aucun ne le quittait.
+  # Avertissement et non KO — un contrat a 260 lignes n'est pas un defaut de
+  # deploiement — mais la derive doit se voir a chaque --check, sinon elle
+  # recommence.
+  if [ -f CLAUDE.md ]; then
+    cl=$(grep -c '' CLAUDE.md)
+    [ "$cl" -le "$CLAUDE_MAX_LIGNES" ] \
+      && ok "CLAUDE.md $cl lignes / $CLAUDE_MAX_LIGNES" \
+      || warn "CLAUDE.md $cl lignes, au-dela de $CLAUDE_MAX_LIGNES — sors un sujet dans memory/ plutot que d'elargir le contrat"
+  fi
 
   # 5. Outillage de l'agent.
   echo

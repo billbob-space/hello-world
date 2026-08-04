@@ -5,8 +5,8 @@ termine par une stack qui tient debout. Cette page porte ce qui est **commun aux
 neuf** : les contraintes, les décisions tranchées, l'ordre d'exécution et la
 couverture du PRD. Chaque PRP s'y réfère plutôt que de la recopier.
 
-**Source :** `docs/PRD-RAMURE.md` — RAMURE, Product Requirements Document v1.0,
-30 juillet 2026. Périmètre retenu : **lots MVP et V1**, soit 35 exigences.
+**Source :** `apps/ramure/PRODUCT.md` — RAMURE, Product Requirements Document
+v1.0, 30 juillet 2026. Périmètre retenu : **lots MVP et V1**, soit 35 exigences.
 
 ## Les neuf étapes
 
