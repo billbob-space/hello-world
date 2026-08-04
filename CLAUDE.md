@@ -60,6 +60,7 @@ ses tests.
 ./init.sh --add <nom>              # échafaude apps/<nom>/
 ./init.sh --dry-run                # montre ce qui changerait, sans rien écrire
 ./init.sh --branches-fusionnees    # quelles branches distantes peuvent être supprimées
+./init.sh --cout                   # relève les jetons consommés et leur coût, dans le journal
 ```
 
 `--dry-run` n'écrit **rien**, pas même l'`app.yml` qu'un `--enable` modifierait :
@@ -102,12 +103,8 @@ désynchronisé des manifestes », avant même la construction. S'il introduit u
 ou un `ui: true` nouveau, édite `.claude/settings.json` et `.claude/cloud-setup.sh` —
 `--check` avertit si un plugin manque. Le commit 2 ne touche que `app.yml` et `compose.yaml`.
 
-Le chemin en un seul commit fonctionne aussi, mais la séquence en deux fait
-arriver l'échec « l'image ne se construit pas » sur un commit qui, lui, **ne peut
-pas** casser la stack des autres.
-
-Si la nouvelle app introduit un langage absent du dépôt, recolle
-`.claude/cloud-setup.sh` dans le champ *Setup script* de ton environnement.
+Le chemin en un seul commit fonctionne aussi, mais la séquence en deux fait arriver
+l'échec « l'image ne se construit pas » sur un commit qui **ne peut pas** casser les autres.
 
 ## Les trois sortes de services — une seule est routée
 
@@ -162,8 +159,11 @@ cinq puces, ce qui a été vérifié en chiffres — `.github/pull_request_templ
 généré, en donne la forme. Le raisonnement détaillé va dans les **messages de
 commit**, où il survit à la fusion.
 
-Les vocabulaires fermés du journal, les deux agents, les deux garde-fous et la
-fin de vie d’une branche : `memory/travail.md`.
+**Ce que la branche a coûté se relève avec `./init.sh --cout`**, qui l'écrit dans son
+entrée de journal ; `--pret` le réclame. Non relevé avant la fusion, il est perdu.
+
+Les vocabulaires fermés du journal, les deux agents, les deux garde-fous, le relevé
+de coût et la fin de vie d’une branche : `memory/travail.md`.
 
 ## Le rayon de souffle
 

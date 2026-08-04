@@ -6,26 +6,17 @@ Mode : `chaud`
 
 ## Le relevé token/euro de cette session
 
-Sujet de la branche : consigner ici le rapprochement entre les jetons consommés
-et leur coût. Relevé au moment de la rédaction, modèle `claude-opus-5`, tarif
-public 5 $ / 25 $ par million de jetons (entrée / sortie), écriture de cache à
-1,25x l'entrée, lecture de cache à 0,1x.
+Sujet de la branche : rapprocher les jetons consommés de leur coût. Le chiffre
+est en fin d'entrée, écrit et tenu à jour par `./init.sh --cout` — la commande
+née de cette branche. Ce qu'il ne dit pas et qui compte :
 
-| Poste | Jetons | Coût |
-|---|---:|---:|
-| Entrée (non mise en cache) | 10 520 | 0,05 $ |
-| Écriture de cache | 1 219 498 | 7,62 $ |
-| Lecture de cache | 6 302 986 | 3,15 $ |
-| Sortie | 24 408 | 0,61 $ |
-| **Total** | **7 557 412** | **11,44 $ — 9,93 €** |
-
-Taux 1 $ = 0,86843 € au 2026-08-04, source Frankfurter (référence BCE). Ce
-tarif est celui de l'API : une session sous abonnement n'est pas facturée à ce
-prix, le montant se lit comme une valeur de consommation, pas comme une facture.
-
-L'écriture de cache pèse 67 % du total, et l'essentiel vient d'un seul geste :
-la lecture du plugin `claude-api` pour vérifier le tarif par jeton. Chercher le
-prix a coûté plus cher que tout le reste de la session réunie.
+- **c'est un prix d'API, pas une facture.** Sous abonnement, rien de ce montant
+  n'est refacturé ; il se lit comme une valeur de consommation ;
+- **le cache domine.** L'écriture et la lecture de cache font l'essentiel du
+  total ; l'entrée et la sortie visibles n'en sont qu'une fraction ;
+- **une lecture de documentation coûte cher.** Ouvrir le plugin `claude-api`
+  pour y vérifier le tarif par jeton a chargé plus d'un million de jetons en
+  cache. Chercher le prix a coûté plus que tout le travail qui a suivi.
 
 ## Anomalies
 
@@ -50,34 +41,34 @@ défaut.
 
 **Detecte par** — `utilisateur`
 
-**Action** — `arbitrage` — faut-il un poste « coût » par branche ? Le relever
-suppose de l'écrire à la main dans l'entrée de journal avant la fin de la
-session : aucun outillage ne peut le reconstituer après coup, puisque la donnée
-disparaît avec le conteneur. C'est une décision de méthode, pas un correctif.
+**Action** — `outillage` — arbitrage rendu dans la même session : il faut un
+poste « coût » par branche. `./init.sh --cout` lit les conversations du
+conteneur, applique les tarifs déclarés dans `fabrique.yml` et écrit le relevé
+dans l'entrée de journal ; `--pret` avertit à chaque étape tant que le chiffre
+manque ou a vieilli. Il avertit sans bloquer : le relevé peut encore s'écrire
+au commit suivant, mais une branche fusionnée sans lui a perdu le sien.
 
 ### 2. Mesurer la session pendant la session a fait mentir la première mesure
 
-**Symptome** — Premier relevé, en début de travail : 195 615 jetons d'écriture
-de cache, environ 2 $ pour l'ensemble de la session. Second relevé, une
-vingtaine de minutes plus tard : 1 219 498 jetons, 11,44 $. Le travail effectué
-entre les deux se résume à la lecture d'un fichier de documentation et à la
-rédaction de cette entrée — un facteur six sans qu'aucune tâche lourde n'ait
-été lancée. Le tableau ci-dessus a lui-même dû être réécrit deux fois entre sa
-première rédaction et le commit qui l'emporte.
+**Symptome** — Trois relevés successifs de la même session, à une demi-heure
+d'intervalle : environ 2 $, puis 11,44 $, puis plus de 23 $. Aucune tâche lourde
+entre les deux derniers — la lecture d'un fichier de documentation, l'écriture
+d'un script, quelques essais. Le tableau écrit à la main a dû être réécrit deux
+fois avant d'être committé, et était de nouveau faux à l'instant du commit.
 
-**Cause** — La consommation d'une session s'accumule jusqu'à sa fin, y compris
-sur les gestes faits pour la mesurer. Ici, le geste coûteux était précisément
-celui de la mesure : ouvrir le plugin qui documente les tarifs par jeton a
-chargé environ un million de jetons en cache, soit près de 8 $ sur les 9,73 $
-du total. Un chiffre annoncé au milieu d'une session ne décrit donc pas la
-session, et l'erreur va toujours dans le même sens : la sous-estimation.
+**Cause** — La consommation s'accumule jusqu'à la fin de la session, y compris
+sur les gestes faits pour la mesurer : ici, le geste le plus coûteux était
+précisément celui de la mesure. Un chiffre annoncé au milieu d'une session ne
+décrit donc pas la session, et l'erreur va toujours dans le même sens, la
+sous-estimation. Écrit à la main, il est faux avant même d'être relu.
 
-**Detecte par** — `auteur` — second relevé, avant l'écriture du tableau.
+**Detecte par** — `auteur` — relevés successifs, avant le premier commit.
 
-**Action** — `comportement` — un chiffre de consommation se relève au dernier
-moment, juste avant le commit qui l'emporte, et s'écrit avec l'instant du
-relevé. Sans cette datation, un lecteur ne peut pas savoir ce que le chiffre
-recouvre.
+**Action** — `outillage` — c'est ce qui a décidé de la forme de `--cout` : le
+chiffre est **généré**, jamais recopié, et remplacé en place à chaque relance.
+`--pret` compare le total consigné à celui de la conversation et avertit dès
+qu'il a dérivé de plus d'un dixième, pour que le dernier commit d'une branche
+emporte un chiffre juste.
 
 ### 3. L'euro n'existe nulle part dans la donnée : il faut trois conversions
 
@@ -96,6 +87,66 @@ reconstitution, jamais une lecture.
 
 **Detecte par** — `auteur`
 
-**Action** — `comportement` — un montant en euros ne s'écrit jamais seul : il
-porte le taux, sa date et sa source, sinon il devient faux en silence et rien
-ne permet de le recalculer.
+**Action** — `outillage` — le taux et sa date vivent dans `fabrique.yml`, figés
+à la main, et le bloc généré les recopie à côté du montant. `--cout` ne va
+délibérément pas les chercher sur le réseau : un outil de vérification qui
+appelle Internet échoue le jour où Internet manque. Il avertit à la place quand
+le taux dépasse quatre-vingt-dix jours.
+
+### 4. Le mot « token » est un mot-secret : nommer les clés en anglais arrêtait tout
+
+**Symptome** — En déclarant les tarifs dans `fabrique.yml`, le nom de clé
+naturel était `prix_token`. Essayé pour voir : `--check` s'arrête sur « la clé
+token porte une valeur littérale et son nom évoque un secret ». Le message est
+juste dans sa logique et trompeur dans son contexte — la valeur en question est
+le chiffre 5, un prix public.
+
+**Cause** — Le vocabulaire du sujet recoupe celui des secrets : un « token »
+est ici une unité de facturation, ailleurs un jeton d'authentification. Le
+scanner regarde le nom de la clé, jamais le sens, et c'est ce qui fait sa
+solidité — il n'a pas à comprendre pour refuser.
+
+**Detecte par** — `auteur` — essai délibéré avant d'écrire la clé, après
+lecture du motif de détection.
+
+**Action** — `rien` — les clés s'écrivent en français, « jetons », et le
+problème disparaît. Affaiblir le motif pour ce cas coûterait bien plus qu'il ne
+rapporte : `token` doit rester refusé partout.
+
+### 5. Le tableau généré est sorti sur une seule ligne
+
+**Symptome** — Premier essai de `--cout` : les quatre lignes du tableau
+markdown collées bout à bout sur une seule, tableau illisible. Le script
+n'avait pourtant rien signalé.
+
+**Cause** — Chaque ligne était produite par une substitution de commande, et
+bash retire les sauts de ligne de fin d'une substitution. Quatre appels ont donc
+rendu quatre fragments sans séparateur. Rien ne pouvait le voir : du markdown
+mal formé reste du texte valide.
+
+**Detecte par** — `auteur` — relecture de la sortie de `--cout --dry-run`,
+avant tout écriture dans le journal.
+
+**Action** — `rien` — corrigé en accumulant les lignes dans une variable plutôt
+qu'en les substituant. Le `--dry-run` a fait exactement son travail : montrer le
+résultat avant qu'il touche un fichier.
+
+<!-- cout : genere par ./init.sh --cout, ne pas editer a la main -->
+## Coût
+
+Relevé le 2026-08-04 à 20:01 UTC, sur 1 session(s) lisible(s) depuis
+ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
+claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
+écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
+1 $ = 0,86843 € au 2026-08-04.
+
+| Poste | Jetons | Coût |
+|---|---:|---:|
+| Entrée | 10 658 | 0,05 $ |
+| Écriture de cache | 1 342 078 | 8,39 $ |
+| Lecture de cache | 38 899 780 | 19,45 $ |
+| Sortie | 115 369 | 2,88 $ |
+| **Total** | **40 367 885** | **30,78 $ — 26,73 €** |
+
+<!-- cout-total: 40367885 -->
+<!-- /cout -->
