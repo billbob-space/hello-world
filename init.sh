@@ -201,7 +201,24 @@ ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
       if (length(s) >= 2 && f == l && (f == "\"" || f == Q)) s = substr(s, 2, length(s) - 2)
       return s
     }
-    function flow(v,   n, i, c, q, cur, e) {
+    # emit(raw) — decide si un element nettoye VIDE doit tout de meme etre
+    # imprime. Une valeur EXPLICITEMENT citee (« "" », « '' ») est un element
+    # reel — c est ainsi que redis/valkey desactivent une option (« --save "" »)
+    # — et doit passer meme vide ; un element qui n a jamais porte de guillemets
+    # (une virgule finale, une ligne blanche a l interieur d un bloc) ne l est
+    # pas et reste tu. Sans cette distinction, « command: […, "--save", ""] »
+    # perd son dernier element EN SILENCE, alors que le contrat promet la liste
+    # « lue et emise EN ENTIER dans les deux cas ».
+    function emit(raw,   t, f, l, quoted, val) {
+      t = raw
+      sub(/[ \t]+#.*$/, "", t)
+      gsub(/^[ \t]+/, "", t); gsub(/[ \t]+$/, "", t)
+      f = substr(t, 1, 1); l = substr(t, length(t), 1)
+      quoted = (length(t) >= 2 && f == l && (f == "\"" || f == Q))
+      val = clean(raw)
+      if (val != "" || quoted) print val
+    }
+    function flow(v,   n, i, c, q, cur) {
       sub(/^\[/, "", v); sub(/\]$/, "", v)
       # Le decoupage TIENT COMPTE DES GUILLEMETS. Un split naif sur la virgule
       # coupe « "a,b" » en plein milieu et laisse deux guillemets ORPHELINS, qui
@@ -211,10 +228,10 @@ ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
         c = substr(v, i, 1)
         if (q != "") { cur = cur c; if (c == q) q = "" }
         else if (c == "\"" || c == Q) { q = c; cur = cur c }
-        else if (c == ",") { e = clean(cur); if (e != "") print e; cur = "" }
+        else if (c == ",") { emit(cur); cur = "" }
         else cur = cur c
       }
-      e = clean(cur); if (e != "") print e
+      emit(cur)
     }
     /^[ \t]*$/ { next }
     {
@@ -231,8 +248,7 @@ ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
       }
       if (!inlist) next
       if (s ~ /^-([ \t]|$)/) {
-        r = s; sub(/^-[ \t]*/, "", r); r = clean(r)
-        if (r != "") print r
+        r = s; sub(/^-[ \t]*/, "", r); emit(r)
         next
       }
       inlist = 0
@@ -251,7 +267,22 @@ ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>
       if (length(s) >= 2 && f == l && (f == "\"" || f == Q)) s = substr(s, 2, length(s) - 2)
       return s
     }
-    function flow(key, v,   n, i, c, q, cur, e) {
+    # emit3(key, raw) — meme distinction que emit() dans ylist : une valeur
+    # EXPLICITEMENT citee (« "" », « '' ») est un element reel — c est ainsi que
+    # redis/valkey desactivent une option (« --save "" ») — et doit etre emise
+    # meme vide ; un element jamais cite (virgule finale, ligne blanche) ne l est
+    # pas et reste tu. Sans cette distinction, un « command: […, "--save", ""] »
+    # d une annexe ou d un service partage perd son dernier element EN SILENCE.
+    function emit3(key, raw,   t, f, l, quoted, val) {
+      t = raw
+      sub(/[ \t]+#.*$/, "", t)
+      gsub(/^[ \t]+/, "", t); gsub(/[ \t]+$/, "", t)
+      f = substr(t, 1, 1); l = substr(t, length(t), 1)
+      quoted = (length(t) >= 2 && f == l && (f == "\"" || f == Q))
+      val = clean(raw)
+      if (val != "" || quoted) print idx "\t" key "\t" val
+    }
+    function flow(key, v,   n, i, c, q, cur) {
       sub(/^\[/, "", v); sub(/\]$/, "", v)
       # Meme decoupage que dans ylist, et pour la meme raison : sans tenir compte
       # des guillemets, « command: ["postgres", "-c", "a=x,y"] » devient trois
@@ -262,10 +293,10 @@ ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>
         c = substr(v, i, 1)
         if (q != "") { cur = cur c; if (c == q) q = "" }
         else if (c == "\"" || c == Q) { q = c; cur = cur c }
-        else if (c == ",") { e = clean(cur); if (e != "") print idx "\t" key "\t" e; cur = "" }
+        else if (c == ",") { emit3(key, cur); cur = "" }
         else cur = cur c
       }
-      e = clean(cur); if (e != "") print idx "\t" key "\t" e
+      emit3(key, cur)
     }
     function pair(t,   kk, vv) {
       if (t !~ /^[A-Za-z_][A-Za-z0-9_]*:/) return
@@ -291,7 +322,7 @@ ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>
       if (s ~ /^-([ \t]|$)/) {
         r = s; sub(/^-[ \t]*/, "", r)
         if (dash < 0 || ind == dash) { dash = ind; idx++; pend = ""; if (r != "") pair(r); next }
-        if (ind > dash) { if (pend != "" && r != "") print idx "\t" pend "\t" clean(r); next }
+        if (ind > dash) { if (pend != "") emit3(pend, r); next }
         st = 0; next
       }
       if (idx >= 0 && ind > dash) pair(s)
@@ -518,6 +549,17 @@ scan_secrets() {
       OPT = "[-_.,/[{(" Q "\"]" W SEP
       # ... ou la cle en tete de ligne, forme « cle: valeur » d un manifeste.
       KEY = "^[ \t]*(-[ \t]+)?" W "[ \t]*[=:][ \t]*"
+      # Sur une ligne de COMMENTAIRE, le separateur « espace(s) » et « : entoure
+      # d espaces » est retire : une phrase qui explique une decision de securite
+      # — « Pas de --requirepass : redis n est joignable que depuis apps_net » —
+      # matche sinon exactement le meme motif qu une vraie fuite, le mot-secret
+      # etant suivi d un « : » puis d un mot. Seuls « = » et la forme listee-citee
+      # restent detectes en commentaire : une vraie valeur collee dans un
+      # commentaire s ecrit presque toujours "cle=valeur" ou "cle", "valeur", pas
+      # en continuant une phrase.
+      SEPC = "([ \t]*=[ \t]*|" QT "[ \t]*,[ \t]*" QT ")"
+      OPTC = "[-_.,/[{(" Q "\"]" W SEPC
+      KEYC = "^[ \t]*#[ \t]*" W "[ \t]*=[ \t]*"
       # L URL a identifiants : « ://utilisateur:motdepasse@ ».
       URL = "://[^:@/ \t]+:[^@/ \t]*@"
       REM = " Un secret n entre pas dans ce depot : declare le NOM de la variable dans env: et reference-la sous la forme ${NOM}, ou monte le secret en fichier cote serveur et passe son CHEMIN (« /run/secrets/… »)."
@@ -582,9 +624,14 @@ scan_secrets() {
       }
       return out
     }
-    function scan(t, nr,   lc, off, st, ln, kw, v, u) {
+    function scan(t, nr,   lc, off, st, ln, kw, v, u, is_c, opt_re, key_re) {
       t  = masque(t)
       lc = tolower(t)
+      # Une ligne de commentaire utilise les motifs restreints (SEPC/OPTC/KEYC) :
+      # voir la note en BEGIN.
+      is_c = (lc ~ /^[ \t]*#/)
+      opt_re = is_c ? OPTC : OPT
+      key_re = is_c ? KEYC : KEY
       off = 0
       while (match(substr(lc, off + 1), URL)) {
         st = off + RSTART; ln = RLENGTH
@@ -593,14 +640,14 @@ scan_secrets() {
           say(nr, "url", "identifiants ecrits dans une URL (« ://utilisateur:motdepasse@ ») — le mot de passe y est une valeur litterale, non reimprimee ici." REM)
         off = st + ln - 1
       }
-      if (match(lc, KEY)) {
+      if (match(lc, key_re)) {
         kw = mot(substr(lc, RSTART, RLENGTH))
         v  = value(substr(t, RSTART + RLENGTH))
         if (!exempte(v))
           say(nr, kw, "la cle « " kw " » porte une valeur litterale et son nom evoque un secret — valeur non reimprimee ici." REM)
       }
       off = 0
-      while (match(substr(lc, off + 1), OPT)) {
+      while (match(substr(lc, off + 1), opt_re)) {
         st = off + RSTART; ln = RLENGTH
         kw = mot(substr(lc, st, ln))
         v  = value(substr(t, st + ln))
@@ -1193,7 +1240,11 @@ YAML
   # validation propre — c'est le scan du compose PRODUIT, avant ecriture, qui
   # refuse un secret, quelle que soit la syntaxe par laquelle il est arrive.
   local -a argv=()
-  [ -z "$cmd" ] || mapfile -t argv <<<"$cmd"
+  # Process substitution, pas un here-string : « <<<"$cmd" » ajoute
+  # INCONDITIONNELLEMENT un retour a la ligne final, ce qui compte pour un
+  # element vide de plus quand $cmd se termine deja par une chaine vide
+  # explicite (« --save "" ») — l'element manquant devient un element en trop.
+  [ -z "$cmd" ] || mapfile -t argv < <(printf '%s' "$cmd")
   if [ "${#argv[@]}" -gt 0 ]; then
     printf '    command: %s\n' "$(json_argv "${argv[@]}")"
   fi
@@ -1211,7 +1262,12 @@ aux_services_block() {  # services annexes de l'app chargee par load_app
     image=$(map_one "$A_SERVICES" "$i" image)
     mem=$(map_one "$A_SERVICES" "$i" memory); mem=${mem:-128m}
     cmd_argv "$A_SERVICES" "$i"
-    cmd=""; [ "${#CMD_ARGV[@]}" -eq 0 ] || cmd=$(printf '%s\n' "${CMD_ARGV[@]}")
+    # « printf -v », pas « cmd=$(printf ...) » : la substitution de commande
+    # retire TOUS les retours a la ligne finaux, donc le dernier argument de
+    # CMD_ARGV s'il est une chaine vide explicite (« --save "" ») — exactement
+    # ce que ymaps prend soin d'emettre. « printf -v » assigne le texte produit
+    # tel quel, sans cette troncature.
+    cmd=""; [ "${#CMD_ARGV[@]}" -eq 0 ] || printf -v cmd '%s\n' "${CMD_ARGV[@]}"
     # Le proprietaire des volumes est l'APP, pas l'annexe : le service annexe
     # partage le sous-arbre de donnees de son application.
     aux_block "$APP-$name" "$APP" "$image" "$mem" "$cmd" \
@@ -1238,7 +1294,7 @@ YAML
     image=$(map_one "$SHARED_RECORDS" "$i" image)
     mem=$(map_one "$SHARED_RECORDS" "$i" memory); mem=${mem:-128m}
     cmd_argv "$SHARED_RECORDS" "$i"
-    cmd=""; [ "${#CMD_ARGV[@]}" -eq 0 ] || cmd=$(printf '%s\n' "${CMD_ARGV[@]}")
+    cmd=""; [ "${#CMD_ARGV[@]}" -eq 0 ] || printf -v cmd '%s\n' "${CMD_ARGV[@]}"
     aux_block "$name" "$name" "$image" "$mem" "$cmd" \
       "$(map_all "$SHARED_RECORDS" "$i" volumes)" \
       "$(map_all "$SHARED_RECORDS" "$i" env)" \
@@ -1520,8 +1576,15 @@ scaffold_app() {
     PHANTOM_APP="$a"
     return 0
   fi
-  if [ -d "$dir" ] && [ "$FORCE" = 0 ]; then
-    echo "ERREUR : $dir existe deja (--force pour reecrire ses fichiers d'echafaudage)." >&2
+  # Teste la presence d'app.yml, pas celle du repertoire : c'est la meme
+  # definition d'« application » que discover_apps. Un repertoire qui ne
+  # contient que des documents (prp/, PRD) n'est pas encore une application,
+  # et --add doit pouvoir l'echafauder sans --force — sans quoi la sequence
+  # que le contrat lui-meme recommande, PRP ecrits avant le code, oblige a
+  # invoquer une option qui promet d'ecraser un travail qu'elle ne trouvera
+  # jamais.
+  if [ -f "$dir/app.yml" ] && [ "$FORCE" = 0 ]; then
+    echo "ERREUR : $dir/app.yml existe deja (--force pour reecrire les fichiers d'echafaudage)." >&2
     exit 1
   fi
   mkdir -p "$dir"

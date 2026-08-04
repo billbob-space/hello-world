@@ -186,7 +186,7 @@ services:
     # deja exposedByDefault: false, indispensable sinon.
     labels:
       - "traefik.enable=false"
-    command: ["valkey-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save"]
+    command: ["valkey-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
   # <<< redis
 
 networks:

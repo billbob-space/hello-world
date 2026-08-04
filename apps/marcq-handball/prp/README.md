@@ -102,21 +102,11 @@ dépendances ne sont pas tranchées ; y écrire du code détaillé serait du tra
 ## Avant de commencer
 
 L'application n'existe pas encore : `apps/marcq-handball/` ne contient que ces
-documents. Les deux garde-fous du dépôt ne réagissent pas pareil, et il faut le
-savoir avant de s'inquiéter :
-
-- **`./init.sh --check` reste vert.** `discover_apps` (`init.sh:126-136`) ignore
-  un répertoire sans `app.yml` avec un simple avertissement — `apps/marcq-handball :
-  pas d'app.yml, ignore`.
-- **`./init.sh --pret` échoue**, sur `[marcq-handball] test.sh absent ou non
-  exécutable`. Son motif est faux : `apps_touchees` (`init.sh:1291`) déduit un
-  nom d'application d'un chemin `apps/<nom>/...` par expression régulière, sans
-  repasser par `discover_apps`. Il réclame donc les tests d'une application que
-  `--check` vient de déclarer inexistante.
-
-Les deux disparaissent au premier `./init.sh --add marcq-handball` du PRP 01.
-D'ici là, `--pret` reste rouge sur cette branche pour cette seule raison : ce
-n'est pas un test en échec, c'est un test qui n'a pas encore de code à couvrir.
-L'écart entre les deux garde-fous appartient à la fabrique, pas à cette
-application ; il se corrige sur une branche `fabrique/<sujet>`, en faisant lire
-`apps_touchees` par `discover_apps`.
+documents. **`./init.sh --check` reste vert** : `discover_apps` ignore un
+répertoire sans `app.yml` avec un simple avertissement — `apps/marcq-handball :
+pas d'app.yml, ignore` — et **`./init.sh --pret` aussi**, `apps_touchees`
+testant elle aussi la présence d'`app.yml` avant de réclamer les tests d'une
+app touchée. Les deux garde-fous s'accordent : tant que ce répertoire ne
+contient que des PRP, aucun des deux n'attend de `test.sh`. Ça disparaît, sans
+rien à corriger côté fabrique, au premier `./init.sh --add marcq-handball` du
+PRP 01.

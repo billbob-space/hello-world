@@ -100,26 +100,63 @@ réel.
 
 **Detecte par** — `relecture`
 
-**Action** — `garde-fou` — distinguer l'élément vide explicite d'une ligne
-blanche, ou refuser la génération plutôt que d'émettre une commande différente
-du manifeste.
+**Action** — `garde-fou`, corrigé dans cette branche — et le correctif a
+découvert un **second** bug empilé sous le premier, invisible tant que le
+premier n'était pas levé.
 
-### 4. Le `PRODUCT.md` échafaudé ignore le schéma que `ui: true` installe
+Couche 1, dans `init.sh` : `ylist` et `ymaps` (les deux lecteurs de listes —
+sections simples et listes de mappings) suppriment un élément dès que sa
+valeur nettoyée est vide, qu'il ait été écrit `""` ou qu'il soit une ligne
+blanche à l'intérieur d'un bloc. Corrigé en distinguant les deux à la source :
+un élément **explicitement cité** (`""`, `''`) est désormais toujours émis,
+même vide ; un élément qui n'a jamais porté de guillemets ne l'est pas.
 
-**Symptome** — `--add … --ui` a écrit un `PRODUCT.md` de quatre sections
-(`Users`, `Product Purpose`, `Capabilities and Constraints`, `Product
-Principles`) sans le marqueur `<!-- impeccable:product-schema 1 -->`. Les deux
-applications `ui: true` du dépôt en portent neuf, marqueur compris.
+Couche 2, une fois la première levée : l'élément vide traversait bien `ymaps`
+et `cmd_argv`, mais disparaissait encore. `aux_block` assemble `command:` à
+partir d'un tableau bash `CMD_ARGV` recollé en chaîne par
+`cmd=$(printf '%s\n' "${CMD_ARGV[@]}")` — une **substitution de commande**, qui
+retire INCONDITIONNELLEMENT tous les retours à la ligne finaux. Un dernier
+élément vide se traduit par une ligne blanche finale dans ce texte ; la
+substitution l'efface, exactement comme les retours à la ligne de trop qu'elle
+est censée nettoyer. Remplacé par `printf -v cmd`, qui assigne le texte produit
+tel quel. Une fois ce point corrigé, un **second** piège identique est apparu
+juste à côté : `mapfile -t argv <<<"$cmd"` relit ce texte via un here-string,
+qui ajoute lui aussi, inconditionnellement, un retour à la ligne — l'élément
+vide manquant devenait un élément vide **en trop**. Remplacé par
+`mapfile -t argv < <(printf '%s' "$cmd")`, une substitution de PROCESSUS, qui
+ne rejoue aucune des deux troncatures.
 
-**Cause** — `ui: true` ajoute le plugin `impeccable` à l'outillage, mais le
-gabarit d'échafaudage n'a pas suivi : il est resté celui d'une app sans
-interface. L'agent qui remplit les quatre sections proposées produit un document
-que son propre outillage ne reconnaît pas.
+Trois correctifs pour un seul symptôme, chacun invisible tant que le
+précédent n'était pas levé — c'est pour ça qu'il a fallu la stack réelle
+(`valkey-cli CONFIG GET save`, un service qui démarre vraiment) pour le
+confirmer résolu, pas seulement relire `compose.yaml`.
+
+### 4. Fausse alerte : le `PRODUCT.md` échafaudé n'a pas à porter le schéma `impeccable`
+
+**Symptome initial** — `--add … --ui` écrit un `PRODUCT.md` de quatre sections
+sans le marqueur `<!-- impeccable:product-schema 1 -->`, alors que `hello-world`
+et `cadran` en portent neuf, marqueur compris. J'ai d'abord noté ceci comme un
+défaut d'outillage à corriger dans `init.sh`.
+
+**Vérification, avant correctif** — `ramure`, également `ui: true`, ne porte
+**pas** ce marqueur non plus, et suit un plan de dix-sept sections qui lui est
+propre. Le fichier de référence du plugin (`impeccable/…/reference/init.md`)
+confirme : le schéma marqué est écrit par la **propre étape d'initialisation
+du plugin**, une interview qui produit « Write only confirmed facts... Omit
+irrelevant sections », et « Preserve useful legacy headings » — il attend
+explicitement de trouver un fichier existant, pas nécessairement dans son
+propre format, et le fait évoluer. Rien dans le contrat ni dans le plugin
+n'exige que le gabarit d'`--add` anticipe ce schéma.
+
+**Conclusion** — pas une anomalie de la fabrique : le gabarit générique à
+quatre sections est un point de départ légitime, et `ramure` prouve qu'un
+`PRODUCT.md` `ui: true` sans ce marqueur n'est pas une non-conformité. Corriger
+`init.sh` ici aurait verrouillé toute app dans un schéma qu'elle n'a pas
+forcément choisi.
 
 **Detecte par** — `relecture`
 
-**Action** — `outillage` — faire dépendre le gabarit de `PRODUCT.md` de `ui:`,
-et y poser le marqueur de schéma quand l'interface existe.
+**Action** — `rien` — hypothèse fausse, écartée avant tout changement de code.
 
 ### 5. Deux documents du dépôt affirment des faits que la fabrique a démentis
 
@@ -127,12 +164,15 @@ et y poser le marqueur de schéma quand l'interface existe.
 décision :
 
 - `apps/marcq-handball/prp/README.md` explique que `--pret` échoue sur une
-  application réduite à des documents. C'est encore vrai aujourd'hui — l'anomalie
-  1 ci-dessus n'est pas corrigée — mais le texte affirme que « l'écart entre les
-  deux garde-fous appartient à la fabrique » comme une évidence acquise, sans
-  dire que le correctif reste à faire. Rien de faux ici, mais une formulation qui
-  vieillira mal dès que l'anomalie 1 sera corrigée : le passage devra être retiré
-  à ce moment-là, pas laissé à décrire un bug disparu.
+  application réduite à des documents (« `[marcq-handball] test.sh absent ou non
+  executable` ») parce qu'`apps_touchees` ne repasse pas par `discover_apps`.
+  **Vérifié, et déjà faux** : `apps_touchees` (`init.sh`) teste bien la présence
+  de `apps/$a/app.yml` avant de retenir une app touchée — testé sur cette
+  branche avec un répertoire `apps/temoin-touchee/prp/` ajouté au suivi git,
+  `--pret` ne le mentionne pas. Le bug que ce passage décrit n'existe plus ; je
+  l'avais moi-même repris comme acquis dans un brouillon de cette entrée, avant
+  de le vérifier — la même leçon que l'anomalie suivante, appliquée à mon propre
+  travail.
 - `apps/ramure/cache.go` justifie son cache en mémoire par « la fabrique n'offre
   ni base de données ni volume persistant ». Elle les offre : `memory/perimetre.md`
   ouvre par « ce qui **t'appartient désormais** : une base de données, un cache,

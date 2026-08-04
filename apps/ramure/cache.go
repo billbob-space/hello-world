@@ -7,10 +7,14 @@
 // le produit se casse a la premiere heure de pointe, et se casse visiblement :
 // pochettes manquantes, branches absentes.
 //
-// Le cache est volontairement en memoire du processus. La fabrique n'offre ni
-// base de donnees ni volume persistant, et le README de l'app le dit
-// explicitement. Un redemarrage vide donc le cache : c'est une perte de
-// performance, jamais une perte de correction.
+// Le cache est volontairement en memoire du processus : sa donnee est
+// jetable par construction, un volume nomme n'y ajouterait rien. La fabrique
+// offre desormais des volumes nommes (voir apps/ardoise, ../../CLAUDE.md) —
+// ce n'est plus une contrainte d'infrastructure ici, c'est un choix, et le
+// README precise que la reserve equivalente sur la COLLECTION, elle, est a
+// moitie levee : l'infra est prete, le travail applicatif ne l'est pas
+// encore. Un redemarrage vide le cache : c'est une perte de performance,
+// jamais une perte de correction.
 package main
 
 import (

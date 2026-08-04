@@ -63,3 +63,52 @@ personnelles. Et **jamais de bloc `env` dans `.claude/settings.json`** — il es
 par construction, y poser un jeton le publie ; `--check` refuse un settings qui en
 contient un.
 
+## Une commande `go` isolée, tant que `go.work` n'a pas suivi
+
+Sur une machine de développement où `go env GOWORK` pointe en dur sur le
+`go.work` du dépôt, **toute** commande `go` — même lancée dans un répertoire
+sans rapport — opère sur cet espace de travail. Un module qui exige un `go`
+plus récent que ce que `go.work` déclare fait télécharger un toolchain plus
+récent (`GOTOOLCHAIN=auto`) puis **réécrit `go.work`** pour faire disparaître
+l'incohérence — silencieusement, sur un artefact généré marqué « NE PAS
+EDITER ». `git status`/`git diff` le montrent après coup ; rien avant ne le
+signale.
+
+Avant que `./init.sh` n'ait régénéré `go.work` pour l'app en cours — par
+exemple juste après avoir écrit son premier `go.mod` — isole toute commande
+`go` avec `GOWORK=off` :
+
+```bash
+GOWORK=off go mod tidy
+GOWORK=off go build ./...
+```
+
+Une fois `./init.sh` relancé (`go.work` à jour, l'app ajoutée aux `use`), les
+commandes `go` ordinaires — sans `GOWORK=off` — redeviennent sûres.
+
+## `docker build` en local : la sortie HTTPS a besoin d'une autorité de certification
+
+Dans un environnement de développement dont les sorties HTTPS passent par un
+proxy re-signant le trafic (voir `/root/.ccr/README.md` sur `claude.ai/code`),
+un conteneur Docker **n'hérite pas** de cette configuration : `docker build
+--network host` ne suffit pas, et `RUN go mod download` (ou tout autre accès
+réseau dans l'étage de build) échoue avec `x509: certificate signed by unknown
+authority`. Ce n'est pas un défaut du `Dockerfile` — la CI, elle, a un accès
+réseau direct et construit sans ce problème.
+
+Pour vérifier une image en local dans un tel environnement, construis depuis
+un `Dockerfile` **hors dépôt**, qui copie l'autorité de certification locale
+dans l'étage de build avant tout accès réseau — jamais dans le `Dockerfile`
+committé, dont aucune ligne ne doit dépendre d'un environnement particulier :
+
+```dockerfile
+COPY --from=ca ca-bundle.crt /usr/local/share/ca-certificates/ccr.crt
+RUN apk add --no-cache ca-certificates && update-ca-certificates
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+```
+
+```bash
+docker build --network host -f /chemin/hors-depot/Dockerfile.verify \
+  --build-context ca=/root/.ccr --build-arg VERSION=… apps/<app>
+```
+
