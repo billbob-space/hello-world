@@ -149,3 +149,27 @@ décrivait un lien, il n'en posait pas.
 **Action** — `rien` — corrigé en reformulant sans la syntaxe entre crochets ;
 le contrôle a raison de refuser toute occurrence du motif, décrire un lien
 cassé sans le montrer littéralement est la bonne habitude à prendre.
+
+### 8. Un garde-fou s'est satisfait de son propre commentaire d'en-tête
+
+**Symptome** — Le premier contrôle écrit pour le lot 2 (« le job `contrat`
+lance `./init.sh --check` ») cherchait la simple présence de la chaîne
+`./init.sh --check` dans `.github/workflows/build.yml`. Le test négatif
+prévu par le plan — remplacer le `run:` du job par une commande inoffensive —
+n'a rien déclenché : `ok` malgré l'absence de la commande dans le job. La
+chaîne existait ailleurs, dans l'en-tête que je venais d'écrire, qui explique
+en prose ce que le contrôle est censé vérifier.
+
+**Cause** — `grep -qF './init.sh --check'` ne distingue pas une ligne qui EST
+un step d'une ligne qui EN PARLE. Écrire l'en-tête honnête du fichier ordinaire
+(« `./init.sh --check` verifie que... ») a involontairement fourni au contrôle
+de quoi se satisfaire sans jamais lire le job.
+
+**Detecte par** — `auteur` — le test négatif de l'étape 4 du plan, exécuté
+avant tout commit, exactement pour ce cas.
+
+**Action** — `rien` — corrigé en ancrant le motif sur une ligne qui commence
+par `run:` (`^\s*-?\s*run:\s*\./init\.sh --check\s*$`), qui ne peut plus
+matcher une phrase de commentaire. Le plan a fait ce pour quoi il est écrit :
+aucun contrôle ne s'est jamais retrouvé committé sans avoir été mis en échec
+une fois.
