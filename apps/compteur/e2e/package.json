@@ -1,0 +1,11 @@
+{
+  "name": "compteur-e2e",
+  "private": true,
+  "description": "Tests de bout en bout de compteur, contre une stack reelle (voir lancer.sh).",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

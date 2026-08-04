@@ -19,8 +19,11 @@ async function charger() {
 bouton.addEventListener("click", async () => {
   bouton.disabled = true;
   try {
-    const res = await fetch("/api/compteur", { method: "POST" });
-    afficher(await res.json());
+    await fetch("/api/compteur", { method: "POST" });
+    // Une lecture explicite, pas la reponse brute du POST : c'est ce qui
+    // rend la provenance affichee fidele a un GET reel, et pas seulement au
+    // fait que l'ecriture elle-meme vient toujours de la base.
+    await charger();
   } finally {
     bouton.disabled = false;
   }

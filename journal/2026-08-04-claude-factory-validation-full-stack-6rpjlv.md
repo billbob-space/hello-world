@@ -297,3 +297,68 @@ exhaustivement, par `domaine_test.go`.
 
 **Action** — `rien` — rattrapée avant tout commit, rien à en tirer pour la
 fabrique.
+
+## Run 2 — `compteur`, avec les corrections en place
+
+Second passage des six phases, sur une application différente
+(`exposure: google`, `needs: [redis]` réutilisé sans toucher `fabrique.yml`),
+pour vérifier que les cinq corrections tiennent hors du cas qui a servi à les
+trouver. Résultat : **aucune anomalie nouvelle**, et les cinq corrections se
+sont toutes vérifiées d'elles-mêmes en marchant normalement, sans
+contournement :
+
+- `--add compteur` a échafaudé sans `--force` sur `apps/compteur/prp/` déjà
+  présent — anomalie 1 confirmée corrigée ;
+- `go mod tidy` sur `compteur` a de nouveau produit un `go.mod` à trois
+  composants (`pgx/v5` en dernière version avant que je ne le pin) ; `go.work`
+  l'a accepté du premier coup, sans le détour du run 1 — anomalie 6 confirmée
+  corrigée ;
+- aucun faux positif du scan de secrets, aucune `command:` à liste vide dans
+  ce PRP (pas de service partagé nouveau à écrire).
+
+**Le seul écart rencontré n'était pas une anomalie de la fabrique, mais une
+incohérence dans le JavaScript de `compteur` lui-même** : le gestionnaire de
+clic affichait directement la réponse du `POST` — qui porte toujours
+`provenance: "base"`, l'écriture ne lisant jamais le cache — au lieu de
+relire via `GET` comme le fait `ardoise.js`. Le test e2e écrit en visant le
+comportement d'`ardoise` (base puis cache sur deux lectures consécutives)
+échouait donc sur la deuxième assertion. Corrigé en alignant `compteur.js`
+sur le même motif : appeler une lecture explicite après l'écriture plutôt que
+se fier à la forme de la réponse du `POST`.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — bug d'application, pas de fabrique ; rattrapé par le
+test avant tout commit de la phase 5.
+
+### Le point du run 2, confirmé en conteneurs réels
+
+`ardoise` et `compteur` démarrés côte à côte sur le même réseau, partageant le
+même `redis` : une lecture de chacun peuple `ardoise:lignes` et
+`compteur:valeur` séparément (`valkey-cli KEYS '*'` les montre tous les deux),
+une deuxième lecture de chacun vient bien du cache, et aucune écriture de l'un
+n'a affecté l'autre. C'est la première preuve en marche, pas seulement en
+test unitaire, que `shared_services` tient sa promesse : « un exemplaire pour
+toute la fabrique », plusieurs applications, sans collision.
+
+## Conclusion des deux runs
+
+Neuf anomalies rencontrées au run 1, cinq réelles et corrigées (`--add`, le
+faux positif du scan de secrets, la `command:` à élément vide — elle-même
+double, awk puis bash —, deux documents périmés), deux fausses pistes
+écartées après vérification plutôt que corrigées à tort (le schéma
+`PRODUCT.md`, une seconde relecture de l'anomalie 1 elle-même), une hors de
+portée de l'agent (statistiques de coût), une sans conséquence (hypothèse de
+test). Le run 2 n'en a trouvé aucune nouvelle côté fabrique — seulement un bug
+d'application, rattrapé par son propre test avant commit.
+
+La fabrique est proche de ce que la validation demandée pouvait établir : les
+quatre étages (interface, service, base, cache) fonctionnent, se déploient,
+survivent chacun aux pannes des autres, et un service partagé sert
+effectivement plusieurs applications sans collision — tout cela vérifié contre
+une infrastructure réelle, pas seulement lu dans `compose.yaml`. Deux limites
+assumées, pas cachées : aucun des deux runs n'a atteint un déploiement réel
+sur `billbob.ovh` (l'image n'est publiée qu'à la fusion sur `main`, hors de
+portée d'une session de validation), et le verrou du §11 du PRD d'`ardoise` —
+`POSTGRES_PASSWORD` à définir côté serveur avant activation — reste ouvert,
+c'est une décision d'exploitation, pas un défaut de la fabrique.
