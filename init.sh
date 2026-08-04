@@ -1484,388 +1484,6 @@ $uses
 EOF
 }
 
-emit_build_workflow() {
-  local a filters="" json="" sep=""
-  for a in "${APPS[@]}"; do json="$json$sep\"$a\""; sep=","; done
-  render \
-    __APPS_JSON__ "[$json]" \
-    __REGISTRY__ "$REGISTRY" \
-    __ORG__ "$ORG" \
-    __REPO__ "$REPO" \
-    __IMAGE_MAX_MB__ "$IMAGE_MAX_MB" \
-    <<'YAML'
-# Genere par init.sh — une construction par app modifiee, un seul deploiement.
-# NE PAS EDITER — ./init.sh --check refuse un workflow desynchronise.
-name: build
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      toutes:
-        description: reconstruire toutes les apps
-        type: boolean
-        default: false
-
-# Une seule stack dockhand : deux deploiements concurrents se marcheraient
-# dessus. On serialise sans annuler — un deploiement engage doit finir.
-concurrency:
-  group: fabrique-${{ github.ref }}
-  cancel-in-progress: false
-
-jobs:
-  # Le contrat devient un verrou de CI, et non plus un geste manuel : avec une
-  # stack partagee, un compose faux fusionne casse toutes les apps a la fois.
-  contrat:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: ./init.sh --check
-
-  detect:
-    runs-on: ubuntu-latest
-    outputs:
-      apps: ${{ steps.choix.outputs.apps }}
-      deploy: ${{ steps.choix.outputs.deploy }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: choix
-        env:
-          EVENT: ${{ github.event_name }}
-          TOUTES: ${{ inputs.toutes }}
-          AVANT: ${{ github.event.before }}
-          BASE_PR: ${{ github.event.pull_request.base.sha }}
-          APRES: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          toutes='__APPS_JSON__'
-
-          if [ "$EVENT" = pull_request ]; then base="$BASE_PR"; else base="$AVANT"; fi
-
-          # Une base absente du depot — premiere poussee d'une branche, greffe,
-          # force-push — donnerait un diff vide. On reconstruit tout plutot que
-          # de ne rien construire en silence.
-          tout=0
-          if [ "$EVENT" = workflow_dispatch ] && [ "$TOUTES" = true ]; then
-            tout=1
-          elif [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            echo "base de comparaison indisponible ($base) — reconstruction complete"
-            tout=1
-          fi
-
-          if [ "$tout" = 1 ]; then
-            apps="$toutes"; deploy=true
-          else
-            changed=$(git diff --name-only "$base" "$APRES")
-            echo "fichiers modifies :"; printf '  %s\n' $changed
-
-            if printf '%s\n' "$changed" | grep -qE '^(init\.sh|fabrique\.yml|\.github/workflows/)'; then
-              # Le generateur ou la CI ont bouge : plus rien ne garantit que les
-              # images publiees correspondent aux Dockerfile courants.
-              apps="$toutes"
-            else
-              # Un repertoire sous apps/ n'est une application que s'il porte un
-              # app.yml : c'est la definition qu'applique discover_apps, et la
-              # seule qui vaille. Un chemin ne suffit pas. Sans ce filtre, un
-              # fichier depose sous apps/<nom>/ avant que l'application n'existe
-              # — une specification, une note — fait reclamer a la CI le test.sh
-              # et le Dockerfile d'une app qui n'est pas encore ecrite, et le
-              # job echoue sur un repertoire de documentation.
-              # Le filtre porte sur l'arbre APRES le commit : une app ajoutee
-              # dans ce meme commit a deja son app.yml et reste donc detectee,
-              # ce qui fait bien construire sa premiere image.
-              # Un if, et non « [ -f ] && printf » : l'etape tourne sous set -e,
-              # un test faux ferait sortir la boucle en code 1 et echouer le job.
-              liste=$(printf '%s\n' "$changed" | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
-                        | while IFS= read -r a; do
-                            if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
-                          done)
-              if [ -n "$liste" ]; then
-                apps="[$(printf '%s\n' "$liste" | sed 's/.*/"&"/' | paste -sd, -)]"
-              else
-                apps='[]'
-              fi
-            fi
-
-            # Redeployer seulement si une image change ou si le compose change :
-            # sinon un commit de documentation redemarrerait toute la stack.
-            if [ "$apps" != '[]' ] || printf '%s\n' "$changed" | grep -qx 'compose.yaml'; then
-              deploy=true
-            else
-              deploy=false
-            fi
-          fi
-
-          echo "apps=$apps"     >> "$GITHUB_OUTPUT"
-          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
-          echo "-> apps : $apps   deploy : $deploy"
-
-  # Une matrice vide fait echouer le job : d'ou le garde sur '[]'.
-  test:
-    needs: [contrat, detect]
-    if: needs.detect.outputs.apps != '[]'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        app: ${{ fromJSON(needs.detect.outputs.apps) }}
-    steps:
-      - uses: actions/checkout@v4
-      # Chaque app dit comment elle se teste dans un executable, comme elle dit
-      # comment elle se construit dans un Dockerfile : la fabrique n'a pas a
-      # connaitre les langages. Le runner fournit Go, Node, Python et Java ;
-      # pour une autre chaine, testez dans un etage du Dockerfile.
-      - name: tests de ${{ matrix.app }}
-        run: ./apps/${{ matrix.app }}/test.sh
-
-  build:
-    needs: [contrat, detect, test]
-    if: needs.detect.outputs.apps != '[]'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        app: ${{ fromJSON(needs.detect.outputs.apps) }}
-    steps:
-      - uses: actions/checkout@v4
-      # Sans buildx, le driver par defaut est 'docker', qui ne sait pas
-      # exporter de cache : le cache-to gha plus bas ferait echouer la
-      # construction avant meme de lire le Dockerfile.
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: __REGISTRY__
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      # CONSTRUIRE D'ABORD EN LOCAL, PUBLIER ENSUITE. Entre les deux se glisse le
-      # seul controle capable de voir les labels de l'IMAGE. Docker fusionne dans
-      # les labels du conteneur ceux qui sont graves dans l'image — y compris
-      # ceux HERITES d'une image de BASE ou poses par un etage intermediaire, que
-      # la lecture de apps/<app>/Dockerfile faite par « ./init.sh --check » ne
-      # peut pas voir. Un « traefik.* » grave la publierait un routeur
-      # SUPPLEMENTAIRE : il porte un autre nom que celui de compose.yaml, donc le
-      # compose ne l'ecrase pas, et il arrive SANS middleware d'authentification —
-      # constate avec Traefik 3.7.10. Le service principal, lui, est route :
-      # traefik.enable=false ne le couvre pas, ce controle est sa seule parade.
-      # L'etape de publication ci-dessous repart de ce cache : rien n'est
-      # reconstruit, et surtout pas une image differente de celle qu'on inspecte.
-      - name: construire ${{ matrix.app }} sans publier
-        uses: docker/build-push-action@v6
-        with:
-          # Contexte reduit a l'app : c'est ce qui isole les constructions les
-          # unes des autres et empeche une edition dans une app d'invalider le
-          # cache de couches des autres.
-          context: apps/${{ matrix.app }}
-          file: apps/${{ matrix.app }}/Dockerfile
-          # Sur une pull request on construit sans publier : la validation du
-          # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
-          push: ${{ github.event_name != 'pull_request' }}
-          # ... mais l'image doit alors entrer dans le demon local, sinon
-          # l'etape suivante n'a rien a inspecter sur une pull request : sans
-          # publication, l'image reste dans le cache de buildx, invisible a
-          # « docker image inspect ». push et load s'excluent — jamais vrais
-          # ensemble ici, c'est la meme condition inversee.
-          load: ${{ github.event_name == 'pull_request' }}
-          tags: |
-            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
-            __REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:${{ github.sha }}
-          # Rattache le paquet au depot : ses permissions suivent alors celles
-          # du depot, et un seul identifiant de lecture couvre toutes les apps.
-          labels: |
-            org.opencontainers.image.source=https://github.com/__ORG__/__REPO__
-          # Identifie la version deployee ; le Dockerfile en fait ce qu'il veut,
-          # l'ignorer est sans consequence.
-          build-args: |
-            VERSION=${{ github.sha }}
-          # Le scope est obligatoire en matrice : sans lui les constructions
-          # paralleles se disputent un cache unique et s'evincent l'une l'autre.
-          cache-from: type=gha,scope=${{ matrix.app }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
-      # Deux controles sur l'image finie, la seule chose que le serveur tirera.
-      # Sur une pull request elle vient de « load », sur main du registre.
-      - name: labels et taille de l'image
-        run: |
-          set -euo pipefail
-          image=__REGISTRY__/__ORG__/__REPO__/${{ matrix.app }}:main
-          if [ "${{ github.event_name }}" != pull_request ]; then
-            docker pull "$image"
-          fi
-
-          # Le contrat interdit tout LABEL traefik.* dans un Dockerfile, et
-          # --check le verifie. Mais il lit le Dockerfile, ou un label HERITE
-          # d'une image de base n'apparait pas. Docker fusionne pourtant les
-          # labels de l'image dans ceux du conteneur : le routeur ainsi publie
-          # porte un autre nom que celui du compose, donc le compose ne peut
-          # pas l'ecraser — il vivrait SANS middleware d'authentification.
-          # L'image construite est le seul endroit ou un label herite se voit.
-          # L'inspection est isolee du filtre, et c'est tout l'interet : dans
-          # « inspect | grep ... || true », le « || true » couvre le PIPELINE
-          # ENTIER. Une inspection en echec — image absente, tag mal forme,
-          # demon indisponible — rendait alors une liste vide, indiscernable
-          # d'une image saine, et le garde-fou annoncait « aucun label » en
-          # sortant en succes. Un controle de securite qui echoue en ouvert est
-          # pire que pas de controle : il rassure. Ici l'affectation echoue sous
-          # « set -e » et l'etape s'arrete ; le « || true » ne couvre plus que
-          # grep, dont le code 1 signifie « aucune correspondance », seul cas
-          # ou l'absence de resultat est une bonne nouvelle.
-          labels=$(docker image inspect "$image" \
-                     --format '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}')
-          graves=$(printf '%s\n' "$labels" | grep -iE '^traefik\.' || true)
-          if [ -n "$graves" ]; then
-            printf '::error::LABEL traefik grave dans l image ${{ matrix.app }} : %s\n' $graves
-            echo "::error::Docker le fusionnerait dans les labels du conteneur et publierait un routeur SUPPLEMENTAIRE, sans authentification. Retire-le du Dockerfile, ou change d image de base : ce label n est pas ecrasable depuis le compose."
-            exit 1
-          fi
-          echo "aucun label traefik.* — ni ecrit dans le Dockerfile, ni herite de l image de base"
-
-          size=$(docker image inspect "$image" --format '{{.Size}}')
-          echo "Image ${{ matrix.app }} : $((size / 1024 / 1024)) Mo"
-          if [ "$size" -gt $((__IMAGE_MAX_MB__ * 1024 * 1024)) ]; then
-            echo "::warning::image au-dela de __IMAGE_MAX_MB__ Mo — le serveur est a 92 % de disque"
-          fi
-
-  deploy:
-    needs: [contrat, detect, test, build]
-    # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
-    # reconstruire, mais le compose a change) doit laisser passer, un build en
-    # echec doit bloquer. Sinon un commit a moitie construit referencerait une
-    # image inexistante et emporterait les apps saines.
-    if: >-
-      always()
-      && github.event_name == 'push'
-      && github.ref == 'refs/heads/main'
-      && needs.detect.outputs.deploy == 'true'
-      && needs.contrat.result == 'success'
-      && needs.detect.result == 'success'
-      && (needs.test.result == 'success' || needs.test.result == 'skipped')
-      && (needs.build.result == 'success' || needs.build.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: __REGISTRY__
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Garde-fou propre a la stack unique : « docker compose up » est atomique
-      # pour la stack entiere. Une seule image absente du registre le fait
-      # echouer et emporte les applications saines. On verifie donc chaque
-      # reference du compose AVANT d'appeler le webhook — le pire cas devient
-      # « rien n'est deploye » au lieu de « tout tombe ».
-      - name: toutes les images du compose sont tirables
-        run: |
-          set -euo pipefail
-          # sort -u : la meme image peut etre referencee par plusieurs services
-          # — une app et son worker partagent la leur — et l'inspecter deux fois
-          # ne prouve rien de plus.
-          mapfile -t images < <(sed -nE 's/^[[:space:]]*image:[[:space:]]*(.*)$/\1/p' compose.yaml | LC_ALL=C sort -u)
-          if [ ${#images[@]} -eq 0 ]; then
-            echo "::error::aucune image dans compose.yaml — la stack ne deploierait rien"
-            exit 1
-          fi
-          # TOUTES les images sont verifiees, les TIERCES COMPRISES, et un echec
-          # bloque. Ne pas les bloquer sous pretexte que ce job « ne s'authentifie
-          # que sur __REGISTRY__ » serait faux : « docker buildx imagetools
-          # inspect » interroge le registre en ANONYME quand il n'a pas
-          # d'identifiants, et l'inspection d'une image publique aboutit sans
-          # login — mesure, docker deconnecte de tout registre : l'inspection de
-          # valkey/valkey:8-alpine sort en 0, la meme avec une faute de frappe
-          # sort en 1. Une image tierce mal orthographiee ou disparue ferait
-          # echouer le « docker compose up », atomique pour la stack entiere : la
-          # laisser passer, c'est deployer une fabrique qui tombe TOUTE. Une image
-          # tierce reellement privee est le seul faux positif possible, et elle
-          # n'aurait de toute facon pas sa place dans un compose que le serveur
-          # tire sans identifiants.
-          manquantes=()
-          for img in "${images[@]}"; do
-            if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
-              echo "  ok   $img"
-            else
-              echo "  KO   $img"
-              manquantes+=("$img")
-            fi
-          done
-          if [ ${#manquantes[@]} -gt 0 ]; then
-            printf '::error::image introuvable dans son registre : %s\n' "${manquantes[@]}"
-            echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
-            exit 1
-          fi
-          echo "${#images[@]} image(s) distincte(s) verifiee(s)"
-
-      # Le tag :main est mutable : une image reconstruite ne change pas une
-      # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne
-      # redeploie rien. C'est cet appel, apres publication, qui declenche le
-      # deploiement — et il vient apres pour que le serveur tire bien la
-      # nouvelle image, pas celle d'avant.
-      #
-      # L'URL est une URL de capacite : qui la connait declenche un
-      # deploiement. Elle vit dans un secret du depot, jamais dans ce fichier.
-      - name: declencher le deploiement
-        env:
-          WEBHOOK: ${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
-          WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
-        run: |
-          if [ -z "$WEBHOOK" ]; then
-            echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — images publiees, deploiement NON declenche"
-            exit 0
-          fi
-
-          # Un secret colle porte souvent un retour a la ligne invisible. Il
-          # casserait la signature comme le jeton, pour un 403 indistinguable
-          # d'un mauvais secret.
-          secret=$(printf '%s' "$WEBHOOK_SECRET" | tr -d '\r\n')
-
-          # Recette documentee par dockhand pour une CI generique : POST d'un
-          # corps quelconque, signe en HMAC-SHA256. Le corps ne sert pas au
-          # serveur, qui relit le depot lui-meme ; seule la signature compte.
-          payload='{}'
-          if [ -n "$secret" ]; then
-            sig=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$secret" | awk '{print $NF}')
-            set -- -H "x-hub-signature-256: sha256=$sig"
-          else
-            echo "::warning::secret DOCKHAND_WEBHOOK_SECRET absent — appel non signe, il sera refuse"
-            set --
-          fi
-
-          code=$(curl -sS -o reponse.txt -w '%{http_code}' --retry 3 --retry-delay 5 \
-                   -X POST "$WEBHOOK" -H 'content-type: application/json' "$@" -d "$payload")
-          echo "reponse HTTP $code :"
-          cat reponse.txt; echo
-
-          if [ "$code" = 403 ]; then
-            echo "::error::403 — le secret envoye ne correspond pas a celui configure sur la stack dockhand"
-            exit 1
-          fi
-          if [ "$code" -ge 400 ]; then
-            echo "::error::le webhook a refuse l'appel — images publiees, rien n'est deploye"
-            exit 1
-          fi
-
-          # dockhand ne redeploie que s'il voit un commit nouveau. Le tag :main
-          # etant mutable, une image reconstruite sans commit le fait sauter le
-          # deploiement, en repondant 200 : sans ce test, la CI serait verte et
-          # le serveur servirait toujours les images d'avant.
-          if grep -q '"skipped":[[:space:]]*true' reponse.txt; then
-            echo "::error::dockhand a saute le deploiement (aucun commit nouveau vu)."
-            echo "::error::Active « Force redeployment » dans les Deploy options de la stack. « Re-pull images » n'est pas necessaire : pull_policy: always le couvre depuis le depot."
-            exit 1
-          fi
-          echo "deploiement declenche"
-YAML
-}
-
 emit_settings() {
   local enabled="" i sep marketplaces=""
   for i in "${!PLUGIN_IDS[@]}"; do
@@ -2358,7 +1976,6 @@ SH
 emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
   case "$1" in
     compose.yaml)                 emit_compose ;;
-    .github/workflows/build.yml)  emit_build_workflow ;;
     .claude/settings.json)        emit_settings ;;
     .claude/check-plugins.sh)     emit_check_plugins ;;
     .claude/cloud-setup.sh)       emit_cloud_setup ;;
@@ -2371,7 +1988,7 @@ emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
   esac
 }
 
-DERIVES=(compose.yaml .github/workflows/build.yml .github/pull_request_template.md
+DERIVES=(compose.yaml .github/pull_request_template.md
          .claude/settings.json
          .claude/check-plugins.sh .claude/cloud-setup.sh
          .claude/garde-branche.sh .claude/garde-commit.sh
@@ -3400,6 +3017,29 @@ if [ "$CHECK" = 1 ]; then
       bad "$f desynchronise des manifestes — lance ./init.sh (--dry-run pour voir l'ecart)"
     fi
   done
+  fi
+
+  # Le workflow n'est plus compare a un generateur : il verifie a la place
+  # deux proprietes qui, ensemble, prouvent qu'il lit fabrique.yml au run
+  # plutot que de porter une copie figee. La premiere fait de --check un
+  # verrou de CI et non un geste manuel ; sans elle, un workflow modifie
+  # pourrait ne plus jamais appeler --check sans que rien ne le remarque.
+  WORKFLOW=.github/workflows/build.yml
+  if [ -f "$WORKFLOW" ]; then
+    # Ancre sur une ligne qui EST un step, pas sur une prose de commentaire qui
+    # citerait la commande : sans quoi ce controle se satisferait de son propre
+    # texte d'explication et ne verifierait jamais rien.
+    grep -qE '^\s*contrat:' "$WORKFLOW" && grep -qE '^\s*-?\s*run:\s*\./init\.sh --check\s*$' "$WORKFLOW" \
+      && ok "$WORKFLOW : le job contrat lance ./init.sh --check" \
+      || bad "$WORKFLOW : pas de job contrat qui lance ./init.sh --check"
+    fige="$REGISTRY/$ORG/$REPO/"
+    if grep -qF "$fige" "$WORKFLOW"; then
+      bad "$WORKFLOW : '$fige' figee dans le fichier — un changement de fabrique.yml la rendrait fausse en silence"
+    else
+      ok "$WORKFLOW : aucune occurrence figee du registre, de l'org ou du depot"
+    fi
+  else
+    bad "$WORKFLOW absent"
   fi
 
   # 2. Le compose, service par service — les trois sortes.
