@@ -34,11 +34,83 @@
 # USER, sinon le volume appartient a root et elle ne peut pas y ecrire.
 services:
 
-  # >>> ardoise — DESACTIVEE (enabled: false dans apps/ardoise/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+  # >>> ardoise — apps/ardoise/app.yml — https://ardoise.apps.billbob.ovh
+  ardoise:
+    image: ghcr.io/billbob-space/hello-world/ardoise:main
+    container_name: ardoise
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag :main est mutable : l'image locale portant ce nom est presque
+    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
+    # presente et sert silencieusement la version precedente.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.ardoise.rule=Host(`ardoise.apps.billbob.ovh`)"
+      - "traefik.http.routers.ardoise.entrypoints=websecure"
+      - "traefik.http.routers.ardoise.priority=100"
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.ardoise.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.ardoise.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ardoise.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+    # Services partages dont cette app depend (needs: dans app.yml).
+    depends_on: [redis]
   # <<< ardoise
+
+  # >>> ardoise-base — service annexe de ardoise — apps/ardoise/app.yml
+  ardoise-base:
+    image: postgres:17-alpine
+    container_name: ardoise-base
+    restart: unless-stopped
+    mem_limit: 192m
+    # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
+    # l'image locale deja presente et sert silencieusement la version d'avant.
+    pull_policy: always
+    # Service NON ROUTE : aucune URL, aucun middleware a oublier. Il vit sur
+    # apps_net, ou ses voisins le joignent par « ardoise-base ». Aucun port publie non
+    # plus. Ce n'est PAS l'absence de label qui l'en retire — voir « labels: »
+    # plus bas, qui est la seule chose a le faire.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [apps_net]
+    # LE label qui compte sur un service non route : c'est le seul qui RETIRE du
+    # routage. Sans lui, exposedByDefault suffit a creer un routeur sans
+    # authentification, et un LABEL traefik.* grave dans l'image publierait une
+    # route que ce fichier ne peut pas ecraser. Inoffensif si le serveur pose
+    # deja exposedByDefault: false, indispensable sinon.
+    labels:
+      - "traefik.enable=false"
+    volumes:
+      - ardoise-donnees:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+  # <<< ardoise-base
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh
   cadran:
@@ -290,6 +362,8 @@ services:
 # etant unique, le prefixe de projet n'apporte rien — on le retire, et le nom
 # reel redevient egal au nom documente.
 volumes:
+  ardoise-donnees:
+    name: ardoise-donnees
   compteur-donnees:
     name: compteur-donnees
 
