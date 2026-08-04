@@ -15,5 +15,6 @@ go 1.24.0
 
 use ./apps/ardoise
 use ./apps/cadran
+use ./apps/compteur
 use ./apps/hello-world
 use ./apps/ramure

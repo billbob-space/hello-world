@@ -71,6 +71,12 @@ services:
     networks: [apps_net]
   # <<< cadran
 
+  # >>> compteur — DESACTIVEE (enabled: false dans apps/compteur/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< compteur
+
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
     image: ghcr.io/billbob-space/hello-world/hello-world:main

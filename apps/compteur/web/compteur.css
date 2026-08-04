@@ -1,0 +1,73 @@
+:root {
+  color-scheme: light dark;
+  --fond: #f6f5f2;
+  --texte: #1c1b19;
+  --discret: #6b6459;
+  --accent: #2f5f6b;
+  --bordure: #ddd7cc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #17161a;
+    --texte: #ecebe7;
+    --discret: #9b9488;
+    --accent: #5fa4b9;
+    --bordure: #35322c;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 24rem;
+  margin: 4rem auto;
+  padding: 0 1.25rem;
+  text-align: center;
+}
+
+header {
+  margin-bottom: 2rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 0.35rem;
+}
+
+.provenance {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--discret);
+}
+
+.valeur {
+  font-size: 4rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 2rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.08); }
+
+.dernier {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--discret);
+}
