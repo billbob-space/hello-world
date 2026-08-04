@@ -135,31 +135,6 @@ yget() {  # yget <fichier> <cle> <defaut>
   printf '%s' "${v:-$d}"
 }
 
-# ylist lit une section en liste — la seule forme imbriquee que ce parseur
-# connaisse, et elle lui a ete ajoutee pour volumes: uniquement. La section se
-# ferme des qu'une ligne reprend en colonne 0 : c'est ce qui evite de lire les
-# cles suivantes comme des elements. Les lignes vides et les commentaires a
-# l'interieur sont sautes.
-ylist() {  # ylist <fichier> <cle> — un element par ligne
-  local f="$1" k="$2" v
-  [ -f "$f" ] || return 0
-  tr -d '\r' < "$f" | awk -v k="$k" '
-    $0 ~ "^" k ":[[:space:]]*$"        { inside = 1; next }
-    inside && /^[^[:space:]#]/         { inside = 0 }
-    inside && /^[[:space:]]*#/         { next }
-    inside && /^[[:space:]]*$/         { next }
-    inside && /^[[:space:]]*-[[:space:]]*/ {
-      sub(/^[[:space:]]*-[[:space:]]*/, "")
-      sub(/[[:space:]]+#.*$/, "")
-      sub(/[[:space:]]+$/, "")
-      if (length($0)) print
-    }
-  ' | while IFS= read -r v; do
-        v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
-        printf '%s\n' "$v"
-      done
-}
-
 fab() { yget fabrique.yml "$1" "$2"; }
 
 app_get() {  # app_get <app> <cle> <defaut> — l'option CLI ne vaut que pour --app
