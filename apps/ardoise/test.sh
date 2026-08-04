@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Contrat de test de la fabrique : la CI lance ce fichier, et rien d'autre.
-# A toi d'y mettre la commande de test de ta technologie.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "TODO : aucun test declare pour cette application."
+go vet ./...
+go test ./...
+
+# Les tests qui ont besoin d'une base ou d'un cache reels se sautent quand
+# ARDOISE_TEST_BASE_URL / ARDOISE_TEST_REDIS_ADDR sont absents (voir
+# base_test.go, cache_test.go) : la CI, qui ne monte pas la stack, reste
+# verte. e2e/lancer.sh les exerce contre une stack reelle.

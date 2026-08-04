@@ -1479,7 +1479,16 @@ use ./apps/$a"
 // Sans ce fichier, gopls ouvert a la racine du depot ne voit aucun module :
 // chaque app est un module distinct sous apps/. Il ne sert qu'a l'outillage
 // local, les constructions Docker ayant pour contexte apps/<nom>.
-go 1.24
+//
+// Le directif go: EST a trois composants (1.24.0), pas deux (1.24). Un
+// go.mod d'app tidyfie par un Go >= 1.21 s'ecrit lui-meme en trois composants
+// (« go 1.24.0 » + une ligne « toolchain »), et le mode workspace refuse alors
+// un go.work a deux composants avec « requires go >= 1.24.0, but go.work
+// lists go 1.24 » — deux ecritures numeriquement egales que le composant
+// workspace du toolchain compare comme inegales. Un go.work a trois
+// composants reste accepte par les app.mod a deux composants (verifie), donc
+// cette forme est la seule qui satisfasse les deux a la fois.
+go 1.24.0
 $uses
 EOF
 }

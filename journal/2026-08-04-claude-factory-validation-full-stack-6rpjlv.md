@@ -127,10 +127,12 @@ et y poser le marqueur de schéma quand l'interface existe.
 décision :
 
 - `apps/marcq-handball/prp/README.md` explique que `--pret` échoue sur une
-  application réduite à des documents, et que « l'écart entre les deux
-  garde-fous appartient à la fabrique ». Il n'échoue plus : `apps_touchees`
-  filtre désormais sur la présence de `app.yml`. Vérifié sur cette branche, où
-  `apps/ardoise/prp/` committé n'a déclenché aucune demande de test.
+  application réduite à des documents. C'est encore vrai aujourd'hui — l'anomalie
+  1 ci-dessus n'est pas corrigée — mais le texte affirme que « l'écart entre les
+  deux garde-fous appartient à la fabrique » comme une évidence acquise, sans
+  dire que le correctif reste à faire. Rien de faux ici, mais une formulation qui
+  vieillira mal dès que l'anomalie 1 sera corrigée : le passage devra être retiré
+  à ce moment-là, pas laissé à décrire un bug disparu.
 - `apps/ramure/cache.go` justifie son cache en mémoire par « la fabrique n'offre
   ni base de données ni volume persistant ». Elle les offre : `memory/perimetre.md`
   ouvre par « ce qui **t'appartient désormais** : une base de données, un cache,
@@ -145,3 +147,58 @@ les affirmations mortes.
 **Action** — `contrat` — corriger les deux passages. Aucun garde-fou raisonnable
 ne détecte une affirmation périmée ; ce qui se tient, c'est la règle de relire
 les documents d'une app quand le chapitre du contrat qu'ils citent bouge.
+
+### 6. `GOWORK` global fait qu'une simple commande `go` corrompt `go.work`
+
+**Symptome** — `go.work` est un artefact généré, marqué « NE PAS EDITER » comme
+`compose.yaml`. Une commande aussi anodine que `go get` lancée **hors du dépôt**,
+dans un répertoire scratch sans rapport, l'a pourtant réécrit : `go 1.24` est
+devenu `go 1.25.0`, et l'espacement entre les `use` a changé. `git diff` l'a
+montré après coup ; rien avant n'avait signalé l'écriture.
+
+**Cause** — la variable d'environnement `GOWORK` de cette machine pointe en dur
+sur `/home/user/hello-world/go.work` (`go env GOWORK`), donc **toute** commande
+`go`, où qu'elle s'exécute, opère sur l'espace de travail du dépôt. Un module qui
+exige un `go` plus récent que ce que `go.work` déclare (ici `pgx/v5` récent, qui
+demandait `go >= 1.25`) déclenche `GOTOOLCHAIN=auto` : le binaire télécharge et
+utilise un toolchain plus recent, puis **réécrit le fichier généré** pour que
+l'incohérence disparaisse. `init.sh` n'est jamais dans la boucle.
+
+**Cause additionnelle, distincte** — même en isolant les commandes avec
+`GOWORK=off`, `go mod tidy` a écrit dans `apps/ardoise/go.mod` un directive
+trois-composants (`go 1.24.0` + `toolchain go1.24.7`) au lieu du `go 1.24` que
+tous les autres `go.mod` du dépôt portent à la main. `go.work`, généré par
+`emit_gowork` qui **écrit `go 1.24` en dur**, a alors refusé ce module :
+`module . listed in go.work file requires go >= 1.24.0, but go.work lists go
+1.24` — deux écritures numériquement équivalentes que le toolchain compare comme
+inégales.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou`, en partie déjà pris. Corrigé dans cette branche :
+`emit_gowork` (`init.sh`) écrit désormais `go 1.24.0`, trois composants —
+vérifié qu'un go.work à trois composants satisfait à la fois un `go.mod`
+d'app à deux composants (`hello-world`, `cadran`, `ramure`, tous « go 1.24 »
+écrits à la main) et un `go.mod` à trois composants tel que produit par un
+`go mod tidy` récent (`ardoise`, « go 1.24.0 » + `toolchain go1.24.7`) ; la
+réciproque, testée aussi, échoue. Reste à faire, non corrigé ici : documenter
+dans `memory/outillage.md` qu'un agent qui lance une commande `go` sur cette
+machine — où que ce soit, `GOWORK` pointant en dur sur le dépôt — doit isoler
+avec `GOWORK=off` tant que `./init.sh` n'a pas régénéré `go.work` pour l'app en
+cours, sans quoi la commande réécrit silencieusement l'artefact généré.
+
+### 7. Stats de tokens et de coût — hors de portée de cet agent
+
+Demandé en cours de session : ajouter au journal une mesure de tokens consommés
+et de coût en euros pour cette branche. Aucun outil de cette session n'expose
+cette donnée à l'agent lui-même — ni consommation de tokens, ni coût, pour la
+conversation en cours. Le chiffre ne peut donc pas être écrit ici sans être
+inventé.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `arbitrage` — si cette mesure a de la valeur pour la fabrique
+(comparer le coût d'une validation de bout en bout à l'usage qu'elle prévient),
+elle doit venir d'un instrument externe à l'agent — le tableau de bord de
+facturation, ou un export de la plateforme — pas d'une estimation produite par
+la session qu'elle est censée mesurer.
