@@ -1,0 +1,41 @@
+# Parametres de deploiement de ardoise.
+# Le nom de l'app — donc son URL — est celui du repertoire : apps/ardoise/
+# Ce fichier n'est JAMAIS reecrit par init.sh : edite-le, puis relance ./init.sh
+#
+# enabled: false = l'app vit dans le depot mais n'entre pas dans compose.yaml.
+# Passe-le a true une fois sa premiere image publiee sur le registre.
+enabled: false
+port: 8080
+memory: 128m
+health_path: /healthz
+health_cmd: wget --spider -q http://localhost:8080/healthz
+exposure: private
+# Outillage de l'agent, sans effet sur le deploiement :
+stack: go
+ui: true
+
+# Le mot de passe de la base. Le NOM entre dans le depot, la VALEUR est injectee
+# par l'infrastructure. Il figure ici ET sur l'annexe ci-dessous : ce sont deux
+# conteneurs distincts, env: ne se propage pas de l'un a l'autre.
+env: [POSTGRES_PASSWORD]
+
+# Le cache. Redis est un shared_services de fabrique.yml : un exemplaire pour
+# toute la fabrique, joignable sous le nom « redis ». depends_on ne garantit que
+# le DEMARRAGE du voisin, jamais sa disponibilite — le code traite un cache muet
+# comme un cache absent.
+needs: [redis]
+
+# La base. Annexe privee de cette app : elle devient le service « ardoise-base »,
+# porte « traefik.enable=false » et n'a pas d'URL. Son volume appartient a l'APP
+# — « donnees » ici est le volume reel « ardoise-donnees ».
+#
+# Le nom « donnees » et pas « pgdata » : le contrat demande que la separation
+# entre ce qui se sauvegarde et ce qui s'efface se lise dans le nom. Celui qui
+# fait de la place a trois heures du matin n'aura que ca pour decider.
+services:
+  - name: base
+    image: postgres:17-alpine
+    memory: 192m
+    volumes:
+      - donnees:/var/lib/postgresql/data
+    env: [POSTGRES_PASSWORD]
