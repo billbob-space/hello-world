@@ -236,7 +236,10 @@ curl -s -i 'localhost:8080/api/collection?utilisateur=a@exemple.fr' | head -1
 Attendu : `401`, jamais la collection de `a@exemple.fr`.
 
 **4 · La collection survit à un redémarrage**, sur le vrai chemin de
-persistance :
+persistance. **Cette vérification exige un démon Docker**, absent des sessions
+cloud : c'est la seule preuve que F-32 et F-33 tiennent vraiment, et rien dans
+la CI ne la remplace — le job `build` construit l'image, il ne la fait pas
+tourner. À défaut, elle se reporte au PRP 09, après la mise en ligne.
 
 ```bash
 docker run -d --name ramure-essai -v ramure-essai-donnees:/var/lib/ramure -p 8099:8080 ramure-v2:essai

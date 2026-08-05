@@ -1619,7 +1619,7 @@ go get golang.org/x/text@v0.32.0 && go mod tidy && grep '^go ' go.mod
 > version prend la dernière — et les versions à partir de `v0.36.0` exigent
 > `go 1.25`, ce que `go get` applique en **relevant silencieusement la directive
 > `go` de `go.mod`**. L'étage de construction du `Dockerfile` écrit au PRP 01
-> (`golang:1.23-alpine`) refuserait alors le module, et l'échec n'apparaîtrait
+> (`golang:1.24-alpine`) refuserait alors le module, et l'échec n'apparaîtrait
 > qu'à la construction de l'image, plusieurs tâches plus loin, sans rapport
 > visible avec cette commande. `v0.32.0` laisse la directive à `go 1.24.0`. Le
 > `grep` est là pour le voir tout de suite : si la ligne affichée dépasse la

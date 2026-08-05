@@ -82,10 +82,83 @@ fournisseur du rôle 1) est une décision de produit, pas un correctif. La
 décision prise sur cette branche est de poursuivre la série ; la note est
 conservée pour que le coût soit connu.
 
+### 4. La série de PRP décrivait une fabrique qui n'existe plus
+
+**Symptome** — vérification des neuf PRP contre la fabrique réelle, échafaudage
+rejoué dans une copie du dépôt. Quatre affirmations sont fausses aujourd'hui, et
+la première **fait échouer** le premier contrôle du premier PRP : le test de la
+tâche 1 cherche `"ramure-v2"` dans `.github/workflows/build.yml`, or ce fichier
+ne cite plus aucune app — il découvre la liste à chaque run en cherchant les
+`apps/*/app.yml` (vérifié : zéro occurrence de `ramure`, `cadran`, `ardoise`,
+`hello-world`). Les trois autres : le workflow et `.claude/` y sont présentés
+comme des artefacts régénérés par `./init.sh` alors que le contrat ne réécrit
+plus que `compose.yaml` et `go.work` ; le module est épinglé à `go 1.23` et
+l'étage de construction à `golang:1.23-alpine` alors que les cinq apps du dépôt,
+`go.work` et le toolchain local sont en 1.24 ; et le plafond de 200 Mo est
+présenté comme un refus de CI alors que le job `build` n'émet qu'un
+`::warning::`.
+
+**Cause** — les PRP 01 et 02 ont été écrits le 3 août ; le workflow a cessé
+d'être généré et de citer les apps ensuite. Un document de plan ne se
+revalide jamais tout seul : `--check` vérifie les liens morts et les titres en
+double, pas les affirmations qu'un document porte sur le dépôt. Plus la série
+est précise — et celle-ci l'est beaucoup — plus elle a de surface à périmer.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — les quatre sont corrigées et la correction est
+consignée dans le README de la série. Le garde-fou qui manque serait un contrôle
+des **blocs de commande** cités par les documents : ceux des PRP sont exécutables
+et auraient été pris en défaut immédiatement. À défaut, la règle de conduite :
+rejouer l'échafaudage dans une copie du dépôt avant d'exécuter un PRP écrit plus
+d'une semaine plus tôt — c'est ce qui a trouvé les quatre.
+
+### 5. Sept vérifications de la série exigent un démon Docker, absent des sessions cloud
+
+**Symptome** — `docker --version` répond (29.3.1), `docker info` échoue :
+`/var/run/docker.sock` n'existe pas. Or les PRP 01, 05, 07 et 09 fondent des
+étapes entières sur `docker build`, `docker run`, `docker image inspect` et
+`docker buildx imagetools inspect` — taille de l'image, uid effectif, présence
+de `wget`, conteneur sain, arrêt propre sur `SIGTERM`, survie de la collection à
+un redémarrage, image publiée. Le PRP 01 portait déjà une note pour sa tâche 7 ;
+les six autres cas n'en avaient aucune.
+
+**Cause** — les PRP ont été écrits comme si le poste d'exécution était un poste
+de développement ordinaire. `memory/outillage.md` documente déjà que `docker
+build` échoue ici sur le certificat du proxy, mais suppose un démon qui tourne :
+la marche d'avant — il n'y en a pas — n'était écrite nulle part.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — le README de la série porte désormais un tableau des
+sept vérifications et de ce qui les remplace, avec les trois qui ne sont
+remplacées par rien. Le même trou vaut pour toute app de la fabrique :
+`memory/outillage.md` gagnerait à dire d'emblée qu'une session cloud n'a pas de
+démon Docker, avant d'expliquer comment contourner le proxy.
+
+### 6. La fabrique ne déclare qu'un langage par app, ramure-v2 en aura deux
+
+**Symptome** — le champ `stack:` d'`app.yml` prend une seule valeur, et c'est
+lui qui fait installer un serveur de langage. `ramure-v2` sera Go côté serveur et
+TypeScript côté client (PRP 05) : le TypeScript s'écrira sans assistance de
+langage, et `--check` ne le signalera pas — il ne réclame que les plugins des
+`stack:` déclarées.
+
+**Cause** — `stack:` sert deux choses à la fois : documenter le langage
+principal de l'app et piloter l'outillage de l'agent. Une app polyglotte casse
+cette confusion, et aucune app de la fabrique n'était encore dans ce cas.
+
+**Detecte par** — `auteur`
+
+**Action** — `outillage` — le PRP 05 porte désormais le geste explicite (ajouter
+`typescript-lsp` à `.claude/settings.json`, recoller `cloud-setup.sh`). La vraie
+correction serait un `stack:` acceptant une liste ; elle n'est pas faite, et
+elle vaut pour toute app qui mêlerait deux langages.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-05 à 14:01 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-05 à 14:37 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -93,11 +166,11 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 171 | 0,00 $ |
-| Écriture de cache | 369 593 | 2,31 $ |
-| Lecture de cache | 10 228 931 | 5,11 $ |
-| Sortie | 131 334 | 3,28 $ |
-| **Total** | **10 730 029** | **10,71 $ — 9,30 €** |
+| Entrée | 321 | 0,00 $ |
+| Écriture de cache | 534 401 | 3,34 $ |
+| Lecture de cache | 28 957 531 | 14,48 $ |
+| Sortie | 196 313 | 4,91 $ |
+| **Total** | **29 688 566** | **22,73 $ — 19,74 €** |
 
-<!-- cout-total: 10730029 -->
+<!-- cout-total: 29688566 -->
 <!-- /cout -->

@@ -137,12 +137,18 @@ cd /home/user/hello-world && ./apps/ramure-v2/test.sh
 cd /home/user/hello-world/apps/ramure-v2 && npm run --prefix web test -- --reporter verbose | grep -c '✓'
 ```
 
-**3 · Une vérification manuelle au clavier**, documentée dans le `README` de
+**3 · Ces tests-ci tournent sur DOM simulé, donc en CI.** C'est voulu : ils
+n'ont besoin ni de navigateur ni de démon Docker, et ils sont donc les seuls
+contrôles d'accessibilité que la chaîne automatique jouera vraiment à chaque
+commit. Le PRP 09 en ajoute d'autres dans un vrai navigateur, mais désactivés
+par défaut.
+
+**4 · Une vérification manuelle au clavier**, documentée dans le `README` de
 l'app : parcourir l'arbre entier à la tabulation, promouvoir une branche à la
 touche d'entrée, revenir au cadrage neutre, ouvrir une fiche, garder un
 artiste — sans souris, du début à la fin.
 
-**4 · Le contrat de la fabrique tient, et l'app reste désactivée.**
+**5 · Le contrat de la fabrique tient, et l'app reste désactivée.**
 
 ```bash
 cd /home/user/hello-world && ./init.sh --check && ./init.sh --list | grep ramure-v2

@@ -78,6 +78,14 @@ Ce `else` n'est pas un `|| true` déguisé : il dit ce qu'il ne fait pas, et le
 dit dans le journal de CI. Un `test.sh` qui prétend avoir tout vérifié est pire
 qu'un `test.sh` qui déclare sa limite.
 
+**Conséquence à assumer : ainsi écrit, le bout en bout ne tournera jamais en
+CI.** Personne n'y définit `RAMURE_E2E`. Ces tests sont donc une recette qu'on
+joue à la main avant une mise en ligne, pas un filet permanent. Deux sorties
+possibles, à trancher ici plutôt qu'à découvrir dans six mois : l'assumer — et
+l'écrire dans `REFERENCE.md` — ou ajouter au workflow une étape qui installe un
+navigateur et pose `RAMURE_E2E=1`, ce qui allonge chaque run de la fabrique
+entière, pour toutes les apps.
+
 **Base de référence** (§13) : `web/tests/REFERENCE.md`, tenu à jour, donne le
 **nombre de tests attendus au vert** et la liste explicite des échecs connus non
 applicatifs — pour qu'aucune équipe ne rouvre deux fois la même enquête. Le
@@ -108,6 +116,12 @@ le referme.
 docker buildx imagetools inspect \
   ghcr.io/billbob-space/hello-world/ramure-v2:main
 ```
+
+**Sans démon Docker** — le cas d'une session cloud — la même preuve se lit dans
+la CI : le job `build` de la fusion précédente doit être au vert sur `main`, et
+le paquet `ramure-v2` doit apparaître dans les paquets du dépôt. **Ne pas
+activer sur une supposition** : c'est le seul geste de toute la série qui peut
+faire tomber les autres applications.
 
 Attendu : le manifeste s'affiche. **Si l'image est absente, ne pas continuer** —
 activer une app dont l'image n'existe pas fait échouer le `compose up` de

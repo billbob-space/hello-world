@@ -61,8 +61,12 @@ silence. **Elles s'appliquent aux neuf PRP sans être répétées dans chacun.**
   qui crée et `chown` ce chemin avant `USER`.
 - **Logs sur la sortie standard.** Démarrage sans intervention.
 - **Port 8080, santé `/healthz`.** Tests dans `apps/ramure-v2/test.sh`.
-- **Ne jamais éditer à la main** `compose.yaml`, `.github/`, `.claude/`,
-  `go.work` — artefacts régénérés par `./init.sh`.
+- **Ne jamais éditer à la main** `compose.yaml` et `go.work` — ce sont les deux
+  seuls artefacts que `./init.sh` réécrit toujours. Le workflow de CI et
+  `.claude/` sont, eux, des **fichiers ordinaires** : on les édite directement,
+  et `--check` y vérifie des propriétés, pas l'égalité à un générateur. Le
+  workflow **ne cite aucune app** : il les découvre à chaque run en cherchant
+  les `apps/*/app.yml`.
 - **Vocabulaire contractuel du PRD §05** — *graine, centre, branche, héritier,
   affinité, vivier, promotion, lignée, rebattre, collection, palmarès* — employé
   tel quel dans le code, les tests et l'interface.
@@ -94,8 +98,9 @@ rendant le canevas en **SVG dans le DOM** — c'est ce qui rend l'accessibilité
 clavier et au lecteur d'écran atteignable (§12), là où un `<canvas>` la rendrait
 presque impossible.
 
-Go 1.23, TypeScript 5 compilé par `esbuild`, `vitest` côté client, `go test`
-côté serveur, Playwright pour le bout en bout. Image finale sur `alpine` —
+Go 1.24 — la version des cinq autres apps du dépôt et de `go.work` —,
+TypeScript 5 compilé par `esbuild`, `vitest` côté client, `go test` côté
+serveur, Playwright pour le bout en bout. Image finale sur `alpine` —
 et non `scratch`, qui priverait le `health_cmd` de `wget`.
 
 ### Fournisseurs par rôle de données (§09)
@@ -222,6 +227,37 @@ PRP 01.
 
 ---
 
+## Ce qui ne se vérifie pas depuis une session cloud
+
+Une session sur `claude.ai/code` **n'a pas de démon Docker** : le binaire est là,
+le service ne tourne pas. Sept vérifications de la série en dépendent, et aucune
+ne peut être déclarée faite depuis une telle session. Les ignorer en silence
+serait pire que la limite elle-même — voici où chacune se rattrape.
+
+| Ce qui se vérifie avec Docker | PRP | Ce qui le remplace |
+|---|---|---|
+| taille de l'image sous 200 Mo | 01, 05 | le job `build` de la CI mesure et affiche la taille, mais **n'émet qu'un avertissement** au-delà — rien ne bloque |
+| aucun `LABEL traefik.*`, hérité compris | 01 | le job `build` **bloque** : c'est le seul endroit où un label hérité d'une image de base se voit |
+| l'app tourne bien sous l'uid 10001 | 01 | `--check` lit la directive `USER` du `Dockerfile` — il voit la déclaration, pas l'effet |
+| `wget` présent dans l'image finale | 01 | rien : à faire sur un poste avec Docker, sinon le `health_cmd` échouera en production |
+| conteneur sain, arrêt propre sur `SIGTERM` | 01 | rien : le symptôme, dix secondes de plus à chaque redéploiement de **toute** la stack |
+| le volume appartient bien à l'app | 07 | `--check` vérifie qu'un `chown` du chemin existe dans le `Dockerfile`, avant `USER` |
+| la collection survit à un redémarrage | 07 | reporté au PRP 09, après la mise en ligne — la preuve devient un artiste gardé qui survit à un déploiement |
+
+Deux remarques qui vont avec :
+
+- **Même avec un démon**, `docker build` échoue dans cet environnement sur
+  `x509: certificate signed by unknown authority` : les sorties HTTPS passent
+  par un proxy qui re-signe le trafic, et le conteneur n'en hérite pas. La
+  parade — construire depuis un `Dockerfile` hors dépôt qui embarque l'autorité
+  locale — est décrite dans `memory/outillage.md`. **Jamais dans le `Dockerfile`
+  committé**, dont aucune ligne ne doit dépendre d'un environnement.
+- **Le bout en bout (PRP 09) ne tournera pas non plus en CI** : il est derrière
+  `RAMURE_E2E`, que personne n'y définit. C'est une recette qu'on joue à la
+  main, pas un filet permanent.
+
+---
+
 ## Provenance
 
 Cette série remplace un plan monolithique unique de 2282 lignes
@@ -253,3 +289,10 @@ et 02 :
 3. **`routes()` s'élargit en `Routes(d arbre.Dependances) http.Handler`.** Le
    PRP 01 laissait ce choix au premier PRP qui greffe une route ayant besoin de
    sources ; c'est le PRP 04, et il tranche pour tous.
+
+**Quatre affirmations périmées ont été corrigées ensuite**, la fabrique ayant
+changé sous les PRP 01 et 02 : le workflow de CI ne cite plus aucune app — le
+contrôle d'échafaudage qui y cherchait le nom de l'app aurait échoué sur un
+dépôt sain ; le workflow et `.claude/` ne sont plus des artefacts générés ;
+le langage passe de 1.23 à **1.24**, version du reste du dépôt ; et le plafond
+de 200 Mo n'est qu'un avertissement en CI, jamais un refus.

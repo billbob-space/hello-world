@@ -19,10 +19,10 @@
 > ```
 >
 > ```
-> module github.com/billbob-space/hello-world/apps/ramure-v2   // go 1.23
+> module github.com/billbob-space/hello-world/apps/ramure-v2   // go 1.24
 >
 > apps/ramure-v2/app.yml         enabled:false port:8080 exposure:google stack:go ui:true
-> apps/ramure-v2/Dockerfile      golang:1.23-alpine -> alpine:3.20, USER ramure (uid 10001)
+> apps/ramure-v2/Dockerfile      golang:1.24-alpine -> alpine:3.20, USER ramure (uid 10001)
 > apps/ramure-v2/test.sh         exécutable — go vet ./... && go test ./...
 > apps/ramure-v2/README.md       LASTFM_API_KEY, RAMURE_DATA_DIR (noms seulement)
 > apps/ramure-v2/PRODUCT.md      copie conforme de apps/ramure/PRODUCT.md
@@ -52,12 +52,17 @@ contre-intuitives si on arrive d'un dépôt mono-application :
    n'existe pas, `docker compose up` échoue — **pour toutes les apps**. On
    construit d'abord, on branche ensuite. Le branchement est l'affaire du
    PRP 09, pas de celui-ci.
-2. **Les artefacts dérivés ne s'écrivent pas à la main.** `compose.yaml`,
-   `.github/workflows/build.yml`, `.claude/`, `go.work` sont **régénérés** par
-   `./init.sh` depuis `fabrique.yml` et les `apps/*/app.yml`. `./init.sh --check`
-   compare octet à octet ce qui est committé avec ce que le générateur produit :
-   une édition manuelle est refusée en CI. On modifie `app.yml`, on relance
-   `./init.sh`.
+2. **Deux artefacts, et deux seulement, sont toujours réécrits.**
+   `compose.yaml` et `go.work` sont **régénérés** par `./init.sh` depuis
+   `fabrique.yml` et les `apps/*/app.yml` ; `./init.sh --check` compare ce qui
+   est committé à ce que le générateur produit, et une édition manuelle est
+   refusée en CI. On modifie `app.yml`, on relance `./init.sh`.
+   **Le workflow de CI et `.claude/` ne sont plus générés** : ce sont des
+   fichiers ordinaires, qu'on édite directement — `--check` y vérifie les
+   propriétés qui comptent, pas l'égalité à un générateur. Le workflow, en
+   particulier, **ne cite plus aucune app** : il découvre la liste à chaque run
+   en cherchant les `apps/*/app.yml`. Il n'y a donc rien à y ajouter pour
+   `ramure-v2`, et rien n'y apparaîtra.
 3. **L'étage final de l'image est `alpine`, pas `scratch`.** Le `health_cmd`
    déclaré dans `app.yml` s'exécute *dans* le conteneur. `wget` vient de busybox,
    présent dans Alpine ; une image `scratch` ou `distroless` n'a ni shell ni
@@ -86,7 +91,7 @@ l'affiche.
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/app.yml`
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/.dockerignore`
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/test.sh`, `apps/ramure-v2/README.md`, `apps/ramure-v2/PRODUCT.md`
-- Modifier (régénérés par `./init.sh`) : `compose.yaml`, `.github/workflows/build.yml`, `.gitignore`
+- Modifier (régénérés par `./init.sh`) : `compose.yaml`, `.gitignore` — **pas** le workflow de CI, qui n'est plus généré
 - Créer : `apps/ramure-v2/PRODUCT.md` — écrasé par la copie de `apps/ramure/PRODUCT.md`
 - Test : bloc bash ci-dessous, lancé depuis la racine du dépôt (non versionné : le livrable est l'échafaudage lui-même)
 
@@ -150,8 +155,14 @@ grep -q '>>> ramure-v2 — DESACTIVEE' compose.yaml \
 grep -qE '^\s*services:' compose.yaml || echoue "compose.yaml illisible"
 grep -q 'ramure-v2:' compose.yaml \
     && echoue "un service ramure-v2 existe deja dans compose.yaml — l'image n'est pas publiee"
-grep -q '"ramure-v2"' .github/workflows/build.yml \
-    || echoue "le workflow ne connait pas ramure-v2 — la CI ne construira jamais son image"
+# La CI ne cite AUCUNE app : elle decouvre la liste a chaque run, en cherchant
+# les apps/*/app.yml. On rejoue donc sa regle plutot que de chercher un nom qui
+# n'y est pas — et qui n'y sera jamais.
+grep -qE '^(ramure-v2)$' <<<"$(for d in apps/*/; do a="${d%/}"; a="${a#apps/}"; \
+    [ -f "apps/$a/app.yml" ] && printf '%s\n' "$a"; done)" \
+    || echoue "la CI ne verra pas ramure-v2 : apps/ramure-v2/app.yml manque"
+grep -qE 'ramure-v2|cadran|hello-world' .github/workflows/build.yml \
+    && echoue "le workflow cite une app en dur — il doit les decouvrir, pas les lister"
 
 echo "OK : echafaudage conforme, application desactivee comme prevu"
 ```
@@ -168,9 +179,10 @@ Attendu : ÉCHEC avec `ECHEC : apps/ramure-v2/app.yml absent`.
 
 N'écris pas `app.yml` à la main. `init.sh` en est l'auteur : il pose les
 commentaires qui expliquent chaque clé, il fixe les valeurs par défaut, et
-surtout il **régénère dans la foulée** `compose.yaml`, le workflow de CI,
-`.claude/` et `.gitignore`. Un `app.yml` écrit à la main laisserait ces
-artefacts en arrière, et `./init.sh --check` les refuserait en CI.
+surtout il **régénère dans la foulée** `compose.yaml`, `go.work` et
+`.gitignore`. Un `app.yml` écrit à la main laisserait ces artefacts en arrière,
+et `./init.sh --check` les refuserait en CI. Le workflow de CI et `.claude/`,
+eux, ne bougent pas : ils ne sont plus générés.
 
 ```bash
 cd /home/user/hello-world
@@ -225,7 +237,7 @@ Attendu : PASS — `OK : echafaudage conforme, application desactivee comme prev
 - [ ] **Étape 5 : commit**
 
 ```bash
-git add apps/ramure-v2 compose.yaml .github/workflows/build.yml .gitignore .claude
+git add apps/ramure-v2 compose.yaml .gitignore
 git commit -m "ramure-v2 : echafaude l'application, desactivee jusqu'a sa premiere image"
 ```
 
@@ -263,7 +275,7 @@ Crée d'abord le module, puis régénère `go.work` — dans cet ordre.
 ```bash
 cd /home/user/hello-world/apps/ramure-v2
 go mod init github.com/billbob-space/hello-world/apps/ramure-v2
-go mod edit -go=1.23
+go mod edit -go=1.24
 cd /home/user/hello-world && ./init.sh
 ```
 
@@ -275,10 +287,14 @@ si on l'ignore :
   `github.com/billbob-space/hello-world/apps/ramure-v2/internal/cache`. Un
   module nommé `ramure-v2` compilerait aussi, mais divergerait des deux autres
   applications sans raison.
-- **`go mod edit -go=1.23`** : `go mod init` écrit la version du toolchain
-  local (1.24.x). L'étage de construction du Dockerfile est `golang:1.23-alpine`
-  (tâche 7) ; un `go.mod` réclamant 1.24 y échouerait avec
-  `go.mod requires go >= 1.24`, une erreur qui n'apparaît **que dans Docker**,
+- **`go mod edit -go=1.24`** : `go mod init` écrit la version du toolchain
+  local en trois composants (`1.24.7`). Les cinq autres apps du dépôt déclarent
+  `go 1.24`, et `go.work` — régénéré par `./init.sh` — déclare `go 1.24.0` :
+  cette forme à deux composants est celle que le workspace accepte sans
+  discuter. L'étage de construction du `Dockerfile` est `golang:1.24-alpine`
+  (tâche 7) ; les deux versions doivent bouger **ensemble**, sinon un `go.mod`
+  qui réclame plus que l'image de construction échoue avec
+  `go.mod requires go >= …` — une erreur qui n'apparaît **que dans Docker**,
   jamais sur le poste.
 - **`./init.sh` régénère `go.work`**, qui liste les modules Go de la fabrique.
   Sans lui, une commande `go` lancée depuis `apps/ramure-v2` tombe en erreur de
@@ -1100,7 +1116,7 @@ Attendu : ÉCHEC dès la construction, avec
 # c'est ce qui empeche une edition dans cadran ou hello-world d'invalider le
 # cache de couches de celle-ci, et inversement.
 
-FROM golang:1.23-alpine AS serveur
+FROM golang:1.24-alpine AS serveur
 WORKDIR /src
 
 # Couche de dependances separee : elle n'est reconstruite que si go.mod bouge.
@@ -1494,7 +1510,7 @@ docker build -t ramure-v2 apps/ramure-v2
 
 ## Technologie
 
-Go 1.23, bibliothèque standard uniquement à ce stade. La page d'accueil est
+Go 1.24, bibliothèque standard uniquement à ce stade. La page d'accueil est
 embarquée dans le binaire par `go:embed` : l'image finale ne porte qu'un
 exécutable et le répertoire de données décrit ci-dessus, créé par le
 `Dockerfile`. Rien n'est à préparer sur l'hôte avant un déploiement.
@@ -1595,7 +1611,7 @@ Ce que fait la CI, dans cet ordre, et ce que chaque job prouve :
 | `contrat` | `./init.sh --check` | les artefacts dérivés correspondent aux manifestes. Il **verrouille tous les autres jobs** : avec une stack partagée, un compose faux fusionné casserait les trois applications d'un coup. |
 | `detect` | un `git diff` sur les chemins `apps/<nom>/` | seule `ramure-v2` a bougé : `cadran` et `hello-world` ne sont ni retestées ni reconstruites. |
 | `test` | `./apps/ramure-v2/test.sh` | `go vet` et `go test` au vert, dans un environnement qui n'est pas le tien. |
-| `build` | `docker build` sur le contexte `apps/ramure-v2` | le `Dockerfile` construit ailleurs que sur ton poste, et l'image tient sous 200 Mo. **Sur une pull request, `push: false`** : on valide sans publier, pour ne pas bouger le tag `:main` que le serveur suit. |
+| `build` | `docker build` sur le contexte `apps/ramure-v2` | le `Dockerfile` construit ailleurs que sur ton poste, et l'image ne porte **aucun** label `traefik.*`, hérité compris — ce contrôle-là **bloque**. La taille, elle, ne fait qu'un `::warning::` au-delà de 200 Mo : **rien n'arrête une image trop grosse en CI**, le plafond se tient au moment de la construction locale. **Sur une pull request, `push: false`** : on valide sans publier, pour ne pas bouger le tag `:main` que le serveur suit. |
 
 **Sur la pull request, l'image n'est donc pas publiée.** Elle ne l'est qu'à la
 fusion sur `main`, où le même workflow rejoue avec `push: true` et pousse deux
@@ -1705,8 +1721,9 @@ import (
 )
 ```
 
-**Le `go.mod` déclare `go 1.23`**, pour rester compatible avec l'étage
-`golang:1.23-alpine` du `Dockerfile`. Toute dépendance ajoutée par le PRP 02 ou
+**Le `go.mod` déclare `go 1.24`**, comme les cinq autres apps du dépôt et
+comme `go.work`, pour rester compatible avec l'étage `golang:1.24-alpine` du
+`Dockerfile`. Toute dépendance ajoutée par le PRP 02 ou
 suivants doit s'y accommoder ; relever cette version oblige à relever aussi
 l'image de construction, dans le même commit.
 

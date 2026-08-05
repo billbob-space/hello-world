@@ -57,7 +57,7 @@ cette propriété ; elle est perdue d'avance si le rendu n'est pas dans le DOM.
 
 ---
 
-### Tâche 1 : la chaîne TypeScript, et les quatre pièges de construction
+### Tâche 1 : la chaîne TypeScript, et les cinq pièges de construction
 
 Aucune exigence du PRD n'est close par cette tâche : elle est l'équivalent, pour
 le client, de ce que le PRP 01 a fait pour le serveur. Elle est séparée pour la
@@ -68,8 +68,10 @@ même raison — un échec ici ne ressemble en rien à un échec applicatif.
   `web/vitest.config.ts`, `web/src/textes.ts`
 - Modifier : `apps/ramure-v2/test.sh`, `apps/ramure-v2/Dockerfile`,
   `apps/ramure-v2/.dockerignore`, `apps/ramure-v2/main.go` (`//go:embed`)
+- Modifier, **à la main** : `.claude/settings.json`, `.claude/cloud-setup.sh`
+  (voir le cinquième piège — ce ne sont pas des artefacts générés)
 
-**Les quatre pièges, dans l'ordre où ils se présentent :**
+**Les cinq pièges, dans l'ordre où ils se présentent :**
 
 1. **`.dockerignore` exclut `dist`.** Le fichier écrit par l'échafaudage du
    PRP 01 exclut `dist` et `node_modules` du contexte de construction. Dès que le
@@ -89,7 +91,18 @@ même raison — un échec ici ne ressemble en rien à un échec applicatif.
    donc `go build` seul, sur un poste où `npm run build` n'a pas tourné, ne
    compile plus. `test.sh` doit construire le client **avant** d'appeler `go`.
 4. **`test.sh` ne doit jamais rendre vert un job qui ne vérifie rien.**
-   `set -euo pipefail`, une commande par outil, aucun `|| true`.
+   `set -euo pipefail`, une commande par outil, aucun `|| true`. Le runner de
+   la CI fournit Go **et** Node : `npm ci` y fonctionne sans rien installer.
+5. **La fabrique ne connaît qu'un langage par app, et ce sera Go.** Le champ
+   `stack:` d'`app.yml` est ce qui fait installer un serveur de langage pour
+   l'agent ; il ne prend qu'une valeur. Résultat : à partir de ce PRP, on écrit
+   du TypeScript **sans assistance de langage**, et `--check` ne s'en plaint
+   pas — il ne réclame que les plugins des `stack:` déclarées. Le remède tient
+   en deux gestes, et aucun n'est automatique : ajouter
+   `typescript-lsp@claude-plugins-official` à `enabledPlugins` dans
+   `.claude/settings.json`, puis **recoller** `.claude/cloud-setup.sh` dans le
+   champ *Setup script* de l'environnement — déclarer un plugin ne l'installe
+   pas. `gopls` reste en place : il est déclaré par les cinq autres apps Go.
 
 ```bash
 #!/usr/bin/env bash
@@ -118,12 +131,20 @@ viennent de `textes.ts`* — pour que `vitest` ait quelque chose à exécuter.
 
 ```bash
 cd /home/user/hello-world && ./apps/ramure-v2/test.sh
+```
+
+Puis, **si un démon Docker est disponible** — il ne l'est pas dans une session
+cloud, voir la dernière section du [README de la série](README.md) :
+
+```bash
 docker build -t ramure-v2:essai apps/ramure-v2 && \
   docker image inspect ramure-v2:essai --format '{{.Size}}' | awk '{print $1/1024/1024 " Mo"}'
 ```
 
 Attendu : la suite passe, et l'image reste **sous 200 Mo** (ordre de grandeur
-constaté au PRP 01 : une quinzaine).
+constaté au PRP 01 : une quinzaine). C'est le seul moment où ce plafond se
+vérifie vraiment : au-delà, **la CI n'émet qu'un avertissement**, elle ne bloque
+pas.
 
 - [ ] **Étape 3 : committer**
 
@@ -318,6 +339,9 @@ docker build -t ramure-v2:essai apps/ramure-v2 && \
 ```
 
 Attendu : moins de 200 Mo, et **aucun `node_modules` dans l'étage final**.
+Sans démon Docker, cette vérification passe la main au job `build` de la CI,
+qui construit la même image sur la pull request — mais qui, sur la taille, ne
+fait qu'avertir.
 
 **4 · Le contrat de la fabrique tient.**
 
@@ -340,7 +364,11 @@ cd /home/user/hello-world && ./init.sh --check
    PRP 06 et 07 ajoutent des requêtes (suggestions, collection) : elles doivent
    passer par le même mécanisme, sinon une réponse de recherche périmée écrasera
    un centre courant.
-4. **La parité stricte n'est pas encore vérifiée.** Ce PRP rend l'arbre aux deux
+4. **L'outillage TypeScript est déclaré, pas installé.** Si le rapport
+   d'ouverture de session annonce moins de serveurs de langage que prévu, c'est
+   que le *Setup script* de l'environnement n'a pas été recollé. C'est sans
+   effet sur le déploiement, et très coûteux sur la vitesse d'écriture.
+5. **La parité stricte n'est pas encore vérifiée.** Ce PRP rend l'arbre aux deux
    largeurs, mais c'est le PRP 08 qui teste qu'aucun contrôle n'existe en double.
    N'introduisez pas de variante « mobile » d'un contrôle existant : elle serait
    à défaire.
