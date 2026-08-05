@@ -5,25 +5,29 @@ termine par une stack qui tient debout. Cette page porte ce qui est **commun aux
 neuf** : les contraintes, les décisions tranchées, l'ordre d'exécution et la
 couverture du PRD. Chaque PRP s'y réfère plutôt que de la recopier.
 
-**Source :** `apps/ramure/PRODUCT.md` — RAMURE, Product Requirements Document
+**Source :** [`../PRODUCT.md`](../PRODUCT.md) — RAMURE, Product Requirements Document
 v1.0, 30 juillet 2026. Périmètre retenu : **lots MVP et V1**, soit 35 exigences.
 
 ## Les neuf étapes
 
-Écrits à ce jour : **01 et 02**. Les sept autres sont *à venir* — leur ligne
-n'est pas cliquable tant que le fichier n'existe pas.
+Les neuf sont écrites. **Leur densité n'est pas la même**, et c'est délibéré :
+01 et 02 portent le code d'implémentation *in extenso*, parce qu'ils ont été
+rédigés étape par étape ; 03 à 09 portent les signatures figées, les requêtes
+exactes vérifiées en direct, les tests à écrire et les pièges — le code s'écrit
+à l'exécution. Un PRP se développe au moment où il devient le prochain, pas
+avant.
 
 | # | PRP | Livrable démontrable | Exigences |
 |---|---|---|---|
 | 01 | [Socle déployable](01-socle.md) | image publiée sur GHCR, CI verte — **pas encore branchée** : `enabled: false`, aucune réponse sur l'URL | contrat fabrique |
 | 02 | [Noyau d'appels](02-noyau-appels.md) | cache mutualisé, budget borné, noms stricts | N-03 à N-05, N-07, §09 |
-| 03 | `03-sources.md` *(à venir)* | les quatre rôles pourvus, cascade de repli | §09, F-20, F-22, F-25, F-26 |
-| 04 | `04-arbre.md` *(à venir)* | `/api/centre` complet, vide et panne distingués | F-08, F-15, F-16, F-36 à F-39 |
-| 05 | `05-canevas.md` *(à venir)* | l'arbre s'affiche et se parcourt — **le MVP se voit** | F-09 à F-14, F-17 |
-| 06 | `06-ecrans.md` *(à venir)* | accueil, recherche, fiche, discographie, lecteur | F-01 à F-07, F-19, F-21, F-24, F-34 |
-| 07 | `07-identite-collection.md` *(à venir)* | garder, replanter, cloisonner | F-28 à F-33, N-08 à N-10 |
-| 08 | `08-parite-accessibilite.md` *(à venir)* | WCAG 2.2 AA, installation, mise à jour | §07, §12, N-11, N-12, F-41, F-42 |
-| 09 | `09-recette-mise-en-ligne.md` *(à venir)* | bout en bout sur réseau simulé, **branchement** (`enabled: true`) et app en ligne | §13 |
+| 03 | [Les quatre rôles de données](03-sources.md) | les quatre rôles pourvus, cascade de repli | §09, F-20, F-22, F-25, F-26 |
+| 04 | [L'arbre, et la première route](04-arbre.md) | `/api/centre` complet, vide et panne distingués | F-08, F-15, F-16, F-36 à F-39 |
+| 05 | [Le canevas](05-canevas.md) | l'arbre s'affiche et se parcourt — **le MVP se voit** | F-09 à F-14, F-17 |
+| 06 | [Les écrans autour du canevas](06-ecrans.md) | accueil, recherche, fiche, discographie, lecteur | F-01 à F-07, F-19, F-21, F-24, F-34 |
+| 07 | [Identité et collection](07-identite-collection.md) | garder, replanter, cloisonner | F-28 à F-33, N-08 à N-10 |
+| 08 | [Parité et accessibilité](08-parite-accessibilite.md) | WCAG 2.2 AA, installation, mise à jour | §07, §12, N-11, N-12, F-41, F-42 |
+| 09 | [Recette et mise en ligne](09-recette-mise-en-ligne.md) | bout en bout sur réseau simulé, **branchement** (`enabled: true`) et app en ligne | §13 |
 
 **Ordre :** strictement séquentiel de 01 à 09. Chaque PRP déclare en tête ce
 qu'il consomme des précédents, avec les signatures exactes.
@@ -224,5 +228,28 @@ Cette série remplace un plan monolithique unique de 2282 lignes
 (`docs/superpowers/plans/2026-08-03-ramure-v2.md`, écrit le 3 août 2026 et
 supprimé le 5), qui couvrait le même périmètre sans jamais renvoyer à la série
 ni la série à lui. Deux plans concurrents pour une app qui n'a pas encore une
-ligne de code : le contenu qui comptait est ici, l'ancien reste lisible dans
-l'historique git.
+ligne de code : le contenu qui comptait est ici.
+
+**Les PRP 03 à 09 en sont issus.** Au moment de la suppression, la série ne
+couvrait que les tâches 1 à 4 du plan ; ses vingt et une autres tâches — les
+sources, l'arbre, le canevas, les écrans, la collection, l'accessibilité, la
+recette et le branchement — ne vivaient plus que dans l'historique git. Elles
+ont été relues depuis `git show 7de0c51^:docs/superpowers/plans/2026-08-03-ramure-v2.md`
+et redistribuées sur les sept PRP manquants, en suivant la répartition annoncée
+par le tableau ci-dessus.
+
+**Trois divergences ont été tranchées pendant cette reprise**, parce que le plan
+d'origine ne pouvait pas les voir — il précédait l'écriture détaillée des PRP 01
+et 02 :
+
+1. **Toute méthode de source prend `p budget.Portee`.** Le plan décrivait des
+   signatures sans portée, mais des tests qui l'exigeaient. Le PRP 02 ayant
+   figé « la portée vient du site d'appel, jamais d'une valeur par défaut »,
+   c'est la signature qui a été corrigée (PRP 03).
+2. **La cascade de proximité prend un `Artiste`, pas un nom.** Last.fm
+   interroge par nom, ListenBrainz **exige un MBID** : une interface qui ne
+   transportait que le nom rendait le repli — donc la mitigation du risque §14 —
+   inutilisable (PRP 03).
+3. **`routes()` s'élargit en `Routes(d arbre.Dependances) http.Handler`.** Le
+   PRP 01 laissait ce choix au premier PRP qui greffe une route ayant besoin de
+   sources ; c'est le PRP 04, et il tranche pour tous.
