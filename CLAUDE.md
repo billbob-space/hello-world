@@ -38,6 +38,8 @@ leur précision technique : leur lecteur est un développeur ou un agent.
 apps/<nom>/    une application. `--add` y écrit app.yml, .dockerignore, test.sh,
                README.md, PRODUCT.md ; le Dockerfile et le code sont à toi
                PRODUCT.md porte le PRD, prp/ les documents d'implémentation
+               CLAUDE.md GÉNÉRÉ — la notice de l'app, chargée seulement quand
+               on touche à ce répertoire : périmètre, URL, palier, volumes
 docs/          ce qui n'est propre à aucune app : specs et plans de fabrique.
                Jamais un document d'app — `--check` le refuse par son nom
 journal/       une entrée par branche : les anomalies rencontrées
@@ -80,9 +82,9 @@ d'app : dans ce cas, déplace le fichier sous `apps/<nom>/` avant de committer �
 il affiche l'ancienne et la nouvelle valeur, puis le diff des artefacts.
 
 `init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
-et le choix de la technologie t'appartient, app par app. Deux artefacts sont
-**toujours réécrits**, fonction directe des manifestes : `compose.yaml` et
-`go.work`. Le reste — le workflow de CI, `.claude/` — est ordinaire, à éditer
+et le choix de la technologie t'appartient, app par app. Trois artefacts sont
+**toujours réécrits**, fonction directe des manifestes : `compose.yaml`,
+`go.work` et la notice `apps/<nom>/CLAUDE.md` de chaque app. Le reste — le workflow de CI, `.claude/` — est ordinaire, à éditer
 directement ; `--check` en vérifie l'existence et les propriétés qui comptent,
 pas l'égalité à un générateur.
 

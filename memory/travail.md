@@ -1,12 +1,12 @@
 # Comment on travaille — le détail
 
 Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branche a
-coûté, de lancer l'`analyste` ou le `greffier`, ou de conclure qu'une branche peut
-être supprimée.
+coûté, de lancer l'`analyste`, le `greffier` ou l'`artisan`, ou de conclure qu'une
+branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie ; pret.sh — relevé de coût manquant ou périmé, en avertissement ;
-hook — `garde-branche.sh` refuse d’éditer sur `main`, `garde-commit.sh` refuse un
-arbre sale
+fermés par anomalie, présence des trois agents ; pret.sh — relevé de coût manquant ou
+périmé, en avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
+`garde-commit.sh` refuse un arbre sale
 
 ## La fin de vie d'une branche ne t'appartient pas
 
@@ -157,17 +157,20 @@ Quatre limites, toutes dites par la commande elle-même :
 - c'est un **prix d'API, pas une facture** : sous abonnement, rien n'est refacturé
   à ce tarif. Le montant se lit comme une valeur de consommation.
 
-## Les agents `analyste` et `greffier`
+## Les trois agents
 
 ```
 Agent(subagent_type: "analyste")   # lit le journal, rend un plan
 Agent(subagent_type: "greffier")   # branche, vérifie, committe et pousse
+Agent(subagent_type: "artisan")    # écrit le code d'UNE app, ne committe pas
 ```
 
-Tous deux sont restreints à `Bash`, `Read` et `Grep`, et **lançables en tâche de
-fond**. **L'absence d'outil d'édition n'est pas un détail de configuration** : c'est
-ce qui garantit qu'un agent lancé en fond ne peut pas modifier le dépôt pendant que
-tu travailles dessus.
+**Aucun agent lançable en tâche de fond ne peut modifier le dépôt.** C'est la règle,
+et elle se lit dans les deux sens. L'`analyste` et le `greffier` sont restreints à
+`Bash`, `Read` et `Grep` : **l'absence d'outil d'édition n'est pas un détail de
+configuration**, c'est ce qui garantit qu'un agent lancé en fond ne touchera pas au
+dépôt pendant que tu travailles dessus. L'`artisan`, lui, écrit par définition — donc
+**il ne se lance jamais en tâche de fond**. Même règle, autre conséquence.
 
 L'`analyste` agrège les deux champs fermés, cherche les causes qui reviennent d'une
 branche à l'autre, et rend **dans sa réponse** un plan de trois à six actions
@@ -181,6 +184,16 @@ son rôle. Il ne réécrit jamais l'histoire (`--force`, `--amend`, `rebase`,
 `reset --hard`, `merge` lui sont interdits) et n'ouvre pas de pull request. Il ne peut
 pas non plus remplir le journal, et c'est délibéré : seul celui qui a fait le travail
 connaît les anomalies rencontrées.
+
+L'`artisan` reçoit un nom d'app et travaille dans `apps/<nom>/`, nulle part ailleurs.
+Son premier geste est imposé : lire `apps/<nom>/CLAUDE.md`, la notice générée de
+l'app, qui lui donne périmètre, URL, palier, volumes et secrets sans qu'il ouvre un
+seul fichier partagé. Si son travail exige de toucher au compose, à `fabrique.yml`, à
+l'outillage ou à une autre app, **il s'arrête et rapporte** : une seule stack se
+déploie d'un bloc, et l'agent au contexte volontairement réduit est celui qui voit le
+moins bien ce qu'il casserait. Il n'enregistre rien dans git — c'est le `greffier`,
+lancé après lui — et il ne remplit pas le journal, mais il rapporte les anomalies
+rencontrées dans une rubrique dédiée, que tu recopies dans l'entrée de branche.
 
 **Le registre des agents est lu au démarrage de la session** : un agent ajouté en
 cours de session n'est invocable qu'à la suivante — même piège que les plugins.
