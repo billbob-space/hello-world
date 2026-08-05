@@ -4,7 +4,7 @@ Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branc
 coûté, de lancer l'`analyste` ou le `greffier`, ou de conclure qu'une branche peut
 être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie ; --pret — relevé de coût manquant ou périmé, en avertissement ;
+fermés par anomalie ; pret.sh — relevé de coût manquant ou périmé, en avertissement ;
 hook — `garde-branche.sh` refuse d’éditer sur `main`, `garde-commit.sh` refuse un
 arbre sale
 
@@ -17,7 +17,7 @@ expose `create_branch` sans son inverse. Les branches fusionnées s'accumulent d
 et rien ne le signale.
 
 ```bash
-./init.sh --branches-fusionnees    # dit quoi supprimer, ne supprime rien
+./scripts/fusionnees.sh    # dit quoi supprimer, ne supprime rien
 ```
 
 Le critère est l'**équivalence de patch**, pas l'appartenance à l'ascendance de
@@ -44,7 +44,7 @@ qui édite connaît le sujet.
 ## Le journal des anomalies
 
 **Une branche, une entrée dans `journal/`.** Elle s'ouvre avec la branche —
-`./init.sh --branche` la crée préremplie — et se remplit **au fil du travail**, pas à
+`./scripts/branche.sh` la crée préremplie — et se remplit **au fil du travail**, pas à
 la fin : écrite à chaud elle retient les anomalies mineures, reconstituée elle ne
 garde que les spectaculaires. Or ce sont les mineures qui disent où le contrat a un
 trou. Le nom du fichier vient de la branche : `fabrique/garde-fous-git` →
@@ -77,7 +77,7 @@ deux autres ont un **vocabulaire fermé**, et `--check` le vérifie :
 |---|---|
 | `rien` | réparée, rien à en tirer |
 | `contrat` | ce fichier dit quelque chose de faux, ou ne dit rien |
-| `garde-fou` | `--check`, `--pret` ou un hook devrait le voir |
+| `garde-fou` | `--check`, `pret.sh` ou un hook devrait le voir |
 | `outillage` | un plugin, un LSP, un agent manque |
 | `comportement` | façon de travailler, aucun artefact à changer |
 | `arbitrage` | demande une décision humaine, pas un correctif |
@@ -99,14 +99,14 @@ Mode : `chaud`
 
 `Périmètre` — les apps touchées, ou `fabrique` ; le laisser au gabarit fait échouer
 `--check`. `Mode` — vocabulaire fermé : `chaud` (valeur du gabarit et cas normal,
-puisque `--branche` ouvre l'entrée en même temps que la branche) ou `retrospective`,
+puisque `branche.sh` ouvre l'entrée en même temps que la branche) ou `retrospective`,
 qui dit qu'elle a été reconstituée après coup. L'`analyste` lit une entrée
 rétrospective mais s'interdit d'en tirer une mesure — encore faut-il qu'il puisse la
 trouver, ce qu'un champ vérifié garantit là où une phrase en prose ne le faisait pas.
 
 Deux vérifications tiennent l'ensemble, dans l'ordre de dureté :
 
-- `./init.sh --pret` **refuse** l'étape si la branche n'a pas d'entrée, si elle est
+- `./scripts/pret.sh` **refuse** l'étape si la branche n'a pas d'entrée, si elle est
   encore le gabarit nu, ou si son en-tête est incomplet ;
 - `./init.sh --check`, donc la CI, refuse un gabarit nu ou un en-tête incomplet
   **committé**. Une entrée non suivie par git est un travail en cours et ne se juge
@@ -116,7 +116,7 @@ Deux vérifications tiennent l'ensemble, dans l'ordre de dureté :
 Une session sans anomalie écrit « Aucune anomalie » et retire le marqueur : une
 entrée vide et une entrée jamais ouverte ne disent pas la même chose.
 
-## Le relevé de coût — `./init.sh --cout`
+## Le relevé de coût — `./scripts/cout.sh`
 
 **La consommation d'une branche ne vit pas dans le dépôt.** Elle est écrite au fil
 de l'échange dans le fichier de conversation du conteneur, sous
@@ -126,8 +126,8 @@ reconstitue**. D'où une commande qui le fige dans l'entrée de journal, seul en
 du dépôt qui appartienne à la branche.
 
 ```bash
-./init.sh --cout              # relève, affiche, et écrit le bloc dans l'entrée
-./init.sh --cout --dry-run    # affiche seulement
+./scripts/cout.sh              # relève, affiche, et écrit le bloc dans l'entrée
+./scripts/cout.sh --dry-run    # affiche seulement
 ```
 
 Le bloc est **généré, jamais recopié à la main** : il est délimité par deux
@@ -140,9 +140,9 @@ facturent pas au même prix, et un total en dollars et en euros.
 | jetons consommés | fichier de conversation du conteneur | seule source, éphémère |
 | tarifs par modèle, en dollars par million de jetons | `fabrique.yml`, clé `tarifs` | change avec les modèles, se met à jour à la main |
 | taux de change et sa date | `fabrique.yml`, `taux_usd_eur` / `taux_date` | figés : un contrôle qui appelle le réseau échoue le jour où le réseau manque |
-| écriture de cache à 1,25x l'entrée, lecture à 0,1x | `init.sh` | vrai pour toute l'API, indépendant du modèle |
+| écriture de cache à 1,25x l'entrée, lecture à 0,1x | `cout.sh` | vrai pour toute l'API, indépendant du modèle |
 
-`--pret` compare le total consigné à celui de la conversation et **avertit sans
+`pret.sh` compare le total consigné à celui de la conversation et **avertit sans
 bloquer** — quand le bloc manque, et quand il a dérivé de plus d'un dixième. Il
 avertit plutôt qu'il ne refuse parce que le relevé peut encore s'écrire au commit
 suivant ; il se répète à chaque étape parce qu'une branche fusionnée sans lui a
@@ -176,7 +176,7 @@ questions pour toi. Deux consignes le tiennent au réel : ne pas compter une ent
 rétrospective comme une mesure fiable, et ne pas proposer de garde-fou pour une
 anomalie déjà rattrapée par le compilateur ou par un test.
 
-Le `greffier` s'arrête et rapporte si `./init.sh --pret` échoue — réparer n'est pas
+Le `greffier` s'arrête et rapporte si `./scripts/pret.sh` échoue — réparer n'est pas
 son rôle. Il ne réécrit jamais l'histoire (`--force`, `--amend`, `rebase`,
 `reset --hard`, `merge` lui sont interdits) et n'ouvre pas de pull request. Il ne peut
 pas non plus remplir le journal, et c'est délibéré : seul celui qui a fait le travail

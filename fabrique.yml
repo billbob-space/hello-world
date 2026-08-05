@@ -13,20 +13,20 @@ image_max_mb: 200
 log_max_size: 10m     # cap des journaux json-file, par service
 log_max_file: 3
 
-# Ce que coute une branche. « ./init.sh --cout » lit la consommation des
+# Ce que coute une branche. « ./scripts/cout.sh » lit la consommation des
 # sessions visibles depuis le conteneur et l'ecrit dans l'entree de journal de
 # la branche ; ces valeurs sont les seules qu'il ne peut pas deviner.
 #
 # tarifs — prix public de l'API, en DOLLARS par million de jetons, un mapping
 # par modele. Un modele absent de cette liste est compte en jetons mais pas en
-# argent, et --cout le dit. L'ecriture de cache se facture 1,25x l'entree et sa
+# argent, et cout.sh le dit. L'ecriture de cache se facture 1,25x l'entree et sa
 # lecture 0,1x : ces deux multiplicateurs valent pour toute l'API, ils vivent
-# dans init.sh et pas ici.
+# dans cout.sh et pas ici.
 #
 # taux_usd_eur / taux_date — le taux de change et le jour ou il a ete releve.
 # Ils sont FIGES a la main, delibrement : un outil de verification qui appelle
 # le reseau echoue le jour ou le reseau manque. Le montant en euros porte
-# toujours cette date, et --cout previent quand elle depasse 90 jours.
+# toujours cette date, et cout.sh previent quand elle depasse 90 jours.
 tarifs:
   - modele: claude-opus-5
     entree: 5

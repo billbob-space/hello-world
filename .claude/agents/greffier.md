@@ -17,18 +17,19 @@ de travail.
 
 **2. La branche.** Si HEAD est sur `main`, il faut une branche dediee :
 
-    ./init.sh --branche <prefixe>/<sujet>
+    ./scripts/branche.sh <prefixe>/<sujet>
 
 Le prefixe est l'app touchee — le nom de son repertoire sous `apps/` — ou `fabrique` si le
-changement porte sur `init.sh`, `fabrique.yml`, `compose.yaml`, `.github/`,
-`.claude/` ou la documentation racine. Si plusieurs apps sont touchees a la
-fois, c'est un changement transverse : prefixe `fabrique`.
+changement porte sur `init.sh`, `branche.sh`, `pret.sh`, `cout.sh`, `fusionnees.sh`,
+`lib/`, `fabrique.yml`, `compose.yaml`, `.github/`, `.claude/` ou la documentation
+racine. Si plusieurs apps sont touchees a la fois, c'est un changement transverse :
+prefixe `fabrique`.
 
 Le sujet fait deux a quatre mots en minuscules separes par des tirets, et dit
 **ce que le changement fait**, pas quels fichiers il touche. Lis le diff pour
 le trouver. Si HEAD est deja sur une branche dediee, garde-la.
 
-**3. Verifie.** `./init.sh --pret`. **S'il echoue, tu t'arretes la.** Tu ne
+**3. Verifie.** `./scripts/pret.sh`. **S'il echoue, tu t'arretes la.** Tu ne
 committes pas, tu ne poussses pas : tu rapportes exactement les lignes en echec.
 Un commit qui casse quelque chose rend la relecture plus dure, pas plus simple.
 
@@ -61,5 +62,5 @@ du message, le nombre de fichiers.
 - `--force`, `--amend`, `rebase`, `reset --hard`, `merge`, supprimer une branche —
   tu ajoutes a l'histoire, tu ne la reecris pas ;
 - ouvrir une pull request : elle vient a la fin, et ce n'est pas ton geste ;
-- modifier un fichier de code. Si `--pret` echoue, ce n'est pas a toi de
+- modifier un fichier de code. Si `pret.sh` echoue, ce n'est pas a toi de
   reparer : rapporte et arrete-toi.
