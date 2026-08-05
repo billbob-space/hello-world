@@ -1,7 +1,7 @@
 # Les PRP de marcq-handball
 
 Onze documents d'implémentation, dérivés du PRD
-[`docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`](../../../docs/superpowers/specs/2026-08-03-marcq-handball-prd.md).
+[`apps/marcq-handball/PRODUCT.md`](../PRODUCT.md).
 
 **Commence par [`00-ossature.md`](00-ossature.md).** C'est le contrat technique
 commun — arborescence, format de `programme.json`, interface de `domaine.js`,

@@ -5,7 +5,7 @@
 > Les étapes sont des cases à cocher.
 >
 > **Ossature :** `apps/marcq-handball/prp/00-ossature.md` — lu avant de commencer.
-> **PRD :** `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`
+> **PRD :** `apps/marcq-handball/PRODUCT.md`
 
 | | |
 |---|---|
@@ -1262,10 +1262,10 @@ git push
 
 ### Tâche 5 — Ce que le dépôt dit de cette application
 
-**Fichiers :** Modifier `apps/marcq-handball/README.md`, `apps/marcq-handball/PRODUCT.md` · Tester `./init.sh --check`
+**Fichiers :** Modifier `apps/marcq-handball/README.md` · Tester `./init.sh --check`
 
-Les deux fichiers sortis de l'échafaudage sont des gabarits. Les laisser tels
-quels ferait entrer des `TODO` dans `main`.
+Le fichier sorti de l'échafaudage est un gabarit. Le laisser tel quel ferait
+entrer des `TODO` dans `main`. `PRODUCT.md`, lui, est déjà dans le dépôt.
 
 - [ ] **Étape 1 — écrire le test qui échoue**
 
@@ -1276,7 +1276,8 @@ grep -c 'TODO' apps/marcq-handball/README.md apps/marcq-handball/PRODUCT.md
 - [ ] **Étape 2 — le lancer, vérifier qu'il échoue**
 
 Lancer : `grep -c 'TODO' apps/marcq-handball/README.md apps/marcq-handball/PRODUCT.md`
-Attendu : ÉCHEC — `README.md:2` et `PRODUCT.md:4`, six lignes de gabarit.
+Attendu : ÉCHEC — `README.md:2`, deux lignes de gabarit ; `PRODUCT.md:0`, il
+est déjà écrit.
 
 - [ ] **Étape 3 — l'implémentation minimale**
 
@@ -1349,72 +1350,9 @@ que pas de classement. C'est une décision d'exploitation, elle se prend côté
 serveur ; le PRP 07 ne démarre pas avant.
 ````
 
-`apps/marcq-handball/PRODUCT.md` :
-
-```markdown
-# Product — marcq-handball
-
-Dérivé de `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`, qui reste
-la source. Ce fichier en donne la forme courte ; le PRD tranche.
-
-## Users
-
-**L'enfant de 13-14 ans** est l'utilisateur principal et le seul dont
-l'engagement décide du succès. Il ouvre l'app sur son téléphone, dehors,
-parfois en 4G, entre deux séries. Il n'a pas nécessairement de compte Google ni
-d'adresse à lui, et il abandonnera à la deuxième friction.
-
-**Le parent** est un utilisateur de substitution : c'est lui qui doit être en
-position de décider si quelque chose de son enfant part sur un serveur.
-
-**Le coach** est un lecteur, pas un contributeur. Ce qu'il veut savoir le
-20 août : dans quel état il récupère son groupe.
-
-## Product Purpose
-
-Le coach a envoyé son programme d'avant-reprise dans une note de téléphone :
-trois pages, sept séances du 3 au 21 août. Un document envoyé une fois ne dit
-ni où on en est, ni ce qu'il y a à faire aujourd'hui, ne récompense rien, et
-n'apprend à personne qui s'entraîne réellement. L'application n'ajoute aucun
-contenu : elle transforme ce texte en un parcours qui se coche, se mesure et se
-compare.
-
-## Capabilities and Constraints
-
-- Aucun compte, aucun mot de passe, aucune installation. Un lien qui s'ouvre.
-- Le prénom de l'enfant ne quitte jamais son appareil. Le serveur ne le connaît
-  pas.
-- Le programme vit dans un fichier de données éditable, séparé du code : le
-  modifier ne demande pas de toucher au code, et les totaux affichés en sont
-  recalculés.
-- Le passé se corrige, l'avenir ne se coche pas.
-- Les jours sans séance sont du repos, pas un trou.
-- L'app reste utilisable réseau coupé ; seul le classement demande le réseau, et
-  son absence n'empêche jamais de s'entraîner.
-- Mobile d'abord : zones de tap larges, contraste lisible en plein soleil,
-  aucune interaction dépendant du survol, `prefers-reduced-motion` respecté.
-- Hors périmètre, décidé et non oublié : édition du programme depuis l'app,
-  chronomètre, vidéos, messagerie, notifications, saisie du nombre réellement
-  effectué, historique multi-saisons.
-
-## Product Principles
-
-**Par défaut, rien ne quitte le téléphone.** L'URL est publique et finira par
-être trouvée : tout ce qui est envoyé au serveur doit être considéré comme
-lisible par tous. Ce qui part se limite à ce que l'enfant a explicitement
-choisi d'exposer, sous le nom qu'il a choisi.
-
-**Le système est déclaratif, et assumé comme tel.** Cocher les 15 pompes vaut
-déclaration de 15 pompes. Une équipe de gamins qui se connaissent : la triche
-se voit au vestiaire.
-
-**L'animation est une récompense, jamais un péage.** Elle vient après l'action,
-ne retarde aucun tap, et ne s'interpose jamais entre l'enfant et la case
-suivante.
-
-**Le ton tutoie sans infantiliser.** Ce sont des joueurs de U15. Pas de
-mascotte, pas de badge à collectionner, pas de vocabulaire de coach américain.
-```
+`apps/marcq-handball/PRODUCT.md` **existe déjà** — le PRD y a été rapatrié
+le 5 août 2026, fiche produit comprise. Rien à écrire ici : il ne porte aucun
+`TODO`, et c'est lui que le test ci-dessus vérifie.
 
 - [ ] **Étape 4 — le relancer, vérifier qu'il passe**
 
@@ -1430,7 +1368,7 @@ Lancer : `./init.sh --check`  ·  Attendu : SUCCÈS, aucun `KO`, et
 
 ```bash
 ./init.sh --pret
-git add apps/marcq-handball/README.md apps/marcq-handball/PRODUCT.md
+git add apps/marcq-handball/README.md
 git commit -m "marcq-handball : ce que le depot dit de l'app, et le besoin d'infra du lot 2"
 git push
 ```
