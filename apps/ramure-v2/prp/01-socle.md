@@ -8,8 +8,8 @@
 >
 > **Ce PRP consomme** : rien. C'est le premier de la série. Ses seules entrées
 > sont le contrat de déploiement (`../../../CLAUDE.md`), l'index de la série
-> ([README.md](README.md)) et le PRD ([PRODUCT.md](../../ramure/PRODUCT.md)),
-> déjà dans le dépôt : ramure-v2 en est une réécriture, pas un produit distinct.
+> ([README.md](README.md)) et le PRD ([PRODUCT.md](../PRODUCT.md)), déjà dans le
+> dépôt : ramure-v2 est une réécriture de `apps/ramure`, pas un produit distinct.
 >
 > **Ce PRP produit**, et c'est ce dont les huit PRP suivants dépendent :
 >
