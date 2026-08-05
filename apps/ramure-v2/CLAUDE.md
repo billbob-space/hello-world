@@ -19,6 +19,7 @@ Echafaude-le avec `./init.sh --add ramure-v2`, puis relance `./init.sh`.
 
 ## Ses documents
 
+- `apps/ramure-v2/PRODUCT.md` — la fiche produit, puis les exigences.
 - `apps/ramure-v2/prp/` — les documents d'implementation.
 
 ## Les regles qui s'appliquent a son image
