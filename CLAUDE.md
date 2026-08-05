@@ -37,6 +37,9 @@ leur précision technique : leur lecteur est un développeur ou un agent.
 ```
 apps/<nom>/    une application. `--add` y écrit app.yml, .dockerignore, test.sh,
                README.md, PRODUCT.md ; le Dockerfile et le code sont à toi
+               PRODUCT.md porte le PRD, prp/ les documents d'implémentation
+docs/          ce qui n'est propre à aucune app : specs et plans de fabrique.
+               Jamais un document d'app — `--check` le refuse par son nom
 journal/       une entrée par branche : les anomalies rencontrées
 memory/        un fichier par sujet sorti du contrat : ce que `--check` tient déjà
 compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
@@ -50,6 +53,16 @@ init.sh        le générateur et le vérificateur ; scripts/ porte les quatre a
 l'outillage Claude Code. **Propre à chaque app** : son code, son `Dockerfile`,
 son PRD, son URL, son palier d'exposition, ses volumes, ses services annexes,
 ses tests.
+
+**Tout ce qui décrit une app vit dans son répertoire** : son PRD dans
+`apps/<nom>/PRODUCT.md` — un seul document, fiche produit puis exigences —, ses
+PRP dans `apps/<nom>/prp/`. Un répertoire qui ne porte que ces documents est
+légitime : c'est une app dont le code n'est pas encore écrit, et `--add` ne
+réécrit jamais un `PRODUCT.md` ni un `README.md` déjà présents, `--force`
+compris. Les compétences `superpowers` écrivent leurs specs et leurs plans sous
+`docs/`, ce qui est juste pour un sujet de fabrique et faux pour un sujet
+d'app : dans ce cas, déplace le fichier sous `apps/<nom>/` avant de committer —
+`--check` refuse un document de `docs/` dont le nom contient celui d'une app.
 
 ## Démarrage
 

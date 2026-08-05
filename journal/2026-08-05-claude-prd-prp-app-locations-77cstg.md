@@ -69,3 +69,23 @@ est réel et validé ; c'est son emplacement qui était accidentel.
 
 **Action** — `rien` — la fiche est devenue l'en-tête du `PRODUCT.md` rapatrié,
 et le PRP renvoie au fichier au lieu de le recopier.
+
+<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
+## Coût
+
+Relevé le 2026-08-05 à 09:42 UTC, sur 1 session(s) lisible(s) depuis
+ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
+claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
+écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
+1 $ = 0,86843 € au 2026-08-04.
+
+| Poste | Jetons | Coût |
+|---|---:|---:|
+| Entrée | 17 364 | 0,09 $ |
+| Écriture de cache | 425 554 | 2,42 $ |
+| Lecture de cache | 17 111 977 | 7,97 $ |
+| Sortie | 108 300 | 2,47 $ |
+| **Total** | **17 663 195** | **12,95 $ — 11,25 €** |
+
+<!-- cout-total: 17663195 -->
+<!-- /cout -->

@@ -2220,6 +2220,32 @@ check_fabrique() {
   done
   [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
 
+  # Le controle ci-dessus n'attrape qu'une copie CONFORME. Le cas courant est
+  # plus discret : un document d'app -- PRD, PRP, plan -- redige directement
+  # sous docs/ et qui n'y ressemble a rien d'autre. Les competences superpowers
+  # y ecrivent leurs specs et leurs plans par defaut, ce qui est juste pour un
+  # sujet de fabrique et faux pour un sujet d'app : trois PRD et neuf PRP y
+  # avaient echoue, hors de portee du controle de liens morts, qui ne lit que
+  # apps/*/*.md. Le critere est le NOM : un chemin sous docs/ qui contient le
+  # nom d'un repertoire d'apps/ parle d'une app et doit demenager dans
+  # apps/<nom>/ ; un document de fabrique n'en porte aucun. Les repertoires
+  # d'apps/ sont lus directement, pas via discover_apps : une app encore
+  # reduite a ses documents n'a pas d'app.yml, et c'est precisement elle dont
+  # les documents s'egarent.
+  egares=0
+  while IFS= read -r doc; do
+    [ -n "$doc" ] || continue
+    for d in apps/*/; do
+      [ -d "$d" ] || continue
+      n=${d#apps/}; n=${n%/}
+      case "$doc" in
+        *"$n"*) bad "$doc parle de l'app $n — son domicile est apps/$n/ (PRODUCT.md pour le PRD, prp/ pour les PRP)"
+                egares=$((egares+1)); break ;;
+      esac
+    done
+  done < <(git ls-files 'docs/*.md' 'docs/**/*.md')
+  [ "$egares" -eq 0 ] && ok "aucun document d'app egare sous docs/"
+
   # Les fichiers de memory/ portent l'explication des regles que --check tient
   # deja. « Quand lire » les rend utilisables sans etre lus en entier, et « Tenu
   # par » est le critere de sortie rendu executable : une regle que rien ne
