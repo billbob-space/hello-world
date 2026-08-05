@@ -125,13 +125,24 @@ func main() {
 		Addr:              addr,
 		Handler:           logging(routes(page, loc)),
 		ReadHeaderTimeout: 5 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		// Sans WriteTimeout, un client qui cesse de lire la reponse retient sa
+		// connexion sans limite. La plus grosse reponse est la page, quelques
+		// dizaines de kilo-octets rendues en une passe : dix secondes sont
+		// larges. IdleTimeout etant pose juste en dessous, c'est lui qui regit
+		// l'attente entre deux requetes — le maintien de connexion n'est pas
+		// coupe par ce delai d'ecriture.
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// Arret propre : le serveur cesse d'accepter et laisse les requetes en
 	// cours se terminer, pour qu'un redeploiement ne coupe personne.
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	//
+	// NotifyContext porte l'abonnement aux signaux dans un contexte plutot que
+	// dans un canal : le desabonnement devient un defer, la ou signal.Notify
+	// demandait de ne pas l'oublier.
+	ctx, neplusEcouter := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer neplusEcouter()
 
 	go func() {
 		log.Printf("ecoute sur %s, fuseau %s", addr, loc)
@@ -140,12 +151,16 @@ func main() {
 		}
 	}()
 
-	<-stop
+	<-ctx.Done()
+	// Rendre les signaux a leur comportement par defaut : un second SIGTERM,
+	// envoye parce que la fermeture s'eternise, redevient un arret immediat au
+	// lieu d'etre avale par l'abonnement.
+	neplusEcouter()
 	log.Print("arret demande, fermeture en cours")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	fermeture, annuler := context.WithTimeout(context.Background(), 10*time.Second)
+	defer annuler()
+	if err := srv.Shutdown(fermeture); err != nil {
 		log.Printf("fermeture forcee : %v", err)
 	}
 }
