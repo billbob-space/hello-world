@@ -215,3 +215,14 @@ complémentaires sur les branches.
 **Rien n'est laissé en attente du serveur :** F-32 et F-33 sont implémentés,
 testés, et leur persistance tient au volume nommé déclaré dans `app.yml` dès le
 PRP 01.
+
+---
+
+## Provenance
+
+Cette série remplace un plan monolithique unique de 2282 lignes
+(`docs/superpowers/plans/2026-08-03-ramure-v2.md`, écrit le 3 août 2026 et
+supprimé le 5), qui couvrait le même périmètre sans jamais renvoyer à la série
+ni la série à lui. Deux plans concurrents pour une app qui n'a pas encore une
+ligne de code : le contenu qui comptait est ici, l'ancien reste lisible dans
+l'historique git.
