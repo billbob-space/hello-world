@@ -19,9 +19,9 @@ fabrique, après [`ardoise`](../ardoise/README.md). Deux angles neufs :
 applications sans qu'elles se marchent dessus (clés `compteur:valeur` et
 `ardoise:lignes`, testé en conteneur : `TestNeSeMarchePasSurArdoise`).
 
-Le raisonnement complet est dans
-[`docs/superpowers/specs/2026-08-04-compteur-prd.md`](../../docs/superpowers/specs/2026-08-04-compteur-prd.md),
-l'implémentation dans [`prp/00-ossature-et-implementation.md`](prp/00-ossature-et-implementation.md).
+Le raisonnement complet est dans [`PRODUCT.md`](PRODUCT.md) — fiche produit,
+puis le PRD et ses critères d'acceptation ; l'implémentation dans
+[`prp/00-ossature-et-implementation.md`](prp/00-ossature-et-implementation.md).
 
 ## Les trois services
 

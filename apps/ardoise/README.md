@@ -19,9 +19,9 @@ exécutable d'une moitié du contrat que rien n'exerçait. C'est la première
 application de la fabrique à déclarer un `services:`, un `volumes:`, un `env:`
 et un `needs:`, et la première à faire vivre `shared_services`.
 
-Le produit est décrit dans [`PRODUCT.md`](PRODUCT.md), le raisonnement dans
-[`docs/superpowers/specs/2026-08-04-ardoise-prd.md`](../../docs/superpowers/specs/2026-08-04-ardoise-prd.md),
-l'implémentation dans [`prp/`](prp/README.md).
+Le produit et le raisonnement sont dans [`PRODUCT.md`](PRODUCT.md) — fiche
+produit, puis le PRD et ses critères d'acceptation ; l'implémentation dans
+[`prp/`](prp/README.md).
 
 ## Les trois services
 

@@ -1,6 +1,6 @@
 # Ossature et implémentation — compteur
 
-> Source produit : [`docs/superpowers/specs/2026-08-04-compteur-prd.md`](../../../docs/superpowers/specs/2026-08-04-compteur-prd.md).
+> Source produit : [`PRODUCT.md`](../PRODUCT.md).
 > Un seul document : l'application est trop petite pour que le découpage en
 > plusieurs PRP produise des documents relisables séparément — le contrat
 > lui-même écarte ce découpage-là (« un PRP par item du PRD » est l'une des
