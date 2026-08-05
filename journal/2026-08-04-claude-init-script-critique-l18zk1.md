@@ -119,22 +119,102 @@ garantit.
 **Action** — `arbitrage` — le découpage du corps de `--check` reste à faire ; la
 sortie des trois métiers hors sujet demande une décision.
 
-<!-- cout : genere par ./init.sh --cout, ne pas editer a la main -->
+### 6. La sortie des trois métiers, décidée en arbitrage, a réintroduit la régression que l'arbitrage précédent avait corrigée
+
+**Symptôme** — après avoir extrait `ylist()`/`ymaps()` dans `lib/socle.sh`, un
+`command: [..., "--save", ""]` de service annexe perdait de nouveau son dernier
+élément — un `--save ""` (chaîne vide explicitement citée) devenait `--save` tout
+court dans `compose.yaml` régénéré. C'est exactement le bug de l'anomalie 1 de la
+branche `fabrique/garde-fous-git`, déjà corrigé sur `main`.
+
+**Cause** — la branche a redémarré depuis `origin/main` entre les deux phases de
+cette session (une PR s'est fusionnée entre-temps). Les fonctions `ylist`/`ymaps`
+recopiées dans `lib/socle.sh` venaient d'une lecture antérieure du fichier, faite
+avant ce redémarrage — donc d'une version périmée, sans le correctif `emit()`/
+`emit3()` qui distingue une valeur vide **citée** (un élément réel) d'une valeur
+vide **non citée** (une virgule finale, à ignorer). Recopier du texte de mémoire
+au lieu de le relire au moment de l'extraction a fait sauter un correctif déjà en
+production.
+
+**Detecte par** — `auteur` — en comparant `compose.yaml` régénéré à celui déjà
+committé sur `origin/main`, geste systématique avant de committer un découpage
+qui ne doit rien changer au résultat, pas une relecture qui aurait pu le manquer.
+
+**Action** — `comportement` — après un redémarrage de branche, ou plus généralement
+avant d'extraire une fonction « de mémoire », la relire dans le fichier courant.
+Une comparaison automatique de toutes les fonctions déplacées contre leur source
+(par nom, texte exact) a ensuite confirmé qu'aucune autre n'avait le même défaut.
+
+### 7. `test-init.sh` dépend de fichiers suivis par git, et deux nouveaux scripts ne l'étaient pas encore
+
+**Symptôme** — le cas témoin (« un dépôt intact passe le contrat ») a échoué juste
+après l'ajout de `lib/` et `scripts/` : `--check` refusait le dépôt copié dans le
+bac à sable.
+
+**Cause** — `bac()` copie le dépôt via `git ls-files`, qui ne liste que les
+fichiers suivis ou indexés — pas les fichiers neufs et non ajoutés. `lib/socle.sh`,
+`lib/journal.sh` et les quatre scripts venaient d'être créés, donc absents de la
+copie ; `init.sh`, qui les source désormais, échouait à l'ouverture.
+
+**Detecte par** — `test` — le témoin a fait exactement ce pour quoi il existe.
+
+**Action** — `rien` — `git add` avant de relancer les tests suffit ; le
+comportement de `bac()` est correct, c'est l'ordre des gestes qui a manqué.
+
+### 8. Le relevé de coût aurait cessé de reconnaître ses propres blocs après le renommage du script
+
+**Symptôme** — trouvé par l'agent de simplification, pas par les garde-fous
+existants : `cout_ecrit()` reconnaissait le bloc à remplacer par égalité stricte
+sur son commentaire d'ouverture (`<!-- cout : genere par ./init.sh --cout... -->`).
+Le renommage en `./scripts/cout.sh` change ce commentaire ; sur une entrée de
+journal déjà relevée par l'ancienne commande — les quatre existantes du dépôt en
+l'occurrence — un nouveau relevé aurait **ajouté** un second bloc au lieu de
+remplacer le premier, et `cout_total_ecrit()` (qui lit la première occurrence)
+aurait continué à lire le total périmé indéfiniment.
+
+**Cause** — le marqueur de bloc porte le nom de la commande qui l'a écrit, et ce
+nom a changé ; la reconnaissance par égalité stricte ne l'a pas anticipé.
+
+**Detecte par** — `relecture` — l'agent de simplification lancé après le
+découpage, avant tout commit.
+
+**Action** — `garde-fou` — corrigé en reconnaissant le bloc par préfixe stable
+(`<!-- cout : genere par `) plutôt que par le texte entier ; revérifié sur les
+quatre entrées réelles du dépôt, un seul bloc, total à jour.
+
+### 9. Deux incohérences relevées par la revue Standards, sans impact fonctionnel
+
+**Symptôme** — `lib/nucleo.sh` rompait la convention du dépôt : tout y est nommé
+en français (`fabrique`, `journal`, `greffier`, `garde-branche`), sauf ce fichier.
+Et `-h`/`--help` n'existait que dans `scripts/cout.sh` parmi les quatre scripts
+nouvellement extraits, sans raison de le traiter différemment des trois autres.
+
+**Cause** — nommage choisi sans relire la convention du dépôt ; l'option d'aide
+copiée depuis `init.sh` sans se demander si les autres scripts devaient l'avoir
+aussi.
+
+**Detecte par** — `relecture` — l'agent de revue Standards, lancé avant tout commit.
+
+**Action** — `rien` — renommé `lib/socle.sh` ; `-h`/`--help` retiré de
+`scripts/cout.sh` pour rester cohérent avec `branche.sh`, `pret.sh`,
+`fusionnees.sh`, plutôt que de l'ajouter aux trois par prudence non demandée.
+
+<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-04 à 21:31 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-05 à 09:08 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
-claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
+claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
 1 $ = 0,86843 € au 2026-08-04.
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 14 328 | 0,07 $ |
-| Écriture de cache | 953 590 | 2,75 $ |
-| Lecture de cache | 24 135 477 | 10,08 $ |
-| Sortie | 220 637 | 3,59 $ |
-| **Total** | **25 324 032** | **16,50 $ — 14,33 €** |
+| Entrée | 14 951 | 0,07 $ |
+| Écriture de cache | 1 365 673 | 6,22 $ |
+| Lecture de cache | 137 381 017 | 45,28 $ |
+| Sortie | 248 575 | 3,73 $ |
+| **Total** | **139 010 216** | **55,31 $ — 48,03 €** |
 
-<!-- cout-total: 25324032 -->
+<!-- cout-total: 139010216 -->
 <!-- /cout -->

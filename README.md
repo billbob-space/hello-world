@@ -87,8 +87,8 @@ Une branche dès la première modification, nommée `<app>/<sujet>` — ou
 `fabrique/<sujet>` pour l'infrastructure —, puis un commit par étape vérifiée.
 
 ```bash
-./init.sh --branche cadran/fuseaux-multiples   # nom validé, départ depuis origin/main
-./init.sh --pret                               # cette étape est-elle committable ?
+./scripts/branche.sh cadran/fuseaux-multiples   # nom validé, départ depuis origin/main
+./scripts/pret.sh                               # cette étape est-elle committable ?
 ```
 
 Deux hooks générés font respecter la règle plutôt que de l'écrire : l'un refuse

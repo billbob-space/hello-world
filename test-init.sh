@@ -163,6 +163,16 @@ genere "un volume d'app porte le nom <app>-<nom>" 'name: hello-world-donnees' <<
 printf 'volumes:\n  - donnees:/data\n' >> apps/hello-world/app.yml
 FIN
 
+# Regression precise : « --save "" » desactive la persistance sur disque de
+# redis/valkey. C'est une chaine VIDE mais EXPLICITEMENT citee, dans une liste
+# en ligne. Un parseur qui nettoie puis filtre les elements vides la perd EN
+# SILENCE — deja arrive une fois, retrouve une seconde fois en deplacant ce
+# lecteur dans lib/socle.sh sans reprendre son dernier correctif.
+genere 'une chaine vide EXPLICITEMENT citee dans command: est preservee' \
+       '"--save", ""]' <<'FIN'
+printf 'services:\n  - name: cache\n    image: valkey/valkey:8-alpine\n    command: ["redis-server", "--save", ""]\n' >> apps/hello-world/app.yml
+FIN
+
 printf '\n-- secrets\n'
 
 refuse "une valeur de secret en clair dans un app.yml est refusee" "secret" <<'FIN'

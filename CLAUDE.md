@@ -41,9 +41,9 @@ journal/       une entrée par branche : les anomalies rencontrées
 memory/        un fichier par sujet sorti du contrat : ce que `--check` tient déjà
 compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
                bloc volumes: si et seulement si un service en monte un
-fabrique.yml   valeurs communes : org, dépôt, registre, domaine, réseau,
-               plafonds, et shared_services
-init.sh        le générateur
+fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, et shared_services
+init.sh        le générateur et le vérificateur ; scripts/ porte les quatre autres
+               métiers (branche.sh, pret.sh, cout.sh, fusionnees.sh), lib/ leur commun
 ```
 
 **Partagé** : la stack, la CI, le réseau, le domaine, `shared_services`,
@@ -59,8 +59,8 @@ ses tests.
 ./init.sh --list                   # état des applications
 ./init.sh --add <nom>              # échafaude apps/<nom>/
 ./init.sh --dry-run                # montre ce qui changerait, sans rien écrire
-./init.sh --branches-fusionnees    # quelles branches distantes peuvent être supprimées
-./init.sh --cout                   # relève les jetons consommés et leur coût, dans le journal
+./scripts/fusionnees.sh            # quelles branches distantes peuvent être supprimées
+./scripts/cout.sh                  # relève les jetons consommés et leur coût, dans le journal
 ```
 
 `--dry-run` n'écrit **rien**, pas même l'`app.yml` qu'un `--enable` modifierait :
@@ -130,8 +130,8 @@ touche `init.sh`, `fabrique.yml`, la CI, le contrat ou l'outillage. Le préfixe 
 quel rayon de souffle est en jeu, avant même d'ouvrir le diff.
 
 ```bash
-./init.sh --branche cadran/fuseaux-multiples
-./init.sh --branche fabrique/garde-fous-git
+./scripts/branche.sh cadran/fuseaux-multiples
+./scripts/branche.sh fabrique/garde-fous-git
 ```
 
 Le nom est validé avant la création : préfixe connu, sujet en minuscules. La branche
@@ -148,10 +148,10 @@ champ `Périmètre` de l'entrée de journal, et nulle part ailleurs. Renseigne-l
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
 
 ```bash
-./init.sh --pret     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
+./scripts/pret.sh     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
 ```
 
-`--pret` ne relance que les apps réellement modifiées depuis la base. Chaque commit
+`pret.sh` ne relance que les apps réellement modifiées depuis la base. Chaque commit
 est ainsi relisable seul et ne casse rien. On pousse à chaque commit ; **la pull
 request vient à la fin**, une fois l'ensemble cohérent. Son corps sert à décider
 s'il faut relire et par où commencer, pas à rendre compte : une phrase, trois à
@@ -159,8 +159,8 @@ cinq puces, ce qui a été vérifié en chiffres — `.github/pull_request_templ
 généré, en donne la forme. Le raisonnement détaillé va dans les **messages de
 commit**, où il survit à la fusion.
 
-**Ce que la branche a coûté se relève avec `./init.sh --cout`**, qui l'écrit dans son
-entrée de journal ; `--pret` le réclame. Non relevé avant la fusion, il est perdu.
+**Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
+entrée de journal ; `pret.sh` le réclame. Non relevé avant la fusion, il est perdu.
 
 Les vocabulaires fermés du journal, les deux agents, les deux garde-fous, le relevé
 de coût et la fin de vie d’une branche : `memory/travail.md`.
