@@ -81,3 +81,23 @@ réels sur `apps/ramure` (palier `google`, collection persistante, choix de
 fournisseur du rôle 1) est une décision de produit, pas un correctif. La
 décision prise sur cette branche est de poursuivre la série ; la note est
 conservée pour que le coût soit connu.
+
+<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
+## Coût
+
+Relevé le 2026-08-05 à 14:01 UTC, sur 1 session(s) lisible(s) depuis
+ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
+claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
+écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
+1 $ = 0,86843 € au 2026-08-04.
+
+| Poste | Jetons | Coût |
+|---|---:|---:|
+| Entrée | 171 | 0,00 $ |
+| Écriture de cache | 369 593 | 2,31 $ |
+| Lecture de cache | 10 228 931 | 5,11 $ |
+| Sortie | 131 334 | 3,28 $ |
+| **Total** | **10 730 029** | **10,71 $ — 9,30 €** |
+
+<!-- cout-total: 10730029 -->
+<!-- /cout -->
