@@ -278,6 +278,16 @@ refuse "une notice desynchronisee est refusee" "apps/cadran/CLAUDE.md desynchron
 printf '\nport: 1\n' >> apps/cadran/CLAUDE.md
 FIN
 
+printf '\n-- outillage\n'
+
+# Le registre des agents est lu au DEMARRAGE de la session : un agent absent
+# du depot ne se remarque qu'a la session suivante, quand quelqu'un l'invoque
+# et n'obtient rien. --check est le seul endroit qui puisse le dire tout de
+# suite.
+refuse "un agent declare mais absent est refuse" "artisan.md absent" <<'FIN'
+rm -f .claude/agents/artisan.md
+FIN
+
 printf '\n-- documents\n'
 
 refuse "un lien mort entre documents est refuse" "lien mort" <<'FIN'
