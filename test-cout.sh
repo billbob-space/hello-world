@@ -197,6 +197,48 @@ $(requete req_1 "$BRANCHE" 0 claude-opus-5 10 5000 0 5)
 $(requete req_2 "$BRANCHE" 0 claude-opus-5 10 100 5000 5)
 FIN
 
+printf '\n-- ce qui est ecrit dans le journal\n'
+
+# Le bloc n'est pas affiche : il est INSERE dans un document que --check
+# verifie. Un titre de niveau 3 y a suffi a faire compter une anomalie de plus
+# que de champs « Detecte par », et donc a rendre le depot entier rouge — la CI
+# de toutes les apps avec lui. Ce cas ecrit pour de vrai, puis relance le
+# contrat.
+ecrit_puis_check() {  # ecrit_puis_check <nom>
+  local nom="$1" d entree sortie code=0
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  entree="$d/journal/2026-01-01-$(printf '%s' "$BRANCHE" | tr '/' '-').md"
+  cat > "$entree" <<'ENTREE'
+# 2026-01-01 — claude/test-cout
+
+Branche : `claude/test-cout`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+ENTREE
+  git -C "$d" add "$entree"
+  git -C "$d" -c user.email=test@local -c user.name=test commit -qm entree
+  ( cd "$d" && HOME="$d/home" ./scripts/cout.sh >/dev/null 2>&1 ) \
+    || { echec "$nom" "cout.sh a echoue"; return 0; }
+  grep -q 'cout-total' "$entree" || { echec "$nom" "le bloc n'a pas ete ecrit dans l'entree"; return 0; }
+  sortie=$( cd "$d" && ./init.sh --check 2>&1 ) || code=$?
+  if [ "$code" != 0 ]; then
+    echec "$nom" "--check refuse le depot apres le releve : $(printf '%s\n' "$sortie" | grep -E 'KO' | head -1)"
+  else
+    reussi "$nom"
+  fi
+}
+
+ecrit_puis_check "le bloc ecrit laisse le contrat vert" <<FIN
+$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 5000 0 5)
+$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 5000 5)
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

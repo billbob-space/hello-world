@@ -334,6 +334,12 @@ tot_j=$(printf '%s\n' "$releve" | awk '$1 == "TOTAL" { print $2 }')
 tot_d=$(printf '%s\n' "$releve" | awk '$1 == "TOTAL" { print $3 }')
 lecture_j=$(printf '%s\n' "$releve" | awk '$1 == "POSTE" && $2 == "lecture" { print $3 }')
 
+# « Ce qui coute » est un paragraphe en gras et NON un titre de niveau 3 : ce
+# bloc vit dans une entree de journal, ou --check denombre les anomalies sur les
+# lignes « ### » et comparerait alors six titres a cinq champs « Detecte par ».
+# Un generateur qui ecrit dans un document verifie se plie a la forme de ce
+# document.
+#
 # Le tableau des postes dit ce que la branche a coute ; il ne dit pas OU agir.
 # Ces quatre lignes-la le disent, et ce sont elles qu'on relit d'une branche a
 # l'autre : le demarrage est un cout FIXE paye a chaque echange — donc le seul
@@ -374,7 +380,7 @@ ${modeles:-aucun}. Tarifs de \`fabrique.yml\`, en dollars par million de jetons 
 |---|---:|---:|
 $lignes| **Total** | **$(cout_nb "$tot_j")** | **$(cout_montant "$tot_d" "$taux")** |
 
-### Ce qui coûte
+**Ce qui coûte**
 
 - **$echanges appel(s) au modèle** — un par réponse, outils compris —, $side_txt.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
