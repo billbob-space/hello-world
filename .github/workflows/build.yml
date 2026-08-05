@@ -37,11 +37,17 @@ jobs:
   # part laisse passer une faute dans toutes les apps a la fois. Job separe et
   # non etape du job contrat : chaque cas recopie le depot et relance --check,
   # les deux jobs durent donc autant l'un que l'autre et tournent en parallele.
-  tests-du-generateur:
+  #
+  # cout.sh a rejoint init.sh ici pour la raison inverse et symetrique : il ne
+  # casse rien quand il se trompe, il MENT — un total faux ressemble trait pour
+  # trait a un total juste, et le sien l'etait d'un facteur deux pendant huit
+  # entrees de journal sans que rien ne l'attrape.
+  tests-de-l-outillage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: ./test-init.sh
+      - run: ./test-cout.sh
 
   detect:
     runs-on: ubuntu-latest
@@ -151,7 +157,7 @@ jobs:
 
   # Une matrice vide fait echouer le job : d'ou le garde sur '[]'.
   test:
-    needs: [contrat, tests-du-generateur, detect]
+    needs: [contrat, tests-de-l-outillage, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     strategy:
@@ -168,7 +174,7 @@ jobs:
         run: ./apps/${{ matrix.app }}/test.sh
 
   build:
-    needs: [contrat, tests-du-generateur, detect, test]
+    needs: [contrat, tests-de-l-outillage, detect, test]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     permissions:
@@ -277,7 +283,7 @@ jobs:
           fi
 
   deploy:
-    needs: [contrat, tests-du-generateur, detect, test, build]
+    needs: [contrat, tests-de-l-outillage, detect, test, build]
     # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
     # reconstruire, mais le compose a change) doit laisser passer, un build en
     # echec doit bloquer. Sinon un commit a moitie construit referencerait une

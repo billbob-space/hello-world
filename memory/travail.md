@@ -6,7 +6,8 @@ branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
 fermés par anomalie, présence des trois agents ; pret.sh — relevé de coût manquant ou
 périmé, en avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
-`garde-commit.sh` refuse un arbre sale
+`garde-commit.sh` refuse un arbre sale ; test-cout.sh — le relevé rend un nombre
+qu'aucune relecture ne vérifie à l'œil, dix cas le tiennent
 
 ## La fin de vie d'une branche ne t'appartient pas
 
@@ -135,6 +136,25 @@ commentaires markdown et remplacé en place à chaque relance. Il porte les quat
 postes — entrée, écriture de cache, lecture de cache, sortie — parce qu'ils ne se
 facturent pas au même prix, et un total en dollars et en euros.
 
+**Un total ne dit pas où agir**, et c'était la limite du bloc jusqu'à ce qu'on la
+rencontre : trois chiffres de plus s'y ajoutent, sous « Ce qui coûte ».
+
+| Ce qu'il dit | Ce qu'on en fait |
+|---|---|
+| appels au modèle, dont ceux des **sous-agents** | savoir ce que coûte le geste « je lance un agent », qui n'avait pas de prix |
+| poids du **démarrage** — contrat, outillage, définitions d'outils — et sa part de la relecture | il est écrit une fois par session puis **relu à chaque appel** : mesuré entre la moitié et 80 % de toute la relecture, dont le contrat du dépôt ne fait que 7 %. C'est le seul poste qu'on réduise en élaguant l'outillage plutôt qu'en travaillant moins |
+| **croissance** de la relecture, du premier au dernier appel | dit à partir de quand une session devrait être coupée en deux |
+
+Et le bloc porte `cout-detail` : **un appel par ligne** — rang, agent, modèle,
+écriture, lecture, sortie. Compact et illisible à dessein, son lecteur est un
+outil. C'est la seule donnée qui survive au conteneur : un total ne se recalcule
+pas, une suite d'appels si — à d'autres tarifs, ou sous un autre angle.
+
+**Les relevés antérieurs au 2026-08-05 sont faux**, gonflés d'un facteur voisin
+de deux, et le resteront : le fichier de conversation qui permettrait de les
+recalculer n'existe plus. Ils se reconnaissent à l'absence de section « Ce qui
+coûte ». Ne les compare pas aux suivants.
+
 | Ce qui est lu | Où | Pourquoi là |
 |---|---|---|
 | jetons consommés | fichier de conversation du conteneur | seule source, éphémère |
@@ -151,7 +171,10 @@ perdu le sien pour de bon.
 Quatre limites, toutes dites par la commande elle-même :
 
 - il ne voit que les sessions **du conteneur courant** — celles d'un conteneur
-  précédent sont perdues, et le bloc écrit combien il en a lues ;
+  précédent sont perdues, et le bloc écrit combien il en a lues. Un conteneur
+  voit en revanche **plusieurs branches** : celles qui ne sont pas la branche
+  courante sont écartées du total et comptées à part, sans quoi la dernière
+  relevée hérite du travail de toutes les autres ;
 - un modèle absent de `tarifs` est compté en jetons mais **pas en argent** ;
 - au-delà de quatre-vingt-dix jours, le taux de change est signalé comme vieux ;
 - c'est un **prix d'API, pas une facture** : sous abonnement, rien n'est refacturé
