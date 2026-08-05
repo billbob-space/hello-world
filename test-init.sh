@@ -112,6 +112,30 @@ genere() {  # genere <nom> <ligne attendue>
   fi
 }
 
+# genere_dans <nom> <chemin> <ligne attendue> — comme genere, mais regarde un
+# artefact quelconque plutot que compose.yaml. La notice de contexte d'une
+# application est un artefact derive comme les autres, et ce qu'elle DIT est
+# precisement ce qu'aucun refus n'attrape : une notice coherente avec
+# elle-meme mais qui traduit mal un palier d'exposition passerait tous les
+# controles en trompant le seul lecteur qu'elle ait.
+genere_dans() {  # genere_dans <nom> <chemin> <ligne attendue>
+  local nom="$1" chemin="$2" attendu="$3" d code=0
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  bash -c "cd '$d' && $(cat)" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  ( cd "$d" && ./init.sh >/dev/null 2>&1 ) || code=$?
+  if [ "$code" != 0 ]; then
+    echec "$nom" "la generation a echoue (sortie $code) sur un manifeste pourtant valide"
+  elif [ ! -f "$d/$chemin" ]; then
+    echec "$nom" "$chemin n'a pas ete ecrit"
+  elif ! grep -qF -- "$attendu" "$d/$chemin"; then
+    echec "$nom" "$chemin ne porte pas « $attendu »"
+    sed 's/^/      /' "$d/$chemin" | head -8
+  else
+    reussi "$nom"
+  fi
+}
+
 # accepte <nom> — le temoin : le bac intact doit passer le contrat.
 accepte() {  # accepte <nom>
   local nom="$1" d sortie code=0
@@ -213,6 +237,45 @@ FIN
 
 refuse "un compose absent est refuse" "compose" <<'FIN'
 rm -f compose.yaml
+FIN
+
+printf '\n-- notice de contexte\n'
+
+# La notice n'existe que pour etre lue par un agent qui ne lira rien d'autre.
+# Ce qu'elle dit du palier d'exposition est donc la seule chose qui separera
+# « des donnees personnelles derriere une liste blanche » de « ouvert a tout
+# internet ». Elle porte la traduction en clair, pas le nom du middleware :
+# « forwardauth-open » et « public » se ressemblent et ne garantissent pas la
+# meme chose. La mutation est « true » — on ne casse rien, on regarde ce que
+# le generateur ECRIT sur un depot sain.
+genere_dans "notice : le palier d'exposition est traduit en clair" \
+            apps/cadran/CLAUDE.md "uniquement les comptes de la liste blanche" <<'FIN'
+true
+FIN
+
+# L'URL se compose du nom du repertoire et du domaine de fabrique.yml. Une
+# notice qui la figerait cesserait d'etre vraie au premier changement de
+# domaine, sans que rien ne le signale.
+genere_dans "notice : l'URL est composee du nom et du domaine" \
+            apps/cadran/CLAUDE.md "https://cadran.apps.billbob.ovh" <<'FIN'
+true
+FIN
+
+# discover_apps ecarte un repertoire sans app.yml — il n'entre pas dans le
+# compose, et c'est juste. Mais c'est precisement une app dont le code n'est
+# pas encore ecrit, donc celle ou un agent va le plus ecrire, donc celle ou le
+# bornage sert le plus. Elle recoit une notice degradee.
+genere_dans "notice : une app sans app.yml en recoit une, degradee" \
+            apps/ramure-v2/CLAUDE.md "le manifeste reste a ecrire" <<'FIN'
+true
+FIN
+
+refuse "une notice absente est refusee" "apps/cadran/CLAUDE.md absent" <<'FIN'
+rm -f apps/cadran/CLAUDE.md
+FIN
+
+refuse "une notice desynchronisee est refusee" "apps/cadran/CLAUDE.md desynchronise" <<'FIN'
+printf '\nport: 1\n' >> apps/cadran/CLAUDE.md
 FIN
 
 printf '\n-- documents\n'

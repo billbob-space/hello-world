@@ -1338,14 +1338,172 @@ EOF
 
 # --- artefacts derives ----------------------------------------------------------
 
+# La notice de contexte d'une application — apps/<nom>/CLAUDE.md.
+#
+# POURQUOI CE NOM DE FICHIER. L'outillage charge un CLAUDE.md de sous-repertoire
+# au moment ou un fichier de ce repertoire est lu ou modifie, et seulement
+# alors. C'est exactement la propriete cherchee : la notice de cadran ne pese
+# rien tant qu'on travaille sur ardoise. Aucun autre nom ne l'obtient — un
+# README n'est lu que si quelqu'un pense a l'ouvrir.
+#
+# POURQUOI GENEREE. Elle ne dit rien qui ne soit deja decide dans app.yml et
+# fabrique.yml. Ecrite a la main, elle serait un troisieme document d'app a
+# tenir a jour, et le premier a vieillir en silence. Generee, elle ne coute
+# rien et --check refuse qu'elle derive.
+#
+# DEUX CONTRAINTES QUE --check IMPOSE A SON CONTENU, et qui expliquent sa forme :
+# aucun lien markdown — le controle de liens morts lit apps/*/*.md, et
+# marcq-handball comme ramure-v2 n'ont pas tous leurs documents — d'ou des
+# chemins entre apostrophes inverses ; et aucun titre de niveau 2 en double.
+#
+# Les blocs statiques sont en heredoc QUOTE, les lignes variables en printf :
+# un heredoc non quote interpreterait les apostrophes inverses du markdown
+# comme des substitutions de commande.
+emit_notice() {  # emit_notice <app> — suppose load_app deja appele si le manifeste existe
+  local a="$1" d="apps/$1" qui n i nom vol
+
+  printf '# %s — notice de contexte\n\n' "$a"
+  if [ -f "$d/app.yml" ]; then
+    printf '<!-- GENERE par ./init.sh depuis %s/app.yml et fabrique.yml.\n' "$d"
+  else
+    printf '<!-- GENERE par ./init.sh. Cette app n a pas encore de manifeste.\n'
+  fi
+  printf "     Ne l'edite pas : --check refuse une notice qui a derive. -->\n\n"
+
+  printf '## Ton perimetre\n\n'
+  printf 'Tu travailles dans `%s/` et nulle part ailleurs. Si ton changement demande\n' "$d"
+  cat <<'FIN'
+de toucher `compose.yaml`, `fabrique.yml`, `init.sh`, `scripts/`, `lib/`,
+`.github/`, `.claude/` ou une autre application, arrete-toi et dis ce qu'il
+faudrait changer, sans le faire : une seule stack se deploie d'un bloc, et une
+erreur ici casse le deploiement de toutes les autres applications.
+
+FIN
+
+  printf '## Ce que tu ecris\n\n'
+  if [ ! -f "$d/app.yml" ]; then
+    # Version degradee : une app dont le code n'est pas encore ecrit. Cas
+    # legitime que le contrat prevoit, et surtout celui ou le plus de code
+    # reste a ecrire — donc celui ou le bornage sert le plus.
+    printf "Cette application n'a pas encore de manifeste : le manifeste reste a ecrire.\n"
+    printf 'Son nom — donc son sous-domaine, son conteneur et sa route — sera `%s`.\n' "$a"
+    printf 'Echafaude-le avec `./init.sh --add %s`, puis relance `./init.sh`.\n\n' "$a"
+  else
+    case "$A_EXPOSURE" in
+      private) qui="uniquement les comptes de la liste blanche du serveur" ;;
+      google)  qui="n'importe quel compte Google authentifie" ;;
+      public)  qui="tout le monde, sans authentification" ;;
+    esac
+    printf -- '- Nom : `%s` — c'"'"'est aussi son sous-domaine, son conteneur et sa route.\n' "$a"
+    printf -- '- URL : https://%s.%s\n' "$a" "$DOMAIN"
+    printf -- '- Qui entre : %s (`exposure: %s`).\n' "$qui" "$A_EXPOSURE"
+    if [ "$A_ENABLED" = true ]; then
+      printf -- '- Deployee : oui.\n\n'
+    else
+      printf -- '- Deployee : pas encore — son bloc n'"'"'entre pas dans `compose.yaml`.\n\n'
+    fi
+
+    printf '## Comment elle tourne\n\n'
+    printf -- '- Technologie : `%s`\n' "$A_STACK"
+    printf -- '- Port : `%s`\n' "$A_PORT"
+    printf -- '- Memoire : `%s`\n' "$A_MEMORY"
+    if [ "$A_HEALTH_CMD" = none ]; then
+      printf -- '- Healthcheck : aucun.\n\n'
+    else
+      printf -- '- Healthcheck : `%s` — `%s`\n\n' "$A_HEALTH_PATH" "$A_HEALTH_CMD"
+    fi
+
+    # Section entiere omise quand l'app ne garde rien : une rubrique vide se lit
+    # comme une rubrique oubliee.
+    n=$(map_count "$A_SERVICES")
+    if [ "${#A_VOL_NOMS[@]}" -gt 0 ] || [ "$n" -gt 0 ] \
+       || [ "${#A_NEEDS[@]}" -gt 0 ] || [ "${#A_ENV[@]}" -gt 0 ]; then
+      printf "## Ce qu'elle garde\n\n"
+      for i in "${!A_VOL_NOMS[@]}"; do
+        printf -- '- Volume `%s`, monte sur `%s` — il survit au redeploiement.\n' \
+                  "${A_VOL_NOMS[$i]}" "${A_VOL_CHEMINS[$i]}"
+      done
+      for (( i = 0; i < n; i++ )); do
+        nom=$(map_one "$A_SERVICES" "$i" name)
+        [ -n "$nom" ] || continue
+        printf -- '- Service annexe `%s-%s` (`%s`) — prive, sans URL.\n' \
+                  "$a" "$nom" "$(map_one "$A_SERVICES" "$i" image)"
+        # Le volume d'un service annexe appartient a l'APP : son nom reel est
+        # prefixe par elle. C'est celui-la qui se sauvegarde, et le taire
+        # laisserait croire que l'app ne garde rien.
+        while IFS= read -r vol; do
+          [ -n "$vol" ] || continue
+          printf -- '  - Volume `%s-%s`, monte sur `%s` — il survit au redeploiement.\n' \
+                    "$a" "${vol%%:*}" "$(printf '%s' "${vol#*:}" | cut -d: -f1)"
+        done < <(map_all "$A_SERVICES" "$i" volumes)
+      done
+      for nom in "${A_NEEDS[@]}"; do
+        [ -n "$nom" ] || continue
+        printf -- '- Depend de `%s`, service partage de la fabrique — un exemplaire pour toutes les apps.\n' "$nom"
+      done
+      for nom in "${A_ENV[@]}"; do
+        [ -n "$nom" ] || continue
+        printf -- '- Attend le secret `%s` : le NOM est dans le depot, la VALEUR est injectee par l'"'"'infrastructure.\n' "$nom"
+      done
+      printf '\n'
+    fi
+  fi
+
+  if [ -f "$d/test.sh" ]; then
+    printf '## Comment la tester\n\n'
+    printf '    ./%s/test.sh\n\n' "$d"
+  fi
+
+  if [ -f "$d/PRODUCT.md" ] || [ -f "$d/README.md" ] || [ -d "$d/prp" ]; then
+    printf '## Ses documents\n\n'
+    [ -f "$d/PRODUCT.md" ] && printf -- '- `%s/PRODUCT.md` — la fiche produit, puis les exigences.\n' "$d"
+    [ -f "$d/README.md" ]  && printf -- '- `%s/README.md` — le mode d'"'"'emploi technique.\n' "$d"
+    [ -d "$d/prp" ]        && printf -- '- `%s/prp/` — les documents d'"'"'implementation.\n' "$d"
+    printf '\n'
+  fi
+
+  cat <<'FIN'
+## Les regles qui s'appliquent a son image
+
+Dockerfile multi-etapes, image sous 200 Mo, utilisateur non root, aucun port
+publie, aucun secret, aucun label traefik, les logs sur la sortie standard, et
+l'app demarre sans intervention. Le detail : `memory/regles-imperatives.md`.
+FIN
+}
+
 emit() {  # emit <chemin> — ecrit sur stdout l'artefact attendu pour ce chemin
+  local a
   case "$1" in
     compose.yaml) emit_compose ;;
     go.work)      emit_gowork ;;
+    apps/*/CLAUDE.md)
+      a=$(basename "$(dirname "$1")")
+      [ -f "apps/$a/app.yml" ] && load_app "$a"
+      emit_notice "$a" ;;
   esac
 }
 
-DERIVES=(compose.yaml go.work)
+# La liste des artefacts derives est une FONCTION et non un tableau : elle
+# depend desormais des applications, qui ne sont connues qu'apres
+# discover_apps. Ses trois consommateurs — l'ecriture, l'apercu --dry-run et la
+# comparaison de --check — la parcourent a l'identique, ce qui donne a la
+# notice les trois comportements d'un coup.
+liste_derives() {  # un chemin d'artefact par ligne, ordre fige
+  printf '%s\n' compose.yaml go.work
+  # repertoires_apps et non APPS : une app sans app.yml est ecartee du compose
+  # mais recoit quand meme sa notice.
+  local a
+  while IFS= read -r a; do
+    [ -n "$a" ] && printf 'apps/%s/CLAUDE.md\n' "$a"
+  done < <(repertoires_apps)
+}
+
+repertoires_apps() {  # tout repertoire de apps/, avec ou sans manifeste
+  local d
+  while IFS= read -r d; do
+    [ -n "$d" ] && basename "$d"
+  done < <(LC_ALL=C find apps -mindepth 1 -maxdepth 1 -type d 2>/dev/null | LC_ALL=C sort)
+}
 
 # --- --add ----------------------------------------------------------------------
 
@@ -1996,7 +2154,7 @@ check_artefacts() {
   if [ "$nprobs" -gt 0 ]; then
     warn "comparaison sautee : les manifestes ci-dessus doivent d'abord etre corriges"
   else
-  for f in "${DERIVES[@]}"; do
+  while IFS= read -r f; do
     if [ "$f" = go.work ] && ! emit go.work >/dev/null 2>&1; then
       [ -f go.work ] && bad "go.work present mais aucune app Go" || ok "go.work sans objet"
       continue
@@ -2008,7 +2166,7 @@ check_artefacts() {
     else
       bad "$f desynchronise des manifestes — lance ./init.sh (--dry-run pour voir l'ecart)"
     fi
-  done
+  done < <(liste_derives)
   fi
 
   # Le workflow n'est plus compare a un generateur : il verifie a la place
@@ -2590,7 +2748,7 @@ fi
 echo "Fabrique $ORG/$REPO — ${#APPS[@]} application(s)"
 
 if [ "$DRYRUN" = 1 ]; then
-  for f in "${DERIVES[@]}"; do
+  while IFS= read -r f; do
     if [ "$f" = go.work ] && ! emit go.work >/dev/null 2>&1; then continue; fi
     if [ ! -f "$f" ]; then
       warn "$f serait cree"
@@ -2600,7 +2758,7 @@ if [ "$DRYRUN" = 1 ]; then
       warn "$f changerait :"
       diff -u "$f" <(emit "$f") | sed 's/^/    /' || true
     fi
-  done
+  done < <(liste_derives)
   exit 0
 fi
 
@@ -2611,7 +2769,7 @@ done
 
 # Les artefacts derives sont toujours reecrits : c'est ce qui garantit qu'une
 # app ajoutee ne peut pas manquer du compose ni de la CI.
-for f in "${DERIVES[@]}"; do
+while IFS= read -r f; do
   if [ "$f" = go.work ]; then
     if emit go.work > /tmp/.gowork.$$ 2>/dev/null && [ -s /tmp/.gowork.$$ ]; then
       mv /tmp/.gowork.$$ go.work; ok go.work
@@ -2627,7 +2785,7 @@ for f in "${DERIVES[@]}"; do
   emit "$f" > "$tmp"
   mv "$tmp" "$f"
   ok "$f"
-done
+done < <(liste_derives)
 chmod +x .claude/check-plugins.sh .claude/garde-branche.sh .claude/garde-commit.sh
 
 IGNORES=('.claude/settings.local.json' '.env' '.env.*' '*.log')
