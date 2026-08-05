@@ -4,7 +4,7 @@
 > `superpowers:subagent-driven-development` ou `superpowers:executing-plans`.
 >
 > **Ossature :** `apps/marcq-handball/prp/00-ossature.md` — lu avant de commencer.
-> **PRD :** `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`
+> **PRD :** `apps/marcq-handball/PRODUCT.md`
 
 | | |
 |---|---|
@@ -579,7 +579,7 @@ Le montage entoure `CONSENTEMENT.fort` d'un `<strong>` à l'intérieur de
 `avertissement`, et `parent` d'un `<strong>` entier — c'est le gras du PRD.
 
 **Le test qui rend cette exigence tenable** lit
-`../../../docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`, extrait le
+`../PRODUCT.md`, extrait le
 bloc de citation de §7.4, et le compare aux constantes après **trois
 normalisations, et pas une de plus** : les apostrophes `'` deviennent `’` (le
 PRD est écrit en ASCII, l'interface en typographie française, comme

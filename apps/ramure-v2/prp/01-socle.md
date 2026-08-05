@@ -7,8 +7,8 @@
 > se teste — et **n'est pas encore dans la stack**.
 >
 > **Ce PRP consomme** : rien. C'est le premier de la série. Ses seules entrées
-> sont le contrat de déploiement (`../../../../CLAUDE.md`), l'index de la série
-> ([README.md](README.md)) et le PRD ([PRODUCT.md](../../../../apps/ramure/PRODUCT.md)),
+> sont le contrat de déploiement (`../../../CLAUDE.md`), l'index de la série
+> ([README.md](README.md)) et le PRD ([PRODUCT.md](../../ramure/PRODUCT.md)),
 > déjà dans le dépôt : ramure-v2 en est une réécriture, pas un produit distinct.
 >
 > **Ce PRP produit**, et c'est ce dont les huit PRP suivants dépendent :
@@ -1411,7 +1411,7 @@ dans cette fabrique, et il n'y a pas de système de comptes à coder ici.
 
 Le produit complet est décrit par [PRODUCT.md](PRODUCT.md) ; la série de plans
 qui le construit est dans
-[docs/superpowers/plans/ramure-v2/](../../docs/superpowers/plans/ramure-v2/README.md).
+[prp/](prp/README.md).
 
 ## État
 

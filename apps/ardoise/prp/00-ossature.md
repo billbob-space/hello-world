@@ -3,7 +3,7 @@
 > Contrat technique partagé par les quatre PRP. Tout PRP le lit avant de
 > commencer et n'invente aucun nom qui n'y figure pas.
 >
-> **Source produit :** [`docs/superpowers/specs/2026-08-04-ardoise-prd.md`](../../../docs/superpowers/specs/2026-08-04-ardoise-prd.md)
+> **Source produit :** [`PRODUCT.md`](../PRODUCT.md)
 > — le PRD tranche le *quoi* et le *pourquoi*. Ce fichier tranche le *où* et le
 > *comment nommer*. En cas de désaccord, le PRD gagne et ce fichier est corrigé.
 

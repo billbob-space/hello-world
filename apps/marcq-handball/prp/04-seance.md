@@ -5,7 +5,7 @@
 > Les étapes sont des cases à cocher.
 >
 > **Ossature :** `apps/marcq-handball/prp/00-ossature.md` — lu avant de commencer.
-> **PRD :** `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`
+> **PRD :** `apps/marcq-handball/PRODUCT.md`
 
 | | |
 |---|---|

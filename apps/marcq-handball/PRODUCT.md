@@ -1,4 +1,72 @@
-# PRD — Marcq Handball U15 : le programme d'été
+# Product — marcq-handball
+
+<!-- impeccable:product-schema 1 -->
+
+## Users
+
+**L'enfant de 13-14 ans** est l'utilisateur principal et le seul dont
+l'engagement décide du succès. Il ouvre l'app sur son téléphone, dehors,
+parfois en 4G, entre deux séries. Il n'a pas nécessairement de compte Google ni
+d'adresse à lui, et il abandonnera à la deuxième friction.
+
+**Le parent** est un utilisateur de substitution : c'est lui qui doit être en
+position de décider si quelque chose de son enfant part sur un serveur.
+
+**Le coach** est un lecteur, pas un contributeur. Ce qu'il veut savoir le
+20 août : dans quel état il récupère son groupe.
+
+## Product Purpose
+
+Le coach a envoyé son programme d'avant-reprise dans une note de téléphone :
+trois pages, sept séances du 3 au 21 août. Un document envoyé une fois ne dit
+ni où on en est, ni ce qu'il y a à faire aujourd'hui, ne récompense rien, et
+n'apprend à personne qui s'entraîne réellement. L'application n'ajoute aucun
+contenu : elle transforme ce texte en un parcours qui se coche, se mesure et se
+compare.
+
+## Capabilities and Constraints
+
+- Aucun compte, aucun mot de passe, aucune installation. Un lien qui s'ouvre.
+- Le prénom de l'enfant ne quitte jamais son appareil. Le serveur ne le connaît
+  pas.
+- Le programme vit dans un fichier de données éditable, séparé du code : le
+  modifier ne demande pas de toucher au code, et les totaux affichés en sont
+  recalculés.
+- Le passé se corrige, l'avenir ne se coche pas.
+- Les jours sans séance sont du repos, pas un trou.
+- L'app reste utilisable réseau coupé ; seul le classement demande le réseau, et
+  son absence n'empêche jamais de s'entraîner.
+- Mobile d'abord : zones de tap larges, contraste lisible en plein soleil,
+  aucune interaction dépendant du survol, `prefers-reduced-motion` respecté.
+- Hors périmètre, décidé et non oublié : édition du programme depuis l'app,
+  chronomètre, vidéos, messagerie, notifications, saisie du nombre réellement
+  effectué, historique multi-saisons.
+
+## Product Principles
+
+**Par défaut, rien ne quitte le téléphone.** L'URL est publique et finira par
+être trouvée : tout ce qui est envoyé au serveur doit être considéré comme
+lisible par tous. Ce qui part se limite à ce que l'enfant a explicitement
+choisi d'exposer, sous le nom qu'il a choisi.
+
+**Le système est déclaratif, et assumé comme tel.** Cocher les 15 pompes vaut
+déclaration de 15 pompes. Une équipe de gamins qui se connaissent : la triche
+se voit au vestiaire.
+
+**L'animation est une récompense, jamais un péage.** Elle vient après l'action,
+ne retarde aucun tap, et ne s'interpose jamais entre l'enfant et la case
+suivante.
+
+**Le ton tutoie sans infantiliser.** Ce sont des joueurs de U15. Pas de
+mascotte, pas de badge à collectionner, pas de vocabulaire de coach américain.
+
+---
+
+## PRD — Marcq Handball U15 : le programme d'été
+
+> Le PRD validé, rapatrié ici : un document par app, dans le répertoire de
+> l'app. Les PRP de [`prp/`](prp/README.md) citent ses numéros de section
+> (« §7.4 », « §12.1 ») — ils ne bougent pas.
 
 | | |
 |---|---|
@@ -11,14 +79,14 @@
 
 ---
 
-## 1. En une phrase
+### 1. En une phrase
 
 Une page web que les ados de 13-14 ans d'une équipe ouvrent sans compte, sans
 installation et sans mot de passe, pour cocher les exercices du programme
 d'été de leur coach, voir leur progression, et se comparer aux autres s'ils
 le veulent bien.
 
-## 2. Le problème
+### 2. Le problème
 
 Le coach a envoyé le programme d'avant-reprise dans une note de téléphone :
 trois pages de texte, sept séances réparties du 3 au 21 août, avant le retour
@@ -36,7 +104,7 @@ rythme, l'écart entre le programme envoyé et le programme fait est le vrai
 sujet. L'application n'ajoute pas de contenu : elle transforme un texte en
 un parcours qui se coche, se mesure et se compare.
 
-## 3. Utilisateurs
+### 3. Utilisateurs
 
 **L'enfant (13-14 ans)** est l'utilisateur principal et le seul dont
 l'engagement décide du succès. Il ouvre l'app sur son téléphone, souvent
@@ -51,7 +119,7 @@ de décider si le prénom de son enfant part sur un serveur.
 le programme lui appartient mais il l'a déjà écrit. Ce qu'il veut savoir le
 20 août : dans quel état il récupère son groupe.
 
-## 4. Objectifs et mesures de succès
+### 4. Objectifs et mesures de succès
 
 | Objectif | Mesure | Cible |
 |---|---|---|
@@ -69,7 +137,7 @@ n'affiche un total d'équipe, aucune cible n'est exprimée en nombre absolu, et
 rien ne suppose que tout le monde participe. Une équipe de dix comme de vingt
 doit fonctionner sans changer une ligne.
 
-## 5. Le principe directeur : par défaut, rien ne quitte le téléphone
+### 5. Le principe directeur : par défaut, rien ne quitte le téléphone
 
 L'application est **publique** — accessible sans compte, sans authentification,
 par n'importe qui. C'est un choix assumé : aucune famille ne doit être bloquée
@@ -96,9 +164,9 @@ publierait à l'adresse d'un club nommé la liste des prénoms des mineurs d'une
 équipe identifiable, avec leur activité jour par jour. Avec elle, ce que
 l'application expose au pire est une liste de pseudonymes et de pourcentages.
 
-## 6. Périmètre
+### 6. Périmètre
 
-### Lot 1 — à mettre en ligne sous 48 h
+#### Lot 1 — à mettre en ligne sous 48 h
 
 Le programme a commencé le 3 août. Chaque jour de retard est une séance perdue
 pour de bon. Le lot 1 est ce qui doit exister pour que l'app serve dès la
@@ -116,7 +184,7 @@ première semaine :
 6. **Persistance locale** : tout est retrouvé à la réouverture, sans compte.
 7. **Animations de récompense** sur la validation d'un exercice et d'une séance.
 
-### Lot 2 — dès que le lot 1 est en ligne
+#### Lot 2 — dès que le lot 1 est en ligne
 
 8. **Consentement et opt-in au classement**, avec choix du pseudonyme.
 9. **Classement de l'équipe** : podium des trois premiers pseudonymes, et sa
@@ -124,12 +192,12 @@ première semaine :
 10. **Ressenti de fin de séance** : trois émojis, un tap.
 11. **Vue coach** : état agrégé du groupe.
 
-### Lot 3 — avant le 21 août
+#### Lot 3 — avant le 21 août
 
 12. **Écran de bilan** : au-delà du 21 août, l'app bascule sur le récapitulatif
     de ce qui a été accompli, au lieu de rester figée sur un programme terminé.
 
-### Hors périmètre — décidé, pas oublié
+#### Hors périmètre — décidé, pas oublié
 
 - Édition du programme par le coach depuis l'application.
 - Chronomètre, minuteur de série, décompte de repos.
@@ -139,9 +207,9 @@ première semaine :
 - Saisie du nombre réellement effectué (voir § 13).
 - Historique multi-saisons, comptes durables.
 
-## 7. Parcours
+### 7. Parcours
 
-### 7.1 Premier lancement
+#### 7.1 Premier lancement
 
 L'enfant ouvre le lien reçu sur le groupe de l'équipe. Une seule chose lui est
 demandée : **son prénom**. Un champ, un bouton. Pas de mot de passe, pas
@@ -153,7 +221,7 @@ suspecte.
 
 Il arrive directement sur l'écran du jour.
 
-### 7.2 Retour
+#### 7.2 Retour
 
 L'app le reconnaît et l'accueille par son prénom. Aucune étape intermédiaire :
 ouvrir le lien, c'est être dans le programme.
@@ -163,7 +231,7 @@ Depuis les réglages, il peut **corriger son prénom** (faute de frappe) ou
 distincts : le premier garde la progression, le second repart à zéro et le dit
 clairement avant d'agir.
 
-### 7.3 Faire une séance
+#### 7.3 Faire une séance
 
 L'écran de séance montre **la liste complète**, pas un exercice à la fois : à
 13 ans on veut savoir ce qui reste avant de commencer. Chaque ligne est une
@@ -181,7 +249,7 @@ Quand le dernier exercice est coché, la séance se valide : animation de
 récompense, et le ressenti est proposé (lot 2) — trois émojis, facile /
 correct / dur, un seul tap, jamais obligatoire.
 
-### 7.4 Rejoindre le classement — l'écran de consentement
+#### 7.4 Rejoindre le classement — l'écran de consentement
 
 Le classement n'est **pas actif par défaut**. L'écran de stats affiche la
 position de l'enfant parmi les participants, et un bouton : *« Apparaître au
@@ -214,7 +282,7 @@ n'y en a pas sur le serveur.
 « Non merci » est un choix complet, pas une punition : il continue à voir sa
 position et la progression du groupe.
 
-### 7.5 Regarder les stats
+#### 7.5 Regarder les stats
 
 Deux niveaux, dans cet ordre :
 
@@ -231,14 +299,14 @@ Deux niveaux, dans cet ordre :
 - **progression du groupe** : une jauge collective, la seule mesure où personne
   n'est dernier.
 
-### 7.6 Le coach
+#### 7.6 Le coach
 
 Une page accessible depuis un lien, montrant **exactement ce qui est déjà
 public** : classement des pseudonymes, progression du groupe, répartition des
 ressentis. Elle n'expose rien de plus que la page de stats — c'est ce qui rend
 son absence de protection acceptable (voir § 13, décision écartée).
 
-## 8. Le programme
+### 8. Le programme
 
 Sept séances, du 3 au 21 août 2026, telles que le coach les a écrites. Le
 découpage en semaines et le rangement du lundi 17 sous « Semaine 2 » sont les
@@ -248,7 +316,7 @@ Le programme vit dans un **fichier de données éditable**, séparé du code, li
 avec l'application. Le modifier ne doit pas demander de toucher au code ; il
 doit rester réutilisable la saison suivante.
 
-### Semaine 1
+#### Semaine 1
 
 **Lundi 3 août — Endurance + Renforcement**
 - Course : 30 minutes de footing à allure confortable
@@ -270,7 +338,7 @@ doit rester réutilisable la saison suivante.
 - Renforcement, **3 tours** : 12 pompes · 15 squats sautés · 12 fentes sautées
   par jambe · 45 s chaise contre un mur · 1 min gainage
 
-### Semaine 2
+#### Semaine 2
 
 **Lundi 10 août — Endurance active**
 - Course : 20 minutes de footing
@@ -299,7 +367,7 @@ doit rester réutilisable la saison suivante.
 - Renforcement, **2 tours** : 20 squats · 15 pompes · 20 fentes · 15 burpees ·
   25 crunchs · 1 min gainage
 
-### Ordres de grandeur
+#### Ordres de grandeur
 
 Environ **53 exercices cochables** sur les sept séances. Volume total prescrit,
 tours compris : **226 pompes**, **345 squats** toutes variantes, **105
@@ -311,7 +379,7 @@ que les chiffres affichés sont parlants pour un ado. L'implémentation doit les
 **recalculer depuis le fichier de données**, jamais les recopier : un programme
 modifié doit changer les totaux sans intervention.
 
-## 9. Règles métier
+### 9. Règles métier
 
 **Ce qu'est un exercice « fait ».** Une case cochée, rien de plus. L'enfant ne
 saisit pas ce qu'il a réellement effectué : cocher les 15 pompes vaut
@@ -354,7 +422,7 @@ est figé, plus rien n'est cochable, et chacun voit ce qu'il a accompli sur les
 trois semaines. Une app qui reste bloquée sur un programme terminé meurt en
 silence le 22.
 
-## 10. Le fun, et où il doit être
+### 10. Le fun, et où il doit être
 
 L'application doit être plaisante à ouvrir. Mais l'animation est une récompense,
 jamais un péage : elle vient **après** l'action, ne retarde aucun tap, et ne
@@ -378,7 +446,7 @@ Le ton est direct et tutoie, sans infantiliser des joueurs de 13-14 ans : ils
 sont en U15, pas à l'école des poussins. Pas de mascotte, pas de badge à
 collectionner, pas de vocabulaire de coach américain.
 
-## 11. Contraintes
+### 11. Contraintes
 
 **Mobile d'abord, et sérieusement.** L'app est ouverte sur un téléphone, en
 extérieur, en 4G, parfois en plein soleil. Zones de tap larges, contraste
@@ -409,7 +477,7 @@ sont déclarés dans le `README`, jamais leurs valeurs.
 **Démarrage sans intervention** : ni migration manuelle, ni fichier à créer à la
 main, ni question interactive.
 
-## 12. Dépendances et prérequis de mise en ligne
+### 12. Dépendances et prérequis de mise en ligne
 
 Trois points relèvent de l'infrastructure et non du produit. Ils doivent être
 tranchés avant la mise en ligne du lot 2 — le lot 1, entièrement local,
@@ -430,7 +498,7 @@ n'en dépend pas.
    la troisième page en ajoute, le fichier de données doit être complété avant
    le 17.
 
-## 13. Décisions écartées
+### 13. Décisions écartées
 
 **Le prénom sur le serveur.** Écarté au profit du pseudonyme choisi. Sur une URL
 publique, publier les prénoms des mineurs d'une équipe identifiable — club
@@ -461,7 +529,7 @@ est une demande explicite, et l'oubli est plus fréquent que la triche.
 podium plus position : c'est ce qui motive le premier sans faire décrocher le
 quatorzième.
 
-## 14. Risques
+### 14. Risques
 
 | Risque | Effet | Ce qui l'atténue |
 |---|---|---|
@@ -472,7 +540,7 @@ quatorzième.
 | Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et supprimable |
 | Trafic automatisé sur l'URL publique | Bruit, charge | Aucune donnée sensible à atteindre ; c'est le principe même du § 5 |
 
-## 15. Questions ouvertes
+### 15. Questions ouvertes
 
 1. **Page 3 sur 3 du programme** — à récupérer auprès du coach (§ 12.3).
 2. ~~**Effectif réel de l'équipe**~~ — *tranché : le produit n'en dépend pas.*
@@ -485,12 +553,13 @@ quatorzième.
 
 ---
 
-## Annexe — provenance de ce document
+### Annexe — provenance de ce document
 
 Rédigé le 3 août 2026 à partir de deux captures d'écran du programme du coach
 et d'une session de cadrage en dix questions, suivie d'une passe d'avocat du
 diable dont sept objections sont tracées dans les sections § 5, § 9, § 13 et
 § 14.
 
-Ce document décrit le produit. Lorsqu'il sera implémenté dans la fabrique, son
-contenu servira de base à `apps/marcq-handball/PRODUCT.md`.
+Rapatrié le 5 août 2026 depuis `docs/superpowers/specs/`, sans réécriture : la
+fiche produit ci-dessus et le PRD ci-dessous sont désormais un seul document,
+dans le répertoire de l'app.

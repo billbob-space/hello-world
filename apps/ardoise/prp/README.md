@@ -1,7 +1,7 @@
 # Les PRP d'ardoise
 
 Quatre documents d'implémentation, dérivés du PRD
-[`docs/superpowers/specs/2026-08-04-ardoise-prd.md`](../../../docs/superpowers/specs/2026-08-04-ardoise-prd.md).
+[`PRODUCT.md`](../PRODUCT.md).
 
 **Commence par [`00-ossature.md`](00-ossature.md).** C'est le contrat technique
 commun — les trois services, les noms, le schéma, les routes, l'arborescence.

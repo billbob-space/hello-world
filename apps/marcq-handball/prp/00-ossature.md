@@ -3,7 +3,7 @@
 > Contrat technique partagé par les onze PRP. Tout PRP le lit avant de
 > commencer, et n'invente aucun nom qui n'y figure pas.
 >
-> **Source produit :** `docs/superpowers/specs/2026-08-03-marcq-handball-prd.md`
+> **Source produit :** `apps/marcq-handball/PRODUCT.md`
 > — le PRD tranche le *quoi* et le *pourquoi*. Ce fichier tranche le *où* et
 > le *comment nommer*. En cas de désaccord, le PRD gagne et ce fichier est
 > corrigé.

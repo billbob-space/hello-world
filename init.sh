@@ -1486,6 +1486,16 @@ EOF
   chmod +x "$dir/test.sh"
   ok "$dir/test.sh"
 
+  # README.md et PRODUCT.md sont les deux seuls artefacts d'echafaudage qu'un
+  # humain ou un agent peut avoir ecrits AVANT le code : c'est la sequence que
+  # le contrat recommande — PRD, puis PRP, puis l'app. Les ecraser detruirait
+  # un document de plusieurs centaines de lignes pour y remettre des TODO, et
+  # --force ne rachete rien ici : personne n'invoque --force pour perdre un
+  # PRD. Les autres artefacts (app.yml, .dockerignore, test.sh) restent regis
+  # par --force, eux sont derives.
+  if [ -f "$dir/README.md" ]; then
+    ok "$dir/README.md conserve — --add n'ecrase jamais un document ecrit a la main"
+  else
   cat > "$dir/README.md" <<EOF
 # $a
 
@@ -1505,7 +1515,11 @@ Aucun secret n'est attendu. Declare ici les noms des variables injectees par
 l'infrastructure, jamais leurs valeurs.
 EOF
   ok "$dir/README.md"
+  fi
 
+  if [ -f "$dir/PRODUCT.md" ]; then
+    ok "$dir/PRODUCT.md conserve — --add n'ecrase jamais un PRD ecrit a la main"
+  else
   cat > "$dir/PRODUCT.md" <<EOF
 # Product — $a
 
@@ -1526,6 +1540,7 @@ TODO : ce qu'elle fait, ce qu'elle ne fait pas.
 TODO.
 EOF
   ok "$dir/PRODUCT.md"
+  fi
 
   cat <<EOF
 
@@ -2204,6 +2219,32 @@ check_fabrique() {
     done < <(git ls-files '*.md')
   done
   [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
+
+  # Le controle ci-dessus n'attrape qu'une copie CONFORME. Le cas courant est
+  # plus discret : un document d'app -- PRD, PRP, plan -- redige directement
+  # sous docs/ et qui n'y ressemble a rien d'autre. Les competences superpowers
+  # y ecrivent leurs specs et leurs plans par defaut, ce qui est juste pour un
+  # sujet de fabrique et faux pour un sujet d'app : trois PRD et neuf PRP y
+  # avaient echoue, hors de portee du controle de liens morts, qui ne lit que
+  # apps/*/*.md. Le critere est le NOM : un chemin sous docs/ qui contient le
+  # nom d'un repertoire d'apps/ parle d'une app et doit demenager dans
+  # apps/<nom>/ ; un document de fabrique n'en porte aucun. Les repertoires
+  # d'apps/ sont lus directement, pas via discover_apps : une app encore
+  # reduite a ses documents n'a pas d'app.yml, et c'est precisement elle dont
+  # les documents s'egarent.
+  egares=0
+  while IFS= read -r doc; do
+    [ -n "$doc" ] || continue
+    for d in apps/*/; do
+      [ -d "$d" ] || continue
+      n=${d#apps/}; n=${n%/}
+      case "$doc" in
+        *"$n"*) bad "$doc parle de l'app $n — son domicile est apps/$n/ (PRODUCT.md pour le PRD, prp/ pour les PRP)"
+                egares=$((egares+1)); break ;;
+      esac
+    done
+  done < <(git ls-files 'docs/*.md' 'docs/**/*.md')
+  [ "$egares" -eq 0 ] && ok "aucun document d'app egare sous docs/"
 
   # Les fichiers de memory/ portent l'explication des regles que --check tient
   # deja. « Quand lire » les rend utilisables sans etre lus en entier, et « Tenu
