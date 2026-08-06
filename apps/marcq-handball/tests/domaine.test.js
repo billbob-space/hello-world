@@ -110,3 +110,105 @@ test('le programme rendu est gele : personne ne le mute par accident', () => {
   assert.throws(() => { gele.seances[0].titre = 'autre'; }, TypeError);
   assert.throws(() => { gele.seances[0].blocs[1].exercices[0].mesure.valeur = 99; }, TypeError);
 });
+
+test('les totaux accomplis ne comptent que les cases cochees, tours compris', () => {
+  const faits = {
+    's1-r1': '2026-08-03T18:22:11.000Z', // 15 pompes x 2 tours = 30
+    's3-r1': '2026-08-07T10:04:00.000Z', // 12 pompes x 3 tours = 36
+    's1-c2': '2026-08-03T18:30:00.000Z', // 6 x 100 m : unite `autre`, aucun volume
+  };
+  const t = domaine.totauxAccomplis(prog, faits);
+  assert.equal(t.pompes, 66);
+  assert.equal(t.squats, 0);
+  assert.equal(t.min_course, 0);
+  assert.equal(t.cases, 3, 'une case `autre` reste une case cochee');
+});
+
+test('aucun fait : tous les totaux accomplis sont a zero', () => {
+  const t = domaine.totauxAccomplis(prog, {});
+  for (const [unite, valeur] of Object.entries(t)) assert.equal(valeur, 0, unite);
+});
+
+test('tout coche : les accomplis rejoignent exactement les prescrits', () => {
+  const faits = {};
+  for (const seance of prog.seances) {
+    for (const bloc of seance.blocs) {
+      for (const ex of bloc.exercices) faits[ex.id] = '2026-08-21T12:00:00.000Z';
+    }
+  }
+  assert.deepEqual(domaine.totauxAccomplis(prog, faits), domaine.totauxPrescrits(prog));
+});
+
+// Deux aides locales, utilisees aussi par les taches suivantes.
+const casesDe = (date) =>
+  prog.seances.find((s) => s.date === date).blocs.flatMap((b) => b.exercices).map((e) => e.id);
+const cocher = (ids) => Object.fromEntries(ids.map((id) => [id, '2026-08-10T08:00:00.000Z']));
+
+test('le passe se corrige, l avenir ne se coche pas (PRD §9)', () => {
+  const le10 = '2026-08-10';
+  assert.equal(domaine.etatSeance(prog, '2026-08-03', le10).cochable, true, 'seance passee');
+  assert.equal(domaine.etatSeance(prog, le10, le10).cochable, true, 'seance du jour');
+  assert.equal(domaine.etatSeance(prog, '2026-08-12', le10).cochable, false, 'seance a venir');
+});
+
+test('apres la fin du programme, plus rien n est cochable (PRD §9)', () => {
+  assert.equal(domaine.etatSeance(prog, '2026-08-03', '2026-08-21').cochable, true, 'le 21 est encore dedans');
+  assert.equal(domaine.etatSeance(prog, '2026-08-03', '2026-08-22').cochable, false, 'le 22, le bilan a pris la main');
+});
+
+test('les cinq statuts d une seance', () => {
+  const le10 = '2026-08-10';
+  assert.equal(domaine.etatSeance(prog, '2026-08-12', le10).statut, 'a-venir');
+  assert.equal(domaine.etatSeance(prog, le10, le10).statut, 'aujourd-hui');
+  assert.equal(domaine.etatSeance(prog, '2026-08-03', le10).statut, 'manquee');
+  assert.equal(
+    domaine.etatSeance(prog, '2026-08-03', le10, cocher(casesDe('2026-08-03').slice(0, 2))).statut,
+    'partielle',
+  );
+  assert.equal(
+    domaine.etatSeance(prog, '2026-08-03', le10, cocher(casesDe('2026-08-03'))).statut,
+    'faite',
+  );
+  assert.equal(
+    domaine.etatSeance(prog, le10, le10, cocher(casesDe(le10))).statut,
+    'faite',
+    'une seance terminee le jour meme est faite, pas en cours',
+  );
+});
+
+test('etatSeance compte les cases de sa seance, pas celles du programme', () => {
+  const e = domaine.etatSeance(prog, '2026-08-07', '2026-08-10', { 's3-r1': '2026-08-07T09:00:00.000Z' });
+  assert.equal(e.total, 6);
+  assert.equal(e.coches, 1);
+});
+
+test('un jour sans seance n a pas d etat de seance', () => {
+  assert.equal(domaine.etatSeance(prog, '2026-08-04', '2026-08-10'), null);
+});
+
+test('les trois cas de seanceDuJour', () => {
+  const jour = domaine.seanceDuJour(prog, '2026-08-05');
+  assert.equal(jour.cas, 'aujourd-hui');
+  assert.equal(jour.seance.date, '2026-08-05');
+
+  const repos = domaine.seanceDuJour(prog, '2026-08-06');
+  assert.equal(repos.cas, 'repos');
+  assert.equal(repos.seance.date, '2026-08-07', 'le repos annonce la prochaine seance');
+
+  const fini = domaine.seanceDuJour(prog, '2026-08-22');
+  assert.equal(fini.cas, 'terminee');
+  assert.equal(fini.seance, null);
+});
+
+test('la bascule sur le bilan se fait le 22, pas le 21', () => {
+  const le21 = domaine.seanceDuJour(prog, '2026-08-21');
+  assert.equal(le21.cas, 'repos');
+  assert.equal(le21.seance, null, 'plus aucune seance a annoncer apres le 17');
+  assert.equal(domaine.seanceDuJour(prog, '2026-08-22').cas, 'terminee');
+});
+
+test('avant le debut du programme, on annonce la premiere seance', () => {
+  const avant = domaine.seanceDuJour(prog, '2026-08-01');
+  assert.equal(avant.cas, 'repos');
+  assert.equal(avant.seance.date, '2026-08-03');
+});

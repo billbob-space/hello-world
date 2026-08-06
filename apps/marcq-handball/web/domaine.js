@@ -112,3 +112,59 @@ export function chargerProgramme(json) {
 export function totauxPrescrits(prog) {
   return cumuler(prog, () => true);
 }
+
+// Volume reellement accompli, d'apres les cases cochees. `faits` est l'objet
+// { [idExercice]: horodatageISO } de l'ossature §6 : la presence de la cle vaut
+// coche, sa valeur ne sert qu'a departager les egalites au classement.
+export function totauxAccomplis(prog, faits = {}) {
+  return cumuler(prog, (ex) => estFait(faits, ex.id));
+}
+
+// Etat d'une seance a une date donnee. Rend null si aucune seance n'a lieu ce
+// jour-la : un jour de repos n'est pas une seance vide non faite.
+export function etatSeance(prog, dateISO, aujourdhui, faits = {}) {
+  const seance = prog.seances.find((s) => s.date === dateISO);
+  if (!seance) return null;
+
+  let total = 0;
+  let coches = 0;
+  for (const bloc of seance.blocs) {
+    for (const ex of bloc.exercices) {
+      total += 1;
+      if (estFait(faits, ex.id)) coches += 1;
+    }
+  }
+
+  // Le passe se corrige, l'avenir ne se coche pas (PRD §9) ; et passe la fin du
+  // programme plus rien ne bouge, le bilan remplace le cochage (PRD §9, §6 lot 3).
+  const cochable = dateISO <= aujourdhui && aujourdhui <= prog.fin;
+
+  // L'ordre compte. Une seance terminee est 'faite' quelle que soit la date.
+  // Le jour meme, une seance entamee n'est ni 'partielle' ni 'manquee' : elle
+  // est en cours, et c'est 'aujourd-hui' qui porte cette nuance.
+  let statut;
+  if (total > 0 && coches === total) statut = 'faite';
+  else if (dateISO > aujourdhui) statut = 'a-venir';
+  else if (dateISO === aujourdhui) statut = 'aujourd-hui';
+  else if (coches > 0) statut = 'partielle';
+  else statut = 'manquee';
+
+  return { statut, cochable, total, coches };
+}
+
+// La seance a montrer en ouvrant l'app.
+//   'aujourd-hui' : il y a seance aujourd'hui
+//   'repos'       : pas de seance ce jour ; `seance` porte la prochaine, ou
+//                   null s'il n'y en a plus d'ici la fin du programme
+//   'terminee'    : le programme est fini, l'ecran de bilan prend la main
+export function seanceDuJour(prog, aujourdhui) {
+  if (aujourdhui > prog.fin) return { seance: null, cas: 'terminee' };
+
+  const duJour = prog.seances.find((s) => s.date === aujourdhui);
+  if (duJour) return { seance: duJour, cas: 'aujourd-hui' };
+
+  // Les seances sont validees strictement croissantes : la premiere posterieure
+  // est bien la prochaine.
+  const prochaine = prog.seances.find((s) => s.date > aujourdhui) ?? null;
+  return { seance: prochaine, cas: 'repos' };
+}
