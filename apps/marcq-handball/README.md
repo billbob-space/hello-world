@@ -114,6 +114,7 @@ fichiers statiques et une sonde de santé, et ne connaît aucun utilisateur.
 |---|---|---|
 | `#/` (ou adresse sans ancre) | la séance du jour, ou le repos, ou la fin | `web/vue-jour.js` |
 | `#/seance/<YYYY-MM-DD>` | une séance : la liste complète, cochable si sa date est passée ou en cours (PRD §9) | `web/vue-seance.js` |
+| `#/perso` | ma progression : la part, le volume accompli, le calendrier | `web/vue-perso.js` |
 | `#/reglages` | corriger le prénom, changer d'enfant | `web/vue-reglages.js` |
 
 Tant qu'aucun prénom n'est enregistré, aucune route n'est honorée :
@@ -136,3 +137,20 @@ son fichier `web/vue-*.js`. Un écran est une fonction `(hote, ctx) => démontag
 Un stockage refusé — navigation privée — ou plein ne casse rien : les valeurs
 sont gardées en mémoire pour la durée de l'onglet. Elles ne survivent alors pas
 à la fermeture, ce que la page de réglages annonce.
+
+## L'écran « Ma progression »
+
+Trois choses, dans cet ordre (PRD §7.5) : la **part** des exercices accomplis
+parmi ceux **programmés à ce jour** — jamais sur les 53 du programme entier,
+sinon tout le monde est à 15 % le 5 août (PRD §9) ; le **volume cumulé
+accompli**, somme de ce qui a été coché, en langage d'ado (« 112 pompes, …
+2 h 10 de course ») ; et le **calendrier des dix-neuf jours**, où les jours sans
+séance sont du repos et non un trou.
+
+Les six états d'une case viennent du domaine et ne sont ni fusionnés ni
+inventés : `faite`, `commencée`, `aujourd’hui`, `à venir`, `manquée`, `repos`.
+Une case de séance ouvre sa séance ; une case de repos n'est pas cliquable.
+
+Le volume ne produit **aucun classement** (PRD §9) : il est déduit du programme,
+il classerait dans le même ordre que la régularité. La comparaison à l'équipe est
+le second niveau du §7.5 et arrive au lot 2, sous le calendrier.

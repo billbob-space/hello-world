@@ -396,3 +396,180 @@ body {
 /* Sans cela, la seule voisine d'une seance de bord se collerait a gauche, quel
    que soit le sens dans lequel elle emmene. */
 .vers-suivante { margin-left: auto; }
+
+/* ---- l'ecran perso --------------------------------------------------------
+   « Ma progression » (PRD §7.5) : on se lit, on ne se compare pas. Un chiffre en
+   grand, le volume en pastilles juste dessous — c'est le second chiffre saillant
+   de l'ecran (PRD §9) —, et dix-neuf jours qui tiennent sur la largeur
+   d'un telephone sans defilement horizontal. Les titres, la barre et le bloc
+   d'aide reutilisent les classes des ecrans precedents : une jumelle
+   divergerait. */
+
+.ecran-perso { gap: 1.4rem; }
+
+/* Les deux sections qui suivent la part : leurs elements sont espaces par le
+   `gap` de `.ecran-perso`, elles n'ajoutent donc aucune marge propre. Declarees
+   parce qu'un ecran ne pose pas de classe qui n'existe nulle part — le test du
+   PRP 05 le verifie. */
+.volume-perso,
+.calendrier-perso { display: block; }
+
+.part-perso {
+  padding: 1rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 10px;
+  background: var(--marcq-carte);
+}
+
+.chiffre-part {
+  margin: 0;
+  font-size: clamp(2.5rem, 14vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.progression-perso { display: flex; align-items: center; margin: .6rem 0; }
+
+.phrase-part { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+
+/* Le volume en pastilles : une liste de choses a dire a table, pas un tableau
+   de bord. Le PRD §9 veut ce cumul « en grand sur la page perso » — les
+   pastilles portent donc le second corps de texte de l'ecran, juste sous le
+   pourcentage, et loin devant la phrase et le calendrier. */
+.liste-volume {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-volume {
+  padding: .45rem .9rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 999px;
+  background: var(--marcq-carte);
+  font-size: clamp(1.15rem, 5.5vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.resume-calendrier {
+  margin: 0 0 .6rem;
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
+}
+
+.entete-calendrier,
+.grille-calendrier {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.entete-calendrier {
+  margin-bottom: 4px;
+  color: var(--marcq-encre-douce);
+  font-size: .75rem;
+  text-align: center;
+}
+
+/* La hauteur ne descend jamais sous la zone de tap ; la largeur suit la
+   colonne — sept colonnes de 48 px ne tiennent sur aucun telephone, et aucune
+   action de l'app ne depend de cette grille (voir « Points d'attention »). */
+.jour-calendrier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--marcq-tap);
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.numero-jour { font-size: .875rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.marque-jour { font-size: .75rem; line-height: 1; }
+
+.jour-hors { visibility: hidden; }
+.jour-repos { color: var(--marcq-encre-douce); }
+.jour-a-venir { border-color: var(--marcq-trait); background: var(--marcq-carte); }
+.jour-manquee {
+  border-style: dashed;
+  border-color: var(--marcq-trait);
+  color: var(--marcq-encre-douce);
+}
+.jour-partielle {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-carte);
+  color: var(--marcq-accent);
+}
+.jour-faite {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-accent);
+  color: var(--marcq-sur-accent);
+}
+.jour-aujourd-hui {
+  border-color: var(--marcq-danger);
+  background: var(--marcq-carte);
+  box-shadow: inset 0 0 0 1px var(--marcq-danger);
+  font-weight: 700;
+}
+
+.jour-calendrier:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+.legende-calendrier {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin: .8rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--marcq-encre-douce);
+  font-size: .8125rem;
+}
+
+.item-legende { display: inline-flex; align-items: center; gap: .3rem; }
+
+.marque-legende {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: .75rem;
+}
+
+/* Lu par les lecteurs d'ecran, invisible a l'oeil. `display: none` le retirerait
+   aussi de leur restitution : ce qui doit etre annonce reste dans le flux,
+   reduit a un pixel. */
+.lu-seul {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Le troisieme onglet arrive avec cet ecran, et « Ma progression » passe sur
+   deux lignes des 360 px : sans ces trois lignes le texte deborde de la barre,
+   qui n'a que la hauteur d'une zone de tap. Le reglage vit ici plutot qu'avec la
+   barre du PRP 03 — c'est ce PRP qui ajoute l'onglet, donc le probleme. */
+.lien-nav {
+  padding: .25rem .4rem;
+  line-height: 1.15;
+  text-align: center;
+}

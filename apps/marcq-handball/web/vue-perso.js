@@ -166,3 +166,143 @@ export function modelePerso(ctx) {
     },
   };
 }
+
+// --- le montage -------------------------------------------------------------
+// Il pose le modele dans le DOM et n'y ajoute AUCUNE decision. Tout ce qui se
+// decide est au-dessus, et se prouve sans navigateur.
+
+// Les six memes lignes qu'a l'ecran de seance. `vue-seance.js` ne les exporte
+// pas, et les hisser dans un module partage changerait une interface que le
+// PRP 04 a fixee : beaucoup de bruit pour six lignes.
+function el(balise, classe, texte) {
+  const noeud = document.createElement(balise);
+  if (classe) noeud.className = classe;
+  // textContent, jamais du HTML compose : le programme est une donnee editable
+  // a la main, un libelle contenant un chevron casserait la page.
+  if (texte !== undefined) noeud.textContent = texte;
+  return noeud;
+}
+
+function lien(href, classe, texte) {
+  const a = el('a', classe, texte);
+  a.href = href;
+  return a;
+}
+
+// La part accomplie, en grand : c'est le premier chiffre de l'ecran. Le volume
+// vient juste apres, en second (PRD §9).
+function blocPart(part) {
+  const bloc = el('div', 'part-perso');
+
+  const chiffre = el('p', 'chiffre-part', `${part.pourcent} %`);
+  // Le nombre est pose a sa valeur : rien ne roule sur un ecran qu'on consulte.
+  // L'attribut est l'accroche du test, qui lit la valeur sans analyser le texte.
+  chiffre.dataset.compteur = String(part.pourcent);
+
+  // Une <progress> native, comme aux ecrans du jour et de seance : annoncee par
+  // les lecteurs d'ecran sans un attribut ARIA de plus.
+  const jauge = el('p', 'progression-perso');
+  const barre = document.createElement('progress');
+  barre.className = 'barre';
+  barre.max = part.echelle;
+  barre.value = part.cochees;
+  jauge.append(barre);
+
+  bloc.append(chiffre, jauge, el('p', 'phrase-part', part.phrase));
+  return bloc;
+}
+
+function blocVolume(volume) {
+  const bloc = el('section', 'volume-perso');
+  bloc.append(el('h2', 'titre-bloc', 'Ce que tu as fait'));
+
+  if (volume.vide !== null) {
+    bloc.append(el('p', 'aide', volume.vide));
+    return bloc;
+  }
+
+  const liste = el('ul', 'liste-volume');
+  for (const ligne of volume.lignes) {
+    const item = el('li', 'item-volume', ligne.phrase);
+    // L'accroche du test : la ligne se retrouve par son unite, sans analyser le
+    // texte qu'elle affiche.
+    item.dataset.unite = ligne.unite;
+    liste.append(item);
+  }
+  bloc.append(liste);
+  return bloc;
+}
+
+function blocCalendrier(cal) {
+  const bloc = el('section', 'calendrier-perso');
+  bloc.append(
+    el('h2', 'titre-bloc', 'Le calendrier'),
+    el('p', 'resume-calendrier', cal.resume),
+  );
+
+  // Les initiales n'apprennent rien a qui n'a pas la grille sous les yeux :
+  // chaque case annonce deja sa date en toutes lettres.
+  const entete = el('div', 'entete-calendrier');
+  entete.setAttribute('aria-hidden', 'true');
+  for (const initiale of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) {
+    entete.append(el('span', null, initiale));
+  }
+  bloc.append(entete);
+
+  const grille = el('div', 'grille-calendrier');
+  for (let i = 0; i < cal.decalage; i += 1) {
+    // Les cases d'avant le premier jour alignent la grille sur la semaine ;
+    // elles ne portent aucune information.
+    const vide = el('span', 'jour-calendrier jour-hors');
+    vide.setAttribute('aria-hidden', 'true');
+    grille.append(vide);
+  }
+
+  for (const jour of cal.jours) {
+    const classe = `jour-calendrier jour-${jour.statut}`;
+    // Un jour de seance est un lien — le calendrier est l'autre chemin du
+    // rattrapage (PRD §6, lot 1 point 4). Un jour de repos n'est pas cliquable :
+    // il n'y a rien a ouvrir, et un lien mort se tape trois fois avant qu'on
+    // comprenne.
+    const cellule = jour.href === null ? el('span', classe) : lien(jour.href, classe);
+
+    const numero = el('span', 'numero-jour', String(jour.numero));
+    numero.setAttribute('aria-hidden', 'true');
+    const marque = el('span', 'marque-jour', jour.marque);
+    marque.setAttribute('aria-hidden', 'true');
+    // Ce que l'oeil lit dans la couleur et la marque, le lecteur d'ecran le lit
+    // ici. Un aria-label sur un <span> sans role n'est pas restitue partout ;
+    // du texte l'est.
+    cellule.append(numero, marque, el('span', 'lu-seul', jour.nom));
+    if (jour.estAujourdhui) cellule.setAttribute('aria-current', 'date');
+    grille.append(cellule);
+  }
+  bloc.append(grille);
+
+  const legende = el('ul', 'legende-calendrier');
+  for (const etat of cal.legende) {
+    const item = el('li', 'item-legende');
+    const marque = el('span', 'marque-legende', etat.marque);
+    marque.classList.add(`jour-${etat.statut}`);
+    item.append(marque, el('span', null, etat.libelle));
+    legende.append(item);
+  }
+  bloc.append(legende);
+  return bloc;
+}
+
+// L'ecran, au contrat du PRP 03. Rien a demonter : aucun ecouteur ne deborde de
+// `hote`, que le routeur vide avant chaque montage.
+export function monterPerso(hote, ctx) {
+  const m = modelePerso(ctx);
+  const section = el('section', 'ecran ecran-perso');
+  section.append(
+    el('h1', 'titre-ecran', m.titre),
+    blocPart(m.part),
+    blocVolume(m.volume),
+    blocCalendrier(m.calendrier),
+  );
+  // Le PRP 09 ajoutera « L'equipe » ici, apres le calendrier : le PRD §7.5 met
+  // la comparaison au second niveau, jamais avant.
+  hote.append(section);
+}

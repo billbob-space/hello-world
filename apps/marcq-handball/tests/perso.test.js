@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chargerProgramme } from '../web/domaine.js';
 import { MOTIF_SEANCE } from '../web/vue-seance.js';
+import { choisirEcran } from '../web/app.js';
 import * as vue from '../web/vue-perso.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
@@ -157,4 +158,60 @@ test('la legende ne montre que les etats presents ce jour-la', () => {
 
   const fin = vue.modelePerso(contexte('2026-08-21', cocher(toutesLesCases))).calendrier;
   assert.deepEqual(fin.legende.map((e) => e.libelle), ['faite', 'repos']);
+});
+
+test('le montage ne compose jamais de HTML a partir du programme', () => {
+  // programme.json est une donnee editable a la main : un libelle contenant un
+  // chevron casserait la page, ou pire.
+  assert.equal(source('vue-perso.js').includes('innerHTML'), false, 'le texte passe par textContent');
+});
+
+test('toute classe posee par l ecran existe dans style.css', () => {
+  const code = source('vue-perso.js');
+  const css = source('style.css');
+  const classes = new Set();
+  // Les classes litterales passent toutes par le second argument de `el` et de
+  // `lien`.
+  for (const re of [/\bel\('[a-z0-9]+',\s*'([^']+)'/g, /\blien\('[^']*',\s*'([^']+)'/g]) {
+    for (const [, liste] of code.matchAll(re)) {
+      for (const classe of liste.split(/\s+/).filter(Boolean)) classes.add(classe);
+    }
+  }
+  assert.ok(classes.size >= 12, 'la lecture de la source a echoue si le compte est bas');
+  // Les classes construites par gabarit, que la lecture ci-dessus ne voit pas.
+  classes.add('barre');
+  for (const statut of Object.keys(vue.ETATS)) classes.add(`jour-${statut}`);
+  for (const classe of classes) {
+    assert.ok(css.includes(`.${classe}`), `.${classe} manque dans style.css`);
+  }
+});
+
+test('l ecran perso ne parle a personne et ne compare a personne', () => {
+  // PRD §11 : l'app reste utilisable reseau coupe, et cet ecran ne lit que le
+  // telephone. PRD §7.5 : la comparaison est le second niveau, donc le lot 2.
+  // Le controle porte sur la source entiere, commentaires compris — c'est ce qui
+  // le rend trivial a executer et impossible a contourner par megarde.
+  const code = source('vue-perso.js');
+  for (const interdit of ['fetch(', 'classement', 'podium']) {
+    assert.equal(code.includes(interdit), false, `« ${interdit} » n appartient pas a cet ecran`);
+  }
+});
+
+test('la route #/perso monte l ecran perso', () => {
+  assert.equal(choisirEcran('#/perso').nom, 'perso');
+  assert.equal(choisirEcran('#/perso').monter, vue.monterPerso);
+});
+
+test('l onglet « Ma progression » mene a l ecran', () => {
+  // PRD §7.5 nomme ce niveau « Ma progression » ; c'est ce mot qui va sur
+  // l'onglet, pas « Stats » ni « Moi ».
+  const code = source('app.js');
+  assert.match(code, /#\/perso/);
+  assert.match(code, /Ma progression/);
+});
+
+test('le service worker met l ecran perso en cache', () => {
+  // PRD §11 : l'app reste utilisable reseau coupe. Sans cette entree, le premier
+  // passage hors ligne sur un ecran jamais ouvert echoue.
+  assert.match(source('sw.js'), /'\/vue-perso\.js'/, 'ajoute /vue-perso.js a la liste de coque');
 });

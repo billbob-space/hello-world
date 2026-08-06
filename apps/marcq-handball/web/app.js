@@ -10,6 +10,7 @@ import { monterJour } from './vue-jour.js';
 import { monterPrenom } from './vue-prenom.js';
 import { monterReglages } from './vue-reglages.js';
 import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
+import { monterPerso } from './vue-perso.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
 // domaine compare comme des chaines. Le fuseau est fige : un enfant en vacances
@@ -25,6 +26,7 @@ export const aujourdhui = () =>
 export const ECRANS = [
   { nom: 'reglages', motif: /^#\/reglages$/, monter: monterReglages },
   { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
+  { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
   { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
 ];
 
@@ -36,8 +38,13 @@ export const ECRANS = [
 // de test qu'aucun onglet ne pointe vers un ecran qu'ils n'ont pas encore pose.
 // Un `import { LIENS }` sur un symbole non exporte ferait echouer le chargement
 // du module de test entier, pas une assertion.
+//
+// « Ma progression » est le second niveau de lecture du PRD §7.5 : il vient
+// juste apres ce qu'il y a a faire aujourd'hui. La seance, elle, n'a pas
+// d'onglet — un onglet n'a pas de date.
 export const LIENS = [
   { href: '#/', texte: 'Aujourd’hui' },
+  { href: '#/perso', texte: 'Ma progression' },
   { href: '#/reglages', texte: 'Réglages' },
 ];
 
