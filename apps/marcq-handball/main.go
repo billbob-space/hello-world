@@ -20,6 +20,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	// L'image finale est Alpine, qui n'embarque pas la base des fuseaux. Sans
+	// cet import, time.LoadLocation("Europe/Paris") echoue dans le conteneur
+	// alors qu'elle reussit sur un poste de developpement, et jourParis se
+	// replierait sur UTC : le denominateur du classement serait faux deux
+	// heures par jour, tous les jours. Environ 450 Ko dans le binaire.
+	_ "time/tzdata"
 )
 
 // go:embed n'emporte que web/ : les tests de tests/ ne sont jamais dans
@@ -51,12 +58,18 @@ func main() {
 		log.Fatalf("service worker illisible : %v", err)
 	}
 
+	cl := ouvrirMagasin(web)
+
 	addr := ":" + env("PORT", "8080")
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           logging(routes(web, sw)),
+		Handler:           logging(routes(web, sw, cl)),
 		ReadHeaderTimeout: 5 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		// Sans ReadTimeout, un corps envoye octet par octet immobilise une
+		// connexion indefiniment. C'est le seul endroit du projet ou un inconnu
+		// peut envoyer un corps.
+		ReadTimeout: 10 * time.Second,
+		IdleTimeout: 60 * time.Second,
 	}
 
 	// Arret propre : le serveur cesse d'accepter et laisse les requetes en
@@ -87,12 +100,17 @@ func main() {
 //
 // La coque est servie A LA RACINE, pas sous /web/ : la portee du service worker
 // et les chemins des imports ES doivent coincider avec les URL servies.
-func routes(web fs.FS, sw []byte) http.Handler {
+// cl == nil est un etat valide : les trois routes /api/* repondent alors 503,
+// et l'application sert exactement le lot 1.
+func routes(web fs.FS, sw []byte, cl *classement) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleSante)
 	mux.HandleFunc("GET /sw.js", handleServiceWorker(sw))
 	mux.HandleFunc("GET /programme.json", fichier(web, "programme.json",
 		"application/json; charset=utf-8", "no-cache"))
+	mux.HandleFunc("GET /api/classement", handleClassementGet(cl))
+	mux.HandleFunc("POST /api/classement", handleClassementPost(cl))
+	mux.HandleFunc("GET /api/coach", handleCoach(cl))
 	// Motif le moins specifique : le ServeMux de Go 1.22 donne la priorite aux
 	// trois routes ci-dessus, et celle-ci recoit tout le reste — index.html a
 	// la racine, les modules ES, style.css, et un 404 pour l'inconnu.
@@ -116,6 +134,38 @@ func chargerServiceWorker(web fs.FS) ([]byte, error) {
 		return nil, fmt.Errorf("jeton %s absent de web/sw.js : le cache ne serait pas versionne", jetonVersion)
 	}
 	return bytes.ReplaceAll(source, []byte(jetonVersion), []byte(version)), nil
+}
+
+// ouvrirMagasin prepare le classement, et rend nil quand il n'a pas lieu
+// d'etre. Aucun de ses echecs n'empeche l'application de demarrer : le
+// classement est optionnel, la coque ne l'est pas. Un montage appartenant a
+// root — le mode de panne le plus probable et le plus silencieux — se lit ici,
+// dans les journaux du conteneur, avant tout trafic.
+func ouvrirMagasin(web fs.FS) *classement {
+	dossier := env("MARCQ_DONNEES", "")
+	if dossier == "" {
+		log.Print("classement : MARCQ_DONNEES absent, classement desactive — les routes /api repondent 503")
+		return nil
+	}
+
+	donnees, err := fs.ReadFile(web, "programme.json")
+	if err != nil {
+		log.Printf("classement : programme.json illisible, classement desactive : %v", err)
+		return nil
+	}
+	prog, err := chargerProgramme(donnees)
+	if err != nil {
+		log.Printf("classement : programme invalide, classement desactive : %v", err)
+		return nil
+	}
+
+	cl, err := ouvrirClassement(dossier, prog, time.Now)
+	if err != nil {
+		log.Printf("classement : %s inutilisable, classement desactive : %v", dossier, err)
+		return nil
+	}
+	log.Printf("classement : actif sur %s", dossier)
+	return cl
 }
 
 func handleSante(w http.ResponseWriter, _ *http.Request) {

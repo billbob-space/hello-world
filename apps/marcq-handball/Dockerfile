@@ -34,6 +34,20 @@ RUN adduser -D -H -u 10001 app
 
 COPY --from=build /out/marcq-handball /usr/local/bin/marcq-handball
 
+# Le point de montage du volume « donnees » declare dans app.yml. Il est cree ET
+# donne a l'utilisateur AVANT USER : au premier montage, Docker recopie dans le
+# volume vide le repertoire tel qu'il existe dans l'IMAGE, proprietaire compris.
+# Repertoire absent ou appartenant a root, et le volume appartient a root : l'app
+# non-root n'y ecrirait jamais, et le symptome serait « l'app demarre et perd
+# tout », jamais un message clair.
+RUN mkdir -p /var/lib/marcq-handball && chown 10001:10001 /var/lib/marcq-handball
+
+# L'interrupteur du classement. Cette variable n'est pas un secret : c'est le
+# chemin de montage declare dans app.yml, et il vaut mieux qu'il vive a cote du
+# chown qui le rend inscriptible. Non definie — en construction locale, sous
+# « go test » —, le classement est desactive et l'app sert exactement le lot 1.
+ENV MARCQ_DONNEES=/var/lib/marcq-handball
+
 # Aucun port n'est publie ici : Traefik joint le conteneur par apps_net.
 # EXPOSE ne fait que documenter le port d'ecoute.
 EXPOSE 8080

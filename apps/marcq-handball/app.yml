@@ -29,9 +29,17 @@ ui: true
 # montage, Docker recopie dans le volume vide le repertoire tel qu'il existe
 # dans l'IMAGE. Cree-le et donne-le a ton utilisateur AVANT la directive USER :
 #   RUN mkdir -p /var/lib/marcq-handball && chown 10001:10001 /var/lib/marcq-handball
-# volumes:
-#   - donnees:/var/lib/marcq-handball
-#   - cache:/var/cache/marcq-handball:ro
+#
+# Le classement du lot 2 vit ici, et nulle part ailleurs. PRD §12.1 : « Les
+# scores du classement doivent survivre a un redeploiement. Un classement remis
+# a zero a chaque publication d'image serait pire que pas de classement. »
+# Le volume reel s'appelle « marcq-handball-donnees ». Le Dockerfile cree le
+# chemin et le donne a l'uid 10001 AVANT USER, et y pose MARCQ_DONNEES.
+# Borne : 200 participants x 53 identifiants font environ 500 Kio. Ce volume se
+# SAUVEGARDE — le perdre remet chaque enfant a zero jusqu'a son prochain envoi
+# et reconstruit l'ordre des ex aequo dans le desordre.
+volumes:
+  - donnees:/var/lib/marcq-handball
 
 # NOMS des variables d'environnement a passer depuis l'hote. JAMAIS de valeurs :
 # un element contenant un « = » est refuse a la generation. L'infrastructure

@@ -315,6 +315,8 @@ services:
       - "traefik.http.services.marcq-handball.loadbalancer.server.port=8080"
       - "traefik.docker.network=apps_net"
     networks: [apps_net]
+    volumes:
+      - marcq-handball-donnees:/var/lib/marcq-handball
   # <<< marcq-handball
 
   # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
@@ -409,6 +411,8 @@ volumes:
     name: ardoise-donnees
   compteur-donnees:
     name: compteur-donnees
+  marcq-handball-donnees:
+    name: marcq-handball-donnees
 
 networks:
   apps_net:

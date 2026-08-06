@@ -7,14 +7,23 @@ coach, cochables d'un tap, sur le téléphone de l'enfant.
 
 ## Le partage serveur / navigateur
 
-Le serveur ne connaît **aucun** utilisateur et n'a **aucun** état. Il sert la
-coque embarquée par `go:embed` et une sonde de santé. Le domaine, la
-progression et le prénom vivent dans le navigateur, en modules ES natifs — pas
-de bundler, pas de `node_modules`, pas de transpilation.
+Le serveur ne connaît **aucun** utilisateur. Il sert la coque embarquée par
+`go:embed`, une sonde de santé, et — depuis le lot 2 — **un seul état** : le
+classement. Le domaine, la progression et le prénom vivent dans le navigateur,
+en modules ES natifs : pas de bundler, pas de `node_modules`, pas de
+transpilation.
 
 Le palier est `public` : Traefik n'authentifie personne, ne pose donc aucun
 en-tête d'identité, et l'application n'en lit aucun. Ce qui est propre à un
-visiteur reste sur son appareil (`localStorage`).
+visiteur reste sur son appareil (`localStorage`), à l'exception de ce qu'il
+choisit d'envoyer au classement : un pseudonyme, un code à 4 chiffres et des
+identifiants d'exercices.
+
+**Le prénom de l'enfant ne quitte jamais son appareil** (PRD §5), et c'est la
+*forme* de l'API qui le garantit, pas une consigne : le corps accepté a
+exactement cinq champs, tout champ inconnu fait échouer la requête entière,
+aucun en-tête n'est lu, les journaux ne portent que méthode, chemin, statut et
+durée, et la fiche stockée n'a aucun champ pour accueillir un nom.
 
 ## Routes
 
@@ -25,10 +34,118 @@ visiteur reste sur son appareil (`localStorage`).
 | `GET /programme.json` | `application/json`, `Cache-Control: no-cache` |
 | `GET /sw.js` | `application/javascript`, `Cache-Control: no-cache`, version injectée |
 | `GET /healthz` | `200 ok`, `text/plain` |
+| `GET /api/classement` | le classement du jour, `no-store` |
+| `POST /api/classement` | un envoi, ou un retrait — voir plus bas |
+| `GET /api/coach` | le même tableau, plus des agrégats, `no-store` |
 | tout le reste | `404` |
 
 Toutes les réponses portent `X-App-Version` : vérifier un déploiement ne
 demande pas d'ouvrir la page.
+
+## Le classement
+
+### Ce qu'il classe
+
+La **part d'exercices accomplis parmi ceux déjà programmés à la date du
+serveur** — pas sur les 53 du programme entier, sinon tout le monde est à 15 %
+le 5 août (PRD §9). Le dénominateur est le même pour tous et change à minuit,
+heure de Paris ; c'est pourquoi chaque réponse porte son champ `jour`.
+
+Trois règles sont appliquées **par le serveur**, donc inviolables par un bogue
+d'affichage : le podium nomme trois personnes et le champ `pseudo` n'est pas
+émis au-delà de la troisième ligne ; les rangs sont stricts, de 1 à N, jamais
+répétés — à égalité, le premier arrivé à ce score est devant ; les identifiants
+d'une séance future ou inconnus du programme sont ignorés, ni comptés ni
+stockés.
+
+Après le 21 août, l'envoi répond `409 classement-fige` : le classement ne bouge
+plus. Le **retrait**, lui, reste ouvert — le gel protège le rang, pas le droit
+d'effacer sa fiche (PRD §14).
+
+### `POST /api/classement`
+
+`Content-Type: application/json`, **exactement cinq champs**, aucun autre
+accepté :
+
+```json
+{
+  "pseudo": "Renard",
+  "code": "4821",
+  "faits": ["s1-c1", "s1-c2"],
+  "ressentis": { "2026-08-03": "correct" },
+  "supprimer": false
+}
+```
+
+`pseudo` et `code` sont toujours obligatoires ; `faits` l'est sauf en
+suppression ; `ressentis` et `supprimer` sont facultatifs. Réponse `201` à la
+création du pseudonyme, `200` à chaque mise à jour.
+
+**L'envoi remplace, il n'ajoute pas.** L'ensemble reçu *devient* l'ensemble du
+participant : décocher se propage. Deux conséquences à annoncer à l'enfant —
+c'est le rôle du PRP 08 : deux téléphones sous le même pseudonyme s'écrasent
+mutuellement, ce que le code à 4 chiffres empêche ; et un navigateur vidé qui
+renvoie un ensemble vide retombe à zéro. Les horodatages serveur, eux, survivent
+au remplacement, sans quoi chaque envoi remettrait à zéro le départage des ex
+æquo.
+
+`{"pseudo": "…", "code": "…", "supprimer": true}` efface la fiche entière et
+**libère le pseudonyme**. L'opération est idempotente : un second appel rend
+`200` et `"supprime": false`, jamais une erreur.
+
+**Le code à 4 chiffres n'est pas un mot de passe.** Il attache un pseudonyme au
+premier envoi qui le crée, et rien d'autre : il n'ouvre aucune lecture, ne
+protège aucune donnée, n'identifie personne. Il n'est jamais stocké en clair —
+pbkdf2-sha256, sel de 16 octets, 100 000 itérations — non pour protéger le
+serveur, où il n'y a rien à protéger, mais parce qu'un ado saisira très
+probablement le code de déverrouillage de son téléphone. Un code oublié **ne se
+récupère pas** : le recours est de choisir un autre pseudonyme.
+
+### Les erreurs
+
+Une seule enveloppe, `{"erreur": "<code>", "message": "<français>"}`, le
+`message` étant destiné à être affiché **tel quel**.
+
+| Cas | Statut | `erreur` |
+|---|---|---|
+| corps illisible, > 8 Kio, ou champ inconnu | `400` | `json-invalide` |
+| pseudonyme vide, trop long, caractère refusé | `400` | `pseudo-invalide` |
+| code différent de quatre chiffres | `400` | `code-invalide` |
+| `faits` absent (hors suppression) ou trop long | `400` | `faits-invalide` |
+| `ressentis` mal formé | `400` | `ressentis-invalide` |
+| pseudonyme existant, code différent | `403` | `code-refuse` |
+| 5 codes refusés en 15 min sur ce pseudonyme | `429` + `Retry-After: 900` | `trop-d-essais` |
+| 200 participants atteints, pseudonyme nouveau | `409` | `classement-plein` |
+| envoi après le 21 août | `409` | `classement-fige` |
+| magasin absent ou non inscriptible | `503` + `Retry-After: 60` | `classement-indisponible` |
+
+Le `405` d'une mauvaise méthode vient de `http.ServeMux` et ne porte **pas**
+cette enveloppe : ne décoder le JSON que si le `Content-Type` de la réponse est
+`application/json`.
+
+### Où il est stocké
+
+Un fichier `classement.json` dans le volume `marcq-handball-donnees`, réécrit
+atomiquement à chaque modification. Le magasin est un **cache de ce que les
+téléphones détiennent déjà** : chaque envoi transmet l'ensemble complet d'un
+participant, donc un fichier perdu se répare tout seul au prochain envoi de
+chacun, en une journée d'usage. Ce qui ne se répare pas est l'ordre des ex æquo.
+
+**Un seul processus écrit ce fichier.** La stack ne déclare aucune réplique et
+`container_name: marcq-handball` interdit le second exemplaire ; le `sync.Mutex`
+du magasin suffit tant que cela reste vrai. Le jour où deux exemplaires
+tourneraient, le dernier écrivain écraserait l'autre **sans qu'aucun test ne le
+détecte**.
+
+Trois pannes ne mettent jamais l'application à terre — `/healthz` répond `200`
+dans tous les cas, parce qu'un conteneur malsain retirerait du service une app
+qui, à 95 %, fonctionne hors ligne dans le navigateur :
+
+| Panne | Ce qui se passe |
+|---|---|
+| `MARCQ_DONNEES` non défini | classement désactivé, les trois routes `/api` rendent `503`, le reste sert normalement |
+| volume appartenant à root | une sonde d'écriture le dit **au démarrage** dans les journaux, avant tout trafic ; puis même comportement que ci-dessus |
+| `classement.json` illisible | renommé en `classement.corrompu-<date>.json`, on repart vide, trace sur la sortie standard |
 
 ## Développement
 
@@ -38,7 +155,12 @@ demande pas d'ouvrir la page.
 cd apps/marcq-handball
 go run .                               # sur http://localhost:8080
 PORT=3000 go run .                     # ailleurs
+MARCQ_DONNEES=/tmp/marcq go run .      # avec le classement (le répertoire doit exister)
 ```
+
+Sans `MARCQ_DONNEES`, le serveur local est exactement celui du lot 1 : les trois
+routes `/api` rendent `503` et le reste fonctionne. C'est aussi l'état sous
+`go test`, sauf dans les tests qui ouvrent leur propre magasin.
 
 Le service worker met la coque en cache par version. En développement local la
 version vaut `dev` et le cache ne change donc jamais de nom : recharger avec le
@@ -52,16 +174,36 @@ le navigateur reçoit est public par construction.
 | Nom | Rôle | Défaut |
 |---|---|---|
 | `PORT` | port d'écoute HTTP en clair dans le conteneur | `8080` |
+| `MARCQ_DONNEES` | répertoire du classement. **Vide ou absent : le classement est désactivé** et les trois routes `/api` rendent `503`. Posée par le `Dockerfile` à `/var/lib/marcq-handball`, le point de montage du volume | *(vide en local)* |
 
 ## Besoins d'infrastructure
 
-Aucun pour le lot 1 : ni base de données, ni cache, ni volume, ni port
-supplémentaire.
+**Un volume nommé, et rien d'autre** : ni base de données, ni cache, ni port
+supplémentaire, ni secret. Il est déclaré dans `app.yml` et `docker compose up`
+le crée tout seul — aucune action sur le serveur, jamais.
 
-**Le lot 2 en demandera un** : le classement doit survivre à un redéploiement
-(PRD §12.1). Un magasin remis à zéro à chaque publication d'image serait pire
-que pas de classement. C'est une décision d'exploitation, elle se prend côté
-serveur ; le PRP 07 ne démarre pas avant.
+| | |
+|---|---|
+| Volume | `donnees:/var/lib/marcq-handball`, soit `marcq-handball-donnees` |
+| Propriétaire | uid `10001`, donné par le `Dockerfile` **avant** `USER` |
+| Taille attendue | ~500 Kio : 200 participants × 53 identifiants × ~40 octets |
+| Sauvegarde | **non demandée** — voir ci-dessous |
+
+Le motif est le PRD §12.1 : *« Les scores du classement doivent survivre à un
+redéploiement. Un classement remis à zéro à chaque publication d'image serait
+pire que pas de classement. »* La demande porte donc sur la **persistance entre
+deux déploiements**, pas sur la durabilité des données — une exigence beaucoup
+plus faible, et il faut la lire ainsi : le magasin est un cache de ce que les
+téléphones détiennent déjà.
+
+`docker volume rm marcq-handball-donnees` n'est pourtant pas gratuit : chaque
+enfant repart à zéro jusqu'à son prochain envoi, et l'ordre des ex æquo se
+reconstruit dans l'ordre des renvois. Pour le sauvegarder :
+
+```bash
+docker run --rm -v marcq-handball-donnees:/d -v "$PWD":/sortie alpine \
+  tar czf /sortie/marcq-handball-donnees.tgz -C /d .
+```
 
 ## Modifier le programme
 

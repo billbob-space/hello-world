@@ -77,7 +77,7 @@ pure. **04 est le goulot du lot 1** : trois PRP en dépendent.
 
 | Verrou | PRD | Qui tranche | Bloque |
 |---|---|---|---|
-| Volume persistant pour les scores | §12.1 | l'exploitation du serveur | **07**, donc tout le lot 2 |
+| ~~Volume persistant pour les scores~~ | §12.1 | — | **Levé le 2026-08-06** : le volume appartient à l'app et se déclare dans `app.yml`, `init.sh` sait le monter. Rien à attendre |
 | Page 3 sur 3 de la note du coach | §12.3 | le coach | **02**, avant le 17 août |
 | Le coach regardera-t-il son écran ? | §15.3 | le coach | **10** en entier |
 
@@ -99,14 +99,19 @@ règles métier citées, critères d'acceptation, verrous en tête. Trois de leu
 dépendances ne sont pas tranchées ; y écrire du code détaillé serait du travail
 à jeter, et un faux détail se relit comme une décision prise.
 
-## Avant de commencer
+## Où on en est
 
-L'application n'existe pas encore : `apps/marcq-handball/` ne contient que ces
-documents. **`./init.sh --check` reste vert** : `discover_apps` ignore un
-répertoire sans `app.yml` avec un simple avertissement — `apps/marcq-handball :
-pas d'app.yml, ignore` — et **`./init.sh --pret` aussi**, `apps_touchees`
-testant elle aussi la présence d'`app.yml` avant de réclamer les tests d'une
-app touchée. Les deux garde-fous s'accordent : tant que ce répertoire ne
-contient que des PRP, aucun des deux n'attend de `test.sh`. Ça disparaît, sans
-rien à corriger côté fabrique, au premier `./init.sh --add marcq-handball` du
-PRP 01.
+| Lot | État |
+|---|---|
+| **Lot 1** — PRP 01 à 06 | **en ligne** depuis le 2026-08-06 : https://marcq-handball.apps.billbob.ovh |
+| **Lot 2** — PRP 07 | **livré** : le classement côté serveur, son volume, ses trois routes. Sans un seul appelant, et c'est voulu |
+| **Lot 2** — PRP 08, 09, 10 | à faire. Le serveur les attend : `GET /api/classement`, `POST /api/classement`, `GET /api/coach` |
+| **Lot 3** — PRP 11 | à faire, avant le 21 août |
+
+Le PRP 07 s'est écarté de sa lettre sur un point, et l'entrée de journal de sa
+branche dit pourquoi : son chantier 1 demandait d'écrire la demande de volume
+dans le `README` puis de s'arrêter. Le contrat de la fabrique dit désormais
+l'inverse — un volume appartient à l'app et se déclare dans son manifeste — et
+`init.sh` a appris à le monter entretemps. Un PRP fige une lecture du contrat à
+sa date d'écriture ; relis le contrat avant d'appliquer une consigne qui parle
+de la fabrique.

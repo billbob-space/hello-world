@@ -16,37 +16,37 @@
 
 ---
 
-> ⛔ **Verrou** — ce PRP ne démarre pas avant que **le volume persistant du
-> classement** soit tranché. Le PRD §12.1 le pose : *« Les scores du classement
-> doivent survivre à un redéploiement. Un classement remis à zéro à chaque
-> publication d'image serait pire que pas de classement. »* Le contrat de la
-> fabrique tranche qui décide : *« Si tu as besoin de quelque chose que le
-> contrat ne prévoit pas — une base de données, un cache, un volume persistant
-> […] — écris-le dans le `README` et arrête-toi. C'est une décision
-> d'infrastructure, elle se prend côté serveur. »* Tant qu'il tient, le travail
-> en aval — PRP 08, 09, 10 — est spéculatif : ils n'ont rien à qui parler.
+> ✅ **Verrou levé le 2026-08-06** — le volume est déclaré dans
+> `apps/marcq-handball/app.yml`, et le PRP est exécuté en entier. Ce qui suit
+> décrit le verrou tel qu'il tenait à l'écriture de ce document, et pourquoi il
+> ne tient plus : le raisonnement reste utile, la consigne ne l'est plus.
 
-Ce verrou a **deux moitiés**, et la seconde n'est pas visible depuis le PRD.
+Le verrou avait **deux moitiés**, et les deux sont tombées.
 
-1. **Le volume existe côté serveur** — décision d'exploitation. Chemin de
-   montage, taille, droits d'écriture pour l'uid `10001` du conteneur.
-2. **`compose.yaml` sait le monter** — décision de la fabrique. Vérification
-   faite : `init.sh` ne contient **pas une seule occurrence** de `volume` ;
-   `service_block` (`init.sh:288-330`) n'émet ni section `volumes:` de service,
-   ni bloc `volumes:` de premier niveau, et `app.yml` n'a pas de clé pour le
-   déclarer (`load_app`, `init.sh:141-148`, lit huit clés et ignore les autres).
-   Monter un volume demande donc **une modification d'`init.sh`**, donc une
-   branche `fabrique/<sujet>` avec son propre rayon de souffle — pas cette
-   branche-ci, qui reste `marcq-handball/classement-api` et ne touche jamais au
-   générateur. Éditer `compose.yaml` à la main est refusé par `./init.sh
-   --check`.
+1. **Le volume existe côté serveur.** Ce PRP le classait en décision
+   d'exploitation, en citant le contrat de la fabrique : *« Si tu as besoin de
+   quelque chose que le contrat ne prévoit pas — une base de données, un cache,
+   un volume persistant […] — écris-le dans le `README` et arrête-toi. »* Le
+   contrat dit **désormais l'inverse** : *« Une base, un cache, un volume, un
+   service annexe **t'appartiennent désormais** : déclare-les dans un manifeste
+   plutôt que de les demander dans un `README`. »* Il n'y a plus personne à
+   attendre. `memory/volumes.md` porte le détail.
+2. **`compose.yaml` sait le monter.** C'était vrai : `init.sh` n'avait aucune
+   notion de volume. Il porte maintenant `check_volume`, `check_volume_list` et
+   `check_volume_noms`, `app.yml` a la clé `volumes:`, et le bloc de premier
+   niveau est émis avec son `name:`. Aucune branche `fabrique/` n'est nécessaire.
 
-**Ce PRP ne se met pas en attente pour autant.** Le chantier 3 pose un
-interrupteur qui n'est pas un drapeau : `MARCQ_DONNEES` vide ⇒ pas de magasin ⇒
-les trois routes répondent `503`, et l'application reste exactement le lot 1.
-Le code peut donc être fusionné et déployé avant que le volume existe, et le
-classement s'allume le jour où la variable pointe sur un répertoire inscriptible.
-C'est ce qui découple la livraison du code de la décision d'infrastructure.
+**Ce qui est effectivement livré** : `volumes: [donnees:/var/lib/marcq-handball]`
+dans `app.yml`, le `mkdir` + `chown 10001:10001` **avant** `USER` dans le
+`Dockerfile`, et `ENV MARCQ_DONNEES` sur ce même chemin, à côté du `chown` qui le
+rend inscriptible.
+
+**L'interrupteur du chantier 3 reste, et il a toujours sa raison d'être** :
+`MARCQ_DONNEES` vide ⇒ pas de magasin ⇒ les trois routes répondent `503`, et
+l'application est exactement le lot 1. Il ne sert plus à découpler la livraison
+d'une décision d'exploitation, mais à ce que ni `go run .`, ni `go test`, ni un
+volume passé en lecture seule ne fassent tomber une application qui, à 95 %,
+fonctionne hors ligne dans le navigateur.
 
 ## Le blocage du PRD §12.2 n'existe pas — et c'est un blocage en moins
 
@@ -1108,8 +1108,8 @@ rend `409` `classement-fige`.
 
 | Question | Qui tranche | Ce qui bouge selon la réponse |
 |---|---|---|
-| **Un volume persistant existe-t-il, sur quel chemin, inscriptible par l'uid 10001 ?** (PRD §12.1) | l'exploitation du serveur | Tout. « Non » ⇒ le lot 2 ne se livre pas, les PRP 08, 09 et 10 tombent |
-| **`init.sh` apprend-il à monter un volume par app ?** | le mainteneur de la fabrique, sur une branche `fabrique/<sujet>` | Sans lui, `compose.yaml` ne peut pas monter le volume et `--check` refuse l'édition manuelle. Le code de ce PRP se fusionne quand même : `MARCQ_DONNEES` vide ⇒ trois routes en `503` |
+| ~~**Un volume persistant existe-t-il ?**~~ (PRD §12.1) | — | **Tranché le 2026-08-06** : le volume appartient à l'app et se déclare dans `app.yml`. `donnees:/var/lib/marcq-handball` |
+| ~~**`init.sh` apprend-il à monter un volume par app ?**~~ | — | **Tranché** : `init.sh` le sait déjà. Aucune branche `fabrique/` |
 | **Page 3 sur 3 de la note du coach** (PRD §12.3) | le coach, avant le 17 août | Rien dans ce code. `programme.json` gagne des séances, les dénominateurs suivent, les identifiants déjà stockés restent valides. Seuls les sept nombres de `domaine_test.go` sont à mettre à jour, comme ceux de `tests/domaine.test.js` |
 | **Le coach regardera-t-il son écran ?** (PRD §15.3) | le coach | Décision prise ici : `/api/coach` et le champ `ressentis` sont construits quand même — quarante lignes, contre la certitude de devoir rouvrir une route publique d'écriture plus tard. Un « non » du coach supprime la page du PRP 10, pas cette route |
 | **Le plafond de 200 participants** | le décideur du PRD | Une équipe U15 en compte une vingtaine. Le chiffre borne le disque ; il se relève d'une constante si plusieurs équipes s'y mettent |
