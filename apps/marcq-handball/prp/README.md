@@ -89,6 +89,48 @@ règle refuse exactement une chose — qu'un fichier suivi de
 classement, réduit à des pseudonymes, des scores et un code à 4 chiffres, ne lit
 jamais cet en-tête. Rien n'est à desserrer.
 
+## Où on en est
+
+**Les onze PRP sont livrés.** Le 2026-08-06, en trois passes.
+
+| Lot | État |
+|---|---|
+| **Lot 1** — PRP 01 à 06 | en ligne : https://marcq-handball.apps.billbob.ovh |
+| **Lot 2** — PRP 07 à 10 | livré : le classement côté serveur et son volume, l'écran pour le rejoindre, le podium et la position, le ressenti et la page du coach |
+| **Lot 3** — PRP 11 | livré : le bilan du 22 août |
+
+**Deux verrous restent ouverts, et aucun n'est technique.**
+
+- **Le coach regardera-t-il son écran ?** (PRD §15.3) Le PRP 10 est le seul dont
+  la réponse pouvait être « on ne le fait pas ». Il a été livré parce que la
+  moitié serveur l'était déjà depuis le PRP 07 et que le coût restant était
+  faible ; si la réponse est non, ce sont les deux livrables — le ressenti et la
+  page — qu'il faut retirer ensemble.
+- **La page 3 sur 3 de la note du coach** (PRD §12.3), avant le 17 août. Rien
+  dans le code n'en dépend : `programme.json` gagne des séances, tous les
+  dénominateurs suivent, et les identifiants déjà cochés restent valides. Seuls
+  les sept totaux attendus des tests se recalculent.
+
+**Un arbitrage à reporter dans le PRD**, sans effet sur le code : le PRP 09 a
+tranché que le dénominateur affiché à un non-participant vaut `participants + 1`
+— *« le dénominateur inclut celui qui regarde »*. L'exemple chiffré du §7.5 dit
+encore « 3e sur 9 » ; sans cette phrase, le prochain lecteur prendra l'écran pour
+un défaut.
+
+## Ce que les PRP ont appris sur eux-mêmes
+
+Trois PRP sur onze contenaient une contradiction interne — un bloc de code qui ne
+passe pas un test dicté deux paragraphes plus haut, deux motifs différents pour
+la même validation. La cause est toujours la même : **un PRP est relu comme de la
+prose, jamais exécuté**. La parade tient en un geste, et il est dans le journal :
+appliquer les blocs de code d'un PRP et lancer ses blocs de test avant de figer
+le document.
+
+Deux PRP figeaient aussi une lecture du contrat de la fabrique à leur date
+d'écriture — le PRP 07 demandait d'écrire une demande de volume dans un `README`
+que le contrat interdit désormais d'écrire. Relis le contrat avant d'appliquer
+une consigne qui parle de la fabrique.
+
 ## Deux profondeurs, et pourquoi
 
 Les PRP du **lot 1 sont exécutables** : tâches, tests écrits avant le code, code
@@ -98,20 +140,3 @@ Les PRP des **lots 2 et 3 sont des contrats** : objectif, interfaces complètes,
 règles métier citées, critères d'acceptation, verrous en tête. Trois de leurs
 dépendances ne sont pas tranchées ; y écrire du code détaillé serait du travail
 à jeter, et un faux détail se relit comme une décision prise.
-
-## Où on en est
-
-| Lot | État |
-|---|---|
-| **Lot 1** — PRP 01 à 06 | **en ligne** depuis le 2026-08-06 : https://marcq-handball.apps.billbob.ovh |
-| **Lot 2** — PRP 07 | **livré** : le classement côté serveur, son volume, ses trois routes. Sans un seul appelant, et c'est voulu |
-| **Lot 2** — PRP 08, 09, 10 | à faire. Le serveur les attend : `GET /api/classement`, `POST /api/classement`, `GET /api/coach` |
-| **Lot 3** — PRP 11 | à faire, avant le 21 août |
-
-Le PRP 07 s'est écarté de sa lettre sur un point, et l'entrée de journal de sa
-branche dit pourquoi : son chantier 1 demandait d'écrire la demande de volume
-dans le `README` puis de s'arrêter. Le contrat de la fabrique dit désormais
-l'inverse — un volume appartient à l'app et se déclare dans son manifeste — et
-`init.sh` a appris à le monter entretemps. Un PRP fige une lecture du contrat à
-sa date d'écriture ; relis le contrat avant d'appliquer une consigne qui parle
-de la fabrique.
