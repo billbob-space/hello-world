@@ -137,7 +137,7 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
 test('toute classe posee par un ecran existe dans style.css', () => {
   const css = source('style.css');
   const classes = new Set();
-  for (const nom of ['app.js', 'vue-prenom.js', 'vue-jour.js', 'vue-reglages.js']) {
+  for (const nom of ['app.js', 'vue-prenom.js', 'vue-jour.js', 'vue-reglages.js', 'vue-rejoindre.js']) {
     // On ne lit que les affectations litterales `className = '...'`. Le seul nom
     // construit par gabarit est `cas-<cas>`, verifie juste apres.
     for (const [, liste] of source(nom).matchAll(/\.className\s*=\s*'([^']*)'/g)) {
