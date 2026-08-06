@@ -127,7 +127,7 @@ test('la coque porte l hote des ecrans, la navigation et le module d amorcage', 
 });
 
 test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
-  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'rejoindre', 'coach', 'jour']);
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'rejoindre', 'coach', 'bilan', 'jour']);
   assert.equal(choisirEcran('#/').nom, 'jour');
   assert.equal(choisirEcran('').nom, 'jour', 'une adresse sans ancre ouvre le jour');
   assert.equal(choisirEcran('#').nom, 'jour');
@@ -138,6 +138,8 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
   assert.equal(choisirEcran('#/rejoindre').nom, 'rejoindre');
   assert.equal(choisirEcran('#/coach').nom, 'coach');
   assert.equal(choisirEcran('#/coach/'), null, 'le motif est exact');
+  assert.equal(choisirEcran('#/bilan').nom, 'bilan');
+  assert.equal(choisirEcran('#/bilan/'), null);
   assert.equal(choisirEcran('#/nimporte-quoi'), null);
 
   // Un seul ecran traverse le verrou de prenom, et c'est celui du coach : il ne
@@ -152,6 +154,10 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
   // Ni vers la page du coach : un onglet permanent mettrait sa vue dans la
   // barre de navigation des enfants.
   assert.equal(LIENS.some((l) => l.href.includes('coach')), false);
+  // Ni vers le bilan : un onglet pose des le 3 aout serait un lien vers un ecran
+  // vide pendant dix-neuf jours, et le faire apparaitre un jour donne remettrait
+  // une seconde regle de date dans le routeur.
+  assert.equal(LIENS.some((l) => l.href.includes('bilan')), false);
 });
 
 test('toute classe posee par un ecran existe dans style.css', () => {

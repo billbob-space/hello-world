@@ -14,6 +14,7 @@ import { monterPerso } from './vue-perso.js';
 import { monterRejoindre } from './vue-rejoindre.js';
 import { brancherSynchronisation } from './classement.js';
 import { MOTIF_COACH, monterCoach } from './vue-coach.js';
+import { MOTIF_BILAN, MOTIF_RACINE, bascule, monterBilan } from './vue-bilan.js';
 import { brancherRecompenses } from './recompenses.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
@@ -40,7 +41,10 @@ export const ECRANS = [
   // Elle reste sure parce que monterCoach ne lit rien du stockage local, et
   // tests/coach.test.js interdit a ce fichier d'importer etat.js.
   { nom: 'coach', motif: MOTIF_COACH, monter: monterCoach, sansPrenom: true },
-  { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
+  { nom: 'bilan', motif: MOTIF_BILAN, monter: monterBilan },
+  // Le motif de la racine vient de vue-bilan.js : la bascule doit capturer
+  // EXACTEMENT ce que cette entree capture, et deux copies divergeraient.
+  { nom: 'jour', motif: MOTIF_RACINE, monter: monterJour },
 ];
 
 // Les onglets. Meme regle : un ecran pose son lien ici, jamais avant d'exister —
@@ -90,6 +94,18 @@ function rendre(hote, ctx) {
   ctx.faits = lireFaits();
   ctx.route = routeCourante();
   rendreNavigation(ctx);
+
+  // PRD §9 : passe prog.fin, la racine mene au bilan. Une app qui reste bloquee
+  // sur un programme termine meurt en silence le 22. `replaceState` n'empile pas
+  // d'entree — sinon le bouton retour rejouerait la racine, qui rebasculerait
+  // aussitot — et ne declenche pas `hashchange`, d'ou l'appel direct. La
+  // recursion se termine : `bascule` rend null sur '#/bilan'.
+  const versLeBilan = bascule(ctx.prog, ctx.aujourdhui, ctx.route);
+  if (versLeBilan !== null) {
+    history.replaceState(null, '', versLeBilan);
+    rendre(hote, ctx);
+    return;
+  }
 
   const ecran = choisirEcran(ctx.route);
 

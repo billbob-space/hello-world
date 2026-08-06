@@ -943,3 +943,52 @@ body {
 .coach-nombre { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
 .coach-libelle { min-width: 0; overflow-wrap: anywhere; }
 .coach-emoji { font-size: 1.2rem; line-height: 1; }
+
+/* --- le bilan, apres le 21 aout (PRP 11) ---------------------------------- */
+
+.ecran-bilan { gap: 1.1rem; }
+.periode-bilan { margin: 0; color: var(--marcq-encre-douce); }
+
+/* La ligne qui dit que ce n'est pas encore fini, quand on ouvre le bilan en
+   avance. Elle informe, elle n'alarme pas. */
+.avis-bilan {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
+}
+
+.resume-bilan { display: flex; flex-direction: column; gap: .5rem; }
+.chiffre-bilan { margin: 0; color: var(--marcq-accent); font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.progression-bilan { margin: 0; }
+.progression-bilan .barre { width: 100%; }
+/* La phrase de tete : c'est elle qu'on lit en premier, et c'est elle qui porte
+   le ton de tout l'ecran. */
+.phrase-bilan { margin: 0; font-size: 1.1rem; }
+
+.volume-bilan, .seances-bilan { display: flex; flex-direction: column; gap: .6rem; }
+.liste-seances { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+
+/* Une zone de tap pleine sur chaque ligne : relire une seance est le seul geste
+   qui reste, y compris sur une seance non faite. */
+.lien-seance {
+  display: grid;
+  grid-template-columns: 1.8rem 1fr auto;
+  align-items: baseline;
+  gap: .6rem;
+  min-height: var(--marcq-tap);
+  padding: .5rem .7rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: inherit;
+  text-decoration: none;
+}
+.lien-seance:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+/* La marque double la couleur : pour qui lit au soleil, ou distingue mal le
+   rouge du vert. */
+.marque-seance { font-weight: 700; text-align: center; }
+.texte-seance { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.detail-seance { color: var(--marcq-encre-douce); font-size: .95rem; font-variant-numeric: tabular-nums; }

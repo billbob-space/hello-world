@@ -144,8 +144,12 @@ export function modeleGroupe(instantane) {
 // deux ne disent pas la meme chose : un podium sans sa date se lit comme un
 // podium en direct, et une fraicheur sans le jour ne dit pas sur quel
 // denominateur porte le « 3e sur 10 ».
-export function datationEquipe(instantane, aujourdhui) {
+export function datationEquipe(instantane, aujourdhui, fin = null) {
   const jour = dateEnToutesLettres(instantane.jour);
+  // Apres la fin du programme, le classement EST actualise : il est arrete, ce
+  // qui n'est pas la meme chose. Sans ce cas, le 22 aout l'ecran inviterait a
+  // reessayer une actualisation qui ne changera plus jamais rien.
+  if (fin !== null && instantane.jour >= fin) return `Classement arrêté le ${jour}.`;
   return instantane.jour === aujourdhui
     ? `Classement de ${jour}.`
     : `Classement de ${jour} — pas encore actualisé aujourd’hui.`;
@@ -180,7 +184,7 @@ export function modeleEquipe(ctx, local) {
   return {
     titre: TITRE_EQUIPE,
     jour: instantane.jour,
-    datation: datationEquipe(instantane, ctx.aujourdhui),
+    datation: datationEquipe(instantane, ctx.aujourdhui, ctx.prog?.fin ?? null),
     podium: podiumDe(instantane, local.pseudo ?? null),
     position: position === null ? null : { ...position, phrase: phrasePosition(position) },
     groupe: modeleGroupe(instantane),

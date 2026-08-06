@@ -456,6 +456,44 @@ les enfants qui ont rejoint le classement. Un coach qui lirait « 4 facile /
 11 correct / 6 dur » comme le compte de son effectif se tromperait — la page le
 dit, ce README aussi.
 
+## Le bilan, après le 21 août
+
+Le 22 août au matin, ouvrir le lien ne montre plus un programme terminé : il
+montre ce que l'enfant a fait pendant trois semaines. **La bascule se produit
+sans qu'un humain touche à quoi que ce soit et sans déploiement ce jour-là** —
+elle ne dépend que de `fin` dans `programme.json` et de l'horloge du téléphone.
+Aucune date n'est écrite dans le code : éditer le programme pour la saison
+prochaine défait la bascule tout seul.
+
+**Seule la racine bascule.** « Ma progression », les réglages et chaque séance
+continuent de répondre : le PRD §9 dit que l'application bascule, pas qu'elle
+ferme. Après le 21 août on peut encore corriger un prénom, relire une séance et
+changer d'enfant.
+
+**`#/bilan` est ouvrable à toute date**, et c'est délibéré : une route qui
+n'existerait qu'à partir du 22 août ne pourrait être essayée pour la première
+fois que le 22 août — le jour où il est trop tard pour la corriger. Ouvert en
+avance, l'écran dit en une ligne que ce n'est pas fini.
+
+**Le ton est la seule vraie décision de cet écran** : le bilan raconte ce qui a
+été fait, il ne compte pas ce qui a manqué. « 3 séances bouclées et 22 exercices
+cochés » et non « tu n'as fait que 3 séances sur 7 » — même donnée, lecture
+opposée. Une séance non ouverte n'affiche aucun chiffre : « 0 exercice sur 6 »
+est un reproche chiffré, l'absence de chiffre est un fait. Le mot du domaine
+reste `manquee` — il pilote la couleur — mais l'écran écrit « non faite ». Un
+test lit les phrases de trois bilans, dont celui de quelqu'un qui n'a rien fait,
+et échoue sur `manqu`, `dommage`, `seulement`, `raté`, `bravo`, `champion` ou
+`guerrier`.
+
+**Aucune animation, aucun rien qui bouge.** Le mouvement est une récompense qui
+vient après l'action ; ici la dernière case a été cochée il y a des jours.
+
+Le classement gelé s'affiche, sans le bouton pour le rejoindre : il proposerait
+d'entrer dans un classement fermé, et le serveur répondrait par une erreur pour
+un geste que l'écran venait de proposer. Le gel lui-même n'est implémenté nulle
+part côté navigateur — le serveur écrête le jour à la fin du programme et refuse
+tout envoi postérieur, donc le classement est constant par construction.
+
 ## Les récompenses
 
 `web/recompenses.js` est branché une seule fois, à l'amorçage, par `web/app.js`.
