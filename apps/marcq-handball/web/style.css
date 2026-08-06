@@ -816,3 +816,179 @@ body {
 .etat-hors-ligne,
 .etat-jamais { color: var(--marcq-encre-douce); }
 .etat-echec { color: var(--marcq-danger); }
+
+/* --- L'equipe : podium, position, jauge (PRP 09) -------------------------- */
+
+.equipe { display: flex; flex-direction: column; gap: .8rem; }
+
+/* Elle date les NOMBRES affiches — le jour du denominateur —, la ou la ligne
+   d'etat juste dessous date la reception. Deux informations differentes, deux
+   lignes : un podium sans sa date se lit comme un podium en direct. */
+.datation-equipe { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+
+.podium { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+
+/* Trois colonnes. Celle du pseudonyme porte `min-width: 0` et
+   `overflow-wrap: anywhere` : sans elles, seize runes poussent le pourcentage
+   hors de l'ecran a 360 px. */
+.ligne-podium {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr auto;
+  align-items: baseline;
+  gap: .6rem;
+  padding: .5rem .7rem;
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+}
+.podium-moi { outline: 2px solid var(--marcq-accent); }
+.rang-podium { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pseudo-podium { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.part-podium { color: var(--marcq-encre-douce); font-variant-numeric: tabular-nums; }
+
+.position-equipe { display: flex; align-items: baseline; gap: .6rem; margin: 0; }
+.rang-position { color: var(--marcq-accent); font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.phrase-position { font-size: 1.05rem; }
+
+.groupe-equipe { display: flex; flex-direction: column; gap: .4rem; margin: 0; }
+.jauge-groupe { width: 100%; }
+/* La phrase porte toujours ses DEUX nombres : le pourcentage peut reculer quand
+   une seance nouvelle entre au denominateur. */
+.phrase-groupe { color: var(--marcq-encre-douce); font-size: .95rem; }
+
+.actualiser-equipe { align-self: flex-start; }
+
+/* PRD §10 : « grimper au classement » est le seul mouvement de cet ecran. Ni
+   l'une ni l'autre ne bloque quoi que ce soit — seuls transform et opacity sont
+   animes, donc aucun recalcul de mise en page — et le bloc universel de
+   prefers-reduced-motion les neutralise toutes les deux. */
+.rang-monte .rang-position { animation: marcq-rang-monte 400ms ease-out; }
+.rang-descend .rang-position { animation: marcq-rang-descend 400ms ease-out; }
+
+@keyframes marcq-rang-monte {
+  0%   { transform: translateY(0); }
+  45%  { transform: translateY(-.35rem); opacity: .75; }
+  100% { transform: translateY(0); }
+}
+
+/* Plus sobre que la montee : descendre d'un rang n'a pas a etre souligne. */
+@keyframes marcq-rang-descend {
+  0%   { transform: translateY(0); }
+  45%  { transform: translateY(.2rem); opacity: .85; }
+  100% { transform: translateY(0); }
+}
+
+/* --- le ressenti de fin de seance (PRP 10) -------------------------------- */
+
+/* Dans le panneau de fin, entre les compteurs et le bouton. Aucune animation :
+   le PRD §10 reserve le mouvement a ce qui recompense, et une question n'est pas
+   une recompense. */
+.ressenti { margin: .4rem 0 0; padding: 0; border: none; }
+.ressenti-question { padding: 0; font-weight: 600; }
+/* Une rangee qui se replie sous 320 px. */
+.ressenti-choix { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0; }
+
+.choix-ressenti {
+  display: flex;
+  flex: 1 1 5.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  min-height: var(--marcq-tap);
+  padding: .5rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.choix-ressenti.choisi { border-color: var(--marcq-accent); }
+.choix-ressenti:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+.ressenti-emoji { font-size: 1.6rem; line-height: 1; }
+.ressenti-mot { font-size: .9rem; font-weight: 600; }
+
+/* --- la page du coach (PRP 10) -------------------------------------------- */
+
+.ecran-coach { gap: 1.1rem; }
+
+/* Elle dit au coach ce qu'il regarde : sans elle, un lien recu sans contexte se
+   lit comme un tableau de bord prive. */
+.mention-publique {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-inline-start: 4px solid var(--marcq-accent);
+  border-radius: .2rem .6rem .6rem .2rem;
+  background: var(--marcq-carte);
+  font-size: .95rem;
+}
+.etat-coach { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+.actualiser-coach { align-self: flex-start; }
+.corps-coach { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.bloc-coach {
+  padding: .9rem 1rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: .8rem;
+  background: var(--marcq-carte);
+}
+.coach-entete { margin: 0 0 .5rem; font-weight: 600; }
+.coach-aide { color: var(--marcq-encre-douce); font-size: .95rem; }
+
+/* Des listes, pas des tableaux : le coach lit sur son telephone comme tout le
+   monde, et un tableau a trois colonnes deborde sous 480 px. */
+.liste-coach { display: flex; flex-direction: column; gap: .35rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+.ligne-coach { display: grid; grid-template-columns: 2.4rem 1fr auto; align-items: baseline; gap: .6rem; }
+.ligne-nommee .coach-libelle { font-weight: 600; }
+.ligne-seance-coach { display: flex; flex-direction: column; gap: .1rem; padding-block: .3rem; }
+.coach-nombre { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.coach-libelle { min-width: 0; overflow-wrap: anywhere; }
+.coach-emoji { font-size: 1.2rem; line-height: 1; }
+
+/* --- le bilan, apres le 21 aout (PRP 11) ---------------------------------- */
+
+.ecran-bilan { gap: 1.1rem; }
+.periode-bilan { margin: 0; color: var(--marcq-encre-douce); }
+
+/* La ligne qui dit que ce n'est pas encore fini, quand on ouvre le bilan en
+   avance. Elle informe, elle n'alarme pas. */
+.avis-bilan {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
+}
+
+.resume-bilan { display: flex; flex-direction: column; gap: .5rem; }
+.chiffre-bilan { margin: 0; color: var(--marcq-accent); font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.progression-bilan { margin: 0; }
+.progression-bilan .barre { width: 100%; }
+/* La phrase de tete : c'est elle qu'on lit en premier, et c'est elle qui porte
+   le ton de tout l'ecran. */
+.phrase-bilan { margin: 0; font-size: 1.1rem; }
+
+.volume-bilan, .seances-bilan { display: flex; flex-direction: column; gap: .6rem; }
+.liste-seances { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+
+/* Une zone de tap pleine sur chaque ligne : relire une seance est le seul geste
+   qui reste, y compris sur une seance non faite. */
+.lien-seance {
+  display: grid;
+  grid-template-columns: 1.8rem 1fr auto;
+  align-items: baseline;
+  gap: .6rem;
+  min-height: var(--marcq-tap);
+  padding: .5rem .7rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: inherit;
+  text-decoration: none;
+}
+.lien-seance:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+/* La marque double la couleur : pour qui lit au soleil, ou distingue mal le
+   rouge du vert. */
+.marque-seance { font-weight: 700; text-align: center; }
+.texte-seance { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.detail-seance { color: var(--marcq-encre-douce); font-size: .95rem; font-variant-numeric: tabular-nums; }

@@ -10,6 +10,7 @@
 import { calendrier, etatSeance, progression, totauxAccomplis } from './domaine.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 import { monterActionClassement } from './vue-rejoindre.js';
+import { monterEquipe } from './vue-equipe.js';
 
 // --- le langage d'ado -------------------------------------------------------
 
@@ -310,8 +311,14 @@ export function monterPerso(hote, ctx) {
   // toujours a personne : c'est vue-rejoindre.js qui appelle le reseau.
   const equipe = el('section', 'bloc-equipe');
   section.append(equipe);
-  const demonterEquipe = monterActionClassement(equipe, ctx);
+  // Podium, position et jauge AU-DESSUS du bloc d'action : le PRD §7.5 met la
+  // comparaison au second niveau, et a l'interieur du bloc c'est la jauge — la
+  // seule mesure ou personne n'est dernier — qu'on lit en refermant.
+  const demonterEquipe = monterEquipe(equipe, ctx);
+  const demonterAction = monterActionClassement(equipe, ctx);
 
   hote.append(section);
-  return demonterEquipe;
+  // Les deux ecouteurs vivent sur `document`, que le routeur ne vide pas : sans
+  // ce demontage, quitter #/perso puis y revenir en empilerait un par visite.
+  return () => { demonterEquipe(); demonterAction(); };
 }

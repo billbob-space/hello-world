@@ -13,6 +13,8 @@ import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
 import { monterPerso } from './vue-perso.js';
 import { monterRejoindre } from './vue-rejoindre.js';
 import { brancherSynchronisation } from './classement.js';
+import { MOTIF_COACH, monterCoach } from './vue-coach.js';
+import { MOTIF_BILAN, MOTIF_RACINE, bascule, monterBilan } from './vue-bilan.js';
 import { brancherRecompenses } from './recompenses.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
@@ -31,7 +33,18 @@ export const ECRANS = [
   { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
   { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
   { nom: 'rejoindre', motif: /^#\/rejoindre$/, monter: monterRejoindre },
-  { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
+  // `sansPrenom` est l'exception minimale au verrou d'entree ci-dessous. Le
+  // coach n'a pas de prenom a saisir et n'en aura jamais : sans elle, il
+  // tomberait sur l'ecran de premier lancement d'un enfant. Elle est portee par
+  // une DONNEE de l'entree d'ecran, pas par une comparaison de chaine dans le
+  // routeur : le jour ou un second ecran la merite, il pose son drapeau.
+  // Elle reste sure parce que monterCoach ne lit rien du stockage local, et
+  // tests/coach.test.js interdit a ce fichier d'importer etat.js.
+  { nom: 'coach', motif: MOTIF_COACH, monter: monterCoach, sansPrenom: true },
+  { nom: 'bilan', motif: MOTIF_BILAN, monter: monterBilan },
+  // Le motif de la racine vient de vue-bilan.js : la bascule doit capturer
+  // EXACTEMENT ce que cette entree capture, et deux copies divergeraient.
+  { nom: 'jour', motif: MOTIF_RACINE, monter: monterJour },
 ];
 
 // Les onglets. Meme regle : un ecran pose son lien ici, jamais avant d'exister —
@@ -82,14 +95,29 @@ function rendre(hote, ctx) {
   ctx.route = routeCourante();
   rendreNavigation(ctx);
 
-  // Tant que le prenom manque, aucune route n'est honoree : un lien partage vers
-  // `#/reglages` ne doit pas court-circuiter l'accueil (PRD §7.1).
-  if (ctx.prenom === null) {
-    demonterCourant = commeDemontage(monterPrenom(hote, ctx));
+  // PRD §9 : passe prog.fin, la racine mene au bilan. Une app qui reste bloquee
+  // sur un programme termine meurt en silence le 22. `replaceState` n'empile pas
+  // d'entree — sinon le bouton retour rejouerait la racine, qui rebasculerait
+  // aussitot — et ne declenche pas `hashchange`, d'ou l'appel direct. La
+  // recursion se termine : `bascule` rend null sur '#/bilan'.
+  const versLeBilan = bascule(ctx.prog, ctx.aujourdhui, ctx.route);
+  if (versLeBilan !== null) {
+    history.replaceState(null, '', versLeBilan);
+    rendre(hote, ctx);
     return;
   }
 
   const ecran = choisirEcran(ctx.route);
+
+  // Tant que le prenom manque, aucune route n'est honoree : un lien partage vers
+  // `#/reglages` ne doit pas court-circuiter l'accueil (PRD §7.1). Seuls les
+  // ecrans marques `sansPrenom` traversent — aujourd'hui la page du coach, et
+  // elle seule.
+  if (ctx.prenom === null && ecran?.sansPrenom !== true) {
+    demonterCourant = commeDemontage(monterPrenom(hote, ctx));
+    return;
+  }
+
   if (ecran === null) {
     // Une route inconnue ne laisse jamais un ecran vide. On reecrit l'adresse
     // sans empiler d'entree — sinon le bouton retour du telephone rejouerait la

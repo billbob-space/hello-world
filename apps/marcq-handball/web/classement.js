@@ -12,7 +12,8 @@
 // est du des que l'etat local en differe. La reprise apres coupure n'est pas un
 // mecanisme, c'est une consequence.
 
-import { ecrireClassement, effacerClassement, lireClassement, lireFaits } from './etat.js';
+import { ecrireClassement, effacerClassement, lireClassement, lireFaits, lireRessentis } from './etat.js';
+import { empreinteRessentis, ressentisPourEnvoi } from './ressenti.js';
 import { EVT_SEANCE_COMPLETE } from './vue-seance.js';
 
 export const CHEMIN_API = '/api/classement';
@@ -55,17 +56,30 @@ export function empreinte(faits) {
 // signature avec `ressentis`, et corpsSuppression porte `supprimer`. Les
 // identifiants sont tries pour qu'un meme etat produise un meme corps — ce qui
 // se relit dans les journaux d'un navigateur sans avoir a trier a l'oeil.
-export function corpsEnvoi({ pseudo, code, faits }) {
-  return { pseudo, code, faits: Object.keys(faits ?? {}).sort() };
+export function corpsEnvoi({ pseudo, code, faits, ressentis }) {
+  const corps = { pseudo, code, faits: Object.keys(faits ?? {}).sort() };
+  // La cle n'apparait QUE lorsqu'il y a quelque chose a dire. Le serveur la
+  // declare facultative et accepterait un objet vide ; l'omettre garde le corps
+  // IDENTIQUE a celui d'un enfant qui n'a jamais repondu — donc l'assertion qui
+  // garantit que le nom garde sur le telephone ne part pas reste vraie sans
+  // etre relachee. C'est le prix le mieux paye de ce champ.
+  if (ressentis != null && Object.keys(ressentis).length > 0) corps.ressentis = ressentis;
+  return corps;
 }
 
 export function corpsSuppression({ pseudo, code }) {
   return { pseudo, code, supprimer: true };
 }
 
-export function envoiNecessaire(local, faits) {
+// Le ressenti DECLENCHE un envoi, il n'attend pas le suivant : sinon celui tape
+// le lundi soir ne partirait qu'au prochain cochage — mercredi —, et la
+// repartition du coach aurait un jour de retard permanent, c'est-a-dire serait
+// vide le soir ou il regarde. Le troisieme argument a une valeur par defaut :
+// les appels a deux arguments passent sans retouche.
+export function envoiNecessaire(local, faits, ressentis = {}) {
   if (local?.pseudo == null) return false;
-  return empreinte(faits) !== (local.dernierEnvoi?.empreinte ?? '');
+  if (empreinte(faits) !== (local.dernierEnvoi?.empreinte ?? '')) return true;
+  return empreinteRessentis(ressentis) !== (local.dernierEnvoi?.empreinteRessentis ?? '');
 }
 
 // --- les trois appels ------------------------------------------------------
@@ -126,11 +140,11 @@ export async function relever(options = {}) {
   return { ok: true, statut: r.statut, instantane: r.corps, moi: null, suppression: null, cree: false };
 }
 
-export async function envoyer({ pseudo, code, faits }, options = {}) {
+export async function envoyer({ pseudo, code, faits, ressentis }, options = {}) {
   const r = await requete({
     method: 'POST',
     headers: ENTETES_JSON,
-    body: JSON.stringify(corpsEnvoi({ pseudo, code, faits })),
+    body: JSON.stringify(corpsEnvoi({ pseudo, code, faits, ressentis })),
   }, options);
   if (!r.ok) return r;
   // 201 a la creation du pseudonyme, 200 a chaque mise a jour : le corps est le
@@ -193,14 +207,17 @@ export async function synchroniser(ctx, options = {}) {
 
   const local = lire();
   const faits = lireFaits();
+  // Le filtre d'abord, et sur ce qui est LU maintenant — comme `faits`, et pour
+  // la meme raison : le contexte est un instantane du dernier rendu.
+  const ressentis = ressentisPourEnvoi(ctx?.prog, lireRessentis());
 
   let resultat;
   if (local.pseudo === null) {
     // Situer sans rejoindre : le PRD §7.4 promet a qui refuse qu'il « continue
     // a voir sa position ».
     resultat = await relever(options);
-  } else if (envoiNecessaire(local, faits)) {
-    resultat = await envoyer({ pseudo: local.pseudo, code: local.code, faits }, options);
+  } else if (envoiNecessaire(local, faits, ressentis)) {
+    resultat = await envoyer({ pseudo: local.pseudo, code: local.code, faits, ressentis }, options);
     if (resultat.ok) {
       // Un POST accepte est suivi d'un GET, DANS LE MEME APPEL. La reponse
       // d'envoi est plate : elle donne `moi`, jamais l'instantane. Sans ce
@@ -242,7 +259,16 @@ export async function synchroniser(ctx, options = {}) {
   const partiel = { dernierRangConnu };
   // dernierEnvoi n'est ecrit qu'apres une reponse acceptee : un envoi perdu ne
   // laisse aucune trace, et le declencheur suivant le refait tout seul.
-  if (resultat.moi !== null) partiel.dernierEnvoi = { at: recuA, empreinte: empreinte(faits) };
+  // L'empreinte est celle de la carte FILTREE, pas de la carte lue : une entree
+  // ecartee par le filtre resterait sinon eternellement absente de la
+  // confirmation, et chaque declencheur relancerait le meme envoi.
+  if (resultat.moi !== null) {
+    partiel.dernierEnvoi = {
+      at: recuA,
+      empreinte: empreinte(faits),
+      empreinteRessentis: empreinteRessentis(ressentis),
+    };
+  }
   ecrire(partiel);
 
   // UNE SEULE fois par appel, succes comme echec. Un POST suivi de son GET
@@ -269,12 +295,22 @@ export async function synchroniser(ctx, options = {}) {
 export function brancherSynchronisation(ctx, options = {}) {
   const doc = documentCourant(options);
   const fenetre = options.fenetre ?? (typeof window === 'undefined' ? null : window);
-  const minuterie = options.minuterie ?? { poser: setTimeout, annuler: clearTimeout };
+  // Enveloppees, jamais passees telles quelles : dans un navigateur, appeler
+  // `setTimeout` detache de `window` leve « Illegal invocation ». Le defaut
+  // dormait dans le chemin de reprise — jamais emprunte tant qu'aucun envoi
+  // n'echouait — et le report du debit l'a reveille.
+  const minuterie = options.minuterie ?? {
+    poser: (rappel, ms) => setTimeout(rappel, ms),
+    annuler: (id) => clearTimeout(id),
+  };
   const maintenant = options.maintenant ?? (() => new Date());
 
   let enVol = false;
   let dernierDepart = -Infinity;
   let reprise = null;
+  // Le declencheur mis en attente par le debit. Un seul a la fois : deux
+  // declencheurs rapproches produisent un envoi, pas deux.
+  let differe = null;
   let debranche = false;
 
   function annulerReprise() {
@@ -307,9 +343,21 @@ export function brancherSynchronisation(ctx, options = {}) {
   // Un seul appel en vol a la fois, et au moins INTERVALLE_MIN_MS entre deux
   // declenchements automatiques. Une reprise en attente est abandonnee : le
   // declencheur qui arrive est plus frais qu'elle.
+  //
+  // UN DECLENCHEUR TROP RAPPROCHE EST REPORTE, JAMAIS JETE. C'est la difference
+  // entre un debit et une perte : une seance terminee dans la demi-minute qui
+  // suit l'ouverture de l'app — le cas le plus courant, on ouvre pour cocher —
+  // verrait sinon son envoi disparaitre en silence, et le score ne partirait
+  // qu'a la prochaine ouverture. Trouve dans un navigateur, pas par un test.
   function declencher() {
     if (debranche) return;
-    if (maintenant().getTime() - dernierDepart < INTERVALLE_MIN_MS) return;
+    const reste = INTERVALLE_MIN_MS - (maintenant().getTime() - dernierDepart);
+    if (reste > 0) {
+      if (differe === null) {
+        differe = minuterie.poser(() => { differe = null; lancer(0); }, reste);
+      }
+      return;
+    }
     annulerReprise();
     lancer(0);
   }
@@ -321,6 +369,7 @@ export function brancherSynchronisation(ctx, options = {}) {
   return function debrancherSynchronisation() {
     debranche = true;
     annulerReprise();
+    if (differe !== null) { minuterie.annuler(differe); differe = null; }
     if (doc !== null) doc.removeEventListener(EVT_SEANCE_COMPLETE, declencher);
     if (fenetre !== null) fenetre.removeEventListener('online', declencher);
   };

@@ -12,9 +12,10 @@
 //      utilisable — c'est verifie a deux niveaux, ici et dans style.css.
 
 import { totauxAccomplis } from './domaine.js';
-import { lireFaits } from './etat.js';
+import { ecrireRessenti, lireFaits, lireRessentis } from './etat.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 import { EVT_SEANCE_COMPLETE } from './vue-seance.js';
+import { monterRessenti } from './ressenti.js';
 
 // La requete media est nommee : une faute de frappe rendrait `matches` toujours
 // faux, et personne ne s'en apercevrait avant qu'un utilisateur ne se plaigne.
@@ -208,8 +209,22 @@ function ouvrirPanneauDeFin(prog, faits, dateISO) {
     carte.append(liste);
   }
 
+  // La question du PRP 10, ENTRE les compteurs et le bouton — jamais dans un
+  // second <dialog>. C'est ce module qui connait le telephone : il fournit
+  // `lire` et `ecrire`, ressenti.js n'importe aucun stockage.
+  monterRessenti(carte, dateISO, {
+    lire: lireRessentis,
+    ecrire: ecrireRessenti,
+    surChoix: () => panneau.close(),
+  });
+
   const bouton = el('button', 'bouton bouton-principal fin-fermer', TEXTE_FERMETURE);
   bouton.type = 'button';
+  // Sans autofocus, showModal() focalise le premier bouton du panneau — un
+  // emoji — et un enfant qui appuie sur Entree pour fermer enregistrerait
+  // « Facile ». Le ressenti serait alors fabrique par l'interface, et la
+  // repartition du coach faussee dans le sens le plus flatteur.
+  bouton.autofocus = true;
   carte.append(bouton);
 
   panneau.append(carte);

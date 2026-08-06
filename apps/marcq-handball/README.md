@@ -355,6 +355,145 @@ peut supprimer le pseudonyme. C'est cohérent avec le PRD §14, qui assume déj�
 qu'il n'y a ni compte ni sauvegarde ; le chiffrer demanderait un secret, que le
 palier `public` interdit de faire descendre au navigateur.
 
+## L'équipe : podium, position, jauge
+
+Le second niveau du PRD §7.5, sous le calendrier de « Ma progression ». Trois
+blocs, dans cet ordre : le **podium**, qui nomme trois personnes ; la
+**position**, qui n'en nomme aucune ; la **jauge collective**, la seule mesure où
+personne n'est dernier — et c'est elle qu'on lit en refermant.
+
+**Le dénominateur inclut celui qui regarde.** Un enfant qui n'a pas rejoint lit
+« 4e sur 4 » et non « 4e sur 3 » : l'ensemble comparé, ce sont les inscrits *plus
+lui*. Trois raisons, et la première suffirait — sans le « + 1 », quelqu'un de
+moins avancé que tous les inscrits serait « 10e sur 9 », et écrêter son rang
+reviendrait à lui promettre qu'il n'est pas dernier alors qu'il l'est. Corollaire
+qui compte : **le dénominateur ne bouge pas quand on rejoint**, donc rejoindre
+n'est jamais présenté comme un moyen de mieux se classer, et « Non merci » reste
+un choix complet.
+
+*(À reporter dans le PRD §7.5 et §9, dont l'exemple chiffré dit encore « 3e sur
+9 » : sans cette phrase, le prochain lecteur prendra l'écran pour un défaut.)*
+
+**Le rang tranché par le serveur n'est jamais recalculé.** Le client ne calcule
+une position que pour quelqu'un que le serveur ne connaît pas — et le rang et son
+dénominateur viennent alors *de la même réponse*, jamais l'un du serveur et
+l'autre d'un instantané plus ancien.
+
+**Deux lignes datent deux choses différentes.** « Classement de vendredi 7 août »
+date les *nombres affichés* — le jour dont le dénominateur est celui du
+classement. La ligne juste dessous date la *réception*. Un podium sans sa date se
+lit comme un podium en direct.
+
+**Le rang s'anime, mais seulement quand on a vu le changement arriver** (PRD §10).
+Quatre conditions : le bloc portait déjà un rang, le jour n'a pas changé, le rang
+a réellement changé, et la position existait avant. À minuit, toutes les parts
+chutent parce que le dénominateur grandit — une app ouverte toute la nuit ne doit
+pas annoncer une dégringolade à 00 h 01.
+
+**Deux choses que cet écran refuse d'afficher**, et deux tests le tiennent : un
+second classement fondé sur le volume — il classerait dans le même ordre que la
+régularité, à du bruit près, et deux podiums qui disent la même chose font un
+podium plus de la confusion (PRD §13) — et un effectif d'équipe : tout
+dénominateur vient de `participants`, jamais d'un nombre écrit en dur (PRD §4).
+
+## Le ressenti de fin de séance
+
+Trois émojis — 🙂 Facile, 😐 Correct, 🥵 Dur — **dans** le panneau qui célèbre la
+fin d'une séance, entre les compteurs et le bouton. Jamais un second panneau :
+deux fenêtres modales ouvertes sur le même événement, c'est un écran inerte et un
+enfant coincé.
+
+**Jamais obligatoire, et l'écran le dit.** « Tu peux fermer sans répondre » est
+écrit sous les trois boutons. `Continuer` garde le focus initial — sans cela, une
+touche Entrée machinale enregistrerait « Facile », et la répartition lue par le
+coach serait faussée dans le sens le plus flatteur.
+
+**Le ressenti part par le même canal que le score, sous la même autorisation, et
+jamais séparément.** Celui d'un enfant qui n'a pas rejoint le classement ne quitte
+donc **jamais** son téléphone. Le panneau pose pourtant la question de la même
+façon aux deux : aucune phrase du type « rejoins pour partager ton ressenti »,
+aucun bouton grisé. « Non merci » est un choix complet, pas une punition.
+
+Un ressenti déclenche un envoi **tout de suite** : sinon celui tapé le lundi soir
+n'arriverait qu'au prochain cochage — mercredi — et la répartition serait vide le
+soir où le coach regarde.
+
+**Il ne se modifie pas après coup**, et c'est assumé : la seule façon de le
+changer est de décocher puis recocher la dernière case, ce qui rouvre le panneau.
+C'est cohérent avec ce qu'il mesure — une humeur datée, pas une déclaration.
+
+## La vue coach — et pourquoi elle n'a pas de mot de passe
+
+Le lien à envoyer au coach : **https://marcq-handball.apps.billbob.ovh/#/coach**.
+Il n'est listé nulle part dans la navigation de l'application.
+
+Elle montre l'assiduité en quatre paliers, le classement, une ligne par séance et
+la répartition des ressentis. Les deux mesures du PRD §4 s'y lisent directement :
+le palier haut est libellé « 60 % et plus — la cible », et la part de l'effectif
+encore active se lit sur la dernière ligne de séance.
+
+**Le mot de passe statique a été écarté** (PRD §13). Sur une page publique il
+donnerait l'apparence d'une protection sans en être une, et devrait de toute façon
+être injecté par l'environnement — donc être un secret de plus, que le contrat de
+la fabrique interdit dans le dépôt et dans l'image. Il aurait en outre un effet
+inverse à celui qu'on lui prête : il ferait croire au coach que cette page peut
+recevoir un jour des données nominatives.
+
+Ce qui rend son absence acceptable n'est pas une promesse, c'est une propriété
+**vérifiée** : la page n'a rien à protéger. Quatre assertions de source la
+tiennent — elle n'importe aucun module qui touche au stockage du navigateur, ni
+directement ni transitivement ; elle ne parle qu'à sa propre route ; elle ne
+nomme jamais le prénom ; elle n'utilise pas `innerHTML`. Chaque ajout futur devra
+passer par elles, et c'est ce qui empêche la dérive la plus probable de cette
+page : « puisqu'on y est, montrons aussi… ».
+
+**Si le coach veut le détail nominatif par enfant, ce sera une seconde
+application**, en `exposure: private` — un autre répertoire sous `apps/`, avec son
+image et son URL. Ce n'est pas un durcissement de celle-ci.
+
+**La répartition affichée est partielle par construction** : elle ne compte que
+les enfants qui ont rejoint le classement. Un coach qui lirait « 4 facile /
+11 correct / 6 dur » comme le compte de son effectif se tromperait — la page le
+dit, ce README aussi.
+
+## Le bilan, après le 21 août
+
+Le 22 août au matin, ouvrir le lien ne montre plus un programme terminé : il
+montre ce que l'enfant a fait pendant trois semaines. **La bascule se produit
+sans qu'un humain touche à quoi que ce soit et sans déploiement ce jour-là** —
+elle ne dépend que de `fin` dans `programme.json` et de l'horloge du téléphone.
+Aucune date n'est écrite dans le code : éditer le programme pour la saison
+prochaine défait la bascule tout seul.
+
+**Seule la racine bascule.** « Ma progression », les réglages et chaque séance
+continuent de répondre : le PRD §9 dit que l'application bascule, pas qu'elle
+ferme. Après le 21 août on peut encore corriger un prénom, relire une séance et
+changer d'enfant.
+
+**`#/bilan` est ouvrable à toute date**, et c'est délibéré : une route qui
+n'existerait qu'à partir du 22 août ne pourrait être essayée pour la première
+fois que le 22 août — le jour où il est trop tard pour la corriger. Ouvert en
+avance, l'écran dit en une ligne que ce n'est pas fini.
+
+**Le ton est la seule vraie décision de cet écran** : le bilan raconte ce qui a
+été fait, il ne compte pas ce qui a manqué. « 3 séances bouclées et 22 exercices
+cochés » et non « tu n'as fait que 3 séances sur 7 » — même donnée, lecture
+opposée. Une séance non ouverte n'affiche aucun chiffre : « 0 exercice sur 6 »
+est un reproche chiffré, l'absence de chiffre est un fait. Le mot du domaine
+reste `manquee` — il pilote la couleur — mais l'écran écrit « non faite ». Un
+test lit les phrases de trois bilans, dont celui de quelqu'un qui n'a rien fait,
+et échoue sur `manqu`, `dommage`, `seulement`, `raté`, `bravo`, `champion` ou
+`guerrier`.
+
+**Aucune animation, aucun rien qui bouge.** Le mouvement est une récompense qui
+vient après l'action ; ici la dernière case a été cochée il y a des jours.
+
+Le classement gelé s'affiche, sans le bouton pour le rejoindre : il proposerait
+d'entrer dans un classement fermé, et le serveur répondrait par une erreur pour
+un geste que l'écran venait de proposer. Le gel lui-même n'est implémenté nulle
+part côté navigateur — le serveur écrête le jour à la fin du programme et refuse
+tout envoi postérieur, donc le classement est constant par construction.
+
 ## Les récompenses
 
 `web/recompenses.js` est branché une seule fois, à l'amorçage, par `web/app.js`.
