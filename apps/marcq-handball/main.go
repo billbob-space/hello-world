@@ -20,6 +20,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	// L'image finale est Alpine, qui n'embarque pas la base des fuseaux. Sans
+	// cet import, time.LoadLocation("Europe/Paris") echoue dans le conteneur
+	// alors qu'elle reussit sur un poste de developpement, et jourParis se
+	// replierait sur UTC : le denominateur du classement serait faux deux
+	// heures par jour, tous les jours. Environ 450 Ko dans le binaire.
+	_ "time/tzdata"
 )
 
 // go:embed n'emporte que web/ : les tests de tests/ ne sont jamais dans
