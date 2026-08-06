@@ -25,6 +25,10 @@ erreur ici casse le deploiement de toutes les autres applications.
 - Memoire : `128m`
 - Healthcheck : `/healthz` — `wget --spider -q http://localhost:8080/healthz`
 
+## Ce qu'elle garde
+
+- Volume `marcq-handball-donnees`, monte sur `/var/lib/marcq-handball` — il survit au redeploiement.
+
 ## Comment la tester
 
     ./apps/marcq-handball/test.sh
