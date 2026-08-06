@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { PHRASE_RASSURANTE } from '../web/vue-prenom.js';
 import * as domaine from '../web/domaine.js';
 import { dateEnToutesLettres, modeleJour } from '../web/vue-jour.js';
+import { AVERTISSEMENT_SAUVEGARDE, CONFIRMATION_CHANGEMENT } from '../web/vue-reglages.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 
@@ -80,4 +81,30 @@ test('la date en toutes lettres ne glisse pas d un jour selon le fuseau', () => 
   assert.equal(dateEnToutesLettres('2026-08-03'), 'lundi 3 août');
   assert.equal(dateEnToutesLettres('2026-08-01'), 'samedi 1er août');
   assert.equal(dateEnToutesLettres('2026-08-21'), 'vendredi 21 août');
+});
+
+test('les phrases que le PRD fixe sont intactes', () => {
+  // PRD §14 : le risque est « assume et annonce ».
+  assert.match(AVERTISSEMENT_SAUVEGARDE, /pas de compte, donc pas de sauvegarde/);
+  assert.match(AVERTISSEMENT_SAUVEGARDE, /perdue/);
+  // PRD §7.2 : « le second repart a zero et le dit clairement avant d'agir ».
+  assert.match(CONFIRMATION_CHANGEMENT, /efface le prénom et toute la progression/);
+  assert.match(CONFIRMATION_CHANGEMENT, /\?$/, 'une confirmation pose une question');
+});
+
+test('les deux gestes des reglages sont distincts (PRD §7.2)', () => {
+  const code = source('vue-reglages.js');
+  // Corriger le prenom n'appelle que `ecrirePrenom` : la progression vit sous
+  // une autre cle et n'est meme pas lue.
+  assert.ok(code.includes('ecrirePrenom('), 'le premier geste ecrit le prenom');
+  // Changer d'enfant efface tout, et jamais sans confirmation.
+  assert.ok(code.includes('toutEffacer()'), 'le second geste efface tout');
+  assert.ok(
+    /confirm\(CONFIRMATION_CHANGEMENT\)/.test(code),
+    'toutEffacer n est jamais atteint sans confirmation',
+  );
+  assert.ok(
+    code.indexOf('confirm(CONFIRMATION_CHANGEMENT)') < code.indexOf('toutEffacer()'),
+    'la confirmation vient avant l effacement',
+  );
 });
