@@ -274,6 +274,12 @@ services:
     networks: [apps_net]
   # <<< hello-world
 
+  # >>> marcq-handball — DESACTIVEE (enabled: false dans apps/marcq-handball/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< marcq-handball
+
   # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
   ramure:
     image: ghcr.io/billbob-space/hello-world/ramure:main

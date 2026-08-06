@@ -1,0 +1,745 @@
+/* Jetons et socle de marcq-handball.
+ *
+ * L'app est ouverte dehors, en plein soleil, sur un telephone tenu a bout de
+ * bras entre deux series. D'ou un theme CLAIR par defaut et des contrastes
+ * eleves : un ecran sombre au soleil ne se lit pas. La variante sombre suit le
+ * reglage du telephone, elle ne s'impose pas.
+ *
+ * Aucune police distante : la page est publique, tout ce qu'elle charge est en
+ * meme origine (ossature §2). La pile systeme est deja celle que l'ado lit
+ * partout ailleurs sur son telephone. */
+
+:root {
+  color-scheme: light dark;
+
+  --papier:      #f6f4ef;  /* le fond */
+  --carte:       #ffffff;  /* les surfaces posees dessus */
+  --encre:       #14161c;  /* le texte, jamais du noir pur */
+  --encre-douce: #545a68;  /* les mentions secondaires */
+  --trait:       #ded8cd;  /* les separations */
+  --signal:      #d62839;  /* l'accent : progression, validation, et rien d'autre */
+  --signal-lisible: #ffffff;  /* ce qui s'ecrit sur le signal */
+  --fait:        #16794a;  /* ce qui est accompli */
+
+  /* Zone de tap minimale — PRD §11, mains moites et telephone a bout de bras.
+     Aucune cible interactive de l'app ne descend sous cette valeur. */
+  --tap: 44px;
+
+  --pas:   0.5rem;
+  --marge: clamp(1.25rem, 5vw, 2rem);
+  --rayon: 12px;
+
+  --texte: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+           "Helvetica Neue", Arial, sans-serif;
+  --chiffres: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono",
+              "Liberation Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier:      #101216;
+    --carte:       #191c22;
+    --encre:       #edeae3;
+    --encre-douce: #9aa1ad;
+    --trait:       #2b2f38;
+    --signal:      #ff5566;
+    --signal-lisible: #14161c;
+    --fait:        #4ec98a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  padding: var(--marge);
+  /* La barre d'adresse du telephone mange le bas de l'ecran : sans cette
+     reserve, le dernier exercice d'une seance se cache derriere elle. */
+  padding-bottom: calc(var(--marge) + env(safe-area-inset-bottom));
+  background: var(--papier);
+  color: var(--encre);
+  font-family: var(--texte);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+h1 {
+  margin: 0 0 var(--pas);
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Toute cible interactive, partout dans l'app. Les ecrans des PRP suivants
+   s'appuient dessus plutot que de redeclarer une hauteur a chaque bouton. */
+.tap {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pas);
+}
+
+:focus-visible {
+  outline: 3px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* ---- la page d'attente ---------------------------------------------------
+   Elle dit ce qu'elle est. Elle n'imite aucun ecran de l'application : une
+   fausse seance donnerait envie de taper dessus, et le premier tap serait un
+   echec. */
+
+.attente {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding-top: clamp(2rem, 12vh, 6rem);
+}
+
+.sur-titre {
+  margin: 0 0 var(--pas);
+  font-family: var(--chiffres);
+  font-size: 0.8125rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.periode {
+  margin: 0 0 calc(var(--pas) * 4);
+  font-family: var(--chiffres);
+  color: var(--encre-douce);
+}
+
+.dit {
+  margin: 0 0 calc(var(--pas) * 2);
+  font-size: 1.125rem;
+}
+
+.note {
+  margin: 0;
+  padding: calc(var(--pas) * 2);
+  background: var(--carte);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  color: var(--encre-douce);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Les ecrans — PRP 03.
+   Mobile d'abord : une colonne, des zones de tap d'au moins 48 px, un contraste
+   eleve (PRD §11). Le fond est clair et l'encre presque noire : c'est ce qui se
+   lit le mieux dehors, ecran a pleine luminosite. Aucune police distante — la
+   page est publique et ne charge que sa propre origine (ossature §2).
+   --------------------------------------------------------------------------- */
+
+:root {
+  --marcq-encre: #14181f;
+  --marcq-encre-douce: #4a5364;
+  --marcq-fond: #f4f6f9;
+  --marcq-carte: #ffffff;
+  --marcq-accent: #0b4fa8;      /* 7,4:1 sur blanc */
+  --marcq-sur-accent: #ffffff;
+  --marcq-danger: #a11221;      /* 7,9:1 sur blanc */
+  --marcq-trait: #d7dce4;
+  --marcq-tap: 48px;
+}
+
+body {
+  margin: 0;
+  /* La barre d'onglets est fixee en bas : on reserve sa hauteur pour que le
+     dernier bouton d'un ecran ne finisse pas dessous. */
+  padding: 0 0 calc(var(--marcq-tap) + env(safe-area-inset-bottom, 0px) + 1.5rem);
+  background: var(--marcq-fond);
+  color: var(--marcq-encre);
+  font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.ecran-hote { display: block; }
+
+.ecran {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.1rem 0;
+}
+/* Le premier lancement est centre : un champ seul en haut d'un ecran vide a
+   l'air d'un formulaire inacheve. */
+.ecran-prenom { min-height: 65vh; justify-content: center; }
+.ecran-jour { gap: 1.1rem; }
+.ecran-reglages { gap: 1.1rem; }
+
+.titre-accueil,
+.titre-jour,
+.titre-ecran { margin: 0; font-size: 1.6rem; line-height: 1.2; }
+.titre-bloc { margin: 0 0 .6rem; font-size: 1.05rem; }
+
+.salutation,
+.details-jour { margin: 0; color: var(--marcq-encre-douce); }
+.salutation { font-size: 1.05rem; }
+
+.formulaire-prenom { display: flex; flex-direction: column; gap: .7rem; }
+.etiquette { display: block; font-weight: 600; }
+.aide { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+
+.champ {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--marcq-tap);
+  padding: 0 .8rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+}
+.champ:focus-visible { border-color: var(--marcq-accent); outline: none; }
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--marcq-tap);
+  padding: 0 1.2rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.bouton-principal {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-accent);
+  color: var(--marcq-sur-accent);
+}
+.bouton-danger { border-color: var(--marcq-danger); color: var(--marcq-danger); }
+.bouton:focus-visible,
+.lien-nav:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+.progression-jour { display: flex; align-items: center; gap: .7rem; margin: 0; }
+.barre { flex: 1; height: .7rem; }
+.compte { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.bloc-reglage {
+  padding: 1rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: .8rem;
+  background: var(--marcq-carte);
+}
+.bloc-danger { border-color: var(--marcq-danger); }
+.avertissement { margin: 0 0 .8rem; color: var(--marcq-encre-douce); font-size: .95rem; }
+/* La hauteur est reservee : sans elle, le retour ferait sauter le bouton. */
+.retour { margin: 0; min-height: 1.5rem; color: var(--marcq-accent); font-size: .95rem; }
+
+.panne { max-width: 34rem; margin: 2rem auto; padding: 0 1.1rem; color: var(--marcq-danger); }
+
+.nav-app {
+  position: fixed;
+  inset: auto 0 0;
+  display: flex;
+  border-top: 1px solid var(--marcq-trait);
+  background: var(--marcq-carte);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-app[hidden] { display: none; }
+.lien-nav {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--marcq-tap);
+  color: var(--marcq-encre-douce);
+  font-weight: 600;
+  text-decoration: none;
+}
+.lien-nav[aria-current="page"] {
+  color: var(--marcq-accent);
+  box-shadow: inset 0 -3px 0 var(--marcq-accent);
+}
+
+/* Les trois cas de l'ecran du jour se lisent a la couleur du titre : un jour de
+   seance appelle, un jour de repos rassure, la fin du programme clot. */
+.cas-aujourd-hui .titre-jour { color: var(--marcq-accent); }
+.cas-repos .titre-jour { color: var(--marcq-encre-douce); }
+.cas-terminee .titre-jour { color: var(--marcq-encre); }
+
+/* ---- l'ecran de seance ----------------------------------------------------
+   Ouvert dehors, au soleil, sur un telephone tenu a bout de bras entre deux
+   series. D'ou la ligne entiere comme zone de tap et des separations franches
+   plutot que des nuances de gris. Les titres, la barre et le compte
+   reutilisent les classes de l'ecran du jour : une jumelle divergerait. */
+
+.ecran-seance { gap: 1.1rem; }
+
+/* Le sur-titre : la semaine du coach et la date en toutes lettres. */
+.date-seance { margin: 0; color: var(--marcq-encre-douce); font-size: 1.05rem; }
+
+.progression-seance { display: flex; align-items: center; gap: .7rem; margin: 0; }
+
+/* Le motif du verrou. Une phrase, pas une infobulle : il n'y a pas de survol
+   sur un telephone. */
+.verrou-seance {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-left: 4px solid var(--marcq-encre-douce);
+  border-radius: 8px;
+  background: var(--marcq-carte);
+  color: var(--marcq-encre-douce);
+}
+
+.bloc-seance { display: flex; flex-direction: column; gap: .4rem; }
+
+/* `.titre-bloc` porte une marge basse pour les reglages ; ici c'est `gap` qui
+   espace, et les deux se cumuleraient. */
+.bloc-seance .titre-bloc { margin: 0; }
+
+.tours-bloc {
+  margin: 0;
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
+}
+
+.exercices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 10px;
+  background: var(--marcq-carte);
+  overflow: hidden;
+}
+
+.exercice + .exercice { border-top: 1px solid var(--marcq-trait); }
+
+/* Plus haut que la cible minimale de l'app : la ligne est atteinte du pouce, en
+   mouvement, les mains moites (PRD §11). */
+.ligne-exercice {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  min-height: calc(var(--marcq-tap) + 8px);
+  padding: .7rem .9rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.case-exercice {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  accent-color: var(--marcq-accent);
+}
+
+.case-exercice:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+.libelle-exercice { flex: 1 1 auto; }
+
+/* Coche : la ligne se barre. C'est tout ce que ce PRP anime — le ressort et les
+   confettis sont le PRP 06, branches sur marcq:exercice-coche. */
+.exercice.fait .libelle-exercice {
+  color: var(--marcq-encre-douce);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+/* Une seance a venir : le cadre passe en pointilles et les cases s'effacent,
+   mais le texte reste plein contraste — on vient justement lire ce qui arrive
+   (PRD §9). */
+.seance-verrouillee .exercices { border-style: dashed; background: transparent; }
+.seance-verrouillee .ligne-exercice { cursor: default; }
+.seance-verrouillee .case-exercice { opacity: .5; }
+
+.voisines {
+  display: flex;
+  gap: .6rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--marcq-trait);
+}
+
+.lien-voisine {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--marcq-tap);
+  color: var(--marcq-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lien-voisine:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+/* Sans cela, la seule voisine d'une seance de bord se collerait a gauche, quel
+   que soit le sens dans lequel elle emmene. */
+.vers-suivante { margin-left: auto; }
+
+/* ---- l'ecran perso --------------------------------------------------------
+   « Ma progression » (PRD §7.5) : on se lit, on ne se compare pas. Un chiffre en
+   grand, le volume en pastilles juste dessous — c'est le second chiffre saillant
+   de l'ecran (PRD §9) —, et dix-neuf jours qui tiennent sur la largeur
+   d'un telephone sans defilement horizontal. Les titres, la barre et le bloc
+   d'aide reutilisent les classes des ecrans precedents : une jumelle
+   divergerait. */
+
+.ecran-perso { gap: 1.4rem; }
+
+/* Les deux sections qui suivent la part : leurs elements sont espaces par le
+   `gap` de `.ecran-perso`, elles n'ajoutent donc aucune marge propre. Declarees
+   parce qu'un ecran ne pose pas de classe qui n'existe nulle part — le test du
+   PRP 05 le verifie. */
+.volume-perso,
+.calendrier-perso { display: block; }
+
+.part-perso {
+  padding: 1rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 10px;
+  background: var(--marcq-carte);
+}
+
+.chiffre-part {
+  margin: 0;
+  font-size: clamp(2.5rem, 14vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.progression-perso { display: flex; align-items: center; margin: .6rem 0; }
+
+.phrase-part { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+
+/* Le volume en pastilles : une liste de choses a dire a table, pas un tableau
+   de bord. Le PRD §9 veut ce cumul « en grand sur la page perso » — les
+   pastilles portent donc le second corps de texte de l'ecran, juste sous le
+   pourcentage, et loin devant la phrase et le calendrier. */
+.liste-volume {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-volume {
+  padding: .45rem .9rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 999px;
+  background: var(--marcq-carte);
+  font-size: clamp(1.15rem, 5.5vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.resume-calendrier {
+  margin: 0 0 .6rem;
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
+}
+
+.entete-calendrier,
+.grille-calendrier {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.entete-calendrier {
+  margin-bottom: 4px;
+  color: var(--marcq-encre-douce);
+  font-size: .75rem;
+  text-align: center;
+}
+
+/* La hauteur ne descend jamais sous la zone de tap ; la largeur suit la
+   colonne — sept colonnes de 48 px ne tiennent sur aucun telephone, et aucune
+   action de l'app ne depend de cette grille (voir « Points d'attention »). */
+.jour-calendrier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--marcq-tap);
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.numero-jour { font-size: .875rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.marque-jour { font-size: .75rem; line-height: 1; }
+
+.jour-hors { visibility: hidden; }
+.jour-repos { color: var(--marcq-encre-douce); }
+.jour-a-venir { border-color: var(--marcq-trait); background: var(--marcq-carte); }
+.jour-manquee {
+  border-style: dashed;
+  border-color: var(--marcq-trait);
+  color: var(--marcq-encre-douce);
+}
+.jour-partielle {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-carte);
+  color: var(--marcq-accent);
+}
+.jour-faite {
+  border-color: var(--marcq-accent);
+  background: var(--marcq-accent);
+  color: var(--marcq-sur-accent);
+}
+.jour-aujourd-hui {
+  border-color: var(--marcq-danger);
+  background: var(--marcq-carte);
+  box-shadow: inset 0 0 0 1px var(--marcq-danger);
+  font-weight: 700;
+}
+
+.jour-calendrier:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+.legende-calendrier {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin: .8rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--marcq-encre-douce);
+  font-size: .8125rem;
+}
+
+.item-legende { display: inline-flex; align-items: center; gap: .3rem; }
+
+.marque-legende {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: .75rem;
+}
+
+/* Lu par les lecteurs d'ecran, invisible a l'oeil. `display: none` le retirerait
+   aussi de leur restitution : ce qui doit etre annonce reste dans le flux,
+   reduit a un pixel. */
+.lu-seul {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Le troisieme onglet arrive avec cet ecran, et « Ma progression » passe sur
+   deux lignes des 360 px : sans ces trois lignes le texte deborde de la barre,
+   qui n'a que la hauteur d'une zone de tap. Le reglage vit ici plutot qu'avec la
+   barre du PRP 03 — c'est ce PRP qui ajoute l'onglet, donc le probleme. */
+.lien-nav {
+  padding: .25rem .4rem;
+  line-height: 1.15;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Les recompenses — PRP 06.
+   L'animation vient apres l'action et ne retarde aucun tap (PRD §10).
+   --------------------------------------------------------------------------- */
+
+/* Le SEUL bloc de mouvement reduit de la feuille : il remplace celui du PRP 01.
+   Volontairement universel — il couvre ce qui suit dans ce fichier, mais aussi
+   ce qu'un PRP futur y ajoutera sans y penser. Sa position n'a aucun effet,
+   `!important` gagnant quel que soit l'ordre ; c'est son EXISTENCE des la
+   premiere animation qui compte.
+   `.001ms` plutot que `0s` : l'animation se termine a l'image suivante, donc
+   `animationend` et `transitionend` sont bien emis, et un code qui attend l'un
+   des deux pour nettoyer n'attend pas indefiniment. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root {
+  /* Un depassement leger a l'arrivee : c'est ce que l'oeil lit comme du
+     ressort. Au-dela, la barre a l'air de rebondir sur un mur. */
+  --marcq-ressort: cubic-bezier(.2, .9, .25, 1.25);
+}
+
+/* `appearance: none` est ce qui rend le remplissage stylable dans les
+   navigateurs WebKit et Blink : sans lui, ::-webkit-progress-value n'existe pas
+   et la barre garde son apparence systeme. Le fond et la couleur sont donc
+   reposes ici, pour les deux ecrans qui utilisent `.barre` — le jour et la
+   seance : une barre stylee d'un cote et systeme de l'autre serait la meme
+   information dans deux dialectes. */
+.barre {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: var(--marcq-trait);
+  overflow: hidden;
+}
+
+.barre::-webkit-progress-bar { background: var(--marcq-trait); }
+
+.barre::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--marcq-accent);
+  transition: width 260ms var(--marcq-ressort);
+}
+
+.barre::-moz-progress-bar { border-radius: 999px; background: var(--marcq-accent); }
+
+/* La ligne se barre : c'est la COULEUR du trait qui s'anime, pas sa largeur. Le
+   trait est present des le depart, en transparent, ce qui evite deux ecueils —
+   un trait qui pousse de gauche a droite se casse sur un libelle a deux lignes,
+   et une transition ne demarre jamais au tout premier calcul de style, donc une
+   seance rouverte deja cochee ne rejoue rien (deuxieme interdit, PRD §10). */
+.libelle-exercice {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: transparent;
+  transition: color 220ms ease-out, text-decoration-color 220ms ease-out;
+}
+
+/* Le panneau de fin de seance. `<dialog>` en couche superieure : il passe
+   au-dessus de tout sans qu'aucun z-index n'ait a etre arbitre. */
+.panneau-fin {
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+}
+
+.panneau-fin::backdrop { background: rgb(20 24 31 / .55); }
+
+.carte-fin {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+  padding: 1.4rem 1.2rem;
+  border-radius: 1rem;
+  background: var(--marcq-carte);
+  text-align: center;
+  animation: marcq-monte 260ms var(--marcq-ressort);
+}
+
+@keyframes marcq-monte {
+  from { transform: translateY(14px) scale(.96); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.fin-date { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+.fin-titre { margin: 0; font-size: 1.5rem; line-height: 1.2; }
+.fin-seances { margin: 0; color: var(--marcq-encre-douce); }
+
+/* « En grand » (PRD §10) : le compteur de seances est le chiffre qu'on retient
+   en fermant le panneau. Il arrive a sa valeur avec un agrandissement court, il
+   ne roule pas — il augmente de un. */
+.fin-nombre-seances {
+  display: inline-block;
+  color: var(--marcq-encre);
+  font-size: 2.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  animation: marcq-pop 320ms var(--marcq-ressort);
+}
+
+@keyframes marcq-pop {
+  from { transform: scale(.6); }
+  to   { transform: none; }
+}
+
+.fin-volume {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fin-ligne {
+  padding: .5rem .2rem;
+  border-radius: .6rem;
+  background: var(--marcq-fond);
+  color: var(--marcq-encre-douce);
+  font-size: .9rem;
+}
+
+/* `tabular-nums` : sans chiffres a chasse fixe, la ligne tremble a chaque image
+   du roulement — c'est le detail qui fait passer une animation pour un bogue. */
+.fin-nombre {
+  display: block;
+  color: var(--marcq-encre);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-fermer { align-self: stretch; }
+
+:root {
+  /* Quatre couleurs choisies, jamais une teinte tiree au hasard : le hasard
+     produit tot ou tard un confetti illisible sur fond clair. */
+  --marcq-confetti-1: #0b4fa8;
+  --marcq-confetti-2: #f2b705;
+  --marcq-confetti-3: #d94f04;
+  --marcq-confetti-4: #1f9d55;
+}
+
+/* La couche ne recoit aucun pointeur : elle ne peut pas intercepter un tap,
+   c'est ce qui la rend compatible avec « jamais un peage ». `overflow: hidden`
+   evite qu'un grain derivant sur le cote n'elargisse la page. */
+.confettis {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Seuls transform et opacity sont animes : ni l'un ni l'autre ne declenche de
+   calcul de mise en page, donc vingt-quatre grains ne coutent pas une image. */
+.confetti {
+  position: absolute;
+  inset-block-start: -14px;
+  inset-inline-start: var(--x);
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--couleur);
+  animation: marcq-chute var(--duree, 1200ms) var(--retard, 0ms) ease-in forwards;
+}
+
+@keyframes marcq-chute {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  to   { transform: translate3d(var(--derive), 100vh, 0) rotate(var(--tour)); opacity: .2; }
+}

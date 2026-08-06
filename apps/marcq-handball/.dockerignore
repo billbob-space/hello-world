@@ -1,0 +1,25 @@
+# Genere par init.sh — le contexte de construction est ce repertoire, pas la
+# racine du depot. Exclure la doc fige le cache de couches sur les seules
+# modifications de code.
+.git
+*.md
+app.yml
+test.sh
+tests
+package.json
+.dockerignore
+marcq-handball
+node_modules
+dist
+build
+target
+__pycache__
+.env
+.env.*
+*.log
+
+# Complete a la main. Ni les tests du navigateur ni les PRP n'entrent dans
+# l'image : go:embed n'emporte que web/. « *.md » ne couvre que la racine du
+# contexte — prp/ doit donc etre nomme, sans quoi chaque relecture d'un PRP
+# invaliderait le cache de couches.
+prp/

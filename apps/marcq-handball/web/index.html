@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Le programme d’été de l’équipe U15 de Marcq Handball, à cocher séance par séance.">
+<title>Programme d’été — Marcq Handball</title>
+<!-- Une icone vide plutot qu'aucune : sans elle, chaque ouverture ajoute un
+     404 sur /favicon.ico dans les journaux du serveur. -->
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<!-- Les ecrans se montent ici ; le routeur vide cet element avant chacun. -->
+<main id="ecran" class="ecran-hote"></main>
+<!-- La navigation vit HORS de #ecran : elle survit aux montages et ne clignote
+     pas d'un ecran a l'autre. Masquee tant que le prenom n'est pas donne
+     (PRD §7.1 : un champ, un bouton, rien d'autre). -->
+<nav id="nav" class="nav-app" aria-label="Navigation principale" hidden></nav>
+<noscript><p class="panne">Cette page a besoin de JavaScript pour afficher le programme.</p></noscript>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

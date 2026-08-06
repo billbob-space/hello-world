@@ -1,6 +1,6 @@
 # marcq-handball — notice de contexte
 
-<!-- GENERE par ./init.sh. Cette app n a pas encore de manifeste.
+<!-- GENERE par ./init.sh depuis apps/marcq-handball/app.yml et fabrique.yml.
      Ne l'edite pas : --check refuse une notice qui a derive. -->
 
 ## Ton perimetre
@@ -13,13 +13,26 @@ erreur ici casse le deploiement de toutes les autres applications.
 
 ## Ce que tu ecris
 
-Cette application n'a pas encore de manifeste : le manifeste reste a ecrire.
-Son nom — donc son sous-domaine, son conteneur et sa route — sera `marcq-handball`.
-Echafaude-le avec `./init.sh --add marcq-handball`, puis relance `./init.sh`.
+- Nom : `marcq-handball` — c'est aussi son sous-domaine, son conteneur et sa route.
+- URL : https://marcq-handball.apps.billbob.ovh
+- Qui entre : tout le monde, sans authentification (`exposure: public`).
+- Deployee : pas encore — son bloc n'entre pas dans `compose.yaml`.
+
+## Comment elle tourne
+
+- Technologie : `typescript`
+- Port : `8080`
+- Memoire : `128m`
+- Healthcheck : `/healthz` — `wget --spider -q http://localhost:8080/healthz`
+
+## Comment la tester
+
+    ./apps/marcq-handball/test.sh
 
 ## Ses documents
 
 - `apps/marcq-handball/PRODUCT.md` — la fiche produit, puis les exigences.
+- `apps/marcq-handball/README.md` — le mode d'emploi technique.
 - `apps/marcq-handball/prp/` — les documents d'implementation.
 
 ## Les regles qui s'appliquent a son image
