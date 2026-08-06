@@ -9,6 +9,7 @@ import { lireFaits, lirePrenom } from './etat.js';
 import { monterJour } from './vue-jour.js';
 import { monterPrenom } from './vue-prenom.js';
 import { monterReglages } from './vue-reglages.js';
+import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
 // domaine compare comme des chaines. Le fuseau est fige : un enfant en vacances
@@ -23,6 +24,7 @@ export const aujourdhui = () =>
 // accepte l'adresse sans ancre.
 export const ECRANS = [
   { nom: 'reglages', motif: /^#\/reglages$/, monter: monterReglages },
+  { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
   { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
 ];
 

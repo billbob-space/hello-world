@@ -113,6 +113,7 @@ fichiers statiques et une sonde de santé, et ne connaît aucun utilisateur.
 | Route | Écran | Fichier |
 |---|---|---|
 | `#/` (ou adresse sans ancre) | la séance du jour, ou le repos, ou la fin | `web/vue-jour.js` |
+| `#/seance/<YYYY-MM-DD>` | une séance : la liste complète, cochable si sa date est passée ou en cours (PRD §9) | `web/vue-seance.js` |
 | `#/reglages` | corriger le prénom, changer d'enfant | `web/vue-reglages.js` |
 
 Tant qu'aucun prénom n'est enregistré, aucune route n'est honorée :

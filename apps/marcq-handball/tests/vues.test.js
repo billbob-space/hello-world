@@ -123,12 +123,13 @@ test('la coque porte l hote des ecrans, la navigation et le module d amorcage', 
 });
 
 test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
-  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'jour']);
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'jour']);
   assert.equal(choisirEcran('#/').nom, 'jour');
   assert.equal(choisirEcran('').nom, 'jour', 'une adresse sans ancre ouvre le jour');
   assert.equal(choisirEcran('#').nom, 'jour');
   assert.equal(choisirEcran('#/reglages').nom, 'reglages');
-  assert.equal(choisirEcran('#/seance/2026-08-03'), null, 'la seance arrive au PRP 04');
+  assert.equal(choisirEcran('#/seance/2026-08-03').nom, 'seance');
+  assert.equal(choisirEcran('#/seance/2026-13-45'), null, 'une date impossible reste inconnue');
   assert.equal(choisirEcran('#/perso'), null, 'l ecran perso arrive au PRP 05');
   assert.equal(choisirEcran('#/nimporte-quoi'), null);
 });

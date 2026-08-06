@@ -25,6 +25,7 @@ const COQUE = [
   '/vue-prenom.js',
   '/vue-jour.js',
   '/vue-reglages.js',
+  '/vue-seance.js',
 ];
 
 self.addEventListener('install', (e) => {
