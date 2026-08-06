@@ -8,6 +8,7 @@
 
 export const CLE_PRENOM = 'marcq.v1.prenom';
 export const CLE_FAITS = 'marcq.v1.faits';
+export const CLE_CLASSEMENT = 'marcq.v1.classement';
 export const PREFIXE_CLES = 'marcq.';
 
 const PRENOM_MAX = 24;
@@ -148,6 +149,63 @@ export function decocher(id) {
   delete faits[id];
   ecrireFaits(faits);
   return faits;
+}
+
+// --- le classement --------------------------------------------------------
+
+// La quatrieme cle de l'ossature §6. Elle porte de quoi parler au serveur —
+// `pseudo` et `code` — et de quoi afficher sans reseau : la derniere reponse
+// d'envoi acceptee et le dernier instantane du classement.
+//
+//   dernierEnvoi     { at, empreinte }   ce que le serveur a deja recu
+//   dernierRangConnu { recuA, instantane, moi }
+//     instantane  le corps entier du dernier GET   { jour, programmees,
+//                 participants, classement, groupe }
+//     moi         le corps entier de la derniere reponse d'envoi acceptee
+//                 { pseudo, jour, rang, participants, cochees, programmees,
+//                   part, ignores }
+//
+// Les deux corps sont gardes ENTIERS et non transformes : le PRP 09 compare
+// `moi.jour` a `instantane.jour` pour savoir si le rang qu'il affiche date
+// d'avant minuit, et un champ retire ici casserait la-bas sans symptome.
+export const CLASSEMENT_VIDE = {
+  pseudo: null, code: null, dernierEnvoi: null, dernierRangConnu: null,
+};
+
+// Rend toujours un objet, jamais null — comme `lireFaits()` rend {} : l'appelant
+// n'a pas de branche a ecrire, et un stockage refuse ne casse rien (ossature §6).
+export function lireClassement() {
+  const brut = lireCle(CLE_CLASSEMENT);
+  if (brut === null || brut === '') return { ...CLASSEMENT_VIDE };
+
+  let valeur;
+  try {
+    valeur = JSON.parse(brut);
+  } catch (err) {
+    console.warn('marcq : etat du classement illisible, il est ignore', err);
+    return { ...CLASSEMENT_VIDE };
+  }
+  if (valeur === null || typeof valeur !== 'object' || Array.isArray(valeur)) {
+    return { ...CLASSEMENT_VIDE };
+  }
+  return { ...CLASSEMENT_VIDE, ...valeur };
+}
+
+// FUSIONNE puis ecrit, et cette fusion n'est pas une commodite. Un remplacement
+// complet serait le defaut le plus couteux du produit : le rafraichissement du
+// rang n'ecrit que `dernierRangConnu` et effacerait `code`, donc le seul moyen
+// pour l'enfant de retirer son pseudonyme (PRD §14). Rien ne casserait, l'app
+// continuerait, et le degat n'apparaitrait qu'au moment ou il est irreparable.
+export function ecrireClassement(partiel) {
+  const a_jour = { ...lireClassement(), ...partiel };
+  ecrireCle(CLE_CLASSEMENT, JSON.stringify(a_jour));
+  return a_jour;
+}
+
+export function effacerClassement() {
+  const existait = lireCle(CLE_CLASSEMENT) !== null;
+  effacerCle(CLE_CLASSEMENT);
+  return existait;
 }
 
 // « Changer d'enfant » (PRD §7.2). Rend le nombre de cles effacees, repli en

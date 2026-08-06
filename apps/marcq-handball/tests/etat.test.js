@@ -153,3 +153,52 @@ test('un quota plein n empeche pas de finir la seance', () => {
   etat.cocher('s1-r1', '2026-08-03T18:22:11.000Z');
   assert.deepEqual(etat.lireFaits(), { 's1-r1': '2026-08-03T18:22:11.000Z' });
 });
+
+// --- le classement (ossature §6, quatrieme cle) ------------------------------
+
+test('l etat du classement se lit meme absent, meme illisible', () => {
+  assert.deepEqual(etat.lireClassement(), etat.CLASSEMENT_VIDE, 'cle absente');
+
+  poserMagasin(fauxMagasin({ 'marcq.v1.classement': '{{' }));
+  assert.deepEqual(etat.lireClassement(), etat.CLASSEMENT_VIDE, 'JSON illisible');
+
+  poserMagasin(fauxMagasin({ 'marcq.v1.classement': '["Faucon"]' }));
+  assert.deepEqual(etat.lireClassement(), etat.CLASSEMENT_VIDE, 'un tableau n est pas cet objet');
+
+  // Les champs absents d'une version anterieure prennent leur valeur par defaut,
+  // plutot que d'arriver `undefined` chez l'appelant.
+  poserMagasin(fauxMagasin({ 'marcq.v1.classement': '{"pseudo":"Faucon-12"}' }));
+  assert.deepEqual(etat.lireClassement(), {
+    pseudo: 'Faucon-12', code: null, dernierEnvoi: null, dernierRangConnu: null,
+  });
+});
+
+test('ecrireClassement FUSIONNE — sans quoi le code disparaitrait en silence', () => {
+  etat.ecrireClassement({ pseudo: 'Faucon-12', code: '4821' });
+
+  // Le rafraichissement du rang n'ecrit que dernierRangConnu. S'il remplacait
+  // l'objet entier, `code` partirait, et l'enfant perdrait pour toujours le
+  // moyen de supprimer son pseudonyme (PRD §14).
+  const apres = etat.ecrireClassement({
+    dernierRangConnu: { recuA: '2026-08-07T18:00:00.000Z', instantane: { jour: '2026-08-07' }, moi: null },
+  });
+  assert.equal(apres.code, '4821', 'le code survit au rafraichissement du rang');
+  assert.equal(apres.pseudo, 'Faucon-12');
+  assert.equal(apres.dernierRangConnu.instantane.jour, '2026-08-07');
+  assert.deepEqual(etat.lireClassement(), apres, 'ce qui est rendu est ce qui est ecrit');
+});
+
+test('effacerClassement dit si la cle existait, et changer d enfant l emporte', () => {
+  assert.equal(etat.effacerClassement(), false, 'rien a effacer');
+
+  etat.ecrireClassement({ pseudo: 'Faucon-12', code: '4821' });
+  assert.equal(etat.effacerClassement(), true);
+  assert.deepEqual(etat.lireClassement(), etat.CLASSEMENT_VIDE);
+
+  // « Changer d'enfant » enumere les cles `marcq.` : celle du classement part
+  // avec les autres, et le chantier E en tire l'avertissement qui va avec.
+  etat.ecrirePrenom('Lucas');
+  etat.ecrireClassement({ pseudo: 'Faucon-12', code: '4821' });
+  etat.toutEffacer();
+  assert.deepEqual(etat.lireClassement(), etat.CLASSEMENT_VIDE);
+});
