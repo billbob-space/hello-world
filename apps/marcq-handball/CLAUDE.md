@@ -16,7 +16,7 @@ erreur ici casse le deploiement de toutes les autres applications.
 - Nom : `marcq-handball` — c'est aussi son sous-domaine, son conteneur et sa route.
 - URL : https://marcq-handball.apps.billbob.ovh
 - Qui entre : tout le monde, sans authentification (`exposure: public`).
-- Deployee : pas encore — son bloc n'entre pas dans `compose.yaml`.
+- Deployee : oui.
 
 ## Comment elle tourne
 
