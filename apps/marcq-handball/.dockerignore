@@ -5,6 +5,8 @@
 *.md
 app.yml
 test.sh
+tests
+package.json
 .dockerignore
 marcq-handball
 node_modules
@@ -20,5 +22,4 @@ __pycache__
 # l'image : go:embed n'emporte que web/. « *.md » ne couvre que la racine du
 # contexte — prp/ doit donc etre nomme, sans quoi chaque relecture d'un PRP
 # invaliderait le cache de couches.
-tests/
 prp/

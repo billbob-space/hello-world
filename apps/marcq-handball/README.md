@@ -62,3 +62,45 @@ supplémentaire.
 (PRD §12.1). Un magasin remis à zéro à chaque publication d'image serait pire
 que pas de classement. C'est une décision d'exploitation, elle se prend côté
 serveur ; le PRP 07 ne démarre pas avant.
+
+## Modifier le programme
+
+Le programme vit dans `web/programme.json` et nulle part ailleurs. Le changer ne
+demande de toucher à aucune ligne de code : les totaux affichés en sont
+recalculés (`web/domaine.js`), et `tests/domaine.test.js` les vérifie.
+
+Le format est fixé par `prp/00-ossature.md` §4. Trois règles suffisent à ne pas
+se tromper :
+
+- **Une ligne d'exercice est une case à cocher**, quel que soit le nombre de
+  tours. `tours` multiplie le volume, jamais le nombre de cases.
+- **`id` est stable et ne se réattribue jamais.** C'est la clé de la progression
+  enregistrée sur le téléphone de chaque enfant : renuméroter un identifiant
+  efface la progression de tout le monde. Un exercice retiré laisse son
+  identifiant à la retraite.
+- **`mesure.valeur` est le volume d'un seul tour**, et `mesure.unite` vaut
+  `pompes`, `squats`, `burpees`, `abdos`, `gainage_s`, `min_course`, `fentes` ou
+  `autre`. Un exercice sans volume calculable — une distance sans durée, une
+  chaise contre un mur — porte `autre` et n'entre dans aucun total.
+
+Pour les blocs de course, on retient la durée totale du bloc, récupérations
+comprises, dès que le coach a écrit les durées ; `autre` dès qu'il n'a écrit
+qu'une distance. On ne convertit jamais une distance en durée.
+
+Après toute modification :
+
+```bash
+./test.sh
+```
+
+Les assertions de totaux échoueront tant que le fichier ne se recalcule pas sur
+les valeurs attendues. Si le programme change vraiment de contenu, ce sont ces
+valeurs attendues qu'il faut mettre à jour — dans le test, jamais dans le code.
+
+### Reste à recevoir
+
+La page 3 sur 3 de la note du coach manque (PRD §12.3). La capture reçue
+s'arrête après le lundi 17 août ; les sept séances saisies ici couvrent tout ce
+qui est connu. Si la troisième page ajoute des séances, elles s'ajoutent à
+`web/programme.json` — dates, identifiants `s8-*` et suivants, volumes — et les
+totaux attendus du test se recalculent. À lever **avant le 17 août**.
