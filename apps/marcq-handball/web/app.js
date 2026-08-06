@@ -11,6 +11,7 @@ import { monterPrenom } from './vue-prenom.js';
 import { monterReglages } from './vue-reglages.js';
 import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
 import { monterPerso } from './vue-perso.js';
+import { brancherRecompenses } from './recompenses.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
 // domaine compare comme des chaines. Le fuseau est fige : un enfant en vacances
@@ -167,6 +168,11 @@ async function demarrer() {
   const ctx = creerContexte(prog, hote);
   window.addEventListener('hashchange', () => rendre(hote, ctx));
   rendre(hote, ctx);
+  // Apres le premier rendu, pour la meme raison que le service worker :
+  // l'objectif du PRD §4 se joue sur la premiere seconde, et rien de decoratif
+  // n'a sa place sur le chemin de l'affichage. Le debrancher() rendu n'est pas
+  // conserve : la page vit aussi longtemps que l'application.
+  brancherRecompenses(prog);
   enregistrerServiceWorker();
 }
 

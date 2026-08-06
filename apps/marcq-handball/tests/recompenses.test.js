@@ -213,3 +213,87 @@ test('un compteur a zero ne s affiche pas', () => {
   assert.deepEqual(resume.compteurs, [{ cle: 'pompes', libelle: 'pompes', valeur: 30 }]);
   assert.equal(resume.seances, 0);
 });
+
+const source = lire('recompenses.js');
+
+test('les recompenses se debranchent proprement', () => {
+  const poses = [];
+  const faux = {
+    addEventListener(nom, fonction) { poses.push([nom, fonction]); },
+    removeEventListener(nom, fonction) {
+      const rang = poses.findIndex(([n, f]) => n === nom && f === fonction);
+      if (rang >= 0) poses.splice(rang, 1);
+    },
+  };
+
+  const debrancher = rec.brancherRecompenses(prog, { racine: faux, fenetre: faux });
+  assert.deepEqual(
+    poses.map(([nom]) => nom).sort(),
+    ['hashchange', 'marcq:seance-complete'],
+    'l ecoute de hashchange est ce qui ferme le panneau quand on change d ecran',
+  );
+
+  debrancher();
+  assert.deepEqual(poses, [], 'aucun ecouteur ne survit au debranchement');
+});
+
+test('le ton reste celui d une equipe U15 (PRD §10)', () => {
+  assert.equal(rec.TITRE_FIN, 'Séance bouclée.');
+  assert.equal(rec.TEXTE_FERMETURE, 'Continuer');
+  // Commentaires compris : ces mots arrivent par la porte du commentaire, puis
+  // passent dans une chaine a la retouche suivante.
+  const bas = source.toLowerCase();
+  for (const mot of ['bravo', 'champion', 'badge', 'félicit', 'waouh', 'mascotte', 'trop fort']) {
+    assert.equal(bas.includes(mot), false, `« ${mot} » n a rien a faire dans cette app`);
+  }
+});
+
+test('le module ne compose pas de HTML et n ouvre aucun dialogue systeme', () => {
+  for (const interdit of ['innerHTML', 'confirm(', 'alert(', 'prompt(']) {
+    assert.equal(source.includes(interdit), false, `${interdit} : le texte passe par textContent`);
+  }
+});
+
+test('l app branche les recompenses et les emporte hors ligne', () => {
+  assert.match(lire('app.js'), /brancherRecompenses\(prog\)/, 'app.js doit brancher les recompenses');
+  // Sans cette entree, la premiere fin de seance hors ligne echoue — et rien ne
+  // le signale tant qu'on reste connecte (PRD §11).
+  assert.match(lire('sw.js'), /'\/recompenses\.js'/, 'ajoute /recompenses.js a la coque de sw.js');
+});
+
+// Un document de substitution : Node n'en a pas, et les trois choses qui
+// comptent — le nombre de grains, l'inertie de la couche, la couleur prise dans
+// la feuille de style — se verifient sans navigateur.
+function fauxDocument() {
+  const creer = (balise) => ({
+    balise,
+    className: '',
+    enfants: [],
+    attributs: {},
+    style: { valeurs: {}, setProperty(nom, valeur) { this.valeurs[nom] = valeur; } },
+    append(...noeuds) { this.enfants.push(...noeuds); },
+    setAttribute(nom, valeur) { this.attributs[nom] = valeur; },
+  });
+  return { createElement: creer };
+}
+
+test('mouvement reduit : pas un seul confetti (PRD §10)', () => {
+  const hote = { append() { throw new Error('rien ne doit etre ajoute'); } };
+  assert.equal(rec.lancerConfettis(hote, { reduit: true }), null);
+});
+
+test('les confettis sont une couche inerte, invisible aux lecteurs d ecran', () => {
+  const doc = fauxDocument();
+  const hote = doc.createElement('dialog');
+  const couche = rec.lancerConfettis(hote, { doc, reduit: false, alea: () => 0.5 });
+
+  assert.equal(hote.enfants[0], couche, 'la couche est posee DANS le dialog, pas dans body');
+  assert.equal(couche.className, 'confettis');
+  assert.equal(couche.attributs['aria-hidden'], 'true', 'il n y a rien a y lire');
+  assert.equal(couche.enfants.length, rec.NOMBRE_CONFETTIS);
+  // La couleur vient de la feuille de style : une teinte tiree au hasard produit
+  // tot ou tard un confetti illisible sur fond clair.
+  assert.equal(couche.enfants[0].style.valeurs['--couleur'], 'var(--marcq-confetti-3)');
+  // Aucun pointeur : la couche ne peut pas intercepter un tap.
+  assert.match(css, /\.confettis\s*\{[^}]*pointer-events:\s*none/);
+});

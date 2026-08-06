@@ -627,3 +627,119 @@ body {
   text-decoration-color: transparent;
   transition: color 220ms ease-out, text-decoration-color 220ms ease-out;
 }
+
+/* Le panneau de fin de seance. `<dialog>` en couche superieure : il passe
+   au-dessus de tout sans qu'aucun z-index n'ait a etre arbitre. */
+.panneau-fin {
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+}
+
+.panneau-fin::backdrop { background: rgb(20 24 31 / .55); }
+
+.carte-fin {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+  padding: 1.4rem 1.2rem;
+  border-radius: 1rem;
+  background: var(--marcq-carte);
+  text-align: center;
+  animation: marcq-monte 260ms var(--marcq-ressort);
+}
+
+@keyframes marcq-monte {
+  from { transform: translateY(14px) scale(.96); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.fin-date { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+.fin-titre { margin: 0; font-size: 1.5rem; line-height: 1.2; }
+.fin-seances { margin: 0; color: var(--marcq-encre-douce); }
+
+/* « En grand » (PRD §10) : le compteur de seances est le chiffre qu'on retient
+   en fermant le panneau. Il arrive a sa valeur avec un agrandissement court, il
+   ne roule pas — il augmente de un. */
+.fin-nombre-seances {
+  display: inline-block;
+  color: var(--marcq-encre);
+  font-size: 2.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  animation: marcq-pop 320ms var(--marcq-ressort);
+}
+
+@keyframes marcq-pop {
+  from { transform: scale(.6); }
+  to   { transform: none; }
+}
+
+.fin-volume {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fin-ligne {
+  padding: .5rem .2rem;
+  border-radius: .6rem;
+  background: var(--marcq-fond);
+  color: var(--marcq-encre-douce);
+  font-size: .9rem;
+}
+
+/* `tabular-nums` : sans chiffres a chasse fixe, la ligne tremble a chaque image
+   du roulement — c'est le detail qui fait passer une animation pour un bogue. */
+.fin-nombre {
+  display: block;
+  color: var(--marcq-encre);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-fermer { align-self: stretch; }
+
+:root {
+  /* Quatre couleurs choisies, jamais une teinte tiree au hasard : le hasard
+     produit tot ou tard un confetti illisible sur fond clair. */
+  --marcq-confetti-1: #0b4fa8;
+  --marcq-confetti-2: #f2b705;
+  --marcq-confetti-3: #d94f04;
+  --marcq-confetti-4: #1f9d55;
+}
+
+/* La couche ne recoit aucun pointeur : elle ne peut pas intercepter un tap,
+   c'est ce qui la rend compatible avec « jamais un peage ». `overflow: hidden`
+   evite qu'un grain derivant sur le cote n'elargisse la page. */
+.confettis {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Seuls transform et opacity sont animes : ni l'un ni l'autre ne declenche de
+   calcul de mise en page, donc vingt-quatre grains ne coutent pas une image. */
+.confetti {
+  position: absolute;
+  inset-block-start: -14px;
+  inset-inline-start: var(--x);
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--couleur);
+  animation: marcq-chute var(--duree, 1200ms) var(--retard, 0ms) ease-in forwards;
+}
+
+@keyframes marcq-chute {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  to   { transform: translate3d(var(--derive), 100vh, 0) rotate(var(--tour)); opacity: .2; }
+}

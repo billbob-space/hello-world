@@ -12,6 +12,9 @@
 //      utilisable — c'est verifie a deux niveaux, ici et dans style.css.
 
 import { totauxAccomplis } from './domaine.js';
+import { lireFaits } from './etat.js';
+import { dateEnToutesLettres } from './vue-jour.js';
+import { EVT_SEANCE_COMPLETE } from './vue-seance.js';
 
 // La requete media est nommee : une faute de frappe rendrait `matches` toujours
 // faux, et personne ne s'en apercevrait avant qu'un utilisateur ne se plaigne.
@@ -137,4 +140,180 @@ export function resumeDeFin(prog, faits) {
       .map(({ cle, libelle }) => ({ cle, libelle, valeur: totaux[cle] ?? 0 }))
       .filter((compteur) => compteur.valeur > 0),
   };
+}
+
+// --- le panneau de fin de seance --------------------------------------------
+
+// Deux phrases, exportees pour etre epinglees par un test. On annonce un fait,
+// on ne commente pas une performance : a 13 ans un chiffre juste vaut mieux
+// qu'un compliment, parce que le chiffre est vrai (PRD §10).
+export const TITRE_FIN = 'Séance bouclée.';
+export const TEXTE_FERMETURE = 'Continuer';
+
+// Six lignes recopiees de vue-seance.js plutot qu'un export ajoute la-bas :
+// faire dependre ce module des rouages internes d'une vue coute plus cher que
+// six lignes, et `textContent` — jamais du HTML compose — est ce qui rend un
+// libelle de programme.json inoffensif.
+function el(balise, classe, texte) {
+  const noeud = document.createElement(balise);
+  if (classe) noeud.className = classe;
+  if (texte !== undefined) noeud.textContent = texte;
+  return noeud;
+}
+
+// Ouvre le panneau et rend la fonction qui le ferme. Toutes les valeurs sont
+// calculees avant le premier append : le panneau n'a aucune decision a prendre
+// une fois affiche.
+function ouvrirPanneauDeFin(prog, faits, dateISO) {
+  const avant = resumeDeFin(prog, faitsSansSeance(prog, faits, dateISO));
+  const apres = resumeDeFin(prog, faits);
+  // Lu une seule fois par panneau : matchMedia force un calcul de style, et
+  // l'appeler par compteur le referait quatre fois pour la meme reponse.
+  const reduit = mouvementReduit();
+
+  const panneau = el('dialog', 'panneau-fin');
+  const carte = el('div', 'carte-fin');
+
+  carte.append(
+    el('p', 'fin-date', `Séance du ${dateEnToutesLettres(dateISO)}`),
+    el('h2', 'fin-titre', TITRE_FIN),
+  );
+
+  // Le compteur de seances arrive a sa valeur, en grand. Il augmente de un : le
+  // faire rouler ferait attendre un nombre que l'enfant connait deja. Le mot est
+  // un noeud separe et fige au pluriel final, sinon il changerait en cours de
+  // route.
+  const ligneSeances = el('p', 'fin-seances');
+  ligneSeances.append(
+    el('span', 'fin-nombre-seances', String(apres.seances)),
+    document.createTextNode(
+      apres.seances > 1
+        ? ` séances sur ${apres.seancesTotal}`
+        : ` séance sur ${apres.seancesTotal}`,
+    ),
+  );
+  carte.append(ligneSeances);
+
+  const roulements = [];
+  if (apres.compteurs.length > 0) {
+    const liste = el('ul', 'fin-volume');
+    for (const compteur of apres.compteurs) {
+      const depart = avant.compteurs.find((c) => c.cle === compteur.cle)?.valeur ?? 0;
+      const item = el('li', 'fin-ligne');
+      const nombre = el('span', 'fin-nombre');
+      item.append(nombre, document.createTextNode(` ${compteur.libelle}`));
+      liste.append(item);
+      roulements.push(rouler(nombre, depart, compteur.valeur, { reduit }));
+    }
+    carte.append(liste);
+  }
+
+  const bouton = el('button', 'bouton bouton-principal fin-fermer', TEXTE_FERMETURE);
+  bouton.type = 'button';
+  carte.append(bouton);
+
+  panneau.append(carte);
+  document.body.append(panneau);
+  lancerConfettis(panneau, { reduit });
+
+  function fermer() {
+    // Poser la valeur finale avant de retirer : un roulement interrompu laisse
+    // un nombre faux, et le panneau peut etre rouvert.
+    for (const arreter of roulements) arreter();
+    panneau.remove();
+  }
+
+  bouton.addEventListener('click', () => panneau.close());
+  // Un tap hors de la carte ferme aussi : la cible est le <dialog> lui-meme,
+  // jamais un de ses descendants.
+  panneau.addEventListener('click', (evenement) => {
+    if (evenement.target === panneau) panneau.close();
+  });
+  // `close` couvre les trois sorties d'un coup — le bouton, le fond, et la
+  // touche Echap que showModal branche pour nous.
+  panneau.addEventListener('close', fermer);
+
+  panneau.showModal();
+
+  return () => {
+    if (panneau.open) panneau.close();
+    else fermer();
+  };
+}
+
+// Le seul point d'entree. Appele une fois par app.js, apres le premier rendu.
+// Rend un `debrancher()` : c'est ce que le contrat d'ecran du PRP 03 appelle
+// « ce qui deborde de hote ».
+export function brancherRecompenses(prog, options = {}) {
+  const { racine = globalThis.document, fenetre = globalThis, lire = lireFaits } = options;
+
+  let fermerPanneau = null;
+
+  function surSeanceComplete(evenement) {
+    if (fermerPanneau !== null) fermerPanneau();
+    // `lire()` et non le detail de l'evenement : les faits font foi, et ce sont
+    // ceux que etat.js vient de relire depuis le stockage (PRP 04).
+    fermerPanneau = ouvrirPanneauDeFin(prog, lire(), evenement.detail.date);
+  }
+
+  // Changer d'ecran ferme le panneau. Sans cela il survivrait au routeur, qui ne
+  // vide que #ecran — et resterait modal sur un ecran qui n'a rien a voir.
+  function surNavigation() {
+    if (fermerPanneau === null) return;
+    fermerPanneau();
+    fermerPanneau = null;
+  }
+
+  racine.addEventListener(EVT_SEANCE_COMPLETE, surSeanceComplete);
+  fenetre.addEventListener('hashchange', surNavigation);
+
+  return function debrancher() {
+    racine.removeEventListener(EVT_SEANCE_COMPLETE, surSeanceComplete);
+    fenetre.removeEventListener('hashchange', surNavigation);
+    surNavigation();
+  };
+}
+
+// --- les confettis ----------------------------------------------------------
+
+// Assez pour que ca fasse quelque chose, assez peu pour qu'un telephone d'entree
+// de gamme les anime sans effort : ce sont vingt-quatre elements qui ne changent
+// que par transform et opacity, donc composes par le processeur graphique.
+export const NOMBRE_CONFETTIS = 24;
+
+// Pose la couche de confettis dans `hote` et la rend. Rend `null` en mouvement
+// reduit, sans rien creer : le CSS suffirait a les figer, mais figer vingt-quatre
+// elements est encore du travail demande a un telephone pour rien.
+//
+// `hote` est le <dialog> : ouvert par showModal(), il est en couche superieure,
+// et une couche posee ailleurs passerait sous le fond assombri quel que soit son
+// z-index. Elle meurt donc avec le panneau — aucune minuterie, aucune fuite.
+export function lancerConfettis(hote, options = {}) {
+  const {
+    nombre = NOMBRE_CONFETTIS,
+    alea = Math.random,
+    reduit = mouvementReduit(),
+    doc = globalThis.document,
+  } = options;
+
+  if (reduit) return null;
+
+  const couche = doc.createElement('div');
+  couche.className = 'confettis';
+  couche.setAttribute('aria-hidden', 'true');
+
+  for (let i = 0; i < nombre; i += 1) {
+    const grain = doc.createElement('i');
+    grain.className = 'confetti';
+    grain.style.setProperty('--x', `${Math.round(alea() * 100)}%`);
+    grain.style.setProperty('--derive', `${Math.round(alea() * 160) - 80}px`);
+    grain.style.setProperty('--tour', `${Math.round(alea() * 720) - 360}deg`);
+    grain.style.setProperty('--retard', `${Math.round(alea() * 260)}ms`);
+    grain.style.setProperty('--duree', `${900 + Math.round(alea() * 500)}ms`);
+    grain.style.setProperty('--couleur', `var(--marcq-confetti-${1 + Math.floor(alea() * 4)})`);
+    couche.append(grain);
+  }
+
+  hote.append(couche);
+  return couche;
 }

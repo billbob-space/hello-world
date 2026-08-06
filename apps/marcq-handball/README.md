@@ -154,3 +154,22 @@ Une case de séance ouvre sa séance ; une case de repos n'est pas cliquable.
 Le volume ne produit **aucun classement** (PRD §9) : il est déduit du programme,
 il classerait dans le même ordre que la régularité. La comparaison à l'équipe est
 le second niveau du §7.5 et arrive au lot 2, sous le calendrier.
+
+## Les récompenses
+
+`web/recompenses.js` est branché une seule fois, à l'amorçage, par `web/app.js`.
+Il écoute `marcq:seance-complete` et ouvre le panneau de fin de séance.
+
+Deux des récompenses n'ont **aucun JavaScript** : la ligne qui se barre et la
+barre de progression qui rebondit sont des transitions CSS. C'est ce qui
+garantit qu'un tap ne peut pas être retardé par ce module — il ne l'exécute pas.
+
+Trois règles s'appliquent, et ce sont des critères d'acceptation (PRD §10) :
+
+- rien ne bloque l'interaction plus d'une demi-seconde — aucune transition ne
+  dépasse 400 ms ;
+- rien ne bouge tout seul : aucune animation en boucle, aucune animation sans
+  geste. Ouvrir une séance déjà cochée n'anime rien ;
+- `prefers-reduced-motion: reduce` supprime tout mouvement et l'application
+  reste entièrement utilisable : les compteurs affichent leur valeur, le panneau
+  s'affiche sans confettis, et il se ferme des trois mêmes façons.
