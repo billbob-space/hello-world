@@ -72,10 +72,113 @@ la RAM du serveur le supporte et le plafond est a relever, soit elle ne le
 supporte pas et une app est a desactiver ; personne ne peut le trancher depuis
 le depot.
 
+
+## Anomalies — deuxieme passe, PRP 08
+
+La PR de la premiere passe a ete fusionnee ; le harnais imposant le meme nom de
+branche, le travail du PRP 08 repart de `main` sous ce meme nom, et son journal
+est donc ce fichier. Une branche, une entree — mais deux passes.
+
+### 4. Le PRP 08 definit une cle que son propre test interdit
+
+**Symptome** — le chantier C fixe `CONSENTEMENT.prenom` ; trois paragraphes plus
+haut, la section « Ce qui est verifiable a la fin » exige un test qui echoue si
+la sous-chaine `prenom` apparait dans `web/vue-rejoindre.js`, commentaires
+compris. Le code dicte par le PRP ne passe pas le test dicte par le PRP.
+
+**Cause** — quatrieme occurrence de la meme famille en deux branches (voir les
+anomalies 2 a 6 de la premiere passe et de la branche `...-phases-1yk38x`) : un
+PRP est relu comme de la prose, pas execute, et rien ne verifie que ses blocs de
+code passent ses blocs de test.
+
+**Consequence tenue** — la cle est renommee `surLeTelephone`. La chaine visible
+par l'enfant, elle, garde son accent : « prénom » ne contient pas la sous-chaine
+ASCII cherchee. Le texte du PRD est donc intact et le garde-fou tient.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — la relecture d'un PRP devrait inclure une passe
+mecanique : appliquer ses blocs de code et lancer ses blocs de test avant de
+figer le document.
+
+### 5. Le PRP 08 donne deux motifs de pseudonyme differents
+
+**Symptome** — la section « Produit » annonce
+`/^[\p{L}\p{N}][\p{L}\p{N} .\-_]{0,15}$/u`, le chantier C
+`/^[\p{L}\p{N} '\-_]{2,16}$/u`. Le premier accepte le point, que le serveur
+refuse ; le second l'interdit et admet l'apostrophe, que le serveur accepte.
+
+**Cause** — le listing de synthese des interfaces a ete ecrit avant que le
+chantier ne tranche, et n'a pas ete repris.
+
+**Consequence tenue** — c'est le motif du chantier C qui est retenu, seul aligne
+sur le serveur. Un motif client plus large ferait tomber une saisie valide a
+l'ecran en 400 au retour du reseau, ce qui est le pire des deux mondes.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — un PRP qui recapitule une interface en tete et la
+tranche en chantier doit soit renvoyer au chantier, soit se relire.
+
+### 6. Un garde-fou de style ne gardait plus rien depuis le PRP 04
+
+**Symptome** — le test « toute classe posee par un ecran existe dans style.css »
+etait vert sur des ecrans dont il ne lisait aucune classe. Elargi aux deux
+ecritures reellement employees, il a immediatement attrape `.bloc-equipe`.
+
+**Cause** — il ne cherchait que les affectations litterales
+`className = '...'`. Les ecrans depuis le PRP 04 passent par un raccourci
+`el('tag', 'classes')` : sur eux, le motif ne trouvait rien, la boucle
+parcourait zero classe, et le test passait. C'est le pire mode de defaillance
+d'un garde-fou — il ne se tait pas, il rassure.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — un test qui parcourt une collection extraite par
+expression reguliere doit affirmer que la collection n'est pas vide, fichier par
+fichier. Le seuil global `classes.size >= 20` existait deja et n'a rien vu :
+trois fichiers bien lus suffisaient a l'atteindre.
+
+### 7. La confirmation de suppression s'effacait a la seconde ou elle s'affichait
+
+**Symptome** — dans un vrai navigateur, la suppression du pseudonyme fonctionne
+— le serveur perd bien la fiche — mais l'enfant ne voit rien : le bloc entier
+disparait et emporte le message « Ton nom a ete retire du classement. ».
+
+**Cause** — le gestionnaire appelait `ctx.rafraichir()` apres coup. L'ecran se
+remonte, `monterSuppression` ne rend plus rien puisqu'il n'y a plus de nom a
+retirer, et le message part avec le bloc. Le PRP 03 avait pourtant nomme ce
+piege pour le bloc du prenom — « on ne remonte pas l'ecran apres coup, la
+confirmation disparaitrait avec lui » — et rien ne l'a rappele ici.
+
+**Detecte par** — `relecture` — aucun test unitaire ne pouvait le voir ; c'est le
+parcours dans un navigateur reel, pilote par Playwright, qui l'a montre.
+
+**Action** — `comportement` — les tests de ce depot prouvent des fonctions pures
+et des sources ; ce qu'un montage fait apres un appel reseau leur echappe par
+construction. Un parcours de bout en bout, meme court, doit accompagner tout
+chantier qui touche a un gestionnaire d'evenement.
+
+### 8. Le serveur local sert le JavaScript qu'il avait au demarrage
+
+**Symptome** — apres correction de l'anomalie 7, le parcours Playwright montrait
+toujours l'ancien comportement. Trois iterations perdues a chercher un defaut
+dans du code deja corrige.
+
+**Cause** — `//go:embed web` fige la coque dans le binaire : un `go run .` lance
+avant l'edition continue de servir l'ancien fichier. C'est la contrepartie —
+voulue — de l'absence de chaine de construction.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — a ecrire dans le `README` de l'app, section
+« Developpement » : toute modification de `web/` demande de relancer `go run .`.
+Evident une fois su, invisible avant.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-06 à 11:35 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-06 à 13:13 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -83,22 +186,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 161 | 0,00 $ |
-| Écriture de cache | 390 548 | 1,63 $ |
-| Lecture de cache | 12 687 675 | 5,92 $ |
-| Sortie | 107 317 | 2,17 $ |
-| **Total** | **13 185 701** | **9,72 $ — 8,44 €** |
+| Entrée | 455 | 0,00 $ |
+| Écriture de cache | 1 222 570 | 5,65 $ |
+| Lecture de cache | 57 377 118 | 27,22 $ |
+| Sortie | 243 923 | 4,63 $ |
+| **Total** | **58 844 066** | **37,50 $ — 32,56 €** |
 
 **Ce qui coûte**
 
-- **84 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **241 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   54 704 jetons, écrits une fois par session puis relus à chaque
-  échange : 4 540 432 jetons de relecture, 35 % de tout ce qui a été relu.
+  échange : 13 128 960 jetons de relecture, 22 % de tout ce qui a été relu.
 - **Croissance** — 54 704 jetons relus au premier appel qui relise
-  quelque chose, 260 379 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 483 568 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 13185701 -->
+<!-- cout-total: 58844066 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 54704 0 374
 2 principal claude-opus-5 1047 54704 178
@@ -184,5 +287,162 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 82 principal claude-opus-5 329 260050 699
 83 principal claude-opus-4-7 1455 45584 2853
 84 principal claude-opus-5 739 260379 95
+85 principal claude-opus-5 3607 261118 1416
+86 principal claude-opus-5 1487 264725 270
+87 principal claude-opus-5 469 266212 104
+88 principal claude-opus-5 272 266681 75
+89 principal claude-opus-5 88 266953 941
+90 principal claude-opus-5 8 267982 334
+91 principal claude-opus-5 2120 267990 172
+92 principal claude-opus-5 683 270110 269
+93 principal claude-opus-5 327 270793 252
+94 principal claude-opus-5 687 271120 291
+95 principal claude-opus-5 3204 271807 594
+96 principal claude-opus-5 710 275011 103
+97 principal claude-opus-5 344 275824 108
+98 principal claude-opus-5 386 276168 343
+99 principal claude-opus-5 888 276554 561
+100 principal claude-opus-5 922 277442 1032
+101 principal claude-opus-5 1336 278364 671
+102 principal claude-opus-5 8278 280371 459
+103 principal claude-opus-5 4759 288649 231
+104 principal claude-opus-5 10085 293408 110
+105 principal claude-opus-5 12059 303493 227
+106 principal claude-opus-5 3098 315552 208
+107 principal claude-opus-5 586 318650 228
+108 principal claude-opus-5 6986 319236 396
+109 principal claude-opus-5 2825 326222 357
+110 principal claude-opus-5 1751 329047 95
+111 principal claude-opus-5 967 330798 1229
+112 principal claude-opus-5 1886 331765 187
+113 principal claude-opus-5 439 333651 1370
+114 principal claude-opus-5 1652 334090 322
+115 principal claude-opus-5 380 335742 1290
+116 principal claude-opus-5 1348 336122 93
+117 principal claude-opus-5 133 337470 115
+118 principal claude-opus-5 1241 337603 1307
+119 principal claude-opus-5 1375 338844 124
+120 principal claude-opus-5 408 340219 924
+121 principal claude-opus-4-7 6043 27342 120
+122 principal claude-opus-4-7 202 33385 89
+123 principal claude-opus-4-7 4337 33587 92
+124 principal claude-opus-4-7 4922 37924 2818
+125 principal claude-opus-4-7 2944 42846 1296
+126 principal claude-opus-5 960 340627 10926
+127 principal claude-opus-5 10981 341587 1717
+128 principal claude-opus-5 2149 352568 488
+129 principal claude-opus-5 646 354717 7184
+130 principal claude-opus-5 7242 355363 164
+131 principal claude-opus-5 180 362605 1123
+132 principal claude-opus-5 1184 362785 135
+133 principal claude-opus-5 185 363969 1850
+134 principal claude-opus-5 2033 364154 149
+135 principal claude-opus-4-7 16831 27342 148
+136 principal claude-opus-4-7 6467 44173 2135
+137 principal claude-opus-4-7 6383 50640 1205
+138 principal claude-opus-4-7 1332 57023 197
+139 principal claude-opus-4-7 304 58355 151
+140 principal claude-opus-5 229 366187 8141
+141 principal claude-opus-5 8202 366416 985
+142 principal claude-opus-5 1159 374618 543
+143 principal claude-opus-4-7 190 58659 4950
+144 principal claude-opus-5 607 375777 3972
+145 principal claude-opus-5 4029 376384 154
+146 principal claude-opus-5 178 380413 161
+147 principal claude-opus-5 539 380591 350
+148 principal claude-opus-5 789 381130 96
+149 principal claude-opus-5 1259 381919 298
+150 principal claude-opus-5 1711 383178 115
+151 principal claude-opus-5 172 384889 848
+152 principal claude-opus-5 864 385061 252
+153 principal claude-opus-5 313 385925 114
+154 principal claude-opus-5 164 386238 1861
+155 principal claude-opus-5 1894 386402 149
+156 principal claude-opus-4-7 14290 27342 1526
+157 principal claude-opus-5 229 388296 1392
+158 principal claude-opus-4-7 1771 41632 85
+159 principal claude-opus-4-7 6976 43403 121
+160 principal claude-opus-5 1429 388525 136
+161 principal claude-opus-4-7 6435 50379 79
+162 principal claude-opus-5 585 389954 292
+163 principal claude-opus-5 356 390539 1641
+164 principal claude-opus-5 1705 390895 531
+165 principal claude-opus-4-7 4327 56814 2094
+166 principal claude-opus-4-7 2231 61141 188
+167 principal claude-opus-4-7 1030 63372 121
+168 principal claude-opus-5 595 392600 270
+169 principal claude-opus-5 334 393195 1081
+170 principal claude-opus-5 1145 393529 720
+171 principal claude-opus-5 781 394674 823
+172 principal claude-opus-4-7 1382 64402 3765
+173 principal claude-opus-5 9563 395455 2057
+174 principal claude-opus-4-7 4222 65784 1295
+175 principal claude-opus-5 6844 405018 744
+176 principal claude-opus-5 791 411862 700
+177 principal claude-opus-5 716 412653 1958
+178 principal claude-opus-5 5983 413369 890
+179 principal claude-opus-5 952 419352 123
+180 principal claude-opus-5 611 420304 211
+181 principal claude-opus-5 310 420915 1458
+182 principal claude-opus-5 1501 421225 149
+183 principal claude-opus-4-7 12086 27342 126
+184 principal claude-opus-4-7 214 39428 122
+185 principal claude-opus-4-7 179 39642 85
+186 principal claude-opus-4-7 119 39821 95
+187 principal claude-opus-4-7 9719 39940 134
+188 principal claude-opus-4-7 3881 49659 89
+189 principal claude-opus-4-7 1633 53540 92
+190 principal claude-opus-4-7 6407 55173 147
+191 principal claude-opus-4-7 6461 61580 89
+192 principal claude-opus-5 229 422726 2215
+193 principal claude-opus-4-7 4337 68041 650
+194 principal claude-opus-4-7 1246 72378 211
+195 principal claude-opus-5 6194 422955 884
+196 principal claude-opus-5 4085 429149 1821
+197 principal claude-opus-5 1871 433234 390
+198 principal claude-opus-4-7 1128 73624 3943
+199 principal claude-opus-4-7 3979 74752 69
+200 principal claude-opus-5 445 435105 1405
+201 principal claude-opus-5 1460 435550 136
+202 principal claude-opus-5 235 437010 1384
+203 principal claude-opus-4-7 8102 27342 142
+204 principal claude-opus-4-7 230 35444 110
+205 principal claude-opus-4-7 176 35674 79
+206 principal claude-opus-5 1420 437245 627
+207 principal claude-opus-4-7 505 35850 95
+208 principal claude-opus-4-7 11403 36355 93
+209 principal claude-opus-4-7 3111 47758 89
+210 principal claude-opus-4-7 6403 50869 139
+211 principal claude-opus-5 794 438665 186
+212 principal claude-opus-4-7 1271 57272 132
+213 principal claude-opus-5 1969 439459 74
+214 principal claude-opus-5 143 441428 126
+215 principal claude-opus-5 0 441737 195
+216 principal claude-opus-5 350 441737 1282
+217 principal claude-opus-5 1479 442087 123
+218 principal claude-opus-5 193 443566 220
+219 principal claude-opus-5 573 443759 848
+220 principal claude-opus-5 912 444332 166
+221 principal claude-opus-5 339 445244 591
+222 principal claude-opus-5 946 445583 1851
+223 principal claude-opus-4-7 4380 58543 9128
+224 principal claude-opus-4-7 9554 62923 69
+225 principal claude-opus-5 3119 446529 466
+226 principal claude-opus-5 483 449648 153
+227 principal claude-opus-5 161 450131 113
+228 principal claude-opus-5 131 450292 206
+229 principal claude-opus-5 230 450423 412
+230 principal claude-opus-5 453 450653 340
+231 principal claude-opus-5 422046 37125 178
+232 principal claude-opus-5 9723 451106 294
+233 principal claude-opus-5 632 460829 170
+234 principal claude-opus-5 1335 461461 1511
+235 principal claude-opus-5 1703 462796 809
+236 principal claude-opus-5 1388 464499 713
+237 principal claude-opus-5 987 465887 2905
+238 principal claude-opus-5 6773 466874 964
+239 principal claude-opus-5 9613 473647 275
+240 principal claude-opus-5 308 483260 200
+241 principal claude-opus-5 264 483568 211
 -->
 <!-- /cout -->

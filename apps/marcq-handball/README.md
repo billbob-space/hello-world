@@ -158,6 +158,11 @@ PORT=3000 go run .                     # ailleurs
 MARCQ_DONNEES=/tmp/marcq go run .      # avec le classement (le répertoire doit exister)
 ```
 
+**`web/` est figé dans le binaire** par `go:embed` : après toute modification
+d'un fichier de `web/`, il faut relancer `go run .`, sinon le serveur continue
+de servir la version qu'il avait au démarrage. C'est la contrepartie — voulue —
+de l'absence de chaîne de construction.
+
 Sans `MARCQ_DONNEES`, le serveur local est exactement celui du lot 1 : les trois
 routes `/api` rendent `503` et le reste fonctionne. C'est aussi l'état sous
 `go test`, sauf dans les tests qui ouvrent leur propre magasin.

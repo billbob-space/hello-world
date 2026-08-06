@@ -516,8 +516,11 @@ export function monterSuppression(hote, ctx) {
     // rejoue la requete, ne doit pas voir une erreur pour une action qui a
     // abouti.
     retour.textContent = resultat.suppression?.supprime ? RETIRE : DEJA_RETIRE;
+    // Le bouton part, le message reste. On NE remonte PAS l'ecran : le bloc
+    // disparaitrait — il n'existe que s'il y a un nom a retirer — et emporterait
+    // la seule confirmation que l'enfant recoit. C'est la meme raison qui
+    // empeche le premier bloc des reglages de se remonter apres coup.
     bouton.remove();
-    ctx.rafraichir();
   });
 
   bloc.append(bouton, retour);

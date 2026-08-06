@@ -151,6 +151,7 @@ test('toute classe posee par un ecran existe dans style.css', () => {
     'vue-seance.js', 'vue-perso.js', 'vue-rejoindre.js'];
   for (const nom of fichiers) {
     const code = source(nom);
+    const avant = classes.size;
     // Deux ecritures a lire, et il faut les deux : l'affectation litterale
     // `className = '...'`, et l'appel au raccourci `el('tag', 'classes')` que
     // les ecrans du PRP 04 et suivants utilisent. Ne lire que la premiere
@@ -161,6 +162,11 @@ test('toute classe posee par un ecran existe dans style.css', () => {
         for (const classe of liste.split(/\s+/).filter(Boolean)) classes.add(classe);
       }
     }
+    // FICHIER PAR FICHIER, et pas seulement en total : un ecran dont on ne lit
+    // aucune classe passe ce test sans rien verifier, et c'est le pire mode de
+    // defaillance d'un garde-fou — il ne se tait pas, il rassure. Le seuil
+    // global d'en dessous ne l'a pas vu pendant quatre PRP.
+    assert.ok(classes.size > avant, `aucune classe lue dans ${nom} : le motif a cesse de correspondre`);
   }
   assert.ok(classes.size >= 20, 'la lecture des sources a echoue si le compte est bas');
   // Les noms construits par gabarit, que les motifs ci-dessus ne peuvent pas
