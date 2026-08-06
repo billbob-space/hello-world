@@ -396,6 +396,66 @@ régularité, à du bruit près, et deux podiums qui disent la même chose font 
 podium plus de la confusion (PRD §13) — et un effectif d'équipe : tout
 dénominateur vient de `participants`, jamais d'un nombre écrit en dur (PRD §4).
 
+## Le ressenti de fin de séance
+
+Trois émojis — 🙂 Facile, 😐 Correct, 🥵 Dur — **dans** le panneau qui célèbre la
+fin d'une séance, entre les compteurs et le bouton. Jamais un second panneau :
+deux fenêtres modales ouvertes sur le même événement, c'est un écran inerte et un
+enfant coincé.
+
+**Jamais obligatoire, et l'écran le dit.** « Tu peux fermer sans répondre » est
+écrit sous les trois boutons. `Continuer` garde le focus initial — sans cela, une
+touche Entrée machinale enregistrerait « Facile », et la répartition lue par le
+coach serait faussée dans le sens le plus flatteur.
+
+**Le ressenti part par le même canal que le score, sous la même autorisation, et
+jamais séparément.** Celui d'un enfant qui n'a pas rejoint le classement ne quitte
+donc **jamais** son téléphone. Le panneau pose pourtant la question de la même
+façon aux deux : aucune phrase du type « rejoins pour partager ton ressenti »,
+aucun bouton grisé. « Non merci » est un choix complet, pas une punition.
+
+Un ressenti déclenche un envoi **tout de suite** : sinon celui tapé le lundi soir
+n'arriverait qu'au prochain cochage — mercredi — et la répartition serait vide le
+soir où le coach regarde.
+
+**Il ne se modifie pas après coup**, et c'est assumé : la seule façon de le
+changer est de décocher puis recocher la dernière case, ce qui rouvre le panneau.
+C'est cohérent avec ce qu'il mesure — une humeur datée, pas une déclaration.
+
+## La vue coach — et pourquoi elle n'a pas de mot de passe
+
+Le lien à envoyer au coach : **https://marcq-handball.apps.billbob.ovh/#/coach**.
+Il n'est listé nulle part dans la navigation de l'application.
+
+Elle montre l'assiduité en quatre paliers, le classement, une ligne par séance et
+la répartition des ressentis. Les deux mesures du PRD §4 s'y lisent directement :
+le palier haut est libellé « 60 % et plus — la cible », et la part de l'effectif
+encore active se lit sur la dernière ligne de séance.
+
+**Le mot de passe statique a été écarté** (PRD §13). Sur une page publique il
+donnerait l'apparence d'une protection sans en être une, et devrait de toute façon
+être injecté par l'environnement — donc être un secret de plus, que le contrat de
+la fabrique interdit dans le dépôt et dans l'image. Il aurait en outre un effet
+inverse à celui qu'on lui prête : il ferait croire au coach que cette page peut
+recevoir un jour des données nominatives.
+
+Ce qui rend son absence acceptable n'est pas une promesse, c'est une propriété
+**vérifiée** : la page n'a rien à protéger. Quatre assertions de source la
+tiennent — elle n'importe aucun module qui touche au stockage du navigateur, ni
+directement ni transitivement ; elle ne parle qu'à sa propre route ; elle ne
+nomme jamais le prénom ; elle n'utilise pas `innerHTML`. Chaque ajout futur devra
+passer par elles, et c'est ce qui empêche la dérive la plus probable de cette
+page : « puisqu'on y est, montrons aussi… ».
+
+**Si le coach veut le détail nominatif par enfant, ce sera une seconde
+application**, en `exposure: private` — un autre répertoire sous `apps/`, avec son
+image et son URL. Ce n'est pas un durcissement de celle-ci.
+
+**La répartition affichée est partielle par construction** : elle ne compte que
+les enfants qui ont rejoint le classement. Un coach qui lirait « 4 facile /
+11 correct / 6 dur » comme le compte de son effectif se tromperait — la page le
+dit, ce README aussi.
+
 ## Les récompenses
 
 `web/recompenses.js` est branché une seule fois, à l'amorçage, par `web/app.js`.

@@ -876,3 +876,70 @@ body {
   45%  { transform: translateY(.2rem); opacity: .85; }
   100% { transform: translateY(0); }
 }
+
+/* --- le ressenti de fin de seance (PRP 10) -------------------------------- */
+
+/* Dans le panneau de fin, entre les compteurs et le bouton. Aucune animation :
+   le PRD §10 reserve le mouvement a ce qui recompense, et une question n'est pas
+   une recompense. */
+.ressenti { margin: .4rem 0 0; padding: 0; border: none; }
+.ressenti-question { padding: 0; font-weight: 600; }
+/* Une rangee qui se replie sous 320 px. */
+.ressenti-choix { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0; }
+
+.choix-ressenti {
+  display: flex;
+  flex: 1 1 5.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  min-height: var(--marcq-tap);
+  padding: .5rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.choix-ressenti.choisi { border-color: var(--marcq-accent); }
+.choix-ressenti:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+.ressenti-emoji { font-size: 1.6rem; line-height: 1; }
+.ressenti-mot { font-size: .9rem; font-weight: 600; }
+
+/* --- la page du coach (PRP 10) -------------------------------------------- */
+
+.ecran-coach { gap: 1.1rem; }
+
+/* Elle dit au coach ce qu'il regarde : sans elle, un lien recu sans contexte se
+   lit comme un tableau de bord prive. */
+.mention-publique {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-inline-start: 4px solid var(--marcq-accent);
+  border-radius: .2rem .6rem .6rem .2rem;
+  background: var(--marcq-carte);
+  font-size: .95rem;
+}
+.etat-coach { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+.actualiser-coach { align-self: flex-start; }
+.corps-coach { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.bloc-coach {
+  padding: .9rem 1rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: .8rem;
+  background: var(--marcq-carte);
+}
+.coach-entete { margin: 0 0 .5rem; font-weight: 600; }
+.coach-aide { color: var(--marcq-encre-douce); font-size: .95rem; }
+
+/* Des listes, pas des tableaux : le coach lit sur son telephone comme tout le
+   monde, et un tableau a trois colonnes deborde sous 480 px. */
+.liste-coach { display: flex; flex-direction: column; gap: .35rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+.ligne-coach { display: grid; grid-template-columns: 2.4rem 1fr auto; align-items: baseline; gap: .6rem; }
+.ligne-nommee .coach-libelle { font-weight: 600; }
+.ligne-seance-coach { display: flex; flex-direction: column; gap: .1rem; padding-block: .3rem; }
+.coach-nombre { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.coach-libelle { min-width: 0; overflow-wrap: anywhere; }
+.coach-emoji { font-size: 1.2rem; line-height: 1; }

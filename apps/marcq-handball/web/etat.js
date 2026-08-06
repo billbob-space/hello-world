@@ -9,6 +9,7 @@
 export const CLE_PRENOM = 'marcq.v1.prenom';
 export const CLE_FAITS = 'marcq.v1.faits';
 export const CLE_CLASSEMENT = 'marcq.v1.classement';
+export const CLE_RESSENTI = 'marcq.v1.ressenti';
 export const PREFIXE_CLES = 'marcq.';
 
 const PRENOM_MAX = 24;
@@ -206,6 +207,52 @@ export function effacerClassement() {
   const existait = lireCle(CLE_CLASSEMENT) !== null;
   effacerCle(CLE_CLASSEMENT);
   return existait;
+}
+
+// --- le ressenti ----------------------------------------------------------
+
+// La cinquieme cle de l'ossature §6 : une date de seance, une reponse. Ce
+// module ne connait AUCUN vocabulaire metier — il n'accepte qu'une chaine non
+// vide, exactement comme pour les horodatages de `faits`. Les trois valeurs
+// admises vivent dans ressenti.js.
+export function lireRessentis() {
+  const brut = lireCle(CLE_RESSENTI);
+  if (brut === null || brut === '') return {};
+
+  let valeur;
+  try {
+    valeur = JSON.parse(brut);
+  } catch (err) {
+    console.warn('marcq : ressentis illisibles, ils sont ignores', err);
+    return {};
+  }
+  if (valeur === null || typeof valeur !== 'object' || Array.isArray(valeur)) return {};
+
+  // Les couples mal formes sont ignores, les autres survivent : un schema
+  // etranger ne doit pas emporter les reponses valides qui l'accompagnent.
+  const ressentis = {};
+  for (const [date, dit] of Object.entries(valeur)) {
+    if (date !== '' && typeof dit === 'string' && dit !== '') ressentis[date] = dit;
+  }
+  return ressentis;
+}
+
+// La valeur REMPLACE celle du jour, la ou `cocher` refuse de rajeunir une
+// marque : un horodatage departage un classement (PRD §9), une reponse est
+// juste la derniere donnee.
+export function ecrireRessenti(dateISO, valeur) {
+  const ressentis = lireRessentis();
+  ressentis[dateISO] = valeur;
+  ecrireCle(CLE_RESSENTI, JSON.stringify(ressentis));
+  return ressentis;
+}
+
+export function effacerRessenti(dateISO) {
+  const ressentis = lireRessentis();
+  if (ressentis[dateISO] === undefined) return ressentis;
+  delete ressentis[dateISO];
+  ecrireCle(CLE_RESSENTI, JSON.stringify(ressentis));
+  return ressentis;
 }
 
 // « Changer d'enfant » (PRD §7.2). Rend le nombre de cles effacees, repli en

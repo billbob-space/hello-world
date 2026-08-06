@@ -13,6 +13,7 @@ import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
 import { monterPerso } from './vue-perso.js';
 import { monterRejoindre } from './vue-rejoindre.js';
 import { brancherSynchronisation } from './classement.js';
+import { MOTIF_COACH, monterCoach } from './vue-coach.js';
 import { brancherRecompenses } from './recompenses.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
@@ -31,6 +32,14 @@ export const ECRANS = [
   { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
   { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
   { nom: 'rejoindre', motif: /^#\/rejoindre$/, monter: monterRejoindre },
+  // `sansPrenom` est l'exception minimale au verrou d'entree ci-dessous. Le
+  // coach n'a pas de prenom a saisir et n'en aura jamais : sans elle, il
+  // tomberait sur l'ecran de premier lancement d'un enfant. Elle est portee par
+  // une DONNEE de l'entree d'ecran, pas par une comparaison de chaine dans le
+  // routeur : le jour ou un second ecran la merite, il pose son drapeau.
+  // Elle reste sure parce que monterCoach ne lit rien du stockage local, et
+  // tests/coach.test.js interdit a ce fichier d'importer etat.js.
+  { nom: 'coach', motif: MOTIF_COACH, monter: monterCoach, sansPrenom: true },
   { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
 ];
 
@@ -82,14 +91,17 @@ function rendre(hote, ctx) {
   ctx.route = routeCourante();
   rendreNavigation(ctx);
 
+  const ecran = choisirEcran(ctx.route);
+
   // Tant que le prenom manque, aucune route n'est honoree : un lien partage vers
-  // `#/reglages` ne doit pas court-circuiter l'accueil (PRD §7.1).
-  if (ctx.prenom === null) {
+  // `#/reglages` ne doit pas court-circuiter l'accueil (PRD §7.1). Seuls les
+  // ecrans marques `sansPrenom` traversent — aujourd'hui la page du coach, et
+  // elle seule.
+  if (ctx.prenom === null && ecran?.sansPrenom !== true) {
     demonterCourant = commeDemontage(monterPrenom(hote, ctx));
     return;
   }
 
-  const ecran = choisirEcran(ctx.route);
   if (ecran === null) {
     // Une route inconnue ne laisse jamais un ecran vide. On reecrit l'adresse
     // sans empiler d'entree — sinon le bouton retour du telephone rejouerait la

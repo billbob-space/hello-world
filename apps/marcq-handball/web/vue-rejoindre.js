@@ -10,7 +10,8 @@
 // consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
 
 import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer, synchroniser } from './classement.js';
-import { ecrireClassement, lireClassement, lireFaits } from './etat.js';
+import { ecrireClassement, lireClassement, lireFaits, lireRessentis } from './etat.js';
+import { empreinteRessentis, ressentisPourEnvoi } from './ressenti.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
 // --- ce que le PRD §7.4 fait dire, mot pour mot ----------------------------
@@ -432,7 +433,8 @@ function etapeChoix(section, ctx) {
     valider.disabled = true;
     retour.textContent = 'Envoi…';
     const faits = lireFaits();
-    const resultat = await envoyer({ pseudo: pseudo.valeur, code: code.valeur, faits });
+    const ressentis = ressentisPourEnvoi(ctx.prog, lireRessentis());
+    const resultat = await envoyer({ pseudo: pseudo.valeur, code: code.valeur, faits, ressentis });
     valider.disabled = false;
 
     if (!resultat.ok) {
@@ -454,7 +456,7 @@ function etapeChoix(section, ctx) {
     ecrireClassement({
       pseudo: pseudo.valeur,
       code: code.valeur,
-      dernierEnvoi: { at: recuA, empreinte: empreinte(faits) },
+      dernierEnvoi: { at: recuA, empreinte: empreinte(faits), empreinteRessentis: empreinteRessentis(ressentis) },
       dernierRangConnu: {
         ...(lireClassement().dernierRangConnu ?? { instantane: null }),
         recuA,

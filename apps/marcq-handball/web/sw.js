@@ -31,6 +31,8 @@ const COQUE = [
   '/classement.js',
   '/vue-rejoindre.js',
   '/vue-equipe.js',
+  '/ressenti.js',
+  '/vue-coach.js',
 ];
 
 self.addEventListener('install', (e) => {

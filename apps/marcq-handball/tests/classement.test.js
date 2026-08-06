@@ -366,3 +366,62 @@ test('un 200 efface la cle locale, que supprime vaille true ou false', async () 
     assert.deepEqual(doc.evenements[0].detail, { instantane: null, moi: null, statut: 200 });
   }
 });
+
+test('un declencheur trop rapproche est REPORTE, jamais jete', async () => {
+  // C'est la difference entre un debit et une perte. Une seance terminee dans
+  // la demi-minute qui suit l'ouverture de l'app — le cas le plus courant, on
+  // ouvre pour cocher — verrait sinon son envoi disparaitre en silence.
+  const f = fauxFetch([reponse(200, INSTANTANE)]);
+  const doc = fauxDocument();
+  const fenetre = fauxDocument();
+  const differes = [];
+  const minuterie = { poser: (fn, ms) => { differes.push({ fn, ms }); return differes.length; }, annuler: () => {} };
+
+  const debrancher = classement.brancherSynchronisation({}, {
+    fetch: f, doc, fenetre, minuterie, maintenant: horlogeFigee,
+  });
+  await new Promise((r) => setImmediate(r));
+  assert.equal(f.appels.length, 1, 'le branchement declenche une fois');
+
+  // Deux declencheurs dans l'intervalle : UN report, pas deux.
+  doc.declencher('marcq:seance-complete');
+  fenetre.declencher('online');
+  assert.equal(f.appels.length, 1, 'rien n est parti tout de suite');
+  assert.equal(differes.length, 1, 'un seul report en attente');
+  assert.equal(differes[0].ms, classement.INTERVALLE_MIN_MS, 'reporte a la fin de l intervalle');
+
+  // Quand le report arrive, l'envoi part.
+  differes[0].fn();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(f.appels.length, 2, 'le declencheur reporte a bien tire');
+  debrancher();
+});
+
+test('un ressenti nouveau declenche un envoi, sans qu aucune case n ait bouge', () => {
+  // Sinon le ressenti tape le lundi soir ne partirait qu'au prochain cochage —
+  // mercredi —, et la repartition du coach serait vide le soir ou il regarde.
+  const faits = { 's1-c1': '2026-08-03T18:00:00.000Z' };
+  const local = {
+    pseudo: 'Faucon-12', code: '4821',
+    dernierEnvoi: { at: 'x', empreinte: classement.empreinte(faits), empreinteRessentis: '' },
+  };
+  assert.equal(classement.envoiNecessaire(local, faits, {}), false);
+  assert.equal(classement.envoiNecessaire(local, faits, { '2026-08-03': 'dur' }), true);
+
+  // Et un ressenti CHANGE sur une date deja envoyee aussi.
+  const dejaDit = { ...local, dernierEnvoi: { ...local.dernierEnvoi, empreinteRessentis: '2026-08-03=dur' } };
+  assert.equal(classement.envoiNecessaire(dejaDit, faits, { '2026-08-03': 'dur' }), false);
+  assert.equal(classement.envoiNecessaire(dejaDit, faits, { '2026-08-03': 'facile' }), true);
+});
+
+test('la cle ressentis n apparait QUE lorsqu il y a quelque chose a dire', () => {
+  const sans = classement.corpsEnvoi({ pseudo: 'P', code: '1234', faits: {}, ressentis: {} });
+  assert.deepEqual(Object.keys(sans), ['pseudo', 'code', 'faits'],
+    'le corps reste identique a celui d un enfant qui n a jamais repondu');
+
+  const avec = classement.corpsEnvoi({
+    pseudo: 'P', code: '1234', faits: {}, ressentis: { '2026-08-03': 'dur' },
+  });
+  assert.deepEqual(Object.keys(avec), ['pseudo', 'code', 'faits', 'ressentis']);
+  assert.deepEqual(avec.ressentis, { '2026-08-03': 'dur' });
+});
