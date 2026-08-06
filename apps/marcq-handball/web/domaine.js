@@ -44,9 +44,68 @@ function cumuler(prog, garder) {
   return totaux;
 }
 
-// Point d'entree unique du programme : tout le reste part de sa valeur de retour.
+const TYPES_BLOC = ['course', 'renforcement'];
+const JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+function refuser(message) {
+  throw new Error(`programme invalide : ${message}`);
+}
+
+// Le programme est une donnee, pas un etat : personne ne le mute apres le
+// chargement. Le gel rend l'accident bruyant plutot que silencieux, les modules
+// ES etant en mode strict.
+function gelerEnProfondeur(valeur) {
+  if (valeur === null || typeof valeur !== 'object') return valeur;
+  for (const enfant of Object.values(valeur)) gelerEnProfondeur(enfant);
+  return Object.freeze(valeur);
+}
+
 export function chargerProgramme(json) {
-  return json;
+  if (json === null || typeof json !== 'object') refuser("la racine n'est pas un objet");
+  if (!JOUR_ISO.test(json.debut)) refuser(`debut n'est pas une date YYYY-MM-DD : ${json.debut}`);
+  if (!JOUR_ISO.test(json.fin)) refuser(`fin n'est pas une date YYYY-MM-DD : ${json.fin}`);
+  if (json.fin < json.debut) refuser('fin est anterieure a debut');
+  if (!Array.isArray(json.seances) || json.seances.length === 0) refuser('aucune seance');
+
+  const identifiants = new Set();
+  let precedente = '';
+
+  for (const seance of json.seances) {
+    if (!JOUR_ISO.test(seance.date)) refuser(`date de seance invalide : ${seance.date}`);
+    // Les seances sont strictement croissantes : seanceDuJour et calendrier
+    // prennent la premiere qui correspond, un desordre les rendrait faux.
+    if (seance.date <= precedente) refuser(`seances non ordonnees ou dupliquees : ${seance.date}`);
+    if (seance.date < json.debut || seance.date > json.fin) refuser(`seance hors programme : ${seance.date}`);
+    precedente = seance.date;
+
+    if (typeof seance.titre !== 'string' || seance.titre === '') refuser(`titre manquant : ${seance.date}`);
+    if (!Number.isInteger(seance.semaine) || seance.semaine < 1) refuser(`semaine invalide : ${seance.date}`);
+    if (!Array.isArray(seance.blocs) || seance.blocs.length === 0) refuser(`aucun bloc : ${seance.date}`);
+
+    for (const bloc of seance.blocs) {
+      if (!TYPES_BLOC.includes(bloc.type)) refuser(`type de bloc inconnu : ${bloc.type}`);
+      if (!Number.isInteger(bloc.tours) || bloc.tours < 1) refuser(`tours invalide : ${seance.date} / ${bloc.type}`);
+      if ('titre' in bloc && (typeof bloc.titre !== 'string' || bloc.titre === '')) {
+        refuser(`titre de bloc vide : ${seance.date} / ${bloc.type}`);
+      }
+      if (!Array.isArray(bloc.exercices) || bloc.exercices.length === 0) {
+        refuser(`bloc sans exercice : ${seance.date} / ${bloc.type}`);
+      }
+
+      for (const ex of bloc.exercices) {
+        if (typeof ex.id !== 'string' || ex.id === '') refuser(`identifiant manquant : ${seance.date}`);
+        if (identifiants.has(ex.id)) refuser(`identifiant en double : ${ex.id}`);
+        identifiants.add(ex.id);
+        if (typeof ex.libelle !== 'string' || ex.libelle === '') refuser(`libelle manquant : ${ex.id}`);
+        if (ex.mesure === null || typeof ex.mesure !== 'object' || !UNITES.includes(ex.mesure.unite)) {
+          refuser(`unite inconnue pour ${ex.id} : ${ex.mesure && ex.mesure.unite}`);
+        }
+        if (!Number.isFinite(ex.mesure.valeur) || ex.mesure.valeur < 0) refuser(`valeur invalide : ${ex.id}`);
+      }
+    }
+  }
+
+  return gelerEnProfondeur(json);
 }
 
 // Volume prescrit par le programme entier, tours compris.

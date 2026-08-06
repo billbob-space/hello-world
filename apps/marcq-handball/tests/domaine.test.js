@@ -78,3 +78,35 @@ test('les totaux ne sont ecrits nulle part dans le code (PRD §8)', () => {
   allege.seances[0].blocs[1].exercices[0].mesure.valeur = 10;
   assert.equal(domaine.totauxPrescrits(domaine.chargerProgramme(allege)).pompes, 216);
 });
+
+test('chargerProgramme refuse un identifiant en double', () => {
+  const copie = structuredClone(brut);
+  copie.seances[0].blocs[1].exercices[1].id = copie.seances[0].blocs[1].exercices[0].id;
+  assert.throws(() => domaine.chargerProgramme(copie), /identifiant en double : s1-r1/);
+});
+
+test('chargerProgramme refuse une unite inconnue', () => {
+  const copie = structuredClone(brut);
+  copie.seances[0].blocs[1].exercices[3].mesure.unite = 'gainage';
+  assert.throws(() => domaine.chargerProgramme(copie), /unite inconnue pour s1-r4 : gainage/);
+});
+
+test('chargerProgramme refuse des seances hors bornes ou desordonnees', () => {
+  const horsBornes = structuredClone(brut);
+  horsBornes.seances[6].date = '2026-08-24';
+  assert.throws(() => domaine.chargerProgramme(horsBornes), /seance hors programme : 2026-08-24/);
+
+  const desordre = structuredClone(brut);
+  desordre.seances[1].date = '2026-08-03';
+  assert.throws(() => domaine.chargerProgramme(desordre), /seances non ordonnees ou dupliquees/);
+
+  const toursNuls = structuredClone(brut);
+  toursNuls.seances[0].blocs[1].tours = 0;
+  assert.throws(() => domaine.chargerProgramme(toursNuls), /tours invalide/);
+});
+
+test('le programme rendu est gele : personne ne le mute par accident', () => {
+  const gele = domaine.chargerProgramme(structuredClone(brut));
+  assert.throws(() => { gele.seances[0].titre = 'autre'; }, TypeError);
+  assert.throws(() => { gele.seances[0].blocs[1].exercices[0].mesure.valeur = 99; }, TypeError);
+});
