@@ -4,7 +4,7 @@
 #
 # enabled: false = l'app vit dans le depot mais n'entre pas dans compose.yaml.
 # Passe-le a true une fois sa premiere image publiee sur le registre.
-enabled: false
+enabled: true
 port: 8080
 memory: 128m
 health_path: /healthz
