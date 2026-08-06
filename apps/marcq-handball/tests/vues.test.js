@@ -100,12 +100,16 @@ test('les deux gestes des reglages sont distincts (PRD §7.2)', () => {
   assert.ok(code.includes('ecrirePrenom('), 'le premier geste ecrit le prenom');
   // Changer d'enfant efface tout, et jamais sans confirmation.
   assert.ok(code.includes('toutEffacer()'), 'le second geste efface tout');
+  // La question posee est construite au PRP 08 — elle gagne une phrase quand un
+  // nom au classement va se retrouver orphelin —, mais elle part toujours de
+  // CONFIRMATION_CHANGEMENT et elle passe toujours avant l'effacement.
+  assert.ok(code.includes('CONFIRMATION_CHANGEMENT'), 'la phrase du PRD est celle qui est posee');
   assert.ok(
-    /confirm\(CONFIRMATION_CHANGEMENT\)/.test(code),
+    /confirm\(question\)/.test(code),
     'toutEffacer n est jamais atteint sans confirmation',
   );
   assert.ok(
-    code.indexOf('confirm(CONFIRMATION_CHANGEMENT)') < code.indexOf('toutEffacer()'),
+    code.indexOf('confirm(question)') < code.indexOf('toutEffacer()'),
     'la confirmation vient avant l effacement',
   );
 });

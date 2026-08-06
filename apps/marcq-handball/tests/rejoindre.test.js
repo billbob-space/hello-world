@@ -268,3 +268,48 @@ test('phraseIgnores dit le decalage sans s excuser, au singulier comme au plurie
     '3 exercices ne comptent pas encore : leur séance n’est pas encore arrivée.',
   );
 });
+
+// --- la sortie (PRD §14) ---------------------------------------------------
+
+test('les deux phrases de sortie nomment le pseudonyme entre guillemets francais', () => {
+  assert.equal(rejoindre.phraseSuppression('Renard-14'), 'Supprimer « Renard-14 » du classement ?');
+  assert.match(rejoindre.avertissementChangementEnfant('Renard-14'), /« Renard-14 »/);
+});
+
+test('ce que la suppression promet, et ce qu elle ne promet pas', () => {
+  const texte = rejoindre.EXPLICATION_SUPPRESSION;
+  // Ce qui part.
+  assert.match(texte, /disparaissent du classement, pour tout le monde/);
+  // Ce qui reste, et c'est le point : l'enfant ne perd rien de ce qu'il a fait.
+  assert.match(texte, /restent sur ton téléphone/);
+  // Ce qui n'est PAS promis. Une page publique a pu etre lue, capturee,
+  // indexee : promettre un effacement total serait faux, et le PRD §5 construit
+  // tout le produit sur le fait que ce qui est publie est public.
+  assert.match(texte, /ne s’efface pas/);
+});
+
+test('changer d enfant previent qu il laisserait un nom orphelin', () => {
+  const phrase = rejoindre.avertissementChangementEnfant('Renard-14');
+  assert.match(phrase, /plus personne\s+ne pourra le supprimer/);
+  assert.match(phrase, /Supprime-le d’abord/, 'le geste de sortie est nomme, pas seulement le risque');
+});
+
+test('hors ligne, la suppression n agit pas et le dit', () => {
+  // Effacer localement d'abord, en comptant sur une reprise, ferait perdre le
+  // code — donc le seul moyen de retirer un nom qui, lui, resterait affiche.
+  assert.equal(rejoindre.SANS_RESEAU_SUPPRESSION, 'Il faut du réseau pour supprimer ton nom.');
+
+  const code = source('vue-rejoindre.js');
+  assert.ok(
+    code.indexOf('SANS_RESEAU_SUPPRESSION') < code.indexOf('await retirer('),
+    'le garde hors ligne passe avant l appel reseau',
+  );
+});
+
+test('les deux issues d une suppression aboutie se distinguent, sans erreur', () => {
+  // Le PRP 07 rappelle qu'un enfant qui appuie deux fois, ou dont le reseau a
+  // rejoue la requete, ne doit pas voir une erreur pour une action qui a abouti.
+  assert.equal(rejoindre.RETIRE, 'Ton nom a été retiré du classement.');
+  assert.equal(rejoindre.DEJA_RETIRE, 'Ce nom n’était plus au classement. C’est réglé.');
+  assert.notEqual(rejoindre.RETIRE, rejoindre.DEJA_RETIRE);
+});

@@ -9,7 +9,7 @@
 // « grimper au classement », qui est du ressort du PRP 09 ; un ecran de
 // consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
 
-import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer } from './classement.js';
+import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer } from './classement.js';
 import { ecrireClassement, lireClassement, lireFaits } from './etat.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
@@ -154,6 +154,29 @@ export function messageErreur(statut, erreur) {
 function phraseDe(resultat) {
   return resultat.message ?? messageErreur(resultat.statut, resultat.erreur);
 }
+
+// --- la sortie (PRD §14) ---------------------------------------------------
+
+// La derniere proposition n'est pas une precaution juridique : une page
+// publique a pu etre lue, capturee, indexee. Promettre un effacement total
+// serait faux, et le PRD §5 construit tout le produit sur le fait que ce qui
+// est publie est public.
+export const EXPLICATION_SUPPRESSION = 'Ton nom et ton score disparaissent du classement, pour tout le monde. Ta progression et tes séances cochées restent sur ton téléphone : tu ne perds rien de ce que tu as fait. Le nom redevient libre, et ce qui a déjà été vu par d’autres ne s’efface pas.';
+
+export function phraseSuppression(pseudo) {
+  return `Supprimer « ${pseudo} » du classement ?`;
+}
+
+// « Changer d'enfant » efface la cle locale mais ne touche pas au serveur : le
+// nom resterait au classement et plus personne n'en detiendrait le code.
+export function avertissementChangementEnfant(pseudo) {
+  return `Ton nom au classement (« ${pseudo} ») restera visible, et plus personne `
+    + 'ne pourra le supprimer. Supprime-le d’abord si tu ne veux pas le laisser.';
+}
+
+export const SANS_RESEAU_SUPPRESSION = 'Il faut du réseau pour supprimer ton nom.';
+export const RETIRE = 'Ton nom a été retiré du classement.';
+export const DEJA_RETIRE = 'Ce nom n’était plus au classement. C’est réglé.';
 
 // --- l etat visible du classement ------------------------------------------
 
@@ -443,4 +466,61 @@ function etapeChoix(section, ctx) {
 
   section.append(formulaire);
   champPseudo.focus();
+}
+
+// Le bloc de #/reglages. Il n'existe que s'il y a quelque chose a retirer :
+// proposer de supprimer un nom qu'on n'a pas serait une question sans reponse.
+//
+// LA SUPPRESSION NE SE MET JAMAIS EN ATTENTE. Effacer localement d'abord, en
+// comptant sur une reprise, ferait perdre le code — donc le seul moyen de
+// retirer un nom qui, lui, resterait affiche. Hors ligne, le bouton n'agit pas
+// et le dit.
+export function monterSuppression(hote, ctx) {
+  const local = lireClassement();
+  if (local.pseudo === null) return null;
+
+  const bloc = el('section', 'bloc-reglage bloc-danger');
+  bloc.append(
+    el('h2', 'titre-bloc', 'Mon nom au classement'),
+    el('p', 'avertissement', EXPLICATION_SUPPRESSION),
+  );
+
+  const bouton = el('button', 'bouton bouton-danger', `Supprimer « ${local.pseudo} »`);
+  bouton.type = 'button';
+
+  const retour = el('p', 'retour');
+  retour.setAttribute('role', 'status');
+
+  bouton.addEventListener('click', async () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      retour.textContent = SANS_RESEAU_SUPPRESSION;
+      return;
+    }
+    if (typeof globalThis.confirm !== 'function') return;
+    if (!globalThis.confirm(phraseSuppression(local.pseudo))) return;
+
+    bouton.disabled = true;
+    retour.textContent = 'Suppression…';
+    const resultat = await retirer({ pseudo: local.pseudo, code: local.code });
+    bouton.disabled = false;
+
+    if (!resultat.ok) {
+      // Rien n'est efface localement : 403, 429, 409, 503 et statut 0 laissent
+      // la fiche et le code en place. Le 403 de la suppression ne se raconte
+      // pas differemment de celui de l'envoi — la phrase du serveur est vraie,
+      // et inviter a verifier le code suffit.
+      retour.textContent = phraseDe(resultat);
+      return;
+    }
+    // Le PRP 07 rappelle qu'un enfant qui appuie deux fois, ou dont le reseau a
+    // rejoue la requete, ne doit pas voir une erreur pour une action qui a
+    // abouti.
+    retour.textContent = resultat.suppression?.supprime ? RETIRE : DEJA_RETIRE;
+    bouton.remove();
+    ctx.rafraichir();
+  });
+
+  bloc.append(bouton, retour);
+  hote.append(bloc);
+  return null;
 }
