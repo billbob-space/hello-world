@@ -1,0 +1,143 @@
+/* Jetons et socle de marcq-handball.
+ *
+ * L'app est ouverte dehors, en plein soleil, sur un telephone tenu a bout de
+ * bras entre deux series. D'ou un theme CLAIR par defaut et des contrastes
+ * eleves : un ecran sombre au soleil ne se lit pas. La variante sombre suit le
+ * reglage du telephone, elle ne s'impose pas.
+ *
+ * Aucune police distante : la page est publique, tout ce qu'elle charge est en
+ * meme origine (ossature §2). La pile systeme est deja celle que l'ado lit
+ * partout ailleurs sur son telephone. */
+
+:root {
+  color-scheme: light dark;
+
+  --papier:      #f6f4ef;  /* le fond */
+  --carte:       #ffffff;  /* les surfaces posees dessus */
+  --encre:       #14161c;  /* le texte, jamais du noir pur */
+  --encre-douce: #545a68;  /* les mentions secondaires */
+  --trait:       #ded8cd;  /* les separations */
+  --signal:      #d62839;  /* l'accent : progression, validation, et rien d'autre */
+  --signal-lisible: #ffffff;  /* ce qui s'ecrit sur le signal */
+  --fait:        #16794a;  /* ce qui est accompli */
+
+  /* Zone de tap minimale — PRD §11, mains moites et telephone a bout de bras.
+     Aucune cible interactive de l'app ne descend sous cette valeur. */
+  --tap: 44px;
+
+  --pas:   0.5rem;
+  --marge: clamp(1.25rem, 5vw, 2rem);
+  --rayon: 12px;
+
+  --texte: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+           "Helvetica Neue", Arial, sans-serif;
+  --chiffres: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono",
+              "Liberation Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier:      #101216;
+    --carte:       #191c22;
+    --encre:       #edeae3;
+    --encre-douce: #9aa1ad;
+    --trait:       #2b2f38;
+    --signal:      #ff5566;
+    --signal-lisible: #14161c;
+    --fait:        #4ec98a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  padding: var(--marge);
+  /* La barre d'adresse du telephone mange le bas de l'ecran : sans cette
+     reserve, le dernier exercice d'une seance se cache derriere elle. */
+  padding-bottom: calc(var(--marge) + env(safe-area-inset-bottom));
+  background: var(--papier);
+  color: var(--encre);
+  font-family: var(--texte);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+h1 {
+  margin: 0 0 var(--pas);
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Toute cible interactive, partout dans l'app. Les ecrans des PRP suivants
+   s'appuient dessus plutot que de redeclarer une hauteur a chaque bouton. */
+.tap {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pas);
+}
+
+:focus-visible {
+  outline: 3px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* ---- la page d'attente ---------------------------------------------------
+   Elle dit ce qu'elle est. Elle n'imite aucun ecran de l'application : une
+   fausse seance donnerait envie de taper dessus, et le premier tap serait un
+   echec. */
+
+.attente {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding-top: clamp(2rem, 12vh, 6rem);
+}
+
+.sur-titre {
+  margin: 0 0 var(--pas);
+  font-family: var(--chiffres);
+  font-size: 0.8125rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.periode {
+  margin: 0 0 calc(var(--pas) * 4);
+  font-family: var(--chiffres);
+  color: var(--encre-douce);
+}
+
+.dit {
+  margin: 0 0 calc(var(--pas) * 2);
+  font-size: 1.125rem;
+}
+
+.note {
+  margin: 0;
+  padding: calc(var(--pas) * 2);
+  background: var(--carte);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  color: var(--encre-douce);
+}
+
+/* PRD §10 : tout reste utilisable sans un seul mouvement. La regle existe des la
+   premiere ligne de CSS, pour qu'aucune animation ajoutee ensuite n'ait a y
+   penser. Le PRP 06 REMPLACE ce bloc par la version definitive — il est le PRP
+   des animations et il justifie ses valeurs. Il ne doit pas en ajouter un
+   second : son test extrait le premier bloc du fichier. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

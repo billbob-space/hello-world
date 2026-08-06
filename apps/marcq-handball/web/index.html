@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Programme d'été U15 — Marcq Handball</title>
+<meta name="description" content="Le programme d'été du coach, du 3 au 21 août 2026.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="attente">
+  <p class="sur-titre">Marcq Handball · U15</p>
+  <h1>Programme d'été</h1>
+  <p class="periode">Du 3 au 21 août 2026</p>
+
+  <p class="dit">L'adresse est la bonne, et elle ne changera plus. Les séances
+  du coach arrivent ici dans les prochaines heures.</p>
+
+  <p class="note">Rien n'est encore à cocher : garde le lien, reviens dessus.
+  Tu n'auras ni compte à créer, ni application à installer.</p>
+</main>
+
+<script>
+  // Le service worker est enregistre des le premier deploiement, avant meme
+  // qu'il y ait des ecrans : c'est son comportement de cache qu'il faut avoir
+  // eprouve en ligne, tant qu'une coque figee ne coute encore rien.
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function (e) {
+        // Navigation privee, stockage refuse, navigateur trop ancien : l'app
+        // reste utilisable en ligne. L'echec ne remonte jamais a l'ecran.
+        console.warn('service worker non enregistre', e);
+      });
+    });
+  }
+</script>
+</body>
+</html>
