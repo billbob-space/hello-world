@@ -35,3 +35,21 @@ L'activation est un geste separe, apres la fusion et la publication de l'image.
 **Action** — `arbitrage` — le decoupage en PR des PRP suppose une liberte de
 nommage de branche que les sessions cloud n'ont pas ; a trancher une fois pour
 toutes plutot qu'a chaque app.
+
+### 2. Le PRP 02 casse un test Go du PRP 01 sans le dire
+
+**Symptome** — deposer `web/programme.json` fait echouer
+`TestProgrammeJSONPasEncoreLivre`, qui exige un 404 sur cette route. Le PRP 02
+ne mentionne ni `main_test.go` ni ce test, ni dans sa liste « Fichiers », ni
+dans aucune de ses huit taches.
+
+**Cause** — la consigne existe, mais elle est ecrite dans le PRP 01 (« PRP 02
+depose le fichier et remplace `TestProgrammeJSONPasEncoreLivre` par l'assertion
+200 ») et nulle part dans le PRP 02. Un agent qui applique le 02 sans avoir lu
+le 01 en entier casse la suite Go et ne sait pas pourquoi.
+
+**Detecte par** — `test`
+
+**Action** — `contrat` — une obligation d'un PRP aval doit etre ecrite dans ce
+PRP aval, pas seulement dans celui qui l'anticipe. Le renvoi croise ne suffit
+pas quand les deux documents sont censes s'executer separement.

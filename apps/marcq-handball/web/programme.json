@@ -1,0 +1,195 @@
+{
+  "titre": "Programme d'été U15 — Marcq Handball",
+  "debut": "2026-08-03",
+  "fin": "2026-08-21",
+  "seances": [
+    {
+      "date": "2026-08-03",
+      "semaine": 1,
+      "titre": "Endurance + Renforcement",
+      "blocs": [
+        {
+          "type": "course",
+          "tours": 1,
+          "exercices": [
+            { "id": "s1-c1", "libelle": "30 minutes de footing à allure confortable", "mesure": { "unite": "min_course", "valeur": 30 } },
+            { "id": "s1-c2", "libelle": "6 × 100 m à 80 %, récupération en marchant", "mesure": { "unite": "autre", "valeur": 0 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 2,
+          "repos": "1 min 30 entre les tours",
+          "exercices": [
+            { "id": "s1-r1", "libelle": "15 pompes", "mesure": { "unite": "pompes", "valeur": 15 } },
+            { "id": "s1-r2", "libelle": "20 squats", "mesure": { "unite": "squats", "valeur": 20 } },
+            { "id": "s1-r3", "libelle": "15 fentes par jambe", "mesure": { "unite": "fentes", "valeur": 15 } },
+            { "id": "s1-r4", "libelle": "45 s de gainage ventral", "mesure": { "unite": "gainage_s", "valeur": 45 } },
+            { "id": "s1-r5", "libelle": "30 s de gainage de chaque côté", "mesure": { "unite": "gainage_s", "valeur": 60 } },
+            { "id": "s1-r6", "libelle": "15 burpees", "mesure": { "unite": "burpees", "valeur": 15 } }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-05",
+      "semaine": 1,
+      "titre": "Fractionné",
+      "blocs": [
+        {
+          "type": "course",
+          "tours": 1,
+          "exercices": [
+            { "id": "s2-c1", "libelle": "10 minutes de footing", "mesure": { "unite": "min_course", "valeur": 10 } },
+            { "id": "s2-c2", "libelle": "2 séries de 8 × (30 s rapides à fond / 30 s lentes), 3 minutes de récupération entre les séries", "mesure": { "unite": "min_course", "valeur": 19 } },
+            { "id": "s2-c3", "libelle": "10 minutes de footing pour terminer", "mesure": { "unite": "min_course", "valeur": 10 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 3,
+          "exercices": [
+            { "id": "s2-r1", "libelle": "20 mountain climbers", "mesure": { "unite": "autre", "valeur": 0 } },
+            { "id": "s2-r2", "libelle": "15 dips sur une chaise", "mesure": { "unite": "autre", "valeur": 0 } },
+            { "id": "s2-r3", "libelle": "20 jumping squats", "mesure": { "unite": "squats", "valeur": 20 } },
+            { "id": "s2-r4", "libelle": "20 abdos", "mesure": { "unite": "abdos", "valeur": 20 } },
+            { "id": "s2-r5", "libelle": "45 s de gainage", "mesure": { "unite": "gainage_s", "valeur": 45 } }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-07",
+      "semaine": 1,
+      "titre": "Autre sport + Renforcement",
+      "blocs": [
+        {
+          "type": "course",
+          "titre": "Autre sport",
+          "tours": 1,
+          "exercices": [
+            { "id": "s3-c1", "libelle": "30 à 40 minutes d'un autre sport (piscine, vélo…)", "mesure": { "unite": "min_course", "valeur": 35 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 3,
+          "exercices": [
+            { "id": "s3-r1", "libelle": "12 pompes", "mesure": { "unite": "pompes", "valeur": 12 } },
+            { "id": "s3-r2", "libelle": "15 squats sautés", "mesure": { "unite": "squats", "valeur": 15 } },
+            { "id": "s3-r3", "libelle": "12 fentes sautées par jambe", "mesure": { "unite": "fentes", "valeur": 12 } },
+            { "id": "s3-r4", "libelle": "45 s de chaise contre un mur", "mesure": { "unite": "autre", "valeur": 0 } },
+            { "id": "s3-r5", "libelle": "1 min de gainage", "mesure": { "unite": "gainage_s", "valeur": 60 } }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-10",
+      "semaine": 2,
+      "titre": "Endurance active",
+      "blocs": [
+        {
+          "type": "course",
+          "tours": 1,
+          "exercices": [
+            { "id": "s4-c1", "libelle": "20 minutes de footing", "mesure": { "unite": "min_course", "valeur": 20 } },
+            { "id": "s4-c2", "libelle": "8 min de 15-15", "mesure": { "unite": "min_course", "valeur": 8 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 4,
+          "exercices": [
+            { "id": "s4-r1", "libelle": "10 squats", "mesure": { "unite": "squats", "valeur": 10 } },
+            { "id": "s4-r2", "libelle": "10 pompes", "mesure": { "unite": "pompes", "valeur": 10 } },
+            { "id": "s4-r3", "libelle": "10 fentes", "mesure": { "unite": "fentes", "valeur": 10 } },
+            { "id": "s4-r4", "libelle": "10 crunchs", "mesure": { "unite": "abdos", "valeur": 10 } },
+            { "id": "s4-r5", "libelle": "1 min de gainage", "mesure": { "unite": "gainage_s", "valeur": 60 } }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-12",
+      "semaine": 2,
+      "titre": "Fractionné long",
+      "blocs": [
+        {
+          "type": "course",
+          "tours": 1,
+          "exercices": [
+            { "id": "s5-c1", "libelle": "15 minutes de footing", "mesure": { "unite": "min_course", "valeur": 15 } },
+            { "id": "s5-c2", "libelle": "6 × 2 minutes rapides, récupération 1 minute de footing lent entre chaque répétition", "mesure": { "unite": "min_course", "valeur": 17 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 3,
+          "exercices": [
+            { "id": "s5-r1", "libelle": "15 burpees", "mesure": { "unite": "burpees", "valeur": 15 } },
+            { "id": "s5-r2", "libelle": "20 mountain climbers", "mesure": { "unite": "autre", "valeur": 0 } },
+            { "id": "s5-r3", "libelle": "15 pompes", "mesure": { "unite": "pompes", "valeur": 15 } },
+            { "id": "s5-r4", "libelle": "20 squats", "mesure": { "unite": "squats", "valeur": 20 } },
+            { "id": "s5-r5", "libelle": "1 min de gainage", "mesure": { "unite": "gainage_s", "valeur": 60 } }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-14",
+      "semaine": 2,
+      "titre": "Vitesse + Renforcement",
+      "blocs": [
+        {
+          "type": "course",
+          "tours": 1,
+          "exercices": [
+            { "id": "s6-c1", "libelle": "10 minutes d'échauffement", "mesure": { "unite": "min_course", "valeur": 10 } },
+            { "id": "s6-c2", "libelle": "10 min de 30-30 m à 80 %", "mesure": { "unite": "min_course", "valeur": 10 } },
+            { "id": "s6-c3", "libelle": "15 minutes de footing", "mesure": { "unite": "min_course", "valeur": 15 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 3,
+          "exercices": [
+            { "id": "s6-r1", "libelle": "15 pompes", "mesure": { "unite": "pompes", "valeur": 15 } },
+            { "id": "s6-r2", "libelle": "20 squats sautés", "mesure": { "unite": "squats", "valeur": 20 } },
+            { "id": "s6-r3", "libelle": "15 fentes par jambe", "mesure": { "unite": "fentes", "valeur": 15 } },
+            { "id": "s6-r4", "libelle": "20 abdos", "mesure": { "unite": "abdos", "valeur": 20 } },
+            { "id": "s6-r5", "libelle": "1 min de gainage ventral", "mesure": { "unite": "gainage_s", "valeur": 60 } },
+            { "id": "s6-r6", "libelle": "30 s de gainage de chaque côté", "mesure": { "unite": "gainage_s", "valeur": 60 } }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-08-17",
+      "semaine": 2,
+      "titre": "Séance de validation",
+      "blocs": [
+        {
+          "type": "course",
+          "tours": 1,
+          "exercices": [
+            { "id": "s7-c1", "libelle": "25 minutes de footing", "mesure": { "unite": "min_course", "valeur": 25 } },
+            { "id": "s7-c2", "libelle": "5 min de 15-15 puis 5 min de 30-30, 1 min de repos entre les deux séries", "mesure": { "unite": "min_course", "valeur": 11 } }
+          ]
+        },
+        {
+          "type": "renforcement",
+          "tours": 2,
+          "exercices": [
+            { "id": "s7-r1", "libelle": "20 squats", "mesure": { "unite": "squats", "valeur": 20 } },
+            { "id": "s7-r2", "libelle": "15 pompes", "mesure": { "unite": "pompes", "valeur": 15 } },
+            { "id": "s7-r3", "libelle": "20 fentes", "mesure": { "unite": "fentes", "valeur": 20 } },
+            { "id": "s7-r4", "libelle": "15 burpees", "mesure": { "unite": "burpees", "valeur": 15 } },
+            { "id": "s7-r5", "libelle": "25 crunchs", "mesure": { "unite": "abdos", "valeur": 25 } },
+            { "id": "s7-r6", "libelle": "1 min de gainage", "mesure": { "unite": "gainage_s", "valeur": 60 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

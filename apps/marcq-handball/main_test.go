@@ -105,12 +105,23 @@ func TestServiceWorkerSansJetonRefuseDeDemarrer(t *testing.T) {
 	}
 }
 
-// PRP 02 livre web/programme.json et cette assertion devient : 200,
-// application/json, Cache-Control no-cache. La route, elle, existe deja — c'est
-// ce qui permet aux deux PRP d'avancer en parallele sans se disputer main.go.
-func TestProgrammeJSONPasEncoreLivre(t *testing.T) {
-	if code := get(t, newServeur(t), "/programme.json").Code; code != http.StatusNotFound {
-		t.Errorf("code %d, attendu 404 tant que le programme n'est pas livre", code)
+// Le programme est une donnee, pas du code : le navigateur la relit a chaque
+// chargement, et le lot 2 la relira cote serveur pour recalculer un rang avec sa
+// propre horloge. D'ou le no-cache — une seance ajoutee par le coach doit
+// arriver au rechargement suivant, pas au prochain deploiement.
+func TestProgrammeJSONEstServi(t *testing.T) {
+	rec := get(t, newServeur(t), "/programme.json")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code %d, attendu 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("Content-Type %q, attendu application/json", ct)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-cache" {
+		t.Errorf("Cache-Control %q, attendu no-cache", cc)
+	}
+	if !strings.Contains(rec.Body.String(), `"s1-c1"`) {
+		t.Error("le programme servi ne porte pas le premier identifiant d'exercice")
 	}
 }
 
