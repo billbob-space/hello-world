@@ -18,6 +18,13 @@ const NOM_CACHE = `marcq-${VERSION}`;
 const COQUE = [
   '/',
   '/style.css',
+  '/programme.json',
+  '/app.js',
+  '/etat.js',
+  '/domaine.js',
+  '/vue-prenom.js',
+  '/vue-jour.js',
+  '/vue-reglages.js',
 ];
 
 self.addEventListener('install', (e) => {

@@ -132,3 +132,31 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
   assert.equal(choisirEcran('#/perso'), null, 'l ecran perso arrive au PRP 05');
   assert.equal(choisirEcran('#/nimporte-quoi'), null);
 });
+
+test('toute classe posee par un ecran existe dans style.css', () => {
+  const css = source('style.css');
+  const classes = new Set();
+  for (const nom of ['app.js', 'vue-prenom.js', 'vue-jour.js', 'vue-reglages.js']) {
+    // On ne lit que les affectations litterales `className = '...'`. Le seul nom
+    // construit par gabarit est `cas-<cas>`, verifie juste apres.
+    for (const [, liste] of source(nom).matchAll(/\.className\s*=\s*'([^']*)'/g)) {
+      for (const classe of liste.split(/\s+/).filter(Boolean)) classes.add(classe);
+    }
+  }
+  assert.ok(classes.size >= 20, 'la lecture des sources a echoue si le compte est bas');
+  for (const classe of [...classes, 'cas-aujourd-hui', 'cas-repos', 'cas-terminee']) {
+    assert.ok(css.includes(`.${classe}`), `.${classe} manque dans style.css`);
+  }
+});
+
+test('les zones de tap et la taille du champ tiennent la promesse du PRD §11', () => {
+  const css = source('style.css');
+  assert.match(css, /--marcq-tap:\s*4[8-9]px|--marcq-tap:\s*5\dpx/, 'au moins 48 px de tap');
+  // En dessous de 16 px, iOS zoome a la mise au point et l'ecran part de travers.
+  assert.match(css, /\.champ\b[^}]*font-size:\s*1[7-9]px/s);
+  assert.match(
+    css,
+    /\.bouton\b[^}]*min-height:\s*var\(--marcq-tap\)/s,
+    'un bouton occupe une zone de tap pleine',
+  );
+});
