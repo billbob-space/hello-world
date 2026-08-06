@@ -33,6 +33,9 @@ pids=() noms=()
 ( PATH="/usr/local/go/bin:$PATH" GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest ) >/tmp/gopls-setup.log 2>&1 &
 pids+=($!) noms+=(gopls)
 
+( npm install -g typescript-language-server typescript ) >/tmp/typescript-language-server-setup.log 2>&1 &
+pids+=($!) noms+=(typescript-language-server)
+
 
 # --- plugins Claude Code ---
 # Le setup script tourne en root, avec un PATH plus maigre que celui de la
@@ -54,6 +57,7 @@ for p in \
     context7@claude-plugins-official \
     github@claude-plugins-official \
     gopls-lsp@claude-plugins-official \
+    typescript-lsp@claude-plugins-official \
     frontend-design@claude-plugins-official \
     playwright@claude-plugins-official \
     impeccable@impeccable
