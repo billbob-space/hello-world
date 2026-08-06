@@ -53,3 +53,43 @@ le 01 en entier casse la suite Go et ne sait pas pourquoi.
 **Action** — `contrat` — une obligation d'un PRP aval doit etre ecrite dans ce
 PRP aval, pas seulement dans celui qui l'anticipe. Le renvoi croise ne suffit
 pas quand les deux documents sont censes s'executer separement.
+
+### 3. Le PRP 03 casse deux tests du PRP 01 sans le dire
+
+**Symptome** — la tache 6 du PRP 03 remplace `web/index.html` par une coque qui
+ne porte plus le script inline d'enregistrement du service worker : il passe
+dans `app.js`. Deux tests ecrits par le PRP 01 tombent alors —
+`le service worker est enregistre depuis la racine`, qui lit `index.html`, et
+`TestRacineSertLaCoque`, qui cherche la chaine « sw.js » dans le corps servi.
+
+**Cause** — meme forme que l'anomalie 2, dans l'autre sens : le PRP 03 remplace
+un fichier ecrit par un PRP amont et ne dit pas quelles assertions ce
+remplacement invalide. Le deplacement est justifie — l'enregistrement n'est pas
+sur le chemin de l'affichage, et l'objectif du PRD §4 se joue sur la premiere
+seconde — mais rien ne le signale au lecteur du PRP 03.
+
+**Detecte par** — `test`
+
+**Action** — `contrat` — un PRP qui REMPLACE un fichier d'un PRP amont doit
+lister les assertions qu'il deplace, comme il liste les fichiers qu'il modifie.
+
+### 4. Le code du PRP 04 echoue au test du PRP 04
+
+**Symptome** — la tache 5 fait echouer son propre test
+`la vue ne compose jamais de HTML a partir du programme` : il refuse la
+sous-chaine `innerHTML` n'importe ou dans `web/vue-seance.js`, commentaires
+compris, et le commentaire du bloc `el()` fourni par le PRP dit « textContent et
+jamais innerHTML ».
+
+**Cause** — le PRP 02 avait pose la regle exactement pour ce cas — « le test de
+purete cherche des sous-chaines, pas des identifiants […] n'ecris pas le mot
+interdit dans un commentaire » — et notait que ses propres commentaires etaient
+rediges pour l'eviter. Le PRP 04 pose un test de la meme famille et ne se
+l'applique pas.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — un test de source qui interdit une sous-chaine
+devrait ignorer les commentaires, ou la relecture d'un PRP devrait verifier que
+son propre code passe ses propres tests de source. La regle existe deja au
+PRP 02 ; c'est son application qui manque.

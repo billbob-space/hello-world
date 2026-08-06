@@ -286,3 +286,113 @@ body {
 .cas-aujourd-hui .titre-jour { color: var(--marcq-accent); }
 .cas-repos .titre-jour { color: var(--marcq-encre-douce); }
 .cas-terminee .titre-jour { color: var(--marcq-encre); }
+
+/* ---- l'ecran de seance ----------------------------------------------------
+   Ouvert dehors, au soleil, sur un telephone tenu a bout de bras entre deux
+   series. D'ou la ligne entiere comme zone de tap et des separations franches
+   plutot que des nuances de gris. Les titres, la barre et le compte
+   reutilisent les classes de l'ecran du jour : une jumelle divergerait. */
+
+.ecran-seance { gap: 1.1rem; }
+
+/* Le sur-titre : la semaine du coach et la date en toutes lettres. */
+.date-seance { margin: 0; color: var(--marcq-encre-douce); font-size: 1.05rem; }
+
+.progression-seance { display: flex; align-items: center; gap: .7rem; margin: 0; }
+
+/* Le motif du verrou. Une phrase, pas une infobulle : il n'y a pas de survol
+   sur un telephone. */
+.verrou-seance {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-left: 4px solid var(--marcq-encre-douce);
+  border-radius: 8px;
+  background: var(--marcq-carte);
+  color: var(--marcq-encre-douce);
+}
+
+.bloc-seance { display: flex; flex-direction: column; gap: .4rem; }
+
+/* `.titre-bloc` porte une marge basse pour les reglages ; ici c'est `gap` qui
+   espace, et les deux se cumuleraient. */
+.bloc-seance .titre-bloc { margin: 0; }
+
+.tours-bloc {
+  margin: 0;
+  color: var(--marcq-encre-douce);
+  font-size: .95rem;
+}
+
+.exercices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--marcq-trait);
+  border-radius: 10px;
+  background: var(--marcq-carte);
+  overflow: hidden;
+}
+
+.exercice + .exercice { border-top: 1px solid var(--marcq-trait); }
+
+/* Plus haut que la cible minimale de l'app : la ligne est atteinte du pouce, en
+   mouvement, les mains moites (PRD §11). */
+.ligne-exercice {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  min-height: calc(var(--marcq-tap) + 8px);
+  padding: .7rem .9rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.case-exercice {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  accent-color: var(--marcq-accent);
+}
+
+.case-exercice:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+.libelle-exercice { flex: 1 1 auto; }
+
+/* Coche : la ligne se barre. C'est tout ce que ce PRP anime — le ressort et les
+   confettis sont le PRP 06, branches sur marcq:exercice-coche. */
+.exercice.fait .libelle-exercice {
+  color: var(--marcq-encre-douce);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+/* Une seance a venir : le cadre passe en pointilles et les cases s'effacent,
+   mais le texte reste plein contraste — on vient justement lire ce qui arrive
+   (PRD §9). */
+.seance-verrouillee .exercices { border-style: dashed; background: transparent; }
+.seance-verrouillee .ligne-exercice { cursor: default; }
+.seance-verrouillee .case-exercice { opacity: .5; }
+
+.voisines {
+  display: flex;
+  gap: .6rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--marcq-trait);
+}
+
+.lien-voisine {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--marcq-tap);
+  color: var(--marcq-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lien-voisine:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+/* Sans cela, la seule voisine d'une seance de bord se collerait a gauche, quel
+   que soit le sens dans lequel elle emmene. */
+.vers-suivante { margin-left: auto; }
