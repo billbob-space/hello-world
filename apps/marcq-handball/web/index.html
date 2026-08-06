@@ -3,37 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<title>Programme d'été U15 — Marcq Handball</title>
-<meta name="description" content="Le programme d'été du coach, du 3 au 21 août 2026.">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Le programme d’été de l’équipe U15 de Marcq Handball, à cocher séance par séance.">
+<title>Programme d’été — Marcq Handball</title>
+<!-- Une icone vide plutot qu'aucune : sans elle, chaque ouverture ajoute un
+     404 sur /favicon.ico dans les journaux du serveur. -->
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<main class="attente">
-  <p class="sur-titre">Marcq Handball · U15</p>
-  <h1>Programme d'été</h1>
-  <p class="periode">Du 3 au 21 août 2026</p>
-
-  <p class="dit">L'adresse est la bonne, et elle ne changera plus. Les séances
-  du coach arrivent ici dans les prochaines heures.</p>
-
-  <p class="note">Rien n'est encore à cocher : garde le lien, reviens dessus.
-  Tu n'auras ni compte à créer, ni application à installer.</p>
-</main>
-
-<script>
-  // Le service worker est enregistre des le premier deploiement, avant meme
-  // qu'il y ait des ecrans : c'est son comportement de cache qu'il faut avoir
-  // eprouve en ligne, tant qu'une coque figee ne coute encore rien.
-  if ('serviceWorker' in navigator) {
-    addEventListener('load', function () {
-      navigator.serviceWorker.register('/sw.js').catch(function (e) {
-        // Navigation privee, stockage refuse, navigateur trop ancien : l'app
-        // reste utilisable en ligne. L'echec ne remonte jamais a l'ecran.
-        console.warn('service worker non enregistre', e);
-      });
-    });
-  }
-</script>
+<!-- Les ecrans se montent ici ; le routeur vide cet element avant chacun. -->
+<main id="ecran" class="ecran-hote"></main>
+<!-- La navigation vit HORS de #ecran : elle survit aux montages et ne clignote
+     pas d'un ecran a l'autre. Masquee tant que le prenom n'est pas donne
+     (PRD §7.1 : un champ, un bouton, rien d'autre). -->
+<nav id="nav" class="nav-app" aria-label="Navigation principale" hidden></nav>
+<noscript><p class="panne">Cette page a besoin de JavaScript pour afficher le programme.</p></noscript>
+<script type="module" src="/app.js"></script>
 </body>
 </html>

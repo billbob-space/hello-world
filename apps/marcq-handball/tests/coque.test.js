@@ -71,6 +71,18 @@ test('aucune invite d installation', () => {
 
 // La portee d'un service worker est celle du repertoire d'ou il est servi :
 // enregistre depuis un sous-chemin, il ne prendrait pas en charge la racine.
+//
+// L'enregistrement vivait dans un script inline de la coque tant qu'il n'y avait
+// qu'une page d'attente ; depuis le PRP 03 il est dans app.js, apres le premier
+// rendu — il n'est pas sur le chemin de l'affichage, et l'objectif du PRD §4 se
+// joue sur la premiere seconde.
 test('le service worker est enregistre depuis la racine', () => {
-  assert.match(lire('index.html'), /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
+  assert.match(lire('app.js'), /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
+});
+
+// La coque ne fait plus qu'une chose : charger le module d'amorcage. Un script
+// inline supplementaire y reintroduirait de la logique que node --test ne voit
+// pas, et que le service worker mettrait en cache avec la page.
+test('la coque charge son module d amorcage, servi a la racine', () => {
+  assert.match(lire('index.html'), /<script type="module" src="\/app\.js"><\/script>/);
 });

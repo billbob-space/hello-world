@@ -11,6 +11,7 @@ import { PHRASE_RASSURANTE } from '../web/vue-prenom.js';
 import * as domaine from '../web/domaine.js';
 import { dateEnToutesLettres, modeleJour } from '../web/vue-jour.js';
 import { AVERTISSEMENT_SAUVEGARDE, CONFIRMATION_CHANGEMENT } from '../web/vue-reglages.js';
+import { ECRANS, choisirEcran } from '../web/app.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 
@@ -107,4 +108,27 @@ test('les deux gestes des reglages sont distincts (PRD §7.2)', () => {
     code.indexOf('confirm(CONFIRMATION_CHANGEMENT)') < code.indexOf('toutEffacer()'),
     'la confirmation vient avant l effacement',
   );
+});
+
+test('la coque porte l hote des ecrans, la navigation et le module d amorcage', () => {
+  const coque = source('index.html');
+  assert.match(coque, /<html lang="fr">/);
+  assert.match(coque, /<main id="ecran"/, 'le point de montage des ecrans');
+  assert.match(coque, /<nav id="nav"[^>]*hidden/, 'la navigation est masquee avant le prenom');
+  assert.match(coque, /<script type="module" src="\/app\.js">/, 'un module ES, servi a la racine');
+  assert.match(coque, /<link rel="stylesheet" href="\/style\.css">/);
+  // Ossature §2 : aucun asset distant, la page est publique et ne charge que sa
+  // propre origine.
+  assert.equal(/(src|href)="(https?:)?\/\//.test(coque), false, 'aucune ressource distante');
+});
+
+test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'jour']);
+  assert.equal(choisirEcran('#/').nom, 'jour');
+  assert.equal(choisirEcran('').nom, 'jour', 'une adresse sans ancre ouvre le jour');
+  assert.equal(choisirEcran('#').nom, 'jour');
+  assert.equal(choisirEcran('#/reglages').nom, 'reglages');
+  assert.equal(choisirEcran('#/seance/2026-08-03'), null, 'la seance arrive au PRP 04');
+  assert.equal(choisirEcran('#/perso'), null, 'l ecran perso arrive au PRP 05');
+  assert.equal(choisirEcran('#/nimporte-quoi'), null);
 });

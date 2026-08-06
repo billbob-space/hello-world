@@ -49,8 +49,11 @@ func TestRacineSertLaCoque(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
 		t.Errorf("Content-Type %q, attendu text/html", ct)
 	}
-	if !strings.Contains(rec.Body.String(), "sw.js") {
-		t.Error("la coque n'enregistre pas le service worker")
+	// La coque ne fait qu'une chose : charger le module d'amorcage, qui monte
+	// les ecrans et enregistre le service worker. Servi a la racine, comme tout
+	// web/ — c'est ce dont depend la portee du service worker.
+	if !strings.Contains(rec.Body.String(), `src="/app.js"`) {
+		t.Error("la coque ne charge pas le module d'amorcage")
 	}
 }
 

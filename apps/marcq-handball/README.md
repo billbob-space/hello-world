@@ -104,3 +104,34 @@ s'arrête après le lundi 17 août ; les sept séances saisies ici couvrent tout
 qui est connu. Si la troisième page ajoute des séances, elles s'ajoutent à
 `web/programme.json` — dates, identifiants `s8-*` et suivants, volumes — et les
 totaux attendus du test se recalculent. À lever **avant le 17 août**.
+
+## Les écrans et leurs routes
+
+Le navigateur porte tout : le domaine, l'état et les écrans. Le serveur sert des
+fichiers statiques et une sonde de santé, et ne connaît aucun utilisateur.
+
+| Route | Écran | Fichier |
+|---|---|---|
+| `#/` (ou adresse sans ancre) | la séance du jour, ou le repos, ou la fin | `web/vue-jour.js` |
+| `#/reglages` | corriger le prénom, changer d'enfant | `web/vue-reglages.js` |
+
+Tant qu'aucun prénom n'est enregistré, aucune route n'est honorée :
+`web/vue-prenom.js` s'affiche à la place. C'est le seul péage de l'application.
+
+**Ajouter un écran** demande trois lignes dans `web/app.js` — un `import`, une
+entrée dans `ECRANS`, et un lien dans `LIENS` si l'écran mérite un onglet — plus
+son fichier `web/vue-*.js`. Un écran est une fonction `(hote, ctx) => démontage`,
+`hote` étant vidé par le routeur avant chaque montage. Le contexte `ctx` porte
+`prog`, `aujourdhui`, `prenom`, `faits`, `route`, `aller(route)` et
+`rafraichir()` ; il est relu à chaque rendu, et un écran ne le mute jamais.
+
+**Ce qui est enregistré sur le téléphone**, et rien d'autre (`web/etat.js`) :
+
+| Clé | Valeur |
+|---|---|
+| `marcq.v1.prenom` | le prénom, 24 caractères au plus |
+| `marcq.v1.faits` | `{ "<id d'exercice>": "<horodatage ISO>" }` |
+
+Un stockage refusé — navigation privée — ou plein ne casse rien : les valeurs
+sont gardées en mémoire pour la durée de l'onglet. Elles ne survivent alors pas
+à la fermeture, ce que la page de réglages annonce.
