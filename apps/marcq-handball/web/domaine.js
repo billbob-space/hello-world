@@ -47,6 +47,29 @@ function cumuler(prog, garder) {
 const TYPES_BLOC = ['course', 'renforcement'];
 const JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+const JOURS_PAR_MOIS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function bissextile(annee) {
+  return (annee % 4 === 0 && annee % 100 !== 0) || annee % 400 === 0;
+}
+
+function joursDansLeMois(annee, mois) {
+  return mois === 2 && bissextile(annee) ? 29 : JOURS_PAR_MOIS[mois - 1];
+}
+
+function iso(annee, mois, jour) {
+  return `${String(annee).padStart(4, '0')}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`;
+}
+
+// Le jour calendaire suivant, en arithmetique pure sur l'annee, le mois et le
+// jour — aucun objet d'horodatage, donc aucun fuseau a subir.
+function jourSuivant(dateISO) {
+  const [annee, mois, jour] = dateISO.split('-').map(Number);
+  if (jour < joursDansLeMois(annee, mois)) return iso(annee, mois, jour + 1);
+  if (mois < 12) return iso(annee, mois + 1, 1);
+  return iso(annee + 1, 1, 1);
+}
+
 function refuser(message) {
   throw new Error(`programme invalide : ${message}`);
 }
@@ -167,4 +190,38 @@ export function seanceDuJour(prog, aujourdhui) {
   // est bien la prochaine.
   const prochaine = prog.seances.find((s) => s.date > aujourdhui) ?? null;
   return { seance: prochaine, cas: 'repos' };
+}
+
+// Tous les jours du programme, de debut a fin inclus : une seance ou du repos,
+// jamais un trou (PRD §9).
+export function calendrier(prog, aujourdhui, faits = {}) {
+  const parDate = new Map(prog.seances.map((s) => [s.date, s]));
+  const jours = [];
+  for (let date = prog.debut; date <= prog.fin; date = jourSuivant(date)) {
+    const seance = parDate.get(date) ?? null;
+    jours.push({
+      date,
+      seance,
+      statut: seance ? etatSeance(prog, date, aujourdhui, faits).statut : 'repos',
+    });
+  }
+  return jours;
+}
+
+// La part servant au rang : accompli sur programme A CE JOUR (PRD §9).
+// Le numerateur est borne au meme perimetre que le denominateur, sinon une
+// horloge de telephone avancee puis remise a l'heure produirait un depassement.
+export function progression(prog, aujourdhui, faits = {}) {
+  let programmees = 0;
+  let cochees = 0;
+  for (const seance of prog.seances) {
+    if (seance.date > aujourdhui) continue;
+    for (const bloc of seance.blocs) {
+      for (const ex of bloc.exercices) {
+        programmees += 1;
+        if (estFait(faits, ex.id)) cochees += 1;
+      }
+    }
+  }
+  return { cochees, programmees, part: programmees === 0 ? 0 : cochees / programmees };
 }

@@ -212,3 +212,86 @@ test('avant le debut du programme, on annonce la premiere seance', () => {
   assert.equal(avant.cas, 'repos');
   assert.equal(avant.seance.date, '2026-08-03');
 });
+
+test('le calendrier couvre les dix-neuf jours sans trou (PRD §9)', () => {
+  const jours = domaine.calendrier(prog, '2026-08-10');
+  assert.equal(jours.length, 19);
+  assert.equal(jours[0].date, '2026-08-03');
+  assert.equal(jours.at(-1).date, '2026-08-21');
+  assert.equal(jours.filter((j) => j.seance !== null).length, 7, 'sept seances');
+  assert.equal(jours.filter((j) => j.statut === 'repos').length, 12, 'douze jours de repos');
+  for (const j of jours) assert.ok(j.statut, `statut manquant le ${j.date}`);
+});
+
+test('le calendrier date chaque jour une fois et dans l ordre', () => {
+  const dates = domaine.calendrier(prog, '2026-08-10').map((j) => j.date);
+  assert.deepEqual(dates, [...dates].sort());
+  assert.equal(new Set(dates).size, dates.length);
+});
+
+test('le calendrier porte le statut de chaque seance', () => {
+  const faits = cocher(casesDe('2026-08-03'));
+  const parDate = new Map(domaine.calendrier(prog, '2026-08-10', faits).map((j) => [j.date, j.statut]));
+  assert.equal(parDate.get('2026-08-03'), 'faite');
+  assert.equal(parDate.get('2026-08-04'), 'repos');
+  assert.equal(parDate.get('2026-08-05'), 'manquee');
+  assert.equal(parDate.get('2026-08-10'), 'aujourd-hui');
+  assert.equal(parDate.get('2026-08-12'), 'a-venir');
+});
+
+test('le calendrier franchit une fin de mois et un 29 fevrier', () => {
+  // Le programme doit rester reutilisable la saison suivante (PRD §8) : rien
+  // n'interdit qu'il chevauche un changement de mois ou une annee bissextile.
+  const autreSaison = domaine.chargerProgramme({
+    titre: 'Programme de test',
+    debut: '2028-02-27',
+    fin: '2028-03-01',
+    seances: [{
+      date: '2028-02-29',
+      semaine: 1,
+      titre: 'Test',
+      blocs: [{
+        type: 'course',
+        tours: 1,
+        exercices: [
+          { id: 't-c1', libelle: '10 minutes de footing', mesure: { unite: 'min_course', valeur: 10 } },
+        ],
+      }],
+    }],
+  });
+  assert.deepEqual(
+    domaine.calendrier(autreSaison, '2028-02-28').map((j) => j.date),
+    ['2028-02-27', '2028-02-28', '2028-02-29', '2028-03-01'],
+  );
+});
+
+test('le denominateur est ce qui est programme a ce jour (PRD §9)', () => {
+  const p = domaine.progression(prog, '2026-08-05');
+  assert.equal(p.programmees, 16, 'les seances du 3 et du 5, soit 8 + 8 cases');
+  assert.equal(p.cochees, 0);
+  assert.equal(p.part, 0);
+});
+
+test('la part est celle des cases cochees parmi les programmees', () => {
+  const p = domaine.progression(prog, '2026-08-05', cocher(casesDe('2026-08-03')));
+  assert.equal(p.cochees, 8);
+  assert.equal(p.programmees, 16);
+  assert.equal(p.part, 0.5);
+});
+
+test('avant la premiere seance, la part vaut 0 sans diviser par zero', () => {
+  assert.deepEqual(domaine.progression(prog, '2026-08-02'), { cochees: 0, programmees: 0, part: 0 });
+});
+
+test('apres la fin, le denominateur est le programme entier', () => {
+  assert.equal(domaine.progression(prog, '2026-08-22').programmees, 53);
+});
+
+test('une case cochee dans le futur ne fait pas depasser 100 %', () => {
+  // Une horloge de telephone avancee puis remise a l'heure laisse des cases
+  // cochees sur des seances a venir. La part doit rester dans [0,1].
+  const p = domaine.progression(prog, '2026-08-03', { 's7-r1': '2026-08-03T20:00:00.000Z' });
+  assert.equal(p.cochees, 0, 'la seance du 17 n est pas encore programmee');
+  assert.equal(p.programmees, 8);
+  assert.ok(p.part <= 1);
+});
