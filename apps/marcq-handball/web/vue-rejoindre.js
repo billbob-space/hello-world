@@ -9,7 +9,7 @@
 // « grimper au classement », qui est du ressort du PRP 09 ; un ecran de
 // consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
 
-import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer } from './classement.js';
+import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer, synchroniser } from './classement.js';
 import { ecrireClassement, lireClassement, lireFaits } from './etat.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
@@ -461,6 +461,13 @@ function etapeChoix(section, ctx) {
         moi: resultat.moi,
       },
     });
+    // Un envoi accepte est suivi d'un releve, exactement comme dans
+    // synchroniser : la reponse d'inscription est PLATE — elle donne mon rang,
+    // jamais le tableau. Sans ce releve, le podium et la jauge resteraient sur
+    // la valeur d'avant l'inscription alors que le classement compte un
+    // participant de plus. On ne l'attend pas : l'ecran suivant se met a jour
+    // sur EVT_CLASSEMENT.
+    synchroniser(ctx);
     ctx.aller('#/perso');
   });
 

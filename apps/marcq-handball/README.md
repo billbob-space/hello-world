@@ -355,6 +355,47 @@ peut supprimer le pseudonyme. C'est cohérent avec le PRD §14, qui assume déj�
 qu'il n'y a ni compte ni sauvegarde ; le chiffrer demanderait un secret, que le
 palier `public` interdit de faire descendre au navigateur.
 
+## L'équipe : podium, position, jauge
+
+Le second niveau du PRD §7.5, sous le calendrier de « Ma progression ». Trois
+blocs, dans cet ordre : le **podium**, qui nomme trois personnes ; la
+**position**, qui n'en nomme aucune ; la **jauge collective**, la seule mesure où
+personne n'est dernier — et c'est elle qu'on lit en refermant.
+
+**Le dénominateur inclut celui qui regarde.** Un enfant qui n'a pas rejoint lit
+« 4e sur 4 » et non « 4e sur 3 » : l'ensemble comparé, ce sont les inscrits *plus
+lui*. Trois raisons, et la première suffirait — sans le « + 1 », quelqu'un de
+moins avancé que tous les inscrits serait « 10e sur 9 », et écrêter son rang
+reviendrait à lui promettre qu'il n'est pas dernier alors qu'il l'est. Corollaire
+qui compte : **le dénominateur ne bouge pas quand on rejoint**, donc rejoindre
+n'est jamais présenté comme un moyen de mieux se classer, et « Non merci » reste
+un choix complet.
+
+*(À reporter dans le PRD §7.5 et §9, dont l'exemple chiffré dit encore « 3e sur
+9 » : sans cette phrase, le prochain lecteur prendra l'écran pour un défaut.)*
+
+**Le rang tranché par le serveur n'est jamais recalculé.** Le client ne calcule
+une position que pour quelqu'un que le serveur ne connaît pas — et le rang et son
+dénominateur viennent alors *de la même réponse*, jamais l'un du serveur et
+l'autre d'un instantané plus ancien.
+
+**Deux lignes datent deux choses différentes.** « Classement de vendredi 7 août »
+date les *nombres affichés* — le jour dont le dénominateur est celui du
+classement. La ligne juste dessous date la *réception*. Un podium sans sa date se
+lit comme un podium en direct.
+
+**Le rang s'anime, mais seulement quand on a vu le changement arriver** (PRD §10).
+Quatre conditions : le bloc portait déjà un rang, le jour n'a pas changé, le rang
+a réellement changé, et la position existait avant. À minuit, toutes les parts
+chutent parce que le dénominateur grandit — une app ouverte toute la nuit ne doit
+pas annoncer une dégringolade à 00 h 01.
+
+**Deux choses que cet écran refuse d'afficher**, et deux tests le tiennent : un
+second classement fondé sur le volume — il classerait dans le même ordre que la
+régularité, à du bruit près, et deux podiums qui disent la même chose font un
+podium plus de la confusion (PRD §13) — et un effectif d'équipe : tout
+dénominateur vient de `participants`, jamais d'un nombre écrit en dur (PRD §4).
+
 ## Les récompenses
 
 `web/recompenses.js` est branché une seule fois, à l'amorçage, par `web/app.js`.

@@ -816,3 +816,63 @@ body {
 .etat-hors-ligne,
 .etat-jamais { color: var(--marcq-encre-douce); }
 .etat-echec { color: var(--marcq-danger); }
+
+/* --- L'equipe : podium, position, jauge (PRP 09) -------------------------- */
+
+.equipe { display: flex; flex-direction: column; gap: .8rem; }
+
+/* Elle date les NOMBRES affiches — le jour du denominateur —, la ou la ligne
+   d'etat juste dessous date la reception. Deux informations differentes, deux
+   lignes : un podium sans sa date se lit comme un podium en direct. */
+.datation-equipe { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+
+.podium { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+
+/* Trois colonnes. Celle du pseudonyme porte `min-width: 0` et
+   `overflow-wrap: anywhere` : sans elles, seize runes poussent le pourcentage
+   hors de l'ecran a 360 px. */
+.ligne-podium {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr auto;
+  align-items: baseline;
+  gap: .6rem;
+  padding: .5rem .7rem;
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+}
+.podium-moi { outline: 2px solid var(--marcq-accent); }
+.rang-podium { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pseudo-podium { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.part-podium { color: var(--marcq-encre-douce); font-variant-numeric: tabular-nums; }
+
+.position-equipe { display: flex; align-items: baseline; gap: .6rem; margin: 0; }
+.rang-position { color: var(--marcq-accent); font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.phrase-position { font-size: 1.05rem; }
+
+.groupe-equipe { display: flex; flex-direction: column; gap: .4rem; margin: 0; }
+.jauge-groupe { width: 100%; }
+/* La phrase porte toujours ses DEUX nombres : le pourcentage peut reculer quand
+   une seance nouvelle entre au denominateur. */
+.phrase-groupe { color: var(--marcq-encre-douce); font-size: .95rem; }
+
+.actualiser-equipe { align-self: flex-start; }
+
+/* PRD §10 : « grimper au classement » est le seul mouvement de cet ecran. Ni
+   l'une ni l'autre ne bloque quoi que ce soit — seuls transform et opacity sont
+   animes, donc aucun recalcul de mise en page — et le bloc universel de
+   prefers-reduced-motion les neutralise toutes les deux. */
+.rang-monte .rang-position { animation: marcq-rang-monte 400ms ease-out; }
+.rang-descend .rang-position { animation: marcq-rang-descend 400ms ease-out; }
+
+@keyframes marcq-rang-monte {
+  0%   { transform: translateY(0); }
+  45%  { transform: translateY(-.35rem); opacity: .75; }
+  100% { transform: translateY(0); }
+}
+
+/* Plus sobre que la montee : descendre d'un rang n'a pas a etre souligne. */
+@keyframes marcq-rang-descend {
+  0%   { transform: translateY(0); }
+  45%  { transform: translateY(.2rem); opacity: .85; }
+  100% { transform: translateY(0); }
+}
