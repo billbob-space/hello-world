@@ -402,6 +402,18 @@ jobs:
             exit 1
           fi
 
+          # Un 200 ne veut PAS dire deploye. dockhand rend « success: false » et
+          # met la cause dans « error », sans changer le code HTTP. Constate le
+          # 6 aout 2026 : le conteneur dockhand ne resolvait plus github.com,
+          # son clone du depot echouait, le job « deploy » etait vert, et
+          # l'echec ne s'est vu qu'a l'oeil une heure plus tard sur l'URL de
+          # l'app. Ce test-la vient en premier : il couvre toutes les causes de
+          # refus, la ou celui du dessous n'en couvre qu'une.
+          if grep -q '"success":[[:space:]]*false' reponse.txt; then
+            echo "::error::dockhand a refuse le deploiement — la cause est dans le champ « error » de la reponse ci-dessus. Les images sont publiees, RIEN n'est deploye."
+            exit 1
+          fi
+
           # dockhand ne redeploie que s'il voit un commit nouveau. Le tag :main
           # etant mutable, une image reconstruite sans commit le fait sauter le
           # deploiement, en repondant 200 : sans ce test, la CI serait verte et

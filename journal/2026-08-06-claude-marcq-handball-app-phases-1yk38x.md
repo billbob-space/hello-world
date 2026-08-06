@@ -153,10 +153,46 @@ l'avertissement de `--check` comme la trace d'une generation.
 plugin manque, il ne l'ajoute pas. Les deux fichiers s'editent a la main, et
 c'est ce qui a ete fait ici.
 
+### 8. Le job `deploy` est vert alors que rien n'a ete deploye
+
+**Symptome** — apres la fusion de la PR #53, les six jobs de la CI sont verts, y
+compris `deploy` et son etape « declencher le deploiement ». Une heure plus
+tard, `https://marcq-handball.apps.billbob.ovh/healthz` rend toujours `307` : le
+routeur de l'app n'existe pas, le conteneur non plus. Le journal du job porte la
+reponse du serveur, en clair :
+
+    reponse HTTP 200 :
+    {"success":false,"error":"Git clone failed: Cloning into
+     '/app/data/git-repos/OVH/my-repo'...\nssh: Could not resolve hostname
+     github.com: No address associated with hostname\r\nfatal: Could not read
+     from remote repository."}
+
+**Cause** — deux causes superposees, et c'est ce qui rend l'anomalie couteuse.
+La cause racine est cote serveur : le conteneur `dockhand` ne resout plus
+`github.com`, son clone du depot echoue, donc il ne voit jamais le nouveau
+`compose.yaml`. Rien dans ce depot ne peut la corriger.
+
+La seconde est ici : le garde-fou de l'etape ne teste que le code HTTP et le
+champ `skipped`. dockhand, lui, repond **200 avec `success: false`** et met la
+cause dans `error`. Le seul cas d'echec que la CI savait voir etait « aucun
+commit nouveau » ; tous les autres passaient pour un succes.
+
+**Consequence tenue** — le test `success: false` est ajoute AVANT celui de
+`skipped` : il couvre toutes les causes de refus, la ou l'autre n'en couvre
+qu'une. La CI deviendra rouge a chaque fusion tant que le serveur ne resout pas
+`github.com` — c'est le comportement voulu : un deploiement qui echoue doit se
+voir a la fusion, pas une heure apres en tapant l'URL a la main.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `garde-fou` — le garde-fou existait et regardait a cote. Un
+controle qui ne lit que le code HTTP d'une API qui repond 200 sur echec ne
+controle rien.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-06 à 07:58 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-06 à 09:22 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -164,22 +200,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 656 | 0,00 $ |
-| Écriture de cache | 1 012 285 | 3,30 $ |
-| Lecture de cache | 69 610 616 | 32,10 $ |
-| Sortie | 241 666 | 4,27 $ |
-| **Total** | **70 865 223** | **39,67 $ — 34,45 €** |
+| Entrée | 839 | 0,00 $ |
+| Écriture de cache | 1 660 375 | 7,15 $ |
+| Lecture de cache | 120 294 502 | 57,28 $ |
+| Sortie | 274 476 | 4,96 $ |
+| **Total** | **122 230 192** | **69,39 $ — 60,26 €** |
 
 **Ce qui coûte**
 
-- **358 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **454 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   54 713 jetons, écrits une fois par session puis relus à chaque
-  échange : 19 532 541 jetons de relecture, 28 % de tout ce qui a été relu.
+  échange : 24 784 989 jetons de relecture, 20 % de tout ce qui a été relu.
 - **Croissance** — 54 713 jetons relus au premier appel qui relise
-  quelque chose, 526 781 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 652 382 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 70865223 -->
+<!-- cout-total: 122230192 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 54713 0 375
 2 principal claude-opus-5 741 54713 133
@@ -539,5 +575,101 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 356 principal claude-opus-5 881 523822 620
 357 principal claude-opus-5 2078 524703 654
 358 principal claude-opus-5 697 526781 457
+359 principal claude-opus-5 493 527478 206
+360 principal claude-opus-4-7 3766 27342 198
+361 principal claude-opus-5 504 527971 619
+362 principal claude-opus-4-7 367 31108 148
+363 principal claude-opus-5 636 528475 85
+364 principal claude-opus-4-7 2713 31475 1111
+365 principal claude-opus-5 92 529111 1053
+366 principal claude-opus-5 493089 37128 505
+367 principal claude-opus-5 671 530217 196
+368 principal claude-opus-5 2405 530888 178
+369 principal claude-opus-5 688 533293 272
+370 principal claude-opus-5 317 533981 246
+371 principal claude-opus-5 789 534298 334
+372 principal claude-opus-5 3247 535087 425
+373 principal claude-opus-5 543 538334 138
+374 principal claude-opus-5 5479 538877 419
+375 principal claude-opus-5 529 544356 162
+376 principal claude-opus-5 174 544885 163
+377 principal claude-opus-5 2536 545059 601
+378 principal claude-opus-5 1052 547595 207
+379 principal claude-opus-5 456 548647 330
+380 principal claude-opus-5 340 549103 232
+381 principal claude-opus-5 3466 549443 187
+382 principal claude-opus-5 301 552909 204
+383 principal claude-opus-5 5545 553210 659
+384 principal claude-opus-5 702 558755 603
+385 principal claude-opus-5 648 559457 198
+386 principal claude-opus-5 680 560105 163
+387 principal claude-opus-4-7 4506 27342 211
+388 principal claude-opus-5 4488 560785 253
+389 principal claude-opus-4-7 10848 31848 1002
+390 principal claude-opus-5 977 565273 117
+391 principal claude-opus-4-7 1103 42696 245
+392 principal claude-opus-5 741 566250 571
+393 principal claude-opus-4-7 1422 43799 391
+394 principal claude-opus-5 581 566991 110
+395 principal claude-opus-5 226 567572 253
+396 principal claude-opus-4-7 2922 45221 468
+397 principal claude-opus-5 263 567798 138
+398 principal claude-opus-5 1439 568061 197
+399 principal claude-opus-5 2498 569500 369
+400 principal claude-opus-4-7 4201 48143 1444
+401 principal claude-opus-5 1573 571998 347
+402 principal claude-opus-5 369 573571 303
+403 principal claude-opus-5 412 573940 199
+404 principal claude-opus-5 284 574352 240
+405 principal claude-opus-5 426 574636 106
+406 principal claude-opus-5 302 575062 466
+407 principal claude-opus-5 341 575830 459
+408 principal claude-opus-5 536 576171 81
+409 principal claude-opus-5 137 576788 127
+410 principal claude-opus-5 827 576925 86
+411 principal claude-opus-5 480 577752 1256
+412 principal claude-opus-5 1698 578232 164
+413 principal claude-opus-5 288 579930 191
+414 principal claude-opus-5 12136 580218 288
+415 principal claude-opus-5 402 592354 278
+416 principal claude-opus-5 341 592756 164
+417 principal claude-opus-5 340 593261 163
+418 principal claude-opus-5 4220 593601 161
+419 principal claude-opus-5 276 597821 200
+420 principal claude-opus-5 210 598097 138
+421 principal claude-opus-5 1081 598307 190
+422 principal claude-opus-5 200 599388 89
+423 principal claude-opus-5 133 599588 138
+424 principal claude-opus-5 6171 599721 29
+425 principal claude-opus-5 342 605921 138
+426 principal claude-opus-5 1591 606263 146
+427 principal claude-opus-5 128 607999 394
+428 principal claude-opus-5 573 608127 181
+429 principal claude-opus-5 299 608700 249
+430 principal claude-opus-5 262 608999 155
+431 principal claude-opus-5 165 609261 220
+432 principal claude-opus-5 230 609426 163
+433 principal claude-opus-5 372 609656 224
+434 principal claude-opus-5 232 610028 34
+435 principal claude-opus-5 193 610294 458
+436 principal claude-opus-5 522 610487 344
+437 principal claude-opus-5 855 611009 255
+438 principal claude-opus-5 492 611864 241
+439 principal claude-opus-5 6112 612356 426
+440 principal claude-opus-5 3759 618468 1001
+441 principal claude-opus-5 15366 622227 203
+442 principal claude-opus-5 836 637593 109
+443 principal claude-opus-5 713 638429 98
+444 principal claude-opus-5 615 639142 1903
+445 principal claude-opus-5 2413 639757 163
+446 principal claude-opus-5 238 642170 992
+447 principal claude-opus-5 1104 642408 201
+448 principal claude-opus-5 282 643512 673
+449 principal claude-opus-5 1530 643794 289
+450 principal claude-opus-5 323 645324 178
+451 principal claude-opus-5 5499 645647 152
+452 principal claude-opus-5 186 651146 1044
+453 principal claude-opus-5 1050 651332 113
+454 principal claude-opus-5 182 652382 589
 -->
 <!-- /cout -->
