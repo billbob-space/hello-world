@@ -183,3 +183,88 @@ test('statut 0 gagne sur tout, y compris sur un code d erreur traine', () => {
     'Pas de réseau. Réessaie quand tu en auras.',
   );
 });
+
+// --- l etat visible du classement ------------------------------------------
+
+const AVEC_RANG = (recuA, moi = null) => ({
+  pseudo: 'Faucon-12', code: '4821', dernierEnvoi: null,
+  dernierRangConnu: { recuA, instantane: { jour: '2026-08-07', participants: 9 }, moi },
+});
+
+test('sans rien de recu, on ne fait pas passer un ecran vide pour un classement a zero', () => {
+  const { statut, phrase, fraicheur } = rejoindre.etatSynchro(
+    { pseudo: null, code: null, dernierEnvoi: null, dernierRangConnu: null },
+    new Date('2026-08-07T18:00:00.000Z'), true,
+  );
+  assert.equal(statut, 'jamais');
+  assert.equal(fraicheur, null);
+  assert.equal(phrase, rejoindre.PHRASES_SYNCHRO.jamais);
+});
+
+test('hors ligne, on affiche la derniere valeur connue ET on le dit (PRD §11)', () => {
+  const maintenant = new Date('2026-08-07T18:00:00.000Z');
+  const { statut, phrase } = rejoindre.etatSynchro(
+    AVEC_RANG('2026-08-07T16:00:00.000Z'), maintenant, false,
+  );
+  assert.equal(statut, 'hors-ligne');
+  assert.equal(phrase, 'Pas de réseau. Dernière mise à jour il y a 2 h.');
+});
+
+test('en ligne avec des cases non envoyees, la ligne annonce le depart', () => {
+  const maintenant = new Date('2026-08-07T18:00:00.000Z');
+  const local = AVEC_RANG('2026-08-07T17:59:00.000Z');
+  // dernierEnvoi est null et le stockage est vide : envoiNecessaire compare ''
+  // a '', donc rien n'est en attente.
+  assert.equal(rejoindre.etatSynchro(local, maintenant, true).statut, 'a-jour');
+
+  local.dernierEnvoi = { at: '2026-08-07T10:00:00.000Z', empreinte: '3:2026-08-05T10:00:00.000Z' };
+  const { statut, phrase } = rejoindre.etatSynchro(local, maintenant, true);
+  assert.equal(statut, 'en-attente');
+  assert.match(phrase, /Dernière mise à jour/);
+});
+
+test('un echec se dit, plutot que de laisser croire que tout va bien', () => {
+  const { statut, phrase } = rejoindre.etatSynchro(
+    AVEC_RANG('2026-08-07T17:59:30.000Z'), new Date('2026-08-07T18:00:00.000Z'), true, true,
+  );
+  assert.equal(statut, 'echec');
+  assert.match(phrase, /Ça repartira tout seul\./);
+});
+
+test('a jour, la ligne ne repete pas la fraicheur — il n y a rien a excuser', () => {
+  const { statut, phrase } = rejoindre.etatSynchro(
+    AVEC_RANG('2026-08-07T17:59:30.000Z'), new Date('2026-08-07T18:00:00.000Z'), true,
+  );
+  assert.equal(statut, 'a-jour');
+  assert.equal(phrase, 'Classement à jour.');
+});
+
+test('formaterFraicheur couvre les cinq paliers', () => {
+  const maintenant = new Date('2026-08-07T18:00:00.000Z');
+  const ilYA = (ms) => rejoindre.formaterFraicheur(new Date(maintenant.getTime() - ms).toISOString(), maintenant);
+
+  assert.equal(ilYA(30 * 1000), 'à l’instant');
+  assert.equal(ilYA(7 * 60000), 'il y a 7 min');
+  assert.equal(ilYA(2 * 3600000), 'il y a 2 h');
+  // Vingt-quatre heures en arriere, c'est la veille a Paris — et c'est le jour
+  // calendaire du club qui tranche, pas un ecart en heures.
+  assert.equal(ilYA(24 * 3600000), 'hier');
+  // Au-dela, c'est le jour qui compte, en toutes lettres.
+  assert.equal(rejoindre.formaterFraicheur('2026-08-03T12:00:00.000Z', maintenant), 'le lundi 3 août');
+  // Une date illisible ne fait pas tomber l'ecran.
+  assert.equal(rejoindre.formaterFraicheur('jamais', maintenant), null);
+});
+
+test('phraseIgnores dit le decalage sans s excuser, au singulier comme au pluriel', () => {
+  assert.equal(rejoindre.phraseIgnores(0), null);
+  assert.equal(rejoindre.phraseIgnores(-1), null);
+  assert.equal(rejoindre.phraseIgnores(undefined), null);
+  assert.equal(
+    rejoindre.phraseIgnores(1),
+    '1 exercice ne compte pas encore : sa séance n’est pas encore arrivée.',
+  );
+  assert.equal(
+    rejoindre.phraseIgnores(3),
+    '3 exercices ne comptent pas encore : leur séance n’est pas encore arrivée.',
+  );
+});

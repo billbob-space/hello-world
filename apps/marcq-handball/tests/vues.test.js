@@ -11,7 +11,7 @@ import { PHRASE_RASSURANTE } from '../web/vue-prenom.js';
 import * as domaine from '../web/domaine.js';
 import { dateEnToutesLettres, modeleJour } from '../web/vue-jour.js';
 import { AVERTISSEMENT_SAUVEGARDE, CONFIRMATION_CHANGEMENT } from '../web/vue-reglages.js';
-import { ECRANS, choisirEcran } from '../web/app.js';
+import { ECRANS, LIENS, choisirEcran } from '../web/app.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 
@@ -123,7 +123,7 @@ test('la coque porte l hote des ecrans, la navigation et le module d amorcage', 
 });
 
 test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
-  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'jour']);
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'rejoindre', 'jour']);
   assert.equal(choisirEcran('#/').nom, 'jour');
   assert.equal(choisirEcran('').nom, 'jour', 'une adresse sans ancre ouvre le jour');
   assert.equal(choisirEcran('#').nom, 'jour');
@@ -131,21 +131,39 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
   assert.equal(choisirEcran('#/seance/2026-08-03').nom, 'seance');
   assert.equal(choisirEcran('#/seance/2026-13-45'), null, 'une date impossible reste inconnue');
   assert.equal(choisirEcran('#/perso').nom, 'perso');
+  assert.equal(choisirEcran('#/rejoindre').nom, 'rejoindre');
   assert.equal(choisirEcran('#/nimporte-quoi'), null);
+
+  // AUCUN onglet vers le consentement : un onglet permanent en ferait un ecran
+  // d'accueil de plus, exactement ce que le PRD §7.4 refuse. On y arrive par le
+  // bouton de #/perso, « au moment ou il y a un vrai choix a faire ».
+  assert.equal(LIENS.some((l) => l.href.includes('rejoindre')), false);
 });
 
 test('toute classe posee par un ecran existe dans style.css', () => {
   const css = source('style.css');
   const classes = new Set();
-  for (const nom of ['app.js', 'vue-prenom.js', 'vue-jour.js', 'vue-reglages.js', 'vue-rejoindre.js']) {
-    // On ne lit que les affectations litterales `className = '...'`. Le seul nom
-    // construit par gabarit est `cas-<cas>`, verifie juste apres.
-    for (const [, liste] of source(nom).matchAll(/\.className\s*=\s*'([^']*)'/g)) {
-      for (const classe of liste.split(/\s+/).filter(Boolean)) classes.add(classe);
+  const fichiers = ['app.js', 'vue-prenom.js', 'vue-jour.js', 'vue-reglages.js',
+    'vue-seance.js', 'vue-perso.js', 'vue-rejoindre.js'];
+  for (const nom of fichiers) {
+    const code = source(nom);
+    // Deux ecritures a lire, et il faut les deux : l'affectation litterale
+    // `className = '...'`, et l'appel au raccourci `el('tag', 'classes')` que
+    // les ecrans du PRP 04 et suivants utilisent. Ne lire que la premiere
+    // rendrait ce test VIDE sur un ecran qui passe par le raccourci — il
+    // passerait sans rien verifier, ce qui est pire que de ne pas exister.
+    for (const motif of [/\.className\s*=\s*'([^']*)'/g, /\bel\(\s*'[a-z]+'\s*,\s*'([^']*)'/g]) {
+      for (const [, liste] of code.matchAll(motif)) {
+        for (const classe of liste.split(/\s+/).filter(Boolean)) classes.add(classe);
+      }
     }
   }
   assert.ok(classes.size >= 20, 'la lecture des sources a echoue si le compte est bas');
-  for (const classe of [...classes, 'cas-aujourd-hui', 'cas-repos', 'cas-terminee']) {
+  // Les noms construits par gabarit, que les motifs ci-dessus ne peuvent pas
+  // voir : ils s'ecrivent ici a la main.
+  const parGabarit = ['cas-aujourd-hui', 'cas-repos', 'cas-terminee',
+    'etat-a-jour', 'etat-en-attente', 'etat-hors-ligne', 'etat-jamais', 'etat-echec'];
+  for (const classe of [...classes, ...parGabarit]) {
     assert.ok(css.includes(`.${classe}`), `.${classe} manque dans style.css`);
   }
 });

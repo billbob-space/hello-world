@@ -28,6 +28,8 @@ const COQUE = [
   '/vue-seance.js',
   '/vue-perso.js',
   '/recompenses.js',
+  '/classement.js',
+  '/vue-rejoindre.js',
 ];
 
 self.addEventListener('install', (e) => {

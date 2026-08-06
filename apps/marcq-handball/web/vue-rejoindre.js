@@ -9,8 +9,9 @@
 // « grimper au classement », qui est du ressort du PRP 09 ; un ecran de
 // consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
 
-import { empreinte, envoyer } from './classement.js';
+import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer } from './classement.js';
 import { ecrireClassement, lireClassement, lireFaits } from './etat.js';
+import { dateEnToutesLettres } from './vue-jour.js';
 
 // --- ce que le PRD §7.4 fait dire, mot pour mot ----------------------------
 
@@ -154,6 +155,77 @@ function phraseDe(resultat) {
   return resultat.message ?? messageErreur(resultat.statut, resultat.erreur);
 }
 
+// --- l etat visible du classement ------------------------------------------
+
+// C'est cette ligne qui tient le « et le dit » du PRD §11 : le classement
+// affiche la derniere valeur connue ET annonce qu'elle est vieille.
+export const PHRASES_SYNCHRO = {
+  'a-jour': 'Classement à jour.',
+  'en-attente': 'Ta progression part dès que tu auras du réseau.',
+  'hors-ligne': 'Pas de réseau.',
+  jamais: 'Classement jamais reçu. Reviens quand tu auras du réseau.',
+  echec: 'Le classement n’a pas répondu. Ça repartira tout seul.',
+};
+
+const MINUTE = 60000;
+
+// Le meme fuseau fige que app.js : un enfant en vacances a l'etranger ne doit
+// pas lire « hier » sur un releve de ce matin.
+const FORMAT_JOUR = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' });
+const jourParis = (d) => FORMAT_JOUR.format(d);
+
+export function formaterFraicheur(recuA, maintenant) {
+  const recu = Date.parse(recuA);
+  if (Number.isNaN(recu)) return null;
+
+  const ecoule = maintenant.getTime() - recu;
+  if (ecoule < 2 * MINUTE) return 'à l’instant';
+  if (ecoule < 60 * MINUTE) return `il y a ${Math.round(ecoule / MINUTE)} min`;
+  if (ecoule < 12 * 60 * MINUTE) return `il y a ${Math.round(ecoule / (60 * MINUTE))} h`;
+
+  // Au-dela de douze heures, un ecart en heures n'apprend plus rien : c'est le
+  // jour qui compte. Les deux dates sont lues en Europe/Paris, comme partout
+  // ailleurs dans l'app.
+  const jourRecu = jourParis(new Date(recu));
+  const jourVeille = jourParis(new Date(maintenant.getTime() - 24 * 60 * MINUTE));
+  if (jourRecu === jourVeille) return 'hier';
+  return `le ${dateEnToutesLettres(jourRecu)}`;
+}
+
+// `echec` vient du dernier EVT_CLASSEMENT : synchroniser emet aussi sur un
+// echec, et l'ecran doit pouvoir dire « ca n'a pas repondu » plutot que rester
+// muet sur un classement qu'il affiche encore.
+export function etatSynchro(local, maintenant, enLigne, echec = false) {
+  const connu = local?.dernierRangConnu ?? null;
+
+  // Sans rien de recu, on n'affiche pas un classement vide en le faisant passer
+  // pour un classement a zero.
+  let statut;
+  if (connu === null) statut = 'jamais';
+  else if (echec) statut = 'echec';
+  else if (!enLigne) statut = 'hors-ligne';
+  else if (envoiNecessaire(local, lireFaits())) statut = 'en-attente';
+  else statut = 'a-jour';
+
+  const fraicheur = connu === null ? null : formaterFraicheur(connu.recuA, maintenant);
+  let phrase = PHRASES_SYNCHRO[statut];
+  if (fraicheur !== null && statut !== 'a-jour') phrase += ` Dernière mise à jour ${fraicheur}.`;
+  return { statut, phrase, fraicheur };
+}
+
+// Le champ `ignores` du PRP 07, rendu lisible. Sans cette phrase, un enfant qui
+// a coche en avance voit son ecran perso et le podium ne pas dire le meme
+// nombre, sans qu'aucun des deux ne soit en cause : l'horloge du telephone
+// decide de l'affichage, celle du serveur decide du rang (ossature §5).
+//
+// Elle ne s'excuse pas et n'invite a rien — il n'y a rien a faire, sinon
+// attendre le jour de la seance.
+export function phraseIgnores(n) {
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n === 1) return '1 exercice ne compte pas encore : sa séance n’est pas encore arrivée.';
+  return `${n} exercices ne comptent pas encore : leur séance n’est pas encore arrivée.`;
+}
+
 // --- le montage ------------------------------------------------------------
 
 function el(balise, classe, texte) {
@@ -213,6 +285,59 @@ function etapeConsentement(section, ctx) {
 
   actions.append(continuer, refuser);
   section.append(actions);
+}
+
+// Le bloc d'action de #/perso, pose dans la <section class="bloc-equipe"> que
+// monterPerso ajoute sous le calendrier. Le PRP 09 posera podium, position et
+// jauge AU-DESSUS de cet appel, dans ce meme conteneur : c'est le seul point de
+// contact entre les deux branches.
+//
+// Il ecoute EVT_CLASSEMENT et se redessine : sans cet ecouteur, la ligne d'etat
+// resterait sur ce qu'elle disait a l'ouverture de l'ecran, et le premier
+// releve reussi ne se verrait pas.
+export function monterActionClassement(hote, ctx) {
+  const bloc = el('div', 'action-classement');
+  hote.append(bloc);
+
+  let dernierEchec = false;
+
+  function redessiner() {
+    bloc.replaceChildren();
+    const local = lireClassement();
+
+    if (local.pseudo === null) {
+      // Un <a> et jamais un montage direct : la regle 2 du contrat d'ecran du
+      // PRP 03 interdit a un ecran d'en monter un autre.
+      const bouton = el('a', 'bouton bouton-principal', TEXTE_REJOINDRE);
+      bouton.href = '#/rejoindre';
+      bloc.append(bouton);
+    } else {
+      bloc.append(el('p', 'nom-classement', `Tu apparais sous le nom « ${local.pseudo} ».`));
+      const gerer = el('a', 'bouton-lien', 'Gérer ce nom');
+      gerer.href = '#/reglages';
+      bloc.append(gerer);
+    }
+
+    const enLigne = typeof navigator === 'undefined' || navigator.onLine !== false;
+    const { statut, phrase } = etatSynchro(local, new Date(), enLigne, dernierEchec);
+    const ligne = el('p', `etat-synchro etat-${statut}`, phrase);
+    ligne.setAttribute('role', 'status');
+    bloc.append(ligne);
+
+    const ignores = phraseIgnores(local.dernierRangConnu?.moi?.ignores ?? 0);
+    if (ignores !== null) bloc.append(el('p', 'aide', ignores));
+  }
+
+  function surClassement(evt) {
+    dernierEchec = !(evt.detail?.statut >= 200 && evt.detail.statut < 300);
+    redessiner();
+  }
+
+  redessiner();
+  document.addEventListener(EVT_CLASSEMENT, surClassement);
+  return function demonter() {
+    document.removeEventListener(EVT_CLASSEMENT, surClassement);
+  };
 }
 
 function etapeChoix(section, ctx) {
