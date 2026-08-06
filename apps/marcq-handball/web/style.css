@@ -128,19 +128,6 @@ h1 {
   color: var(--encre-douce);
 }
 
-/* PRD §10 : tout reste utilisable sans un seul mouvement. La regle existe des la
-   premiere ligne de CSS, pour qu'aucune animation ajoutee ensuite n'ait a y
-   penser. Le PRP 06 REMPLACE ce bloc par la version definitive — il est le PRP
-   des animations et il justifie ses valeurs. Il ne doit pas en ajouter un
-   second : son test extrait le premier bloc du fichier. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
 
 /* ---------------------------------------------------------------------------
    Les ecrans — PRP 03.
@@ -572,4 +559,71 @@ body {
   padding: .25rem .4rem;
   line-height: 1.15;
   text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Les recompenses — PRP 06.
+   L'animation vient apres l'action et ne retarde aucun tap (PRD §10).
+   --------------------------------------------------------------------------- */
+
+/* Le SEUL bloc de mouvement reduit de la feuille : il remplace celui du PRP 01.
+   Volontairement universel — il couvre ce qui suit dans ce fichier, mais aussi
+   ce qu'un PRP futur y ajoutera sans y penser. Sa position n'a aucun effet,
+   `!important` gagnant quel que soit l'ordre ; c'est son EXISTENCE des la
+   premiere animation qui compte.
+   `.001ms` plutot que `0s` : l'animation se termine a l'image suivante, donc
+   `animationend` et `transitionend` sont bien emis, et un code qui attend l'un
+   des deux pour nettoyer n'attend pas indefiniment. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root {
+  /* Un depassement leger a l'arrivee : c'est ce que l'oeil lit comme du
+     ressort. Au-dela, la barre a l'air de rebondir sur un mur. */
+  --marcq-ressort: cubic-bezier(.2, .9, .25, 1.25);
+}
+
+/* `appearance: none` est ce qui rend le remplissage stylable dans les
+   navigateurs WebKit et Blink : sans lui, ::-webkit-progress-value n'existe pas
+   et la barre garde son apparence systeme. Le fond et la couleur sont donc
+   reposes ici, pour les deux ecrans qui utilisent `.barre` — le jour et la
+   seance : une barre stylee d'un cote et systeme de l'autre serait la meme
+   information dans deux dialectes. */
+.barre {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: var(--marcq-trait);
+  overflow: hidden;
+}
+
+.barre::-webkit-progress-bar { background: var(--marcq-trait); }
+
+.barre::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--marcq-accent);
+  transition: width 260ms var(--marcq-ressort);
+}
+
+.barre::-moz-progress-bar { border-radius: 999px; background: var(--marcq-accent); }
+
+/* La ligne se barre : c'est la COULEUR du trait qui s'anime, pas sa largeur. Le
+   trait est present des le depart, en transparent, ce qui evite deux ecueils —
+   un trait qui pousse de gauche a droite se casse sur un libelle a deux lignes,
+   et une transition ne demarre jamais au tout premier calcul de style, donc une
+   seance rouverte deja cochee ne rejoue rien (deuxieme interdit, PRD §10). */
+.libelle-exercice {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: transparent;
+  transition: color 220ms ease-out, text-decoration-color 220ms ease-out;
 }
