@@ -743,3 +743,76 @@ body {
   from { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
   to   { transform: translate3d(var(--derive), 100vh, 0) rotate(var(--tour)); opacity: .2; }
 }
+
+/* --- rejoindre le classement (PRP 08) ------------------------------------ */
+
+.ecran-rejoindre { gap: 1.1rem; }
+
+/* Le message du PRD §7.4 se lit d'un bloc, sans avoir a le chercher : fond de
+   carte, un trait d'accent a gauche, et un corps un cran au-dessus du texte
+   courant. C'est le seul ecran de l'app ou l'on demande a un enfant de decider
+   quelque chose d'irreversible pour d'autres que lui. */
+.consentement-avertissement {
+  margin: 0;
+  padding: .9rem 1rem;
+  border-inline-start: 4px solid var(--marcq-accent);
+  border-radius: .2rem .8rem .8rem .2rem;
+  background: var(--marcq-carte);
+  font-size: 1.05rem;
+}
+.consentement-parent { margin: 0; font-size: 1.05rem; }
+
+/* En colonne : sur 320 px, deux boutons cote a cote donnent deux cibles
+   etroites, et « Non merci » doit rester aussi facile a viser que l'autre. */
+.consentement-actions { display: flex; flex-direction: column; gap: .7rem; }
+
+.consentement-rappel {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-radius: .6rem;
+  background: var(--marcq-carte);
+  color: var(--marcq-encre-douce);
+}
+
+.formulaire-rejoindre { display: flex; flex-direction: column; gap: .7rem; }
+
+/* Une action secondaire qui ne se dispute pas la place avec le bouton
+   principal, mais qui garde une zone de tap pleine. */
+.bouton-lien {
+  align-self: flex-start;
+  min-height: var(--marcq-tap);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--marcq-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.bouton-lien:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+
+/* --- le bloc « L'equipe » de #/perso (PRP 08) ----------------------------- */
+
+/* Le conteneur que le PRP 09 remplira par le haut — podium, position, jauge —
+   au-dessus du bloc d'action. Il ferme l'ecran perso : le PRD §7.5 met la
+   comparaison au second niveau, jamais avant. */
+.bloc-equipe {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+  padding-block-start: 1.2rem;
+  border-block-start: 1px solid var(--marcq-trait);
+}
+.action-classement { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+.action-classement .bouton { width: 100%; }
+.nom-classement { margin: 0; font-weight: 600; }
+
+/* La ligne d'etat tient le « et le dit » du PRD §11 : elle est lisible, jamais
+   alarmante. Seul l'echec prend la couleur de danger — pas l'absence de reseau,
+   qui est une situation ordinaire dans un gymnase. */
+.etat-synchro { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+.etat-a-jour { color: var(--marcq-encre-douce); }
+.etat-en-attente,
+.etat-hors-ligne,
+.etat-jamais { color: var(--marcq-encre-douce); }
+.etat-echec { color: var(--marcq-danger); }

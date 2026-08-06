@@ -4,7 +4,8 @@
 // zero. Les deux ne se ressemblent pas a l'ecran, et c'est le sujet de ce
 // fichier : un formulaire ordinaire d'un cote, une zone a part de l'autre.
 
-import { ecrirePrenom, lireFaits, toutEffacer } from './etat.js';
+import { ecrirePrenom, lireClassement, lireFaits, toutEffacer } from './etat.js';
+import { avertissementChangementEnfant, monterSuppression } from './vue-rejoindre.js';
 
 // PRD §14, ligne « Perte du telephone ou vidage du navigateur » : le risque est
 // « assume et annonce ». Il est ecrit ici, en clair, et pas au moment ou la
@@ -26,7 +27,12 @@ export function monterReglages(hote, ctx) {
   titre.className = 'titre-ecran';
   titre.textContent = 'Réglages';
 
-  section.append(titre, blocPrenom(ctx), blocSauvegarde(), blocChangerEnfant(ctx));
+  section.append(titre, blocPrenom(ctx), blocSauvegarde());
+  // Le bloc du classement n'existe que s'il y a un nom a retirer. Il vient AVANT
+  // « changer d'enfant » : c'est le geste destructeur le plus doux des deux, et
+  // celui que l'avertissement du second recommande de faire d'abord.
+  monterSuppression(section, ctx);
+  section.append(blocChangerEnfant(ctx));
   hote.append(section);
 }
 
@@ -132,7 +138,15 @@ function blocChangerEnfant(ctx) {
   bouton.textContent = 'Changer d’enfant';
   bouton.addEventListener('click', () => {
     if (typeof globalThis.confirm !== 'function') return;
-    if (!globalThis.confirm(CONFIRMATION_CHANGEMENT)) return;
+    // « Changer d'enfant » efface la cle du classement comme les autres, mais ne
+    // touche pas au serveur : le nom y resterait, et plus personne n'en
+    // detiendrait le code. La phrase n'est ajoutee que s'il y a un nom a
+    // orpheliner — sinon elle parlerait de rien.
+    const auClassement = lireClassement().pseudo;
+    const question = auClassement === null
+      ? CONFIRMATION_CHANGEMENT
+      : `${CONFIRMATION_CHANGEMENT}\n\n${avertissementChangementEnfant(auClassement)}`;
+    if (!globalThis.confirm(question)) return;
     toutEffacer();
     // Le routeur relit le prenom a chaque rendu : sans prenom, il monte l'ecran
     // de premier lancement. Aucun rechargement de page, donc aucune attente.

@@ -11,6 +11,8 @@ import { monterPrenom } from './vue-prenom.js';
 import { monterReglages } from './vue-reglages.js';
 import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
 import { monterPerso } from './vue-perso.js';
+import { monterRejoindre } from './vue-rejoindre.js';
+import { brancherSynchronisation } from './classement.js';
 import { brancherRecompenses } from './recompenses.js';
 
 // Le jour courant, en Europe/Paris. 'fr-CA' rend YYYY-MM-DD, le format que le
@@ -28,6 +30,7 @@ export const ECRANS = [
   { nom: 'reglages', motif: /^#\/reglages$/, monter: monterReglages },
   { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
   { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
+  { nom: 'rejoindre', motif: /^#\/rejoindre$/, monter: monterRejoindre },
   { nom: 'jour', motif: /^(#\/?)?$/, monter: monterJour },
 ];
 
@@ -174,6 +177,11 @@ async function demarrer() {
   // conserve : la page vit aussi longtemps que l'application.
   brancherRecompenses(prog);
   enregistrerServiceWorker();
+  // Le reseau vient en dernier, apres le premier rendu et apres le service
+  // worker : il ne doit pas concourir avec l'affichage, et l'objectif du PRD §4
+  // se joue sur la premiere seconde. Le debrancher() rendu n'est pas conserve,
+  // pour la meme raison que celui des recompenses.
+  brancherSynchronisation(ctx);
 }
 
 // L'amorcage ne se declenche que dans un navigateur. Sans ce garde, `node --test`

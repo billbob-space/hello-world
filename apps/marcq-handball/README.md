@@ -158,6 +158,11 @@ PORT=3000 go run .                     # ailleurs
 MARCQ_DONNEES=/tmp/marcq go run .      # avec le classement (le répertoire doit exister)
 ```
 
+**`web/` est figé dans le binaire** par `go:embed` : après toute modification
+d'un fichier de `web/`, il faut relancer `go run .`, sinon le serveur continue
+de servir la version qu'il avait au démarrage. C'est la contrepartie — voulue —
+de l'absence de chaîne de construction.
+
 Sans `MARCQ_DONNEES`, le serveur local est exactement celui du lot 1 : les trois
 routes `/api` rendent `503` et le reste fonctionne. C'est aussi l'état sous
 `go test`, sauf dans les tests qui ouvrent leur propre magasin.
@@ -275,6 +280,7 @@ son fichier `web/vue-*.js`. Un écran est une fonction `(hote, ctx) => démontag
 |---|---|
 | `marcq.v1.prenom` | le prénom, 24 caractères au plus |
 | `marcq.v1.faits` | `{ "<id d'exercice>": "<horodatage ISO>" }` |
+| `marcq.v1.classement` | `{ pseudo, code, dernierEnvoi, dernierRangConnu }` — écrite seulement si l'enfant a rejoint |
 
 Un stockage refusé — navigation privée — ou plein ne casse rien : les valeurs
 sont gardées en mémoire pour la durée de l'onglet. Elles ne survivent alors pas
@@ -296,6 +302,58 @@ Une case de séance ouvre sa séance ; une case de repos n'est pas cliquable.
 Le volume ne produit **aucun classement** (PRD §9) : il est déduit du programme,
 il classerait dans le même ordre que la régularité. La comparaison à l'équipe est
 le second niveau du §7.5 et arrive au lot 2, sous le calendrier.
+
+## Rejoindre le classement, côté navigateur
+
+Deux modules, et la séparation est le sujet : `web/classement.js` décide **ce
+qui est envoyé**, `web/vue-rejoindre.js` **ce qui est dit**. C'est ce qui rend
+vérifiable, sans navigateur ni réseau, que le prénom ne peut pas atteindre la
+couche réseau — deux tests lisent la source des deux fichiers et échouent si le
+mot y apparaît, commentaires compris.
+
+**Le consentement n'est pas un écran d'accueil.** On y arrive par un bouton posé
+sous le calendrier de « Ma progression », jamais par un onglet : le PRD §7.4 le
+veut « au moment où il y a un vrai choix à faire ». `#/rejoindre` existe dans le
+routeur et dans aucun menu.
+
+**Il n'y a pas de file d'attente, il y a une comparaison.** Chaque envoi porte
+l'ensemble complet des cases cochées, jamais un delta : il est donc idempotent,
+et deux envois successifs ne se composent pas. On garde l'empreinte du dernier
+envoi *accepté* — nombre de cases, plus horodatage le plus récent — et un envoi
+est dû dès que l'état local en diffère. Un envoi perdu ne laisse aucune trace, et
+le déclencheur suivant le refait tout seul.
+
+Quatre déclencheurs, et eux seuls : une fois au démarrage (après le premier
+rendu), à la fin d'une séance, au retour du réseau, et sur un geste explicite.
+**Jamais à chaque case cochée** — 53 requêtes sur un programme, c'est ce qui
+ferait mordre la limite de débit du palier public sur un enfant réel plutôt que
+sur un robot.
+
+### Trois comportements à connaître avant de les découvrir
+
+**Un second téléphone écrase le score, il ne le fusionne pas.** Le même
+pseudonyme et le même code saisis ailleurs, c'est exactement ce que le code sert
+à permettre. Mais l'envoi porte l'état complet : le téléphone qui envoie en
+dernier gagne, et s'il a moins de cases cochées, le score baisse. L'alternative —
+un serveur qui garde le maximum — casserait le « le passé se corrige » du PRD §9,
+décocher n'ayant alors plus aucun effet.
+
+**Changer de nom, c'est supprimer puis rejoindre.** Il n'y a pas de renommage :
+un envoi sous un nouveau pseudonyme créerait une seconde entrée et laisserait la
+première orpheline. La séquence est sûre — la fiche supprimée libère le
+pseudonyme, qui peut être repris avec un autre code. Le prix : le départage des
+ex æquo repart de la date de la nouvelle inscription, et les cases cochées sont
+renvoyées au premier envoi qui suit.
+
+**« Changer d'enfant » orpheline le pseudonyme.** Ce geste efface les clés
+locales mais ne touche pas au serveur : le nom reste au classement et plus
+personne n'en détient le code. La confirmation gagne donc une phrase — et
+seulement lorsqu'un pseudonyme existe — qui invite à le supprimer d'abord.
+
+**Le code vit en clair dans `localStorage`.** Sur un téléphone partagé, un frère
+peut supprimer le pseudonyme. C'est cohérent avec le PRD §14, qui assume déjà
+qu'il n'y a ni compte ni sauvegarde ; le chiffrer demanderait un secret, que le
+palier `public` interdit de faire descendre au navigateur.
 
 ## Les récompenses
 

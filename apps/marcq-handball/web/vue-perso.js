@@ -9,6 +9,7 @@
 
 import { calendrier, etatSeance, progression, totauxAccomplis } from './domaine.js';
 import { dateEnToutesLettres } from './vue-jour.js';
+import { monterActionClassement } from './vue-rejoindre.js';
 
 // --- le langage d'ado -------------------------------------------------------
 
@@ -302,7 +303,15 @@ export function monterPerso(hote, ctx) {
     blocVolume(m.volume),
     blocCalendrier(m.calendrier),
   );
-  // Le PRP 09 ajoutera « L'equipe » ici, apres le calendrier : le PRD §7.5 met
-  // la comparaison au second niveau, jamais avant.
+
+  // « L'equipe » vient APRES le calendrier : le PRD §7.5 met la comparaison au
+  // second niveau, jamais avant. Le PRP 09 posera podium, position et jauge
+  // dans ce meme conteneur, AU-DESSUS de l'appel ci-dessous. Cet ecran ne parle
+  // toujours a personne : c'est vue-rejoindre.js qui appelle le reseau.
+  const equipe = el('section', 'bloc-equipe');
+  section.append(equipe);
+  const demonterEquipe = monterActionClassement(equipe, ctx);
+
   hote.append(section);
+  return demonterEquipe;
 }
