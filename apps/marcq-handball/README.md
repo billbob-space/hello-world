@@ -680,7 +680,8 @@ tout envoi postérieur, donc le classement est constant par construction.
 Il écoute `marcq:seance-complete` et ouvre le panneau de fin de séance.
 
 Deux des récompenses n'ont **aucun JavaScript** : la ligne qui se barre et la
-barre de progression qui rebondit sont des transitions CSS. C'est ce qui
+barre de progression qui avance — d'un trait, sans rebond depuis que le ressort
+a été retiré — sont des transitions CSS. C'est ce qui
 garantit qu'un tap ne peut pas être retardé par ce module — il ne l'exécute pas.
 
 Trois règles s'appliquent, et ce sont des critères d'acceptation (PRD §10) :

@@ -581,16 +581,20 @@ quatorzième.
 
 ### 16. Ajouté après les PRP
 
-Les onze PRP livrés le 7 août ne sont pas le dernier état de l'application :
-sept changements ont suivi dans la journée, tous nés de l'usage réel et aucun
+Les onze PRP livrés le 6 août ne sont pas le dernier état de l'application :
+huit changements ont suivi le 7 août, tous nés de l'usage réel et aucun
 prévu par un PRP. Cette section les tient, et elle est la contrepartie des
 § 6 et § 13 : sans elle, le seul endroit du dépôt où ces changements existent
 est l'historique des commits, que personne ne relit pour savoir ce que
 l'application fait aujourd'hui.
 
 Trois d'entre eux ont **déplacé le périmètre** — ils ont rendu faux ce que ce
-document affirmait. Ce sont les § 16.1 à § 16.3. Les quatre autres ont livré ce
-que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4.
+document affirmait. Ce sont les § 16.1 à § 16.3. Quatre autres ont livré ce
+que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4. Le
+huitième est le thème visuel du club (§ 16.5) : il ne lève aucune exclusion —
+les trois interdits du § 10 tiennent — mais il arbitre deux choses que ce
+document ne disait nulle part, une couleur par fonction et le partage entre
+écran sombre et écran clair.
 
 #### 16.1 Le minuteur d'exercice — 7 août
 
