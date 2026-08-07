@@ -52,11 +52,21 @@ le 5 août (PRD §9). Le dénominateur est le même pour tous et change à minui
 heure de Paris ; c'est pourquoi chaque réponse porte son champ `jour`.
 
 Trois règles sont appliquées **par le serveur**, donc inviolables par un bogue
-d'affichage : le podium nomme trois personnes et le champ `pseudo` n'est pas
-émis au-delà de la troisième ligne ; les rangs sont stricts, de 1 à N, jamais
-répétés — à égalité, le premier arrivé à ce score est devant ; les identifiants
-d'une séance future ou inconnus du programme sont ignorés, ni comptés ni
-stockés.
+d'affichage :
+
+- **le podium nomme trois marches**, pas trois personnes — une marche est un
+  score, et tous ceux qui la partagent y sont nommés. Le champ `pseudo` n'est
+  émis pour aucune autre ligne, et il ne l'est pour aucune marche qui ferait
+  dépasser **huit prénoms** sur l'ensemble du podium : celle-là, et toutes celles
+  en dessous, se lisent alors à leur effectif — le client le déduit du nombre de
+  lignes portant le même rang ;
+- **à égalité, personne n'est devant** : deux enfants au même nombre de cases
+  portent le même `rang`, et l'heure à laquelle ils ont coché n'y change rien. Le
+  rang compte les enfants devant et non les scores : après trois premiers ex
+  aequo vient un 4e, jamais un 2e. La réponse à un envoi porte `exAequo`, le
+  nombre des autres à ce rang, moi excepté ;
+- les identifiants d'une séance future ou inconnus du programme sont **ignorés**,
+  ni comptés ni stockés.
 
 Après le 21 août, l'envoi répond `409 classement-fige` : le classement ne bouge
 plus. Le **retrait**, lui, reste ouvert — le gel protège le rang, pas le droit
@@ -544,9 +554,14 @@ palier `public` interdit de faire descendre au navigateur.
 ## L'équipe : podium, position, jauge
 
 Le second niveau du PRD §7.5, sous le calendrier de « Ma progression ». Trois
-blocs, dans cet ordre : le **podium**, qui nomme trois personnes ; la
+blocs, dans cet ordre : le **podium**, qui nomme trois marches ; la
 **position**, qui n'en nomme aucune ; la **jauge collective**, la seule mesure où
 personne n'est dernier — et c'est elle qu'on lit en refermant.
+
+Une marche partagée porte tous ses prénoms — *« 1er : Léa, Renard, Tom, 100 % »*
+— ou, si le serveur ne l'a pas nommée, son effectif : *« 1er : 14 enfants,
+100 % »*. La position dit qui partage la place : *« Tu es 4e sur 12, avec
+1 autre. »*, et se tait quand il n'y a personne.
 
 **Le dénominateur inclut celui qui regarde.** Un enfant qui n'a pas rejoint lit
 « 4e sur 4 » et non « 4e sur 3 » : l'ensemble comparé, ce sont les inscrits *plus

@@ -73,7 +73,7 @@ test('cocher pose un horodatage, decocher supprime la cle', () => {
   assert.deepEqual(etat.lireFaits(), {});
 });
 
-test('recocher ne rajeunit pas la marque (PRD §9 : le premier arrive a ce score)', () => {
+test('recocher ne rajeunit pas la marque : elle date la PREMIERE coche', () => {
   etat.cocher('s1-r1', '2026-08-03T18:22:11.000Z');
   etat.cocher('s1-r1', '2026-08-20T09:00:00.000Z');
   assert.deepEqual(etat.lireFaits(), { 's1-r1': '2026-08-03T18:22:11.000Z' });

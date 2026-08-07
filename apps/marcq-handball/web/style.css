@@ -1136,7 +1136,12 @@ body {
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.pseudo-podium { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+/* Une marche partagee porte plusieurs prenoms sur une ou deux lignes : d'ou le
+   line-height, la ou une marche d'un seul nom n'en avait pas besoin. */
+.pseudo-podium { min-width: 0; overflow-wrap: anywhere; font-weight: 600; line-height: 1.3; }
+/* « 14 enfants » n'est pas un prenom : la graisse du dessus le ferait lire comme
+   tel. Ce n'est pas un nom qui manque, c'est un nombre qui dit mieux. */
+.nombre-podium { font-weight: 500; color: var(--marcq-encre-douce); }
 .part-podium {
   color: var(--marcq-encre-douce);
   font-family: var(--marcq-tableau);

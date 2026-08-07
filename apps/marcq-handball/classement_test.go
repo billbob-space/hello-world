@@ -15,9 +15,10 @@ import (
 // n'est ni 0 ni le programme entier.
 const jourTest = "2026-08-07"
 
-// horlogeTest avance a la demande. Sans horloge injectable, l'ordre des ex
-// aequo — « le premier arrive a ce score est devant » — ne serait pas
-// verifiable : deux envois du meme test tomberaient dans la meme seconde.
+// horlogeTest avance a la demande. Sans horloge injectable, on ne pourrait ni
+// dater deux coches differemment — la fenetre de refus et la fusion d'une
+// reprise en dependent — ni prouver que l'heure d'envoi ne departage PLUS les ex
+// aequo : deux envois du meme test tomberaient dans la meme seconde.
 type horlogeTest struct {
 	mu         sync.Mutex
 	maintenant time.Time

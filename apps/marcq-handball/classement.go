@@ -676,7 +676,8 @@ func (c *classement) enregistrer(e envoiClassement, jour string) (reponseEnvoi, 
 
 	// Les horodatages survivent au remplacement : un identifiant deja present
 	// garde le sien, un nouveau prend l'instant present, un retire perd le
-	// sien. Sans quoi chaque envoi remettrait a zero le departage des ex aequo.
+	// sien. Sans quoi chaque envoi redaterait d'aujourd'hui une case cochee la
+	// semaine derniere, et la fiche mentirait sur ce qui s'est passe quand.
 	faits := make(map[string]string, len(recus))
 	for id := range recus {
 		if !autorises[id] {
@@ -693,8 +694,8 @@ func (c *classement) enregistrer(e envoiClassement, jour string) (reponseEnvoi, 
 	// par erreur se rattrape. Il est le mauvais pour un telephone qui vient
 	// d'arriver : son ensemble est vide parce qu'il ne sait rien encore, pas
 	// parce que l'enfant a tout defait. On prend donc l'union, et l'horodatage
-	// deja stocke gagne — le PRD §9 departage les ex aequo par « le premier
-	// arrive a ce score », et une reprise ne doit pas rajeunir une marque.
+	// deja stocke gagne : une reprise ne rajeunit pas une marque, sans quoi la
+	// date de la premiere coche serait celle du changement de telephone.
 	if e.Reprise {
 		for id, quand := range p.Faits {
 			if _, ok := faits[id]; !ok {
