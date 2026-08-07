@@ -38,9 +38,10 @@ compare.
   son absence n'empêche jamais de s'entraîner.
 - Mobile d'abord : zones de tap larges, contraste lisible en plein soleil,
   aucune interaction dépendant du survol, `prefers-reduced-motion` respecté.
-- Une identité visuelle propre, tirée du terrain de handball et de rien d'autre :
-  trois couleurs à un sens chacune, les deux lignes du terrain comme grammaire,
-  une police d'affichage servie par l'app. Le détail au § 16.5.
+- L'application porte les couleurs du club, relevées sur son blason, et le
+  blason lui-même. Les deux lignes du terrain de handball lui servent de
+  grammaire, et une police d'affichage est servie par l'app. Le détail
+  au § 16.5.
 - Hors périmètre, décidé et non oublié : édition du programme depuis l'app,
   messagerie, notifications, saisie du nombre réellement effectué, historique
   multi-saisons. Le minuteur d'exercice et les liens vidéo en sortaient ; ils
@@ -451,7 +452,7 @@ jamais un péage : elle vient **après** l'action, ne retarde aucun tap, et ne
 s'interpose jamais entre l'enfant et la case suivante.
 
 - **Cocher un exercice** : la ligne se barre, la barre de progression avance
-  d'un cran avec du ressort. Immédiat, court.
+  d'un cran — vite, puis en douceur, sans dépasser sa valeur. Immédiat, court.
 - **Terminer une séance** : c'est le moment fort. Confettis, le compteur de
   séances s'incrémente en grand, le volume cumulé se met à jour sous les yeux.
 - **Grimper au classement** : le changement de position est animé, pas
@@ -652,40 +653,55 @@ pour que la liste soit complète, pas parce qu'ils demandent un arbitrage.
 | Un geste « Récupérer ma progression » sous le nom déjà enregistré | Le correctif précédent n'avait de porte que pour qui n'en avait pas besoin | Inchangé |
 | Le refus d'un pseudonyme s'affiche sous le champ fautif | Signalé après mise en ligne : « rien ne se passe » | Inchangé |
 
-#### 16.5 Une identité visuelle, et laquelle — 7 août
+#### 16.5 Les couleurs du club, et le blason — 7 août
 
 L'application avait l'apparence de sa fonction : bleu institutionnel, polices du
 système, cartes blanches. Correcte, et interchangeable avec n'importe quel
-formulaire administratif. Demandé de vive voix : *« une amélioration graphique,
-le thème doit être affirmé sport handball pour des ados »*.
+formulaire administratif. Demandé de vive voix, en deux temps : *« une
+amélioration graphique, le thème doit être affirmé sport handball pour des
+ados »*, puis *« adapte la couleur au site du club, tu peux aussi utiliser le
+logo »*.
 
-Ce qui existe maintenant — un thème nommé **« résine »**, tiré du terrain et de
-rien d'autre :
+Ce qui existe maintenant :
 
-- **Trois couleurs, une fonction chacune**, jamais deux sens pour la même.
-  L'orange de la résine dit *ce qui est à faire maintenant* — la séance du jour,
-  le bouton, le minuteur qui tourne, la case d'aujourd'hui. Le vert dit *ce qui
-  est accompli* — coche, séance faite, barre remplie. Le bleu nuit est l'encre.
+- **Les couleurs sont celles du blason**, relevées dessus et pas approchées à
+  l'œil : le bleu nuit de la crinière, le bleu du club, son blanc, son gris
+  froid. Le bleu du club a été descendu d'un cran — assez pour porter du texte
+  blanc à 6:1, pas assez pour cesser d'être le sien.
+- **Une couleur, une fonction, et jamais deux sens pour la même.** Le bleu ne
+  désigne que ce qui est vivant *maintenant* : la séance du jour, le bouton,
+  aujourd'hui au calendrier, le minuteur qui tourne. Ce qui est *accompli* prend
+  le plus fort contraste du fond — l'encre de nuit sur les écrans clairs, le
+  blanc sur le bandeau sombre. C'est ce partage qui manquait à l'application
+  d'origine, où un seul bleu disait à la fois la progression, les liens, les
+  coches et le jour : quatre choses d'une seule voix, donc aucune.
 - **Deux traits, et ils disent quelque chose de vrai.** Le trait plein est la
   ligne des 6 m : ce qui est atteint. Le pointillé est celle des 9 m : ce qui ne
-  l'est pas encore — une séance à venir, un jour à venir, un repos. Le verrou des
-  séances futures utilisait déjà un cadre pointillé ; c'est devenu une règle au
-  lieu d'un hasard.
+  l'est pas encore — une séance à venir, un jour à venir, un avis de bilan
+  anticipé. Le verrou des séances futures utilisait déjà un cadre pointillé ;
+  c'était un hasard, c'est devenu une règle.
 - **Une police d'affichage servie par l'application**, jamais appelée chez un
   tiers : 18 Ko de latin, sous licence libre, dans le cache hors ligne. Elle
   porte les titres, les grands nombres et les onglets. Ce n'est pas de la
   décoration : « Autre sport + Renforcement » tient sur une ligne là où la police
   du téléphone en demandait trois, et les quatre onglets tiennent enfin sur une
   seule ligne chacun à 320 px.
-- **L'écran du jour est une surface de but** — le but, l'arc des 6 m, celui des
-  9 m — et il occupe l'écran entier jusqu'à la barre d'onglets.
+- **Le blason du club**, livré avec l'application (32 Ko) et servi par elle. Il
+  apparaît à trois endroits et à trois titres : **image** au premier lancement,
+  où il répond à la question de l'enfant qui ouvre un lien reçu sur le groupe de
+  l'équipe — de qui ça vient ; **fond** de l'écran du jour, au sommet des arcs,
+  là où serait la cage ; **icône** de l'onglet du navigateur. Nulle part
+  ailleurs.
+- **L'écran du jour est une surface de but** — le blason au sommet, l'arc des
+  6 m, celui des 9 m en pointillé — et il occupe l'écran entier jusqu'à la barre
+  d'onglets.
 
-*Ce que le PRD disait* : § 10 veut que l'app soit « plaisante à ouvrir », sans
-mascotte, sans badge à collectionner, sans vocabulaire de coach américain. Ces
-trois interdits sont tenus — il n'y a ni personnage, ni collection, ni
-récompense inventée. Le § 11 demande un contraste suffisant en plein soleil : le
-blanc sur bleu nuit de l'écran du jour est le contraste le plus élevé de
-l'application.
+*Ce que le PRD disait* : le § 10 veut que l'app soit « plaisante à ouvrir », sans
+mascotte, sans badge à collectionner, sans vocabulaire de coach américain. Les
+trois interdits tiennent. **Le blason n'est pas la mascotte que ce paragraphe
+refuse** : il ne parle pas, ne réagit à rien, ne récompense rien et n'accompagne
+personne. C'est l'emblème du club, au même titre que sur un maillot — et un U15
+qui porte ce lion sur le dos le samedi ne le lit pas comme une peluche.
 
 *Ce qui est arbitré ici, et n'était écrit nulle part* : **un écran sombre reflète
 la lumière du jour** — un contraste élevé ne compense pas entièrement la

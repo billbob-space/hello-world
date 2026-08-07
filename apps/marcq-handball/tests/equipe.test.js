@@ -334,6 +334,8 @@ function faussElement(classe = '') {
     className: classe,
     dataset: {},
     enfants: [],
+    // La barre de progression pose sa part dans une propriete personnalisee.
+    style: { proprietes: new Map(), setProperty(k, v) { this.proprietes.set(k, v); } },
     classList: { classes: new Set(), add(c) { this.classes.add(c); }, remove(c) { this.classes.delete(c); } },
     append(...n) { this.enfants.push(...n); },
     replaceChildren() { this.enfants = []; },

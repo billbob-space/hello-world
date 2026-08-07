@@ -14,6 +14,21 @@ export function monterPrenom(hote, ctx) {
   const section = document.createElement('section');
   section.className = 'ecran ecran-prenom';
 
+  // Le blason du club. Il n'est ici que parce qu'il repond a la question de
+  // l'enfant qui ouvre un lien recu sur le groupe de l'equipe : de qui ca vient.
+  // C'est donc une IMAGE avec un texte de remplacement, et non le fond decoratif
+  // qu'il est sur l'ecran du jour. Servi par l'app, jamais par un tiers.
+  // Ce n'est pas la mascotte que le PRD §10 refuse : il ne parle pas, ne reagit
+  // a rien, et n'apparait sur aucun autre ecran.
+  const blason = document.createElement('img');
+  blason.className = 'blason-accueil';
+  blason.src = '/mhb.webp';
+  blason.alt = 'Marcq Handball';
+  // Dites au navigateur : sans elles, l'arrivee de l'image pousse le champ vers
+  // le bas alors que le curseur y est deja.
+  blason.width = 384;
+  blason.height = 369;
+
   // Le titre vient du programme, jamais d'une chaine recopiee : le PRD §8 veut
   // un fichier de donnees reutilisable la saison suivante.
   const titre = document.createElement('h1');
@@ -52,7 +67,7 @@ export function monterPrenom(hote, ctx) {
   bouton.textContent = 'C’est parti';
 
   formulaire.append(etiquette, champ, aide, bouton);
-  section.append(titre, formulaire);
+  section.append(blason, titre, formulaire);
   hote.append(section);
   champ.focus();
 

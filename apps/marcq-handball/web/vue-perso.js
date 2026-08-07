@@ -7,6 +7,7 @@
 // Deux moities, comme a l'ecran de seance : un modele pur que node --test
 // prouve, puis un montage qui n'ajoute aucune decision.
 
+import { creerBarre } from './barre.js';
 import { calendrier, etatSeance, progression, totauxAccomplis } from './domaine.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
@@ -199,14 +200,10 @@ function blocPart(part) {
   // L'attribut est l'accroche du test, qui lit la valeur sans analyser le texte.
   chiffre.dataset.compteur = String(part.pourcent);
 
-  // Une <progress> native, comme aux ecrans du jour et de seance : annoncee par
-  // les lecteurs d'ecran sans un attribut ARIA de plus.
+  // La barre commune de barre.js. Elle reste annoncee — le pourcentage juste
+  // au-dessus est un texte, pas une mesure que le lecteur d'ecran relie a elle.
   const jauge = el('p', 'progression-perso');
-  const barre = document.createElement('progress');
-  barre.className = 'barre';
-  barre.max = part.echelle;
-  barre.value = part.cochees;
-  jauge.append(barre);
+  jauge.append(creerBarre(part.cochees, part.echelle));
 
   bloc.append(chiffre, jauge, el('p', 'phrase-part', part.phrase));
   return bloc;

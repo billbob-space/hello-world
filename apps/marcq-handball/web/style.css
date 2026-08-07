@@ -1,17 +1,26 @@
-/* marcq-handball — le theme « resine ».
+/* marcq-handball — le theme du club.
  *
- * Ce que l'app doit avoir l'air d'etre : un programme de handball tenu par des
- * U15, pas un formulaire. Le vocabulaire visuel vient du terrain et de rien
- * d'autre — la surface de but et ses deux arcs, la resine, le numero au dos du
- * maillot, le tableau d'affichage. Aucune mascotte, aucun badge : le PRD §10
- * les refuse, et un ado de 13 ans les lit comme de l'ecole primaire.
+ * Ce que l'app doit avoir l'air d'etre : le programme d'ete du Marcq Handball,
+ * tenu par des U15, et pas un formulaire. Deux sources, et rien d'autre : le
+ * BLASON DU CLUB, dont les couleurs sont reprises au pixel pres, et le TERRAIN,
+ * dont on reprend la surface de but et ses deux lignes.
  *
- * Trois couleurs, une fonction chacune, et jamais deux sens pour la meme :
- *   RESINE (orange)  ce qui est a faire maintenant — le jour, le bouton, le
- *                    minuteur qui tourne, la case du jour au calendrier ;
- *   TERRAIN (vert)   ce qui est accompli — coche, seance faite, barre remplie ;
- *   NUIT (bleu nuit) l'encre, et le fond des deux bandeaux (l'ecran du jour,
- *                    la barre d'onglets).
+ * Les couleurs sont celles du blason (web/mhb.webp), relevees dessus :
+ *   NUIT     #121026  la criniere exterieure et les contours. Ici : l'encre, le
+ *                     fond des deux bandeaux, et le remplissage de ce qui est
+ *                     ACCOMPLI sur fond clair ;
+ *   BLEU     #0a67a6  le bleu du blason, d'un cran plus profond pour porter du
+ *                     blanc (6,0:1). Il ne dit qu'une chose : ce qui est vivant
+ *                     MAINTENANT — le bouton, aujourd'hui, le minuteur qui
+ *                     tourne ;
+ *   BLEU CLAIR #6fb8ec le meme bleu vu sur le bandeau de nuit, ou le precedent
+ *                     tomberait a 3:1 : sur-titres, arcs du terrain, cage.
+ * Le blanc et le gris froid du fond viennent du blason eux aussi.
+ *
+ * Une seule regle de couleur, et elle vaut partout : L'ACCOMPLI PREND LE PLUS
+ * FORT CONTRASTE DU FOND — l'encre de nuit sur clair, le blanc sur le bandeau de
+ * nuit. Le bleu reste donc libre pour le present, qui est la seule chose sur
+ * laquelle l'app veut faire taper.
  *
  * Deux traits, et ils disent quelque chose de vrai — ce sont les deux lignes du
  * terrain, et elles gardent leur sens :
@@ -27,8 +36,8 @@
  * eleve de toute la feuille.
  *
  * Aucune ressource distante : la page est publique, tout ce qu'elle charge est
- * en meme origine (ossature §2). La police d'affichage est donc SERVIE PAR
- * L'APP, jamais appelee chez un tiers.
+ * en meme origine (ossature §2). La police d'affichage et le blason sont donc
+ * SERVIS PAR L'APP, jamais appeles chez un tiers.
  */
 
 /* Anton — SIL Open Font License 1.1, texte complet dans web/anton-OFL.txt.
@@ -52,35 +61,38 @@
      fonctionne. */
   color-scheme: light;
 
-  --marcq-nuit:        #0d1626;   /* le bleu de nuit : l'encre, et les bandeaux */
-  --marcq-encre:       #0d1626;
-  --marcq-encre-douce: #4b5566;   /* 7,0:1 sur le fond */
-  --marcq-fond:        #f2f1ec;   /* la resine claire du sol */
+  /* Les quatre couleurs du blason, relevees dessus. */
+  --marcq-nuit:        #121026;   /* l'encre, les bandeaux, et l'accompli */
+  --marcq-bleu:        #0a67a6;   /* ce qui est vivant maintenant */
+  --marcq-bleu-clair:  #6fb8ec;   /* le meme, sur le bandeau de nuit — 8,6:1 */
+  --marcq-sur-bleu:    #ffffff;   /* 6,0:1 sur le bleu */
+
+  --marcq-encre:       #121026;
+  --marcq-encre-douce: #4d5666;   /* 6,5:1 sur le fond */
+  --marcq-fond:        #eef0f3;   /* le gris froid du blason, eclairci */
   --marcq-carte:       #ffffff;
-  --marcq-trait:       #dbd7ce;
+  --marcq-trait:       #d3d8e0;
 
-  /* L'orange ne porte JAMAIS de texte blanc : le contraste tomberait a 3:1. Ce
-     qui s'ecrit dessus est de l'encre de nuit — 5,7:1, et ca ressemble a de la
-     signaletique de gymnase, ce qui est exactement le ton. */
-  --marcq-resine:      #ff5a00;
-  --marcq-sur-resine:  #0d1626;
-  --marcq-resine-encre:#b33f00;   /* le meme orange, lisible en petit corps */
+  /* L'accompli. Alias delibere de la nuit plutot que sa valeur : c'est le nom
+     qui porte la regle, et un ecran futur qui veut « fait » ne va pas piocher
+     dans l'encre au hasard. */
+  --marcq-fait:        var(--marcq-nuit);
 
-  --marcq-valide:      #0f7b4a;   /* 4,9:1 sur blanc */
   --marcq-danger:      #9e1220;   /* 8,6:1 sur blanc */
 
   --marcq-tap: 48px;
 
   --marcq-titre: 'Anton', 'Arial Narrow', ui-sans-serif, system-ui, sans-serif;
   --marcq-texte: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  /* Le registre « tableau d'affichage » : les minuteurs, les dates de sur-titre,
-     tout ce qui se lit comme une donnee et non comme une phrase. */
+  /* La chasse fixe ne sert QU'A la mesure — minuteurs, comptes, pourcentages,
+     dates. Jamais a donner un air technique a une phrase. */
   --marcq-tableau: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono",
                    "Liberation Mono", Consolas, monospace;
 
-  /* Un depassement leger a l'arrivee : c'est ce que l'oeil lit comme du
-     ressort. Au-dela, la barre a l'air de rebondir sur un mur. */
-  --marcq-ressort: cubic-bezier(.2, .9, .25, 1.25);
+  /* Une deceleration franche, sans depassement : un objet reel ralentit, il ne
+     revient pas en arriere. Remplace le ressort d'origine, qui datait le
+     mouvement et que le PRD §10 decrivait a tort comme un rebond. */
+  --marcq-sortie: cubic-bezier(.22, 1, .36, 1);
 }
 
 * { box-sizing: border-box; }
@@ -107,8 +119,12 @@ body {
   padding: 1.25rem 1.1rem 0;
 }
 /* Le premier lancement est centre : un champ seul en haut d'un ecran vide a
-   l'air d'un formulaire inacheve. */
-.ecran-prenom { min-height: 65vh; justify-content: center; }
+   l'air d'un formulaire inacheve. C'est le seul ecran ou le blason est une
+   IMAGE et non un fond : il repond ici a la question que se pose l'enfant qui
+   ouvre un lien recu sur le groupe de l'equipe — de qui vient ce lien. Ailleurs
+   il n'apprendrait plus rien et redeviendrait un decor. */
+.ecran-prenom { min-height: 72vh; justify-content: center; }
+.blason-accueil { width: 7.5rem; height: auto; margin: 0 0 .2rem; }
 .ecran-reglages { gap: 1.1rem; }
 
 /* ---- le titre, et la ligne qui le precede --------------------------------
@@ -130,19 +146,21 @@ body {
   text-transform: uppercase;
 }
 
-/* Le sur-titre : ce qui date ou situe, au-dessus du titre. Registre tableau
-   d'affichage — capitales espacees, chasse fixe — et la couleur de la resine,
-   qui ne sert qu'a ce qui est vivant aujourd'hui. */
+/* Ce qui situe, au-dessus du titre. Les deux sont en capitales espacees et
+   dans le bleu du club, mais pas dans la meme police : « Semaine 1 · vendredi
+   7 aout » DATE, donc chasse fixe, comme tout ce qui se mesure dans cette
+   feuille ; « Salut Lucas » PARLE, et la chasse fixe ne serait la qu'un
+   costume. */
 .salutation,
 .date-seance {
   margin: 0;
-  font-family: var(--marcq-tableau);
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .16em;
   text-transform: uppercase;
-  color: var(--marcq-resine-encre);
+  color: var(--marcq-bleu);
 }
+.date-seance { font-family: var(--marcq-tableau); }
 
 .details-jour { margin: 0; color: var(--marcq-encre-douce); }
 
@@ -172,7 +190,7 @@ body {
   font: inherit;
   font-size: 17px;
 }
-.champ:focus-visible { border-color: var(--marcq-resine); outline: none; }
+.champ:focus-visible { border-color: var(--marcq-bleu); outline: none; }
 
 .bouton {
   display: inline-flex;
@@ -190,12 +208,13 @@ body {
   cursor: pointer;
 }
 
-/* Le bouton principal est le seul aplat d'orange plein de l'app, et il ne dit
-   qu'une chose : va faire ta seance. Encre de nuit dessus, jamais du blanc. */
+/* Le seul aplat de bleu plein de l'app, et il ne dit qu'une chose : va faire ta
+   seance. Blanc dessus — 6,0:1, la nuance du blason a ete descendue d'un cran
+   exactement pour ca. */
 .bouton-principal {
-  border-color: var(--marcq-resine);
-  background: var(--marcq-resine);
-  color: var(--marcq-sur-resine);
+  border-color: var(--marcq-bleu);
+  background: var(--marcq-bleu);
+  color: var(--marcq-sur-bleu);
   font-family: var(--marcq-titre);
   font-weight: 400;
   font-size: 1.15rem;
@@ -204,33 +223,40 @@ body {
 }
 .bouton-danger { border-color: var(--marcq-danger); color: var(--marcq-danger); }
 
-:focus-visible { outline: 3px solid var(--marcq-resine); outline-offset: 2px; }
-.bouton:focus-visible,
-.lien-nav:focus-visible { outline: 3px solid var(--marcq-resine); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--marcq-bleu); outline-offset: 2px; }
+.bouton:focus-visible { outline: 3px solid var(--marcq-bleu); outline-offset: 2px; }
+/* Sur les trois surfaces de nuit, le bleu du blason tombe a 3:1 contre le fond :
+   l'anneau y passe au bleu clair, sans quoi il serait la sans se voir. */
+.nav-app :focus-visible,
+.cas-aujourd-hui :focus-visible,
+.carte-fin :focus-visible { outline-color: var(--marcq-bleu-clair); }
 
 /* ---- la barre de progression ---------------------------------------------
-   `appearance: none` est ce qui rend le remplissage stylable dans les
-   navigateurs WebKit et Blink : sans lui, ::-webkit-progress-value n'existe pas
-   et la barre garde son apparence systeme. Le remplissage est VERT, jamais
-   orange : il montre ce qui est fait, et l'orange est reserve a ce qui reste a
-   faire. */
+   Un cadre qui rogne, et dedans un bloc PLEINE LARGEUR qui glisse : a `--part`
+   valant 0 il est entierement a gauche, a 1 il est en place. Une largeur qui
+   s'anime obligerait le navigateur a refaire la mise en page a chaque image ;
+   un deplacement ne touche ni la mise en page ni le dessin. Le detail, et
+   pourquoi un deplacement plutot qu'une mise a l'echelle : web/barre.js.
+
+   Le remplissage prend l'encre de nuit — il montre ce qui est ACCOMPLI, et le
+   bleu du club reste libre pour ce qui est a faire maintenant. */
 
 .barre {
-  appearance: none;
-  -webkit-appearance: none;
+  overflow: hidden;
   height: .85rem;
-  border: none;
   border-radius: 999px;
   background: var(--marcq-trait);
-  overflow: hidden;
 }
-.barre::-webkit-progress-bar { background: var(--marcq-trait); }
-.barre::-webkit-progress-value {
+
+.barre-remplissage {
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 999px;
-  background: var(--marcq-valide);
-  transition: width 260ms var(--marcq-ressort);
+  background: var(--marcq-fait);
+  translate: calc((var(--part, 0) - 1) * 100%) 0;
+  transition: translate 260ms var(--marcq-sortie);
 }
-.barre::-moz-progress-bar { border-radius: 999px; background: var(--marcq-valide); }
 
 .progression-jour,
 .progression-seance { display: flex; align-items: center; gap: .7rem; margin: 0; }
@@ -268,12 +294,15 @@ body {
   gap: .8rem;
   padding: calc(1.6rem + env(safe-area-inset-top, 0px)) 1.2rem 1.5rem;
   border-radius: 0 0 1.5rem 1.5rem;
-  /* Le but, au milieu du bord haut : un segment de resine de la largeur d'une
-     cage. C'est lui qui fait lire les deux arcs en dessous comme une surface de
-     but plutot que comme deux courbes decoratives. */
-  background:
-    linear-gradient(var(--marcq-resine), var(--marcq-resine)) top center / 5.5rem 6px no-repeat,
-    var(--marcq-nuit);
+  /* Le blason, pose sur la nuit, au sommet des deux arcs — la ou serait la cage.
+     Il y tient trois roles a la fois : il dit de qui vient l'application, il
+     donne aux arcs le point d'ou ils partent, et il occupe le haut de l'ecran,
+     qui n'a rien d'autre a montrer.
+     En FOND, et non en image du document : il ne dit rien que le texte ne dise
+     deja, un lecteur d'ecran n'a rien a y gagner, et il n'a donc pas a le
+     rencontrer. L'ecran du premier lancement, lui, le pose dans le document avec
+     un texte de remplacement — la, il repond a une question. */
+  background: url('/mhb.webp') center 2.2rem / auto 7.5rem no-repeat var(--marcq-nuit);
   color: #ffffff;
   overflow: hidden;
 }
@@ -303,20 +332,22 @@ body {
 .cas-aujourd-hui::after {
   width: 104%;
   height: 92%;
-  border: 3px solid rgb(255 90 0 / .3);
+  border: 3px solid rgb(111 184 236 / .34);
 }
 
 /* Le contenu passe devant les arcs. */
 .cas-aujourd-hui > * { position: relative; z-index: 1; }
 
-.cas-aujourd-hui .salutation { color: var(--marcq-resine); }
+.cas-aujourd-hui .salutation { color: var(--marcq-bleu-clair); }
 .cas-aujourd-hui .details-jour {
   color: rgb(255 255 255 / .72);
   font-family: var(--marcq-tableau);
   font-size: .9rem;
 }
+/* Sur la nuit, l'accompli passe au blanc : la regle est « le plus fort
+   contraste du fond », pas « toujours la meme couleur ». */
 .cas-aujourd-hui .barre { background: rgb(255 255 255 / .18); }
-.cas-aujourd-hui .barre::-webkit-progress-bar { background: rgb(255 255 255 / .18); }
+.cas-aujourd-hui .barre-remplissage { background: #ffffff; }
 .cas-aujourd-hui .compte { color: #ffffff; }
 .cas-aujourd-hui .bouton-principal { margin-top: .2rem; }
 
@@ -360,7 +391,7 @@ body {
 .bloc-seance { display: flex; flex-direction: column; gap: .4rem; }
 
 /* Les blocs sont le decoupage du coach — « Course », puis « Renforcement »
-   (PRD §7.3). Une vraie structure, donc un vrai reperage : un trait de resine
+   (PRD §7.3). Une vraie structure, donc un vrai reperage : un trait de bleu
    devant le titre, et le nombre de tours en pastille de tableau d'affichage.
    `.titre-bloc` porte une marge basse pour les reglages ; ici c'est `gap` qui
    espace, et les deux se cumuleraient. */
@@ -375,7 +406,7 @@ body {
   width: .3rem;
   height: 1.15em;
   border-radius: 999px;
-  background: var(--marcq-resine);
+  background: var(--marcq-bleu);
 }
 
 .tours-bloc {
@@ -419,7 +450,7 @@ body {
 
 /* Un exercice fait porte le trait plein des 6 m, sur toute la hauteur de sa
    ligne : de loin, on voit ou on en est sans lire un mot. */
-.exercice.fait { box-shadow: inset .3rem 0 0 var(--marcq-valide); }
+.exercice.fait { box-shadow: inset .3rem 0 0 var(--marcq-fait); }
 
 .actions-exercice { display: flex; align-items: center; gap: .1rem; flex: 0 0 auto; }
 .chrono-groupe { display: flex; align-items: center; gap: .15rem; }
@@ -442,7 +473,7 @@ body {
 /* Le minuteur, en tableau d'affichage : chiffres a chasse fixe — sans eux,
    « 0:39 » puis « 0:38 » font sauter le bouton a chaque seconde, et l'oeil suit
    le mouvement au lieu du nombre. Les trois etats se lisent a la couleur : au
-   repos il se tait, il tourne en resine, il est fini en nuit. */
+   repos il se tait, il tourne en bleu, il est fini en nuit. */
 .chrono {
   min-width: 3.15rem;
   min-height: var(--marcq-tap);
@@ -458,14 +489,14 @@ body {
   cursor: pointer;
 }
 .chrono-actif {
-  border-color: var(--marcq-resine);
-  background: var(--marcq-resine);
-  color: var(--marcq-sur-resine);
+  border-color: var(--marcq-bleu);
+  background: var(--marcq-bleu);
+  color: var(--marcq-sur-bleu);
 }
 .chrono-fini {
   border-color: var(--marcq-nuit);
   background: var(--marcq-nuit);
-  color: var(--marcq-resine);
+  color: var(--marcq-bleu-clair);
 }
 .chrono-remise {
   min-width: 1.45rem;
@@ -500,7 +531,7 @@ body {
   width: 26px;
   height: 26px;
   margin: 0;
-  accent-color: var(--marcq-valide);
+  accent-color: var(--marcq-fait);
 }
 
 .libelle-exercice { flex: 1 1 auto; }
@@ -677,21 +708,22 @@ body {
   color: var(--marcq-encre-douce);
 }
 .jour-partielle {
-  border-color: var(--marcq-valide);
+  border-color: var(--marcq-fait);
   background: var(--marcq-carte);
-  color: var(--marcq-valide);
+  color: var(--marcq-fait);
 }
 .jour-faite {
-  border-color: var(--marcq-valide);
-  background: var(--marcq-valide);
+  border-color: var(--marcq-fait);
+  background: var(--marcq-fait);
   color: #ffffff;
 }
-/* Aujourd'hui n'est pas un danger, c'est ce qui est vivant : la resine, comme
-   partout ailleurs dans l'app. */
+/* Aujourd'hui n'est pas un danger, c'est ce qui est vivant : le bleu du club,
+   comme partout ailleurs. Une seance faite prend la nuit — le plus fort
+   contraste du fond — et les deux ne se confondent a aucune luminosite. */
 .jour-aujourd-hui {
-  border-color: var(--marcq-resine);
-  background: var(--marcq-resine);
-  color: var(--marcq-sur-resine);
+  border-color: var(--marcq-bleu);
+  background: var(--marcq-bleu);
+  color: var(--marcq-sur-bleu);
 }
 
 .legende-calendrier {
@@ -740,12 +772,12 @@ body {
   cursor: pointer;
 }
 .ligne-sonnerie + .ligne-sonnerie { border-top: 1px solid var(--marcq-trait); }
-.case-sonnerie { flex: 0 0 auto; width: 22px; height: 22px; margin: 0; accent-color: var(--marcq-resine); }
+.case-sonnerie { flex: 0 0 auto; width: 22px; height: 22px; margin: 0; accent-color: var(--marcq-bleu); }
 .texte-sonnerie { display: flex; flex-direction: column; }
 .nom-sonnerie { font-weight: 600; }
 .avertissement { margin: 0 0 .8rem; color: var(--marcq-encre-douce); font-size: .95rem; }
 /* La hauteur est reservee : sans elle, le retour ferait sauter le bouton. */
-.retour { margin: 0; min-height: 1.5rem; color: var(--marcq-resine-encre); font-size: .95rem; }
+.retour { margin: 0; min-height: 1.5rem; color: var(--marcq-bleu); font-size: .95rem; }
 
 /* Le message d'un champ, sous le champ. Aucune hauteur reservee : il n'existe
    que quand il a quelque chose a dire, et le formulaire ne doit pas garder un
@@ -798,7 +830,7 @@ body {
 }
 .lien-nav[aria-current="page"] {
   color: #ffffff;
-  box-shadow: inset 0 3px 0 var(--marcq-resine);
+  box-shadow: inset 0 3px 0 var(--marcq-bleu);
 }
 
 /* ---------------------------------------------------------------------------
@@ -848,7 +880,7 @@ body {
   color: #ffffff;
   text-align: center;
   overflow: hidden;
-  animation: marcq-monte 260ms var(--marcq-ressort);
+  animation: marcq-monte 260ms var(--marcq-sortie);
 }
 /* Le meme arc que l'ecran du jour, en rappel, et assez pale pour rester
    derriere les chiffres : c'est ce qui fait que fermer une seance et ouvrir
@@ -861,7 +893,7 @@ body {
   width: 132%;
   height: 62%;
   translate: -50% -50%;
-  border: 3px solid rgb(255 90 0 / .22);
+  border: 3px solid rgb(111 184 236 / .26);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -874,7 +906,7 @@ body {
 
 .fin-date {
   margin: 0;
-  color: var(--marcq-resine);
+  color: var(--marcq-bleu-clair);
   font-family: var(--marcq-tableau);
   font-size: .78rem;
   font-weight: 700;
@@ -896,13 +928,13 @@ body {
    ne roule pas — il augmente de un. */
 .fin-nombre-seances {
   display: inline-block;
-  color: var(--marcq-resine);
+  color: var(--marcq-bleu-clair);
   font-family: var(--marcq-titre);
   font-size: 3.2rem;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  animation: marcq-pop 320ms var(--marcq-ressort);
+  animation: marcq-pop 320ms var(--marcq-sortie);
 }
 
 @keyframes marcq-pop {
@@ -941,13 +973,15 @@ body {
 .fin-fermer { align-self: stretch; }
 
 /* Quatre couleurs choisies, jamais une teinte tiree au hasard : le hasard
-   produit tot ou tard un confetti illisible sur fond clair. Ce sont celles du
-   theme, plus un jaune de maillot. */
+   produit tot ou tard un confetti illisible. Ce sont les quatre du blason, et
+   elles tombent sur deux fonds — la carte de nuit et la page claire derriere —
+   d'ou une paire claire et une paire foncee, pour qu'aucun grain ne disparaisse
+   des deux cotes a la fois. */
 :root {
-  --marcq-confetti-1: #ff5a00;
-  --marcq-confetti-2: #0f7b4a;
-  --marcq-confetti-3: #0d1626;
-  --marcq-confetti-4: #ffc44d;
+  --marcq-confetti-1: #0a67a6;
+  --marcq-confetti-2: #6fb8ec;
+  --marcq-confetti-3: #121026;
+  --marcq-confetti-4: #ffffff;
 }
 
 /* La couche ne recoit aucun pointeur : elle ne peut pas intercepter un tap,
@@ -982,16 +1016,17 @@ body {
 
 .ecran-rejoindre { gap: 1.1rem; }
 
-/* Le message du PRD §7.4 se lit d'un bloc, sans avoir a le chercher : fond de
-   carte, un trait de resine a gauche, et un corps un cran au-dessus du texte
-   courant. C'est le seul ecran de l'app ou l'on demande a un enfant de decider
-   quelque chose d'irreversible pour d'autres que lui. */
+/* Le message du PRD §7.4. C'est le seul ecran de l'app ou l'on demande a un
+   enfant de decider quelque chose d'irreversible pour d'autres que lui : il ne
+   prend donc pas un filet de couleur au bord d'une carte comme les autres
+   encadres, il prend le fond de nuit en entier. On ne peut pas le survoler du
+   regard. */
 .consentement-avertissement {
   margin: 0;
-  padding: .9rem 1rem;
-  border-inline-start: .4rem solid var(--marcq-resine);
-  border-radius: .2rem .8rem .8rem .2rem;
-  background: var(--marcq-carte);
+  padding: 1rem 1.1rem;
+  border-radius: .8rem;
+  background: var(--marcq-nuit);
+  color: #ffffff;
   font-size: 1.05rem;
 }
 .consentement-parent { margin: 0; font-size: 1.05rem; font-weight: 600; }
@@ -1018,7 +1053,7 @@ body {
   padding: 0;
   border: none;
   background: none;
-  color: var(--marcq-resine-encre);
+  color: var(--marcq-bleu);
   font: inherit;
   font-weight: 600;
   text-decoration: underline;
@@ -1094,7 +1129,7 @@ body {
   border-radius: .7rem;
   background: var(--marcq-carte);
 }
-.podium-moi { border-color: var(--marcq-resine); }
+.podium-moi { border-color: var(--marcq-bleu); }
 .rang-podium {
   font-family: var(--marcq-titre);
   font-size: 1.6rem;
@@ -1171,7 +1206,7 @@ body {
   font: inherit;
   cursor: pointer;
 }
-.choix-ressenti.choisi { border-color: var(--marcq-resine); background: rgb(255 90 0 / .16); }
+.choix-ressenti.choisi { border-color: var(--marcq-bleu-clair); background: rgb(111 184 236 / .18); }
 .ressenti-emoji { font-size: 1.6rem; line-height: 1; }
 .ressenti-mot { font-size: .9rem; font-weight: 600; }
 
@@ -1186,8 +1221,8 @@ body {
 .mention-publique {
   margin: 0;
   padding: .7rem .9rem;
-  border-inline-start: .4rem solid var(--marcq-resine);
-  border-radius: .2rem .6rem .6rem .2rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: .6rem;
   background: var(--marcq-carte);
   font-size: .95rem;
 }

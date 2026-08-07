@@ -61,11 +61,14 @@ test('style.css neutralise tout mouvement quand le systeme le demande (PRD §10)
   assert.match(bloc[1], /animation-iteration-count:\s*1\s*!important/);
 });
 
-test('cocher fait rebondir la barre et barre la ligne, sans une ligne de JavaScript', () => {
+test('cocher fait avancer la barre et barre la ligne, sans une ligne de JavaScript', () => {
+  // La barre glisse au lieu de sauter, et elle glisse par DEPLACEMENT : une
+  // largeur animee refait la mise en page a chaque image. barre.js pose la part,
+  // le CSS fait le reste — aucun JavaScript n'est execute pendant le mouvement.
   assert.match(
     css,
-    /\.barre::-webkit-progress-value\s*\{[^}]*transition:/,
-    'le remplissage de la barre doit rebondir, pas sauter',
+    /\.barre-remplissage\s*\{[^}]*transition:\s*translate/,
+    'le remplissage de la barre doit glisser, pas sauter',
   );
   // Le trait existe des le depart, en transparent : c'est sa COULEUR qui
   // s'anime. Un trait qui pousse de gauche a droite se casse des que le libelle

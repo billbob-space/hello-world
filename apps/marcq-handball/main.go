@@ -46,16 +46,19 @@ var version = "dev"
 // navigateur et lisible par node --test, sans etage de construction.
 const jetonVersion = "__VERSION__"
 
-// Alpine n'embarque aucune table /etc/mime.types, et celle que Go compile en dur
-// ne connait pas woff2 : la police d'affichage partirait en
-// application/octet-stream. Les navigateurs la chargeraient quand meme depuis
-// @font-face, mais le prechargement declare dans index.html serait rejete, et le
-// titre du jour s'afficherait deux fois — une fois dans la police du telephone,
-// une fois dans la sienne. Deux lignes ici valent mieux qu'un fichier a poser
-// dans l'image.
+// Les deux seuls binaires de la coque : la police du titrage et le blason du
+// club. Alpine n'embarque aucune table /etc/mime.types et celle que Go compile
+// en dur ne les couvre pas, si bien qu'ils partiraient en
+// application/octet-stream. Un navigateur les afficherait quand meme, mais le
+// prechargement de la police declare dans index.html serait rejete — le titre du
+// jour s'afficherait deux fois, une fois dans la police du telephone puis une
+// fois dans la sienne. Quatre lignes ici valent mieux qu'un fichier a poser dans
+// l'image.
 func init() {
-	if err := mime.AddExtensionType(".woff2", "font/woff2"); err != nil {
-		log.Printf("type woff2 non declare, la police sera servie en octet-stream : %v", err)
+	for ext, typ := range map[string]string{".woff2": "font/woff2", ".webp": "image/webp"} {
+		if err := mime.AddExtensionType(ext, typ); err != nil {
+			log.Printf("type %s non declare, le fichier sera servi en octet-stream : %v", ext, err)
+		}
 	}
 }
 

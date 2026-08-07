@@ -14,6 +14,7 @@
 // a personne a tutoyer ici. Aucune animation non plus — « le changement de
 // position est anime » concerne l'enfant qui grimpe, pas un tableau lu une fois.
 
+import { creerBarre } from './barre.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 import { RESSENTIS } from './ressenti.js';
 
@@ -305,10 +306,7 @@ export function monterCoach(hote) {
 
     const entete = el('section', 'bloc-coach');
     entete.append(el('p', 'coach-entete', modele.entete.phrase));
-    const jauge = el('progress', 'barre');
-    jauge.max = modele.groupe.echelle;
-    jauge.value = modele.groupe.cochees;
-    jauge.setAttribute('aria-hidden', 'true');
+    const jauge = creerBarre(modele.groupe.cochees, modele.groupe.echelle, { muette: true });
     entete.append(jauge, el('p', 'coach-aide', modele.groupe.phrase));
 
     corps.append(

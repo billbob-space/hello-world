@@ -93,10 +93,80 @@ assertion — `document.scrollingElement.scrollWidth <= innerWidth` sur les sept
 coût de démarrage bien plus élevé que le reste de la suite : c'est l'arbitrage à
 poser avant de l'ajouter.
 
+### 5. J'ai inventé une identité à un club qui en avait déjà une
+
+**Symptome** — première passe de thème : un orange vif comme couleur d'accent,
+choisi pour « faire sport handball » et pour se distinguer du bleu
+institutionnel que l'application portait. Le retour a été immédiat : *« adapte la
+couleur au site du club »*. Le blason du club est un lion bleu nuit et bleu, sur
+gris et blanc. Autrement dit, la couleur que j'avais retirée pour cause de
+banalité était celle du club, et l'accent que j'avais inventé n'existait nulle
+part dans son univers.
+
+**Cause** — j'ai construit l'identité à partir du **sport** — le terrain, la
+résine, la surface de but — sans chercher celle du **club**, qui était à une
+requête HTTP de distance et dont l'adresse est dans le nom de l'application. Le
+brief disait « thème affirmé sport handball » ; j'ai lu « handball » et pas
+« Marcq ». Le travail sur la structure — les deux lignes du terrain, la police,
+la hiérarchie — a survécu tel quel ; seule la palette était à refaire, ce qui a
+coûté une passe entière.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — avant d'inventer une identité visuelle, chercher
+celle qui existe. Un nom d'application qui contient un nom d'organisation est le
+signal : le blason, les couleurs et le ton sont publics, et deux minutes de
+lecture valent mieux qu'une palette juste mais étrangère.
+
+### 6. Le double de DOM des tests est une pièce à maintenir, et rien ne le dit
+
+**Symptome** — `web/barre.js` appelle `element.style.setProperty('--part', …)`.
+Cinq tests de `tests/equipe.test.js` échouent aussitôt sur
+« Cannot read properties of undefined (reading 'setProperty') », dans des tests
+qui parlent du classement et pas de la barre.
+
+**Cause** — `tests/equipe.test.js` construit un faux DOM à la main —
+`className`, `dataset`, `classList`, `append`, `querySelector` — pour prouver
+sans navigateur les quatre conditions d'animation du rang. C'est le bon choix, et
+il a un prix qui n'est écrit nulle part : **toute propriété du DOM qu'un module
+se met à utiliser doit être ajoutée au double**, et le message d'erreur ne dit
+jamais « le double est incomplet », il dit « undefined ». Le même piège attend
+`getAttribute` : `barre.js` lisait au départ un attribut qu'il venait d'écrire,
+ce qui a fait échouer les mêmes cinq tests une seconde fois. Corrigé en passant
+l'option plutôt qu'en la relisant — moins de DOM à doubler, et un calcul qui ne
+dépend plus de l'état du document.
+
+**Detecte par** — `test`
+
+**Action** — `comportement` — un module monté dans un écran doublé n'utilise du
+DOM que ce dont il a besoin, et préfère un argument à une relecture. Étoffer le
+double au coup par coup marche ; le réflexe qui manque est de se demander, en
+écrivant `element.quelqueChose`, si un test le fournit.
+
+### 7. Une assertion plus stricte que la propriété qu'elle protège
+
+**Symptome** — ajouter `import { creerBarre } from './barre.js'` à
+`web/vue-coach.js` fait échouer le test « la page coach ne peut RIEN lire du
+téléphone de qui que ce soit ».
+
+**Cause** — le test énumère les imports du fichier et les compare à une liste
+exacte, puis vérifie séparément, et transitivement, qu'aucun d'eux ne touche au
+stockage. C'est la seconde vérification qui porte la promesse ; la première ne
+fait que geler l'état du jour où elle a été écrite. Résultat : un import
+parfaitement légitime paie le prix d'une garde qui ne le visait pas, et la
+correction consiste à recopier une liste — geste qui n'apprend rien et qu'on
+finit par faire sans lire.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — la liste exacte peut disparaître au profit de la seule
+vérification transitive, qui est celle que le PRD §13 réclame. Laissée telle
+quelle, elle coûtera une correction à chaque refactoring de cette vue.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 17:39 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 18:03 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -104,22 +174,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 246 | 0,00 $ |
-| Écriture de cache | 298 373 | 1,86 $ |
-| Lecture de cache | 26 012 229 | 13,01 $ |
-| Sortie | 95 838 | 2,40 $ |
-| **Total** | **26 406 686** | **17,27 $ — 15,00 €** |
+| Entrée | 402 | 0,00 $ |
+| Écriture de cache | 717 999 | 4,35 $ |
+| Lecture de cache | 52 495 155 | 26,13 $ |
+| Sortie | 165 276 | 4,03 $ |
+| **Total** | **53 378 832** | **34,50 $ — 29,96 €** |
 
 **Ce qui coûte**
 
-- **130 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **210 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   56 281 jetons, écrits une fois par session puis relus à chaque
-  échange : 7 260 249 jetons de relecture, 27 % de tout ce qui a été relu.
+  échange : 11 762 729 jetons de relecture, 22 % de tout ce qui a été relu.
 - **Croissance** — 56 281 jetons relus au premier appel qui relise
-  quelque chose, 296 001 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 420 589 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 26406686 -->
+<!-- cout-total: 53378832 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 56281 0 257
 2 principal claude-opus-5 4105 56281 228
@@ -251,5 +321,85 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 128 principal claude-opus-5 117 294592 1033
 129 principal claude-opus-5 1292 294709 515
 130 principal claude-opus-5 2372 296001 321
+131 principal claude-opus-5 4859 298373 118
+132 principal claude-opus-5 443 303232 1992
+133 principal claude-opus-5 2168 303675 107
+134 principal claude-opus-4-7 4540 28262 288
+135 principal claude-opus-4-7 545 32802 225
+136 principal claude-opus-4-7 0 32802 231
+137 principal claude-opus-5 291 305843 600
+138 principal claude-opus-4-7 7520 33347 669
+139 principal claude-opus-4-7 7531 32802 742
+140 principal claude-opus-5 1106 306134 653
+141 principal claude-opus-4-7 1223 40867 1038
+142 principal claude-opus-4-7 1347 40333 1005
+143 principal claude-opus-5 1578 307240 852
+144 principal claude-opus-5 1234 308818 623
+145 principal claude-opus-5 272393 38225 2158
+146 principal claude-opus-5 3269 310618 1512
+147 principal claude-opus-5 1875 313887 1986
+148 principal claude-opus-5 2815 315762 1055
+149 principal claude-opus-5 1959 318577 2616
+150 principal claude-opus-5 2671 320536 323
+151 principal claude-opus-5 2206 323207 2
+152 principal claude-opus-5 110 325413 444
+153 principal claude-opus-5 3960 325523 123
+154 principal claude-opus-5 518 329483 183
+155 principal claude-opus-5 443 330001 262
+156 principal claude-opus-5 364 330444 108
+157 principal claude-opus-5 5060 330808 582
+158 principal claude-opus-5 613 335868 845
+159 principal claude-opus-5 1185 336481 522
+160 principal claude-opus-5 820 337666 6504
+161 principal claude-opus-5 8000 338486 147
+162 principal claude-opus-5 1431 346486 336
+163 principal claude-opus-5 1601 347917 2906
+164 principal claude-opus-5 3036 349518 108
+165 principal claude-opus-5 323 352554 2944
+166 principal claude-opus-5 2996 352877 116
+167 principal claude-opus-5 3657 355873 3198
+168 principal claude-opus-5 3228 359530 120
+169 principal claude-opus-5 406 362758 2658
+170 principal claude-opus-5 2649 363164 527
+171 principal claude-opus-5 875 365813 1292
+172 principal claude-opus-5 2053 366688 858
+173 principal claude-opus-5 865 368741 1381
+174 principal claude-opus-5 1388 369606 443
+175 principal claude-opus-5 489 370994 831
+176 principal claude-opus-5 1023 371483 223
+177 principal claude-opus-5 284 372506 2103
+178 principal claude-opus-5 2145 372790 159
+179 principal claude-opus-5 633 374935 661
+180 principal claude-opus-5 1204 375568 1248
+181 principal claude-opus-5 6516 376772 584
+182 principal claude-opus-5 639 383288 1614
+183 principal claude-opus-5 1786 383927 144
+184 principal claude-opus-5 450 385713 146
+185 principal claude-opus-5 779 386163 408
+186 principal claude-opus-5 1083 386942 132
+187 principal claude-opus-5 218 388025 156
+188 principal claude-opus-5 1673 388243 1428
+189 principal claude-opus-5 1613 389916 105
+190 principal claude-opus-5 405 391529 1813
+191 principal claude-opus-5 1871 391934 115
+192 principal claude-opus-5 171 393805 248
+193 principal claude-opus-5 274 393976 220
+194 principal claude-opus-5 307 394250 109
+195 principal claude-opus-5 1966 394557 722
+196 principal claude-opus-5 2448 396523 214
+197 principal claude-opus-5 1997 398971 935
+198 principal claude-opus-5 1022 400968 109
+199 principal claude-opus-5 1836 401990 182
+200 principal claude-opus-5 1909 403826 154
+201 principal claude-opus-5 1881 405735 279
+202 principal claude-opus-5 449 407616 662
+203 principal claude-opus-5 774 408065 216
+204 principal claude-opus-5 223 408839 179
+205 principal claude-opus-5 571 409062 111
+206 principal claude-opus-5 2117 409633 1096
+207 principal claude-opus-5 4828 411750 1823
+208 principal claude-opus-5 1847 416578 2077
+209 principal claude-opus-5 2164 418425 2669
+210 principal claude-opus-5 2877 420589 161
 -->
 <!-- /cout -->
