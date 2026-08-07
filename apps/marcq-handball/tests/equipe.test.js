@@ -72,8 +72,9 @@ test('le podium nomme TROIS MARCHES, et une marche porte tous ses prenoms', () =
 });
 
 test('une marche muette se compte en enfants, au singulier comme au pluriel', () => {
-  // Une marche d'un seul enfant peut etre muette : c'est le cas quand le plafond
-  // de noms a deja ete atteint par la marche du dessus.
+  // Le singulier ne se rencontre pas sur le podium — une marche d'un seul enfant
+  // tient toujours sous le plafond, donc elle nomme. Il est ecrit parce qu'un
+  // accord faux se remarque, et qu'un jour cette fonction servira ailleurs.
   assert.equal(equipe.enfants(1), '1 enfant');
   assert.equal(equipe.enfants(14), '14 enfants');
 });

@@ -49,7 +49,9 @@ const (
 
 // Les deux bornes du podium (PRD §9). Une MARCHE est un score, pas un enfant :
 // depuis que les ex aequo partagent leur place, trois marches peuvent nommer
-// plus de trois personnes — d'ou le second plafond, qui borne les noms.
+// plus de trois personnes — d'ou le second plafond, qui borne les noms d'UNE
+// marche. Il vise la liste interminable, pas le nombre total de prenoms : une
+// marche courte reste nommee meme sous une marche de tete muette.
 const (
 	marchesPodium = 3
 	nomsPodiumMax = 8
@@ -414,30 +416,33 @@ func rangsPartages(lignes []ligneInterne) []int {
 
 // nomsDuPodium dit, ligne par ligne, si son pseudonyme part vers le client.
 //
-// Trois marches au plus, et un plafond de noms qui vaut pour le podium ENTIER :
-// des qu'une marche ferait depasser le plafond, elle se tait — et les suivantes
-// avec elle, sans quoi le podium nommerait la marche du bas en sautant celle du
-// milieu. Une marche muette n'est pas vide : le client en connait l'effectif par
-// le nombre de lignes qui portent son rang, et affiche « 14 enfants ».
+// Trois marches au plus, et CHAQUE MARCHE est jugee seule : celle qui depasse le
+// plafond se tait, les autres nomment. Une marche muette n'est pas vide — le
+// client en connait l'effectif par le nombre de lignes qui portent son rang, et
+// affiche « 14 enfants ».
 //
 // Le plafond existe parce que la page est PUBLIQUE : quatorze pseudonymes de
 // mineurs n'ont pas a y etre epeles pour dire une chose qu'un nombre dit mieux.
+// Il a d'abord borne le podium ENTIER, en faisant taire les marches sous une
+// marche trop grosse ; a l'ecran, cela cachait le prenom d'enfants SEULS sur
+// leur marche, ce qui ne protege rien et perd une information.
 func nomsDuPodium(lignes []ligneInterne, rangs []int) []bool {
 	nommes := make([]bool, len(lignes))
-	total, marches := 0, 0
+	marches := 0
 	for i := 0; i < len(lignes); {
 		fin := i
 		for fin < len(lignes) && rangs[fin] == rangs[i] {
 			fin++
 		}
 		marches++
-		if marches > marchesPodium || total+(fin-i) > nomsPodiumMax {
+		if marches > marchesPodium {
 			break
 		}
-		for k := i; k < fin; k++ {
-			nommes[k] = true
+		if fin-i <= nomsPodiumMax {
+			for k := i; k < fin; k++ {
+				nommes[k] = true
+			}
 		}
-		total += fin - i
 		i = fin
 	}
 	return nommes

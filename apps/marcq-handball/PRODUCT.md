@@ -449,11 +449,13 @@ trois meilleurs scores, chaque marche portant tous les pseudonymes qui la
 partagent, puis « tu es 7e sur 12 » sans nommer les rangs intermédiaires. On
 garde le plaisir de grimper sans afficher publiquement qui est dernier.
 
-**Huit prénoms au plus sur le podium.** La page est publique : quatorze
+**Huit prénoms au plus par marche.** La page est publique : quatorze
 pseudonymes de mineurs n'ont pas à y être épelés pour dire une chose qu'un
-nombre dit mieux. Dès qu'une marche ferait dépasser huit prénoms, elle affiche
-son effectif — *« 1er : 14 enfants, 100 % »* — et les marches en dessous font de
-même, sans quoi le podium nommerait celle du bas en sautant celle du milieu.
+nombre dit mieux. Une marche de plus de huit affiche donc son effectif —
+*« 1er : 14 enfants, 100 % »*. **Chaque marche est jugée seule** : celles du
+dessous nomment quand même, parce que cacher le prénom d'un enfant seul sur sa
+marche ne protège rien et perd une information. Le plafond vise la liste
+interminable, pas le nombre total de prénoms affichés.
 
 **Le dénominateur est honnête.** « 3e sur 9 » compte les participants au
 classement, pas l'effectif de l'équipe. On n'affiche jamais un rang sur un

@@ -508,39 +508,64 @@ func TestLePodiumNommeLesTroisMeilleuresMarches(t *testing.T) {
 	}
 }
 
-func TestUneMarcheTropPeupleeNeNommePersonne(t *testing.T) {
+func TestUneMarcheTropPeupleeNeNommeQuePourElle(t *testing.T) {
 	cl, _, h := magasinDeTest(t)
-	// Neuf enfants a egalite en tete : un de plus que le plafond de noms.
+	// Neuf enfants a egalite en tete : un de plus que le plafond de noms. Puis
+	// un enfant seul sur sa marche.
 	peupler(t, cl, h, 2, "Aa", "Bb", "Cc", "Dd", "Ee", "Ff", "Gg", "Hh", "Ii")
 	peupler(t, cl, h, 1, "Zz")
 
 	r := cl.lire(jourTest)
 	for _, l := range r.Classement {
-		// Aucun nom ne transite : ni celui du groupe de tete, trop nombreux pour
-		// une page publique, ni celui des marches suivantes.
-		if l.Pseudo != "" {
+		// La marche de tete se tait : neuf pseudonymes de mineurs n'ont pas a
+		// etre epeles sur une page publique. Celle du dessous nomme quand meme —
+		// cacher le prenom d'un enfant SEUL sur sa marche ne protege rien.
+		if l.Cochees == 2 && l.Pseudo != "" {
 			t.Errorf("rang %d : %q ne devrait pas transiter", l.Rang, l.Pseudo)
+		}
+		if l.Cochees == 1 && l.Pseudo != "Zz" {
+			t.Errorf("rang %d : la marche d'un seul enfant doit nommer, recu %q", l.Rang, l.Pseudo)
 		}
 	}
 }
 
-func TestLePlafondDeNomsArreteLesMarchesSuivantes(t *testing.T) {
+func TestLePlafondNeVautQuePourSaPropreMarche(t *testing.T) {
 	cl, _, h := magasinDeTest(t)
-	// Six en tete — nommes, six noms sur huit —, puis trois qui feraient neuf.
+	// Six en tete, puis trois : neuf noms en tout, et pourtant les deux marches
+	// nomment — chacune tient seule sous le plafond.
 	peupler(t, cl, h, 3, "Aa", "Bb", "Cc", "Dd", "Ee", "Ff")
 	peupler(t, cl, h, 2, "Gg", "Hh", "Ii")
 	peupler(t, cl, h, 1, "Zz")
 
 	r := cl.lire(jourTest)
+	nommes := 0
 	for _, l := range r.Classement {
-		// Le plafond vaut pour le podium ENTIER : la deuxieme marche ne tient
-		// pas, donc elle se tait — et la troisieme avec elle, sans quoi le
-		// podium nommerait la marche du bas en sautant celle du milieu.
-		if l.Cochees == 3 && l.Pseudo == "" {
-			t.Errorf("rang %d : la marche de tete tient sous le plafond, elle doit nommer", l.Rang)
+		if l.Pseudo != "" {
+			nommes++
 		}
-		if l.Cochees < 3 && l.Pseudo != "" {
-			t.Errorf("rang %d : %q ne devrait pas transiter", l.Rang, l.Pseudo)
+	}
+	if nommes != 10 {
+		t.Errorf("%d noms transitent, attendu 10 — les trois marches tiennent chacune sous le plafond", nommes)
+	}
+}
+
+func TestSeulesLesTroisPremieresMarchesNomment(t *testing.T) {
+	cl, _, h := magasinDeTest(t)
+	peupler(t, cl, h, 4, "Aa")
+	peupler(t, cl, h, 3, "Bb")
+	peupler(t, cl, h, 2, "Cc")
+	peupler(t, cl, h, 1, "Zz")
+
+	r := cl.lire(jourTest)
+	for _, l := range r.Classement {
+		// La quatrieme marche n'est pas un podium, quel que soit son effectif :
+		// son nom NE TRANSITE PAS, donc aucun bogue d'affichage ne peut le faire
+		// apparaitre.
+		if l.Cochees == 1 && l.Pseudo != "" {
+			t.Errorf("la quatrieme marche ne doit pas nommer, recu %q", l.Pseudo)
+		}
+		if l.Cochees > 1 && l.Pseudo == "" {
+			t.Errorf("rang %d : les trois premieres marches nomment", l.Rang)
 		}
 	}
 }

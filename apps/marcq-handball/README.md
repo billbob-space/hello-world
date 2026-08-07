@@ -56,10 +56,10 @@ d'affichage :
 
 - **le podium nomme trois marches**, pas trois personnes — une marche est un
   score, et tous ceux qui la partagent y sont nommés. Le champ `pseudo` n'est
-  émis pour aucune autre ligne, et il ne l'est pour aucune marche qui ferait
-  dépasser **huit prénoms** sur l'ensemble du podium : celle-là, et toutes celles
-  en dessous, se lisent alors à leur effectif — le client le déduit du nombre de
-  lignes portant le même rang ;
+  émis pour aucune autre ligne, ni pour une marche de plus de **huit** : celle-là
+  se lit à son effectif, que le client déduit du nombre de lignes portant le même
+  rang. Chaque marche est jugée seule — une marche courte sous une marche muette
+  nomme quand même ;
 - **à égalité, personne n'est devant** : deux enfants au même nombre de cases
   portent le même `rang`, et l'heure à laquelle ils ont coché n'y change rien. Le
   rang compte les enfants devant et non les scores : après trois premiers ex
