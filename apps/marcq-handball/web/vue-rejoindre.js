@@ -10,7 +10,7 @@
 // consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
 
 import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer, synchroniser } from './classement.js';
-import { ecrireClassement, lireClassement, lireFaits, lireRessentis } from './etat.js';
+import { ecrireClassement, fusionnerFaits, lireClassement, lireFaits, lireRessentis } from './etat.js';
 import { empreinteRessentis, ressentisPourEnvoi } from './ressenti.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
@@ -434,7 +434,14 @@ function etapeChoix(section, ctx) {
     retour.textContent = 'Envoi…';
     const faits = lireFaits();
     const ressentis = ressentisPourEnvoi(ctx.prog, lireRessentis());
-    const resultat = await envoyer({ pseudo: pseudo.valeur, code: code.valeur, faits, ressentis });
+    // `reprise` n'est vraie QUE d'ici : c'est le seul ecran ou l'on saisit un
+    // code, donc le seul moment ou un telephone peut se rattacher a une fiche
+    // qu'il ne connait pas. Les envois automatiques, eux, gardent le
+    // remplacement — c'est lui qui fait qu'une case decochee par erreur se
+    // rattrape.
+    const resultat = await envoyer({
+      pseudo: pseudo.valeur, code: code.valeur, faits, ressentis, reprise: true,
+    });
     valider.disabled = false;
 
     if (!resultat.ok) {
@@ -448,15 +455,23 @@ function etapeChoix(section, ctx) {
       return;
     }
 
-    // L'empreinte est celle des faits REELLEMENT envoyes : sans elle, le
-    // premier declencheur qui suit renverrait aussitot le meme corps.
+    // La reprise rend la fiche : ce qui a ete coche sur un autre telephone
+    // rentre ici, et rien ne repart. C'est ce qui fait du code une vraie cle de
+    // reprise et non un simple cadenas sur un nom.
+    const apres = fusionnerFaits(resultat.moi?.faits);
+
+    // L'empreinte est celle des faits que le serveur a MAINTENANT, c'est-a-dire
+    // ceux d'apres la fusion — et non ceux qu'on vient d'envoyer. Prendre les
+    // seconds ferait repartir un envoi aussitot, avec un ensemble plus petit
+    // que la fiche : le remplacement rendrait alors la moitie de ce que la
+    // reprise vient de sauver.
     // `instantane` est conserve tel quel — ce que le serveur vient de rendre
     // est un rang, pas un podium.
     const recuA = new Date().toISOString();
     ecrireClassement({
       pseudo: pseudo.valeur,
       code: code.valeur,
-      dernierEnvoi: { at: recuA, empreinte: empreinte(faits), empreinteRessentis: empreinteRessentis(ressentis) },
+      dernierEnvoi: { at: recuA, empreinte: empreinte(apres), empreinteRessentis: empreinteRessentis(ressentis) },
       dernierRangConnu: {
         ...(lireClassement().dernierRangConnu ?? { instantane: null }),
         recuA,

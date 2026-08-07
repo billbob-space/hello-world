@@ -64,7 +64,7 @@ d'effacer sa fiche (PRD §14).
 
 ### `POST /api/classement`
 
-`Content-Type: application/json`, **exactement cinq champs**, aucun autre
+`Content-Type: application/json`, **exactement six champs**, aucun autre
 accepté :
 
 ```json
@@ -73,29 +73,49 @@ accepté :
   "code": "4821",
   "faits": ["s1-c1", "s1-c2"],
   "ressentis": { "2026-08-03": "correct" },
-  "supprimer": false
+  "supprimer": false,
+  "reprise": false
 }
 ```
 
 `pseudo` et `code` sont toujours obligatoires ; `faits` l'est sauf en
-suppression ; `ressentis` et `supprimer` sont facultatifs. Réponse `201` à la
-création du pseudonyme, `200` à chaque mise à jour.
+suppression ; `ressentis`, `supprimer` et `reprise` sont facultatifs. Réponse
+`201` à la création du pseudonyme, `200` à chaque mise à jour.
 
 **L'envoi remplace, il n'ajoute pas.** L'ensemble reçu *devient* l'ensemble du
-participant : décocher se propage. Deux conséquences à annoncer à l'enfant —
-c'est le rôle du PRP 08 : deux téléphones sous le même pseudonyme s'écrasent
-mutuellement, ce que le code à 4 chiffres empêche ; et un navigateur vidé qui
-renvoie un ensemble vide retombe à zéro. Les horodatages serveur, eux, survivent
-au remplacement, sans quoi chaque envoi remettrait à zéro le départage des ex
-æquo.
+participant : décocher se propage. Les horodatages serveur, eux, survivent au
+remplacement, sans quoi chaque envoi remettrait à zéro le départage des ex æquo.
+
+**Sauf un : `"reprise": true`.** C'est le seul envoi qui n'enlève rien — il
+prend l'**union** de ce qu'il reçoit et de ce qui est déjà stocké, et il est le
+seul dont la réponse porte `faits`, un objet `{ identifiant: horodatage }` qui
+rend la fiche entière. C'est ce qui permet à un enfant d'ouvrir l'application sur
+un second téléphone, de saisir son nom et son code, et d'y **retrouver** sa
+progression. Sans ce drapeau, son ensemble vide écraserait la fiche — le défaut
+constaté en production le 2026-08-07, anomalie 17 du journal.
+
+Deux propriétés le tiennent, et aucune ne se relâche :
+
+- **Le drapeau ne change pas qui a le droit d'écrire.** Le code est vérifié
+  avant, exactement comme sur un envoi ordinaire ; un code refusé rend `403` et
+  ne touche à rien. `reprise` n'est donc pas une porte pour lire la fiche d'un
+  nom lu sur le podium.
+- **Un seul écran le pose** : celui où l'on saisit un nom et un code. Les envois
+  automatiques gardent le remplacement — c'est lui qui fait qu'une case décochée
+  par erreur se rattrape. Le serveur ne le devine jamais : il ne sait pas
+  distinguer « nouveau téléphone » de « téléphone qui a tout décoché », et
+  deviner reviendrait à choisir la mauvaise moitié du temps.
 
 `{"pseudo": "…", "code": "…", "supprimer": true}` efface la fiche entière et
 **libère le pseudonyme**. L'opération est idempotente : un second appel rend
 `200` et `"supprime": false`, jamais une erreur.
 
 **Le code à 4 chiffres n'est pas un mot de passe.** Il attache un pseudonyme au
-premier envoi qui le crée, et rien d'autre : il n'ouvre aucune lecture, ne
-protège aucune donnée, n'identifie personne. Il n'est jamais stocké en clair —
+premier envoi qui le crée, et n'ouvre qu'une seule lecture : la fiche de ce
+pseudonyme, sur un envoi de reprise, c'est-à-dire ce que l'enfant a lui-même
+coché. Il ne protège aucune autre donnée et n'identifie personne — ce qu'il
+rend, un ensemble d'identifiants d'exercices, est déjà résumé publiquement par le
+nombre de cases affiché au classement. Il n'est jamais stocké en clair —
 pbkdf2-sha256, sel de 16 octets, 100 000 itérations — non pour protéger le
 serveur, où il n'y a rien à protéger, mais parce qu'un ado saisira très
 probablement le code de déverrouillage de son téléphone. Un code oublié **ne se
@@ -331,12 +351,18 @@ sur un robot.
 
 ### Trois comportements à connaître avant de les découvrir
 
-**Un second téléphone écrase le score, il ne le fusionne pas.** Le même
-pseudonyme et le même code saisis ailleurs, c'est exactement ce que le code sert
-à permettre. Mais l'envoi porte l'état complet : le téléphone qui envoie en
-dernier gagne, et s'il a moins de cases cochées, le score baisse. L'alternative —
-un serveur qui garde le maximum — casserait le « le passé se corrige » du PRD §9,
-décocher n'ayant alors plus aucun effet.
+**Un second téléphone récupère au moment où il rejoint, et écrase ensuite.** Le
+même pseudonyme et le même code saisis ailleurs, c'est exactement ce que le code
+sert à permettre — et la saisie du code est un envoi de **reprise** : elle prend
+l'union, ne retire rien, et rend la fiche, que l'écran fusionne dans la
+progression locale. L'enfant retrouve donc ses séances sur le nouveau téléphone.
+
+Passé ce moment, les deux téléphones sont ordinaires et l'envoi porte l'état
+complet : celui qui envoie en dernier gagne, et s'il a moins de cases cochées, le
+score baisse. C'est voulu, et c'est ce qui fait tenir « le passé se corrige » du
+PRD §9 — un serveur qui garderait le maximum en permanence rendrait le décochage
+sans effet. Le partage à long terme d'un pseudonyme entre deux téléphones reste
+donc ce qu'il était : une mauvaise idée que rien n'empêche.
 
 **Changer de nom, c'est supprimer puis rejoindre.** Il n'y a pas de renommage :
 un envoi sous un nouveau pseudonyme créerait une seconde entrée et laisserait la

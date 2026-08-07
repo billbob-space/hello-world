@@ -202,3 +202,40 @@ test('effacerClassement dit si la cle existait, et changer d enfant l emporte', 
   etat.toutEffacer();
   assert.deepEqual(etat.lireClassement(), etat.CLASSEMENT_VIDE);
 });
+
+test('fusionnerFaits n enleve rien, et garde l horodatage le plus ancien', () => {
+  etat.cocher('s1-r1', '2026-08-03T18:00:00.000Z');
+  etat.cocher('s1-r2', '2026-08-03T18:05:00.000Z');
+
+  const apres = etat.fusionnerFaits({
+    // deja ici, plus ancien cote serveur : le PRD §9 departage par « le premier
+    // arrive a ce score », donc c'est l'ancien qui gagne.
+    's1-r1': '2026-08-03T17:30:00.000Z',
+    // deja ici, plus recent cote serveur : le local, plus ancien, est garde.
+    's1-r2': '2026-08-03T19:00:00.000Z',
+    // absent d'ici : c'est tout l'objet de la reprise.
+    's2-r1': '2026-08-05T18:00:00.000Z',
+  });
+
+  assert.equal(apres['s1-r1'], '2026-08-03T17:30:00.000Z');
+  assert.equal(apres['s1-r2'], '2026-08-03T18:05:00.000Z');
+  assert.equal(apres['s2-r1'], '2026-08-05T18:00:00.000Z');
+  assert.deepEqual(etat.lireFaits(), apres, 'la fusion est ecrite, pas seulement rendue');
+});
+
+test('fusionnerFaits se defie de ce qui vient du reseau', () => {
+  etat.cocher('s1-r1', '2026-08-03T18:00:00.000Z');
+  const attendu = etat.lireFaits();
+
+  for (const corps of [null, undefined, [], 'texte', 42]) {
+    assert.deepEqual(etat.fusionnerFaits(corps), attendu, `${JSON.stringify(corps)} ne change rien`);
+  }
+  // Un couple mal forme est ignore, ses voisins bien formes passent.
+  const apres = etat.fusionnerFaits({ 's2-r1': 42, '': '2026-08-05T18:00:00.000Z', 's2-r2': '' , 's2-r3': '2026-08-05T18:00:00.000Z' });
+  assert.deepEqual(Object.keys(apres).sort(), ['s1-r1', 's2-r3']);
+});
+
+test('fusionner un ensemble vide n ecrit rien et ne perd rien', () => {
+  etat.cocher('s1-r1', '2026-08-03T18:00:00.000Z');
+  assert.deepEqual(etat.fusionnerFaits({}), { 's1-r1': '2026-08-03T18:00:00.000Z' });
+});

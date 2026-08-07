@@ -116,6 +116,30 @@ test('le corps d envoi porte trois cles, et aucune autre', () => {
   assert.equal(JSON.stringify(corps).includes('Lucas'), false);
 });
 
+test('le corps ne porte « reprise » que sur l ecran ou l on saisit un code', () => {
+  const ordinaire = classement.corpsEnvoi({ pseudo: 'P', code: '1234', faits: {} });
+  assert.equal('reprise' in ordinaire, false, 'un envoi automatique ne demande jamais la fiche');
+  assert.equal('reprise' in classement.corpsEnvoi({ pseudo: 'P', code: '1234', faits: {}, reprise: false }), false);
+
+  const reprise = classement.corpsEnvoi({ pseudo: 'P', code: '1234', faits: {}, reprise: true });
+  assert.deepEqual(Object.keys(reprise), ['pseudo', 'code', 'faits', 'reprise']);
+  assert.equal(reprise.reprise, true);
+});
+
+test('envoyer transmet la demande de reprise jusqu au corps HTTP', async () => {
+  const f = fauxFetch([reponse(200, { pseudo: 'P', jour: '2026-08-07', faits: { 's1-r1': 'a' } })]);
+
+  const sans = await classement.envoyer({ pseudo: 'P', code: '1234', faits: {} }, { fetch: f });
+  assert.equal(sans.ok, true);
+  assert.equal('reprise' in f.appels[0].corps, false);
+
+  await classement.envoyer({ pseudo: 'P', code: '1234', faits: {}, reprise: true }, { fetch: f });
+  assert.equal(f.appels[1].corps.reprise, true);
+  // Ce que le serveur rend sur une reprise remonte tel quel : c'est l'ecran qui
+  // le fusionne, la couche reseau ne touche pas au stockage.
+  assert.deepEqual(sans.moi.faits, { 's1-r1': 'a' });
+});
+
 test('le corps de suppression porte trois cles, ni faits ni ressentis', () => {
   const corps = classement.corpsSuppression({ pseudo: 'Faucon-12', code: '4821' });
   assert.deepEqual(Object.keys(corps), ['pseudo', 'code', 'supprimer']);

@@ -58,24 +58,39 @@ type reponseClassement struct {
 // champ est absent, et rend une tranche non nulle de longueur 0 pour []. C'est
 // ce qui distingue « faits absent » — refuse en 400 faits-invalide hors
 // suppression — de « navigateur vide qui renvoie un ensemble vide », legitime.
+//
+// Reprise distingue le SEUL envoi qui n'est pas une mise a jour : celui d'un
+// telephone qui vient de saisir un nom et un code deja connus du serveur. Sans
+// ce drapeau, son ensemble vide remplacerait la fiche et effacerait tout ce que
+// l'enfant a coche ailleurs. Il est demande par le client, jamais devine ici :
+// le serveur ne sait pas distinguer « nouveau telephone » de « telephone qui a
+// tout decoche », et deviner reviendrait a choisir la mauvaise moitie du temps.
 type envoiClassement struct {
 	Pseudo    string            `json:"pseudo"`
 	Code      string            `json:"code"`
 	Faits     []string          `json:"faits"`
 	Ressentis map[string]string `json:"ressentis,omitempty"`
 	Supprimer bool              `json:"supprimer,omitempty"`
+	Reprise   bool              `json:"reprise,omitempty"`
 }
 
 // reponseEnvoi est le corps des reponses 201 (creation) et 200 (mise a jour).
+//
+// Faits n'est emis QUE sur un envoi de reprise, et c'est ce qui rend le champ
+// acceptable : la fiche d'un enfant ne repart vers un navigateur qu'au moment
+// ou celui-ci vient de prouver qu'il connait le code qui l'ouvre. Sur tous les
+// autres envois, `omitempty` l'efface du corps — un enfant qui coche ne recoit
+// jamais la liste de ce qu'il a deja coche, il l'a deja.
 type reponseEnvoi struct {
-	Pseudo       string  `json:"pseudo"`
-	Jour         string  `json:"jour"`
-	Rang         int     `json:"rang"`
-	Participants int     `json:"participants"`
-	Cochees      int     `json:"cochees"`
-	Programmees  int     `json:"programmees"`
-	Part         float64 `json:"part"`
-	Ignores      int     `json:"ignores"`
+	Pseudo       string            `json:"pseudo"`
+	Jour         string            `json:"jour"`
+	Rang         int               `json:"rang"`
+	Participants int               `json:"participants"`
+	Cochees      int               `json:"cochees"`
+	Programmees  int               `json:"programmees"`
+	Part         float64           `json:"part"`
+	Ignores      int               `json:"ignores"`
+	Faits        map[string]string `json:"faits,omitempty"`
 }
 
 // reponseSuppression est le corps de la reponse 200 d'un POST portant

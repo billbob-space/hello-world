@@ -142,6 +142,35 @@ export function cocher(id, quand = new Date().toISOString()) {
   return faits;
 }
 
+// Fusionne dans la progression locale ce que le serveur rend sur une reprise,
+// et rend les faits a jour. C'est le seul endroit du projet ou la progression
+// entre par le reseau, et il n'enleve jamais rien : ce qui est deja coche ici
+// le reste, ce qui manque est ajoute.
+//
+// L'HORODATAGE LE PLUS ANCIEN GAGNE, et ce n'est pas un detail de tri : le PRD
+// §9 departage les ex aequo par « le premier arrive a ce score ». Reprendre sa
+// progression sur un second telephone ne doit donc pas faire reculer l'enfant
+// derriere quelqu'un qui a coche apres lui.
+//
+// Une valeur qui n'est pas une chaine non vide est ignoree, exactement comme
+// dans lireFaits : le corps vient du reseau, il se lit avec la meme defiance
+// que le stockage.
+export function fusionnerFaits(recus) {
+  if (recus === null || typeof recus !== 'object' || Array.isArray(recus)) return lireFaits();
+
+  const faits = lireFaits();
+  let change = false;
+  for (const [id, quand] of Object.entries(recus)) {
+    if (id === '' || typeof quand !== 'string' || quand === '') continue;
+    if (faits[id] === undefined || quand < faits[id]) {
+      faits[id] = quand;
+      change = true;
+    }
+  }
+  if (change) ecrireFaits(faits);
+  return faits;
+}
+
 // Decocher supprime la cle : un booleen `false` trainerait indefiniment et
 // gonflerait le stockage pour ne rien dire (ossature §6).
 export function decocher(id) {

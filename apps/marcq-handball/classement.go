@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -636,6 +637,20 @@ func (c *classement) enregistrer(e envoiClassement, jour string) (reponseEnvoi, 
 			faits[id] = maintenant
 		}
 	}
+	// UN ENVOI DE REPRISE N'ENLEVE RIEN. Le remplacement est le bon regime pour
+	// un telephone qui tient la fiche — c'est lui qui fait qu'une case decochee
+	// par erreur se rattrape. Il est le mauvais pour un telephone qui vient
+	// d'arriver : son ensemble est vide parce qu'il ne sait rien encore, pas
+	// parce que l'enfant a tout defait. On prend donc l'union, et l'horodatage
+	// deja stocke gagne — le PRD §9 departage les ex aequo par « le premier
+	// arrive a ce score », et une reprise ne doit pas rajeunir une marque.
+	if e.Reprise {
+		for id, quand := range p.Faits {
+			if _, ok := faits[id]; !ok {
+				faits[id] = quand
+			}
+		}
+	}
 	p.Faits = faits
 	if e.Ressentis != nil {
 		p.Ressentis = e.Ressentis
@@ -652,6 +667,14 @@ func (c *classement) enregistrer(e envoiClassement, jour string) (reponseEnvoi, 
 		Participants: r.Participants,
 		Programmees:  r.Programmees,
 		Ignores:      ignores,
+	}
+	// La fiche ne repart que vers celui qui vient de prouver qu'il en connait le
+	// code, et seulement quand il l'a demandee. Une COPIE, jamais la carte du
+	// participant : la rendre telle quelle laisserait un appelant ecrire dans
+	// l'etat du serveur sans passer par le verrou.
+	if e.Reprise {
+		rep.Faits = make(map[string]string, len(p.Faits))
+		maps.Copy(rep.Faits, p.Faits)
 	}
 	for i, l := range lignes {
 		if l.p == p {

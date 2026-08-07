@@ -364,10 +364,52 @@ deploiement sont conditionnes a sa presence dans la matrice de `detect`. Le PRP
 pour une app neuve ; personne n'avait ecrit ce qu'elle implique pour une app
 deja en ligne dont on veut rejouer la mise en ligne.
 
+### 17. Rejoindre depuis un second telephone effacait la progression du premier
+
+**Symptome** — rapporte par l'utilisateur, apres la mise en ligne : il ouvre
+l'application sur un autre appareil, saisit son pseudonyme et le bon code, et ne
+retrouve pas ses seances. Verification faite sur `/api/classement` en production,
+c'est pire que « rien n'est restaure » : sa fiche affichait
+`{"pseudo":"Alexandre","cochees":0}`. Le second telephone n'avait pas seulement
+echoue a lire — il avait ECRIT son ensemble vide par-dessus.
+
+**Cause** — le regime d'ecriture du serveur est le remplacement : « l'ensemble
+recu DEVIENT l'ensemble du participant », et c'est ce qui fait qu'une case
+decochee par erreur se rattrape (PRD §9, « le passe se corrige »). Ce regime est
+juste pour un telephone qui tient la fiche et faux pour un telephone qui vient
+d'arriver : son ensemble est vide parce qu'il ne sait rien encore, pas parce que
+l'enfant a tout defait. Le README annoncait la consequence — « un second
+telephone ecrase le score, il ne le fusionne pas » — mais l'annoncer n'est pas
+l'attenuer : le geste qui declenche l'ecrasement est exactement celui que le code
+a 4 chiffres invite a faire.
+
+**Ce qui manquait pour le voir** — rien dans les 241 tests ne pouvait l'attraper,
+et pas par negligence : chacun d'eux part d'un magasin neuf. Le defaut n'est pas
+dans une fonction, il est dans la SEQUENCE de deux sessions qui partagent une
+fiche. C'est la troisieme fois sur cette branche qu'un defaut reel tient a une
+composition et non a un calcul (anomalies 9, 10 et 11).
+
+**Consequence tenue** — un champ `reprise` sur l'envoi, pose par le seul ecran ou
+l'on saisit un code. Il fait deux choses et pas une de plus : l'envoi prend
+l'union au lieu de remplacer, et la reponse rend la fiche, que l'ecran fusionne
+dans la progression locale — l'horodatage le plus ancien gagnant, sans quoi une
+reprise ferait reculer l'enfant au departage des ex aequo. Le drapeau ne desserre
+aucun controle : le code est verifie avant, et un code refuse rend 403 sans rien
+toucher. Il n'est jamais devine par le serveur, qui ne sait pas distinguer un
+nouveau telephone d'un telephone qui a tout decoche.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `garde-fou` — le depot n'a aucun test qui joue DEUX sessions sur une
+meme fiche, alors que c'est le seul etat partage du projet. Les six ajoutes ici
+le font ; la famille reste a couvrir plus largement, et le parcours Playwright a
+deux contextes de navigateur — deux telephones, un enfant — est ce qui devrait
+accompagner tout changement touchant `classement.go`.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 08:05 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 10:11 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -375,22 +417,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 979 | 0,00 $ |
-| Écriture de cache | 3 198 824 | 16,23 $ |
-| Lecture de cache | 133 375 528 | 63,72 $ |
-| Sortie | 424 827 | 8,35 $ |
-| **Total** | **137 000 158** | **88,30 $ — 76,68 €** |
+| Entrée | 1 125 | 0,00 $ |
+| Écriture de cache | 3 469 241 | 17,92 $ |
+| Lecture de cache | 150 070 531 | 72,07 $ |
+| Sortie | 458 857 | 9,20 $ |
+| **Total** | **153 999 754** | **99,19 $ — 86,14 €** |
 
 **Ce qui coûte**
 
-- **516 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **589 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   54 704 jetons, écrits une fois par session puis relus à chaque
-  échange : 28 172 560 jetons de relecture, 21 % de tout ce qui a été relu.
+  échange : 32 165 952 jetons de relecture, 21 % de tout ce qui a été relu.
 - **Croissance** — 54 704 jetons relus au premier appel qui relise
-  quelque chose, 194 392 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 261 134 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 137000158 -->
+<!-- cout-total: 153999754 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 54704 0 374
 2 principal claude-opus-5 1047 54704 178
@@ -908,5 +950,78 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 514 principal claude-opus-5 580 193382 131
 515 principal claude-opus-5 430 193962 1270
 516 principal claude-opus-5 1341 194392 121
+517 principal claude-opus-5 4138 195733 760
+518 principal claude-opus-5 875 199871 126
+519 principal claude-opus-5 249 200746 1148
+520 principal claude-opus-5 1663 200995 388
+521 principal claude-opus-5 626 203046 335
+522 principal claude-opus-5 413 203672 32
+523 principal claude-opus-5 204398 0 204
+524 principal claude-opus-5 715 204398 244
+525 principal claude-opus-5 312 205113 67
+526 principal claude-opus-5 71 205492 658
+527 principal claude-opus-5 1056 205563 101
+528 principal claude-opus-5 149 206619 109
+529 principal claude-opus-5 933 206768 593
+530 principal claude-opus-5 1330 207701 906
+531 principal claude-opus-5 1375 209031 1255
+532 principal claude-opus-5 1448 210406 1322
+533 principal claude-opus-5 3268 211854 108
+534 principal claude-opus-5 941 215122 202
+535 principal claude-opus-5 901 216063 119
+536 principal claude-opus-5 2719 216964 970
+537 principal claude-opus-5 2128 219683 267
+538 principal claude-opus-5 1391 221811 653
+539 principal claude-opus-5 1955 223202 658
+540 principal claude-opus-5 1087 225157 708
+541 principal claude-opus-5 763 226244 838
+542 principal claude-opus-5 1048 227007 743
+543 principal claude-opus-5 799 228055 448
+544 principal claude-opus-5 588 228854 368
+545 principal claude-opus-5 426 229442 117
+546 principal claude-opus-5 367 229868 268
+547 principal claude-opus-5 395 230235 101
+548 principal claude-opus-5 258 230630 182
+549 principal claude-opus-5 612 230888 741
+550 principal claude-opus-5 799 231500 229
+551 principal claude-opus-5 293 232299 404
+552 principal claude-opus-5 468 232592 770
+553 principal claude-opus-5 834 233060 136
+554 principal claude-opus-5 437 233894 368
+555 principal claude-opus-5 555 234331 134
+556 principal claude-opus-5 1409 234886 1061
+557 principal claude-opus-5 1139 236295 200
+558 principal claude-opus-5 705 237434 174
+559 principal claude-opus-5 886 238139 128
+560 principal claude-opus-5 312 239025 838
+561 principal claude-opus-5 899 239337 107
+562 principal claude-opus-5 197 240236 202
+563 principal claude-opus-5 765 240433 721
+564 principal claude-opus-5 790 241198 150
+565 principal claude-opus-5 1012 241988 102
+566 principal claude-opus-5 802 243000 109
+567 principal claude-opus-5 710 243802 2207
+568 principal claude-opus-5 2324 244512 109
+569 principal claude-opus-5 225 246836 180
+570 principal claude-opus-5 279 247061 133
+571 principal claude-opus-5 149 247340 113
+572 principal claude-opus-5 224 247489 372
+573 principal claude-opus-5 380 247713 210
+574 principal claude-opus-5 224 248093 394
+575 principal claude-opus-5 604 248317 546
+576 principal claude-opus-5 923 248921 300
+577 principal claude-opus-5 736 249844 217
+578 principal claude-opus-5 355 250580 1694
+579 principal claude-opus-5 1787 250935 249
+580 principal claude-opus-5 504 252722 347
+581 principal claude-opus-5 647 253226 98
+582 principal claude-opus-5 870 253873 1433
+583 principal claude-opus-5 1488 254743 137
+584 principal claude-opus-5 1448 256231 599
+585 principal claude-opus-5 654 257679 680
+586 principal claude-opus-5 735 258333 549
+587 principal claude-opus-5 1603 259068 403
+588 principal claude-opus-5 463 260671 1315
+589 principal claude-opus-5 1386 261134 173
 -->
 <!-- /cout -->
