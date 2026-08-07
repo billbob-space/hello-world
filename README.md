@@ -230,6 +230,75 @@ le fait depuis le dépôt plutôt que depuis une case cochée sur le serveur.
 La stack `dockhand` elle-même ne change pas avec la fabrique : même dépôt, même
 `composePath: compose.yaml`, mêmes secrets. Seul son contenu grandit.
 
+## Regarder la production
+
+```bash
+./scripts/prod.sh                        # l'état des services de la stack
+./scripts/prod.sh journaux cadran 200    # les 200 dernières lignes de journal
+./scripts/prod.sh fichiers ardoise /data # ce qu'il y a dans un volume
+./scripts/prod.sh lire cadran /etc/hostname
+./scripts/prod.sh inspecter redis
+```
+
+Un agent n'a **ni SSH ni socket Docker**, et ne peut pas en avoir : tout le
+domaine est derrière Traefik, qui exige un compte Google avant de laisser passer
+quoi que ce soit, et un agent n'a pas de navigateur. Sans le détour ci-dessous,
+la seule façon de savoir ce que fait une application déployée est de demander une
+capture d'écran à un humain — un aller-retour par question, sur le seul
+environnement où l'on ne peut rien reproduire.
+
+Le détour est une **porte de service** sur l'API de `dockhand`, qui gère la
+stack : un routeur Traefik supplémentaire, **sans `ForwardAuth`**, posé sur le
+conteneur `dockhand` et restreint au chemin `/api` **et à la méthode `GET`**.
+
+```
+- "traefik.http.routers.dockhand-api.rule=Host(`dockhand.billbob.ovh`) && PathPrefix(`/api`) && Method(`GET`)"
+- "traefik.http.routers.dockhand-api.priority=200"
+- "traefik.http.routers.dockhand-api.entrypoints=websecure"
+- "traefik.http.routers.dockhand-api.middlewares=public,security-headers@file"
+- "traefik.http.routers.dockhand-api.tls.certresolver=letsencrypt"
+- "traefik.http.routers.dockhand-api.service=dockhand"
+```
+
+**`Method(GET)` est ce qui rend la lecture seule vraie**, et il n'y a rien
+d'autre. `dockhand` en édition libre **ne connaît pas les rôles** : tout jeton
+d'API y est administrateur, et un jeton dit « de lecture » n'existe pas. C'est
+donc le routeur, et lui seul, qui interdit d'arrêter la stack — un `POST` ne
+l'atteint même pas, il retombe sur le routeur d'origine et repart vers Google.
+Élargir cette règle, c'est déplacer le seul verrou : la porte est sur Internet,
+et le jeton la garde à lui tout seul.
+
+La priorité `200` doit rester **strictement supérieure** à celle du routeur de
+l'interface web, sans quoi Traefik continue de servir celui-ci. L'interface, elle,
+ne change pas : elle reste derrière la connexion Google.
+
+Le reste vit dans l'environnement, jamais dans ce dépôt — il est public pour
+l'outillage, un jeton qui y entre est un jeton perdu :
+
+| Variable | Contenu |
+|---|---|
+| `DOCKHAND_URL` | l'adresse de `dockhand`, sans barre finale |
+| `DOCKHAND_TOKEN` | un jeton créé dans *Settings → API tokens* de `dockhand` |
+
+À poser dans les variables de l'environnement cloud du projet. Une session déjà
+ouverte ne les voit pas : il en faut une nouvelle. Sans elles, `prod.sh` s'arrête
+en le disant plutôt qu'en échouant à mi-chemin.
+
+**Le contrôle qui prouve que la porte est bien étroite**, à rejouer après toute
+retouche du routeur — les trois doivent tomber juste :
+
+```bash
+curl -so /dev/null -w '%{http_code}\n' https://dockhand.billbob.ovh/api/health          # 200
+curl -so /dev/null -w '%{http_code}\n' https://dockhand.billbob.ovh/api/containers      # 401
+curl -so /dev/null -w '%{http_code}\n' -X POST https://dockhand.billbob.ovh/api/containers  # 307
+```
+
+`200` sans jeton sur `/api/health` dit que la porte est ouverte ; `401` sur une
+route qui porte des données dit que `dockhand` authentifie toujours ; `307` sur
+un `POST` dit que l'écriture reste derrière Google. Un `200` ou un `401` à la
+troisième ligne signifie que la porte laisse passer l'écriture — c'est la seule
+des trois qui soit une urgence.
+
 ## Outillage de l'agent
 
 Les plugins sont déclarés dans `.claude/settings.json`, versionné, et l'ensemble
