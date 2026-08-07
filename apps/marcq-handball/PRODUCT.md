@@ -546,7 +546,7 @@ quatorzième.
 | Livraison tardive | Chaque jour perdu est une séance non couverte | Lot 1 volontairement réduit à ce qui tient en 48 h |
 | Abandon après deux séances | L'app ne mesure plus rien | Zéro friction à l'entrée, récompense à chaque séance, aucun compte |
 | Un enfant gonfle son score | Classement faussé | Assumé : une équipe de gamins qui se connaissent, la triche se voit au vestiaire. Le classement est indicatif, pas un titre |
-| Perte du téléphone ou vidage du navigateur | Progression perdue | Assumé et **annoncé** : sans compte, il n'y a pas de sauvegarde. La page de réglages le dit |
+| Perte du téléphone ou vidage du navigateur | Progression perdue | Assumé et **annoncé** : sans compte, il n'y a pas de sauvegarde. La page de réglages le dit. **Une seule exception, et elle se mérite** : celui qui a rejoint le classement retrouve ses séances sur un autre téléphone en ressaisissant son nom et son code — le serveur en tient la liste depuis qu'il l'a rejoint. Le prénom, les ressentis et tout ce qui précède l'inscription ne se récupèrent pas |
 | Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et supprimable |
 | Trafic automatisé sur l'URL publique | Bruit, charge | Aucune donnée sensible à atteindre ; c'est le principe même du § 5 |
 

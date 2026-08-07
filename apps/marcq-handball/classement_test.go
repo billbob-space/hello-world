@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -636,5 +637,111 @@ func TestFaitsAbsentEstRefuseMaisFaitsVideEstLegitime(t *testing.T) {
 	}
 	if _, _, err := cl.enregistrer(envoiClassement{Pseudo: "Renard", Code: "4821", Faits: trop}, jourTest); err != errFaitsInvalide {
 		t.Errorf("faits trop long : erreur = %v, attendu %v", err, errFaitsInvalide)
+	}
+}
+
+// reprendre est l'envoi du SEUL ecran ou l'on saisit un code : celui d'un
+// telephone qui se rattache a une fiche qu'il ne connait pas encore.
+func reprendre(t *testing.T, cl *classement, pseudo, code string, faits ...string) reponseEnvoi {
+	t.Helper()
+	if faits == nil {
+		faits = []string{}
+	}
+	rep, _, err := cl.enregistrer(envoiClassement{
+		Pseudo: pseudo, Code: code, Faits: faits, Reprise: true,
+	}, jourTest)
+	if err != nil {
+		t.Fatalf("enregistrer(%s, reprise) : %v", pseudo, err)
+	}
+	return rep
+}
+
+func TestUnSecondTelephoneRecupereEtNEffaceRien(t *testing.T) {
+	cl, _, _ := magasinDeTest(t)
+
+	envoyer(t, cl, "Renard", "4821", "s1-c1", "s1-c2", "s1-r1")
+
+	// Le second telephone n'a rien coche : sans le drapeau, son ensemble vide
+	// remplacerait la fiche et l'enfant retomberait a zero au classement. C'est
+	// exactement le defaut constate en production le 2026-08-07.
+	rep := reprendre(t, cl, "Renard", "4821")
+	if rep.Cochees != 3 {
+		t.Fatalf("cochees = %d apres reprise a vide, attendu 3 — la fiche a ete effacee", rep.Cochees)
+	}
+	if len(rep.Faits) != 3 {
+		t.Fatalf("faits rendus = %d, attendu 3 — le telephone ne peut pas se remettre a jour", len(rep.Faits))
+	}
+	for _, id := range []string{"s1-c1", "s1-c2", "s1-r1"} {
+		if rep.Faits[id] == "" {
+			t.Errorf("%s absent de la fiche rendue", id)
+		}
+	}
+}
+
+func TestLaRepriseUnitLesDeuxTelephones(t *testing.T) {
+	cl, _, _ := magasinDeTest(t)
+
+	envoyer(t, cl, "Renard", "4821", "s1-c1")
+	// Le second telephone a coche autre chose de son cote, hors ligne.
+	rep := reprendre(t, cl, "Renard", "4821", "s1-c2")
+
+	if rep.Cochees != 2 {
+		t.Fatalf("cochees = %d, attendu 2 — l'union des deux telephones", rep.Cochees)
+	}
+	if rep.Faits["s1-c1"] == "" || rep.Faits["s1-c2"] == "" {
+		t.Errorf("faits rendus = %v, attendu les deux identifiants", rep.Faits)
+	}
+}
+
+func TestLaRepriseNeRajeunitPasUneMarque(t *testing.T) {
+	cl, _, h := magasinDeTest(t)
+
+	envoyer(t, cl, "Renard", "4821", "s1-c1")
+	premier := cl.parCle["renard"].Faits["s1-c1"]
+
+	h.avancer(time.Hour)
+	rep := reprendre(t, cl, "Renard", "4821", "s1-c1")
+
+	// Le PRD §9 departage les ex aequo par « le premier arrive a ce score ».
+	// Une reprise qui rajeunirait la marque ferait reculer l'enfant derriere
+	// quelqu'un qui a coche apres lui.
+	if garde := cl.parCle["renard"].Faits["s1-c1"]; garde != premier {
+		t.Errorf("s1-c1 horodate %s apres reprise, attendu %s", garde, premier)
+	}
+	if rep.Faits["s1-c1"] != premier {
+		t.Errorf("la fiche rendue porte %s, attendu %s", rep.Faits["s1-c1"], premier)
+	}
+}
+
+func TestUnEnvoiOrdinaireNeRendJamaisLaFiche(t *testing.T) {
+	cl, _, _ := magasinDeTest(t)
+
+	// Un enfant qui coche ne recoit pas la liste de ce qu'il a deja coche : il
+	// l'a deja, et la fiche ne repart que vers qui vient de prouver qu'il
+	// connait le code qui l'ouvre, au moment ou il le demande.
+	if rep := envoyer(t, cl, "Renard", "4821", "s1-c1"); rep.Faits != nil {
+		t.Errorf("faits rendus sur un envoi ordinaire : %v", rep.Faits)
+	}
+	if rep := envoyer(t, cl, "Renard", "4821", "s1-c1", "s1-c2"); rep.Faits != nil {
+		t.Errorf("faits rendus sur une mise a jour : %v", rep.Faits)
+	}
+}
+
+func TestLaRepriseExigeLeCodeCommeLeReste(t *testing.T) {
+	cl, _, _ := magasinDeTest(t)
+
+	envoyer(t, cl, "Renard", "4821", "s1-c1")
+
+	// Le drapeau ne desserre RIEN : il change ce que l'envoi fait de l'ensemble
+	// recu, jamais qui a le droit de l'envoyer. Sans cette assertion, « reprise »
+	// serait une porte pour lire la fiche de n'importe quel nom du podium.
+	_, _, err := cl.enregistrer(envoiClassement{
+		Pseudo: "Renard", Code: "0000", Faits: []string{}, Reprise: true,
+	}, jourTest)
+	if !errors.Is(err, errCodeRefuse) {
+		t.Fatalf("err = %v, attendu code-refuse", err)
+	}
+	if cl.parCle["renard"].Faits["s1-c1"] == "" {
+		t.Error("un code refuse a tout de meme touche a la fiche")
 	}
 }

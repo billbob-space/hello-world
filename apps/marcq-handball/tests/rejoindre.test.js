@@ -313,3 +313,31 @@ test('les deux issues d une suppression aboutie se distinguent, sans erreur', ()
   assert.equal(rejoindre.DEJA_RETIRE, 'Ce nom n’était plus au classement. C’est réglé.');
   assert.notEqual(rejoindre.RETIRE, rejoindre.DEJA_RETIRE);
 });
+
+test('rejoindre depuis un second telephone recupere, et n efface pas', () => {
+  const code = source('vue-rejoindre.js');
+
+  // La demande de reprise part d'ici, et de nulle part ailleurs : c'est le seul
+  // ecran ou l'on saisit un code, donc le seul moment ou un telephone peut se
+  // rattacher a une fiche qu'il ne connait pas encore.
+  assert.match(code, /reprise:\s*true/, 'l envoi de cet ecran demande la reprise');
+  assert.equal(
+    (source('classement.js').match(/reprise:\s*true/g) ?? []).length, 0,
+    'les envois automatiques ne la demandent jamais — sinon decocher ne se rattraperait plus',
+  );
+
+  // Ce que le serveur rend entre dans la progression locale.
+  assert.ok(code.includes('fusionnerFaits('), 'la fiche rendue est fusionnee');
+  assert.ok(
+    code.indexOf('fusionnerFaits(') < code.indexOf('empreinte(apres)'),
+    'on fusionne AVANT de calculer l empreinte',
+  );
+  // L'empreinte doit etre celle d'apres la fusion. Prise sur les faits envoyes,
+  // elle ferait repartir aussitot un envoi ordinaire — donc un remplacement —
+  // avec un ensemble plus petit que la fiche : la reprise serait defaite dans
+  // la seconde qui suit.
+  assert.equal(
+    /empreinte\(faits\)/.test(code), false,
+    'l empreinte ne se calcule plus sur ce qui a ete envoye',
+  );
+});

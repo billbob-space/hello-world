@@ -56,8 +56,13 @@ export function empreinte(faits) {
 // signature avec `ressentis`, et corpsSuppression porte `supprimer`. Les
 // identifiants sont tries pour qu'un meme etat produise un meme corps — ce qui
 // se relit dans les journaux d'un navigateur sans avoir a trier a l'oeil.
-export function corpsEnvoi({ pseudo, code, faits, ressentis }) {
+export function corpsEnvoi({ pseudo, code, faits, ressentis, reprise = false }) {
   const corps = { pseudo, code, faits: Object.keys(faits ?? {}).sort() };
+  // `reprise` ne part que quand elle vaut vrai, et un seul ecran la met : celui
+  // ou l'on saisit un nom et un code. Elle dit au serveur « n'enleve rien de ce
+  // que tu sais deja de ce nom » — sans elle, un telephone qui vient d'arriver
+  // effacerait avec son ensemble vide tout ce qui a ete coche ailleurs.
+  if (reprise) corps.reprise = true;
   // La cle n'apparait QUE lorsqu'il y a quelque chose a dire. Le serveur la
   // declare facultative et accepterait un objet vide ; l'omettre garde le corps
   // IDENTIQUE a celui d'un enfant qui n'a jamais repondu — donc l'assertion qui
@@ -140,11 +145,11 @@ export async function relever(options = {}) {
   return { ok: true, statut: r.statut, instantane: r.corps, moi: null, suppression: null, cree: false };
 }
 
-export async function envoyer({ pseudo, code, faits, ressentis }, options = {}) {
+export async function envoyer({ pseudo, code, faits, ressentis, reprise = false }, options = {}) {
   const r = await requete({
     method: 'POST',
     headers: ENTETES_JSON,
-    body: JSON.stringify(corpsEnvoi({ pseudo, code, faits, ressentis })),
+    body: JSON.stringify(corpsEnvoi({ pseudo, code, faits, ressentis, reprise })),
   }, options);
   if (!r.ok) return r;
   // 201 a la creation du pseudonyme, 200 a chaque mise a jour : le corps est le
