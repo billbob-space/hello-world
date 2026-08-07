@@ -315,6 +315,41 @@ Un stockage refusé — navigation privée — ou plein ne casse rien : les vale
 sont gardées en mémoire pour la durée de l'onglet. Elles ne survivent alors pas
 à la fermeture, ce que la page de réglages annonce.
 
+## Le minuteur d'un exercice
+
+Chaque exercice porte un minuteur, à droite de sa ligne — `web/chrono.js`, monté
+par `web/vue-seance.js`.
+
+**C'est le programme qui décide du mode, jamais l'enfant.** Un exercice dont la
+durée est prescrite reçoit un **compte à rebours** : les deux seules unités de
+temps de `programme.json` sont `gainage_s` (secondes) et `min_course` (minutes),
+soit 23 des 53 cases. Les 30 autres, comptées en répétitions, reçoivent un
+**chronomètre** qui monte. Un rebours sur « 15 pompes » inventerait une limite
+que le coach n'a pas donnée ; un chronomètre sur un gainage de 45 s demanderait à
+l'enfant de surveiller un nombre au lieu de tenir sa position.
+
+Quatre décisions valent d'être connues avant de toucher à ce fichier :
+
+- **Le bouton est HORS de l'étiquette**, et c'est structurel : l'étiquette couvre
+  toute la ligne — c'est ce qui donne sa zone de tap pleine largeur — donc un
+  bouton posé dedans **cocherait l'exercice à chaque démarrage**. Un test lit
+  l'ordre des `append` pour l'interdire.
+- **Le temps se calcule, il ne s'incrémente pas.** L'état garde l'instant du
+  dernier démarrage et le temps déjà acquis ; un onglet mis en veille cesse de
+  recevoir ses battements, et un minuteur qui les compterait afficherait 3 s au
+  bout de 30.
+- **Un seul minuteur tourne à la fois.** L'écran crée un « orchestre » et le
+  passe à chacun : en démarrer un fige celui qui tournait. Deux comptes à rebours
+  concurrents sur un téléphone tenu à bout de bras ne se lisent pas.
+- **Aucune persistance, aucun réseau.** Un rebours qui reprendrait à 12 s deux
+  jours plus tard serait plus déroutant qu'utile. À zéro : une pulsation
+  (`navigator.vibrate`) et jamais un son — l'app s'ouvre au gymnase. Il ne coche
+  rien tout seul : cocher reste le geste de l'enfant (PRD §7.3).
+
+Le bouton de remise à zéro est masqué par `visibility` et jamais par `hidden` :
+`hidden` rétrécirait la ligne tant que le minuteur dort, et son apparition au
+premier tap décalerait le libellé sous le pouce qui vient d'appuyer.
+
 ## L'écran « Ma progression »
 
 Trois choses, dans cet ordre (PRD §7.5) : la **part** des exercices accomplis

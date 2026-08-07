@@ -7,6 +7,7 @@
 
 import { etatSeance } from './domaine.js';
 import { cocher, decocher } from './etat.js';
+import { creerOrchestre, monterChrono } from './chrono.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
 // --- les libelles -----------------------------------------------------------
@@ -75,6 +76,10 @@ export function modeleSeance(ctx, dateISO) {
       exercices: bloc.exercices.map((ex) => ({
         id: ex.id,
         libelle: ex.libelle,
+        // La mesure passe TELLE QUELLE : c'est `chrono.js` qui decide s'il y a
+        // une duree prescrite, et lui seul. La recopier ici en « minuteur oui/
+        // non » mettrait la meme regle a deux endroits.
+        mesure: ex.mesure ?? null,
         fait: Object.prototype.hasOwnProperty.call(faits, ex.id),
       })),
     })),
@@ -206,6 +211,10 @@ export function monterSeance(hote, ctx) {
   // toute la liste — un rendu complet perdrait le focus et la position de
   // defilement au milieu d'une seance.
   const lignes = new Map();
+  // Un seul minuteur tourne a la fois, sur toute la seance : l'orchestre est
+  // cree ici et passe a chacun.
+  const orchestre = creerOrchestre();
+  const demontages = [];
 
   for (const bloc of modele.blocs) {
     const groupe = el('section', 'bloc-seance');
@@ -232,6 +241,11 @@ export function monterSeance(hote, ctx) {
 
       etiquette.append(boite, el('span', 'libelle-exercice', ex.libelle));
       item.append(etiquette);
+      // LE MINUTEUR EST HORS DE L'ETIQUETTE, et ce n'est pas un detail de mise
+      // en page : un bouton place dedans ferait basculer la case a chaque tap —
+      // l'etiquette couvre toute la ligne, c'est ce qui donne au PRP 04 sa zone
+      // de tap pleine largeur. Demarrer un rebours cocherait donc l'exercice.
+      demontages.push(monterChrono(item, ex.mesure, { orchestre }));
       liste.append(item);
       lignes.set(ex.id, item);
     }
@@ -298,4 +312,7 @@ export function monterSeance(hote, ctx) {
   });
 
   hote.append(section);
+  // Chaque minuteur pose un battement ; sans ce demontage, quitter l'ecran en
+  // laisserait tourner un par visite.
+  return () => { for (const arreter of demontages) arreter(); };
 }
