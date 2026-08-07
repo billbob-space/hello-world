@@ -127,7 +127,7 @@ test('la coque porte l hote des ecrans, la navigation et le module d amorcage', 
 });
 
 test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
-  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'rejoindre', 'coach', 'bilan', 'jour']);
+  assert.deepEqual(ECRANS.map((e) => e.nom), ['reglages', 'seance', 'perso', 'equipe', 'rejoindre', 'coach', 'bilan', 'jour']);
   assert.equal(choisirEcran('#/').nom, 'jour');
   assert.equal(choisirEcran('').nom, 'jour', 'une adresse sans ancre ouvre le jour');
   assert.equal(choisirEcran('#').nom, 'jour');
@@ -135,6 +135,8 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
   assert.equal(choisirEcran('#/seance/2026-08-03').nom, 'seance');
   assert.equal(choisirEcran('#/seance/2026-13-45'), null, 'une date impossible reste inconnue');
   assert.equal(choisirEcran('#/perso').nom, 'perso');
+  assert.equal(choisirEcran('#/equipe').nom, 'equipe');
+  assert.equal(choisirEcran('#/equipe/'), null, 'le motif est exact');
   assert.equal(choisirEcran('#/rejoindre').nom, 'rejoindre');
   assert.equal(choisirEcran('#/coach').nom, 'coach');
   assert.equal(choisirEcran('#/coach/'), null, 'le motif est exact');
@@ -147,9 +149,21 @@ test('le routeur connait les ecrans de ce lot, et rejette les autres', () => {
   // fait remarquer.
   assert.deepEqual(ECRANS.filter((e) => e.sansPrenom === true).map((e) => e.nom), ['coach']);
 
+  // Un onglet vers l'ecran de LECTURE de l'equipe, et c'est tout : podium,
+  // position, jauge, et le bouton qui mene au consentement. Il a fallu le poser
+  // parce que ce bloc, au bas de « Ma progression », etait derriere un
+  // calendrier de dix-neuf jours a derouler.
+  assert.deepEqual(
+    LIENS.map((l) => l.href),
+    ['#/', '#/perso', '#/equipe', '#/reglages'],
+    'l onglet de l equipe vient apres la progression, avant les reglages',
+  );
+
   // AUCUN onglet vers le consentement : un onglet permanent en ferait un ecran
   // d'accueil de plus, exactement ce que le PRD §7.4 refuse. On y arrive par le
-  // bouton de #/perso, « au moment ou il y a un vrai choix a faire ».
+  // bouton de #/equipe, « au moment ou il y a un vrai choix a faire ». C'est
+  // toute la difference entre l'onglet ci-dessus et celui-ci : le premier mene a
+  // ce qu'on regarde, le second aurait mene a ce qu'on decide.
   assert.equal(LIENS.some((l) => l.href.includes('rejoindre')), false);
   // Ni vers la page du coach : un onglet permanent mettrait sa vue dans la
   // barre de navigation des enfants.
@@ -164,7 +178,7 @@ test('toute classe posee par un ecran existe dans style.css', () => {
   const css = source('style.css');
   const classes = new Set();
   const fichiers = ['app.js', 'vue-prenom.js', 'vue-jour.js', 'vue-reglages.js',
-    'vue-seance.js', 'vue-perso.js', 'vue-rejoindre.js'];
+    'vue-seance.js', 'vue-perso.js', 'vue-rejoindre.js', 'vue-classement.js'];
   for (const nom of fichiers) {
     const code = source(nom);
     const avant = classes.size;

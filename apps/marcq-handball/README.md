@@ -282,7 +282,16 @@ fichiers statiques et une sonde de santé, et ne connaît aucun utilisateur.
 | `#/` (ou adresse sans ancre) | la séance du jour, ou le repos, ou la fin | `web/vue-jour.js` |
 | `#/seance/<YYYY-MM-DD>` | une séance : la liste complète, cochable si sa date est passée ou en cours (PRD §9) | `web/vue-seance.js` |
 | `#/perso` | ma progression : la part, le volume accompli, le calendrier | `web/vue-perso.js` |
+| `#/equipe` | l'équipe : podium, position, jauge de groupe, et le geste pour rejoindre ou récupérer | `web/vue-classement.js` |
 | `#/reglages` | corriger le prénom, changer d'enfant | `web/vue-reglages.js` |
+
+**`#/equipe` a un onglet, `#/rejoindre` n'en a pas**, et la distinction est la
+règle : un onglet mène à ce qu'on **regarde**, jamais à ce qu'on **décide**. Le
+consentement reste derrière un bouton, « au moment où il y a un vrai choix à
+faire » (PRD §7.4). L'écran de l'équipe est un simple contenant — il ne calcule
+rien et n'appelle personne : tout ce qu'il montre vient de `web/vue-equipe.js`,
+tout ce qu'il fait vient de `web/vue-rejoindre.js`. Il ne pose pas non plus de
+titre : `monterEquipe` écrit déjà le sien, et un second l'affichait deux fois.
 
 Tant qu'aucun prénom n'est enregistré, aucune route n'est honorée :
 `web/vue-prenom.js` s'affiche à la place. C'est le seul péage de l'application.
@@ -348,6 +357,29 @@ rendu), à la fin d'une séance, au retour du réseau, et sur un geste explicite
 **Jamais à chaque case cochée** — 53 requêtes sur un programme, c'est ce qui
 ferait mordre la limite de débit du palier public sur un enfant réel plutôt que
 sur un robot.
+
+### Ce qu'un refus doit faire, et où il doit s'écrire
+
+**Un message d'erreur se lit sous son champ.** Le formulaire portait une seule
+ligne de retour, au bas de l'écran ; un refus s'y affichait bien, mais à un
+champ, un bouton et une explication de distance du regard, et derrière le clavier
+du téléphone. Le rapport correspondant disait « rien ne se passe ». Chaque champ
+a donc désormais son message, sous lui, avec quatre signaux dont aucun ne suffit
+seul : `role="alert"` pour l'annonce vocale, `aria-describedby` pour le rattacher
+au champ, `aria-invalid` et la classe `.champ-en-erreur` pour la bordure rouge —
+**le seul signal qui survit à un message poussé hors de l'écran par le clavier**
+— et le focus sur le champ fautif, qui l'amène dans la fenêtre avec son message.
+Le message part au premier `input` : il a fait son travail.
+
+**Un refus propose une issue.** Un emoji dans un pseudonyme n'est pas une faute à
+corriger, c'est une envie que le serveur ne sait pas stocker ; renvoyer l'enfant à
+son clavier pour qu'il devine *lequel* de ses caractères dérange est une impasse.
+`nettoyerPseudo` retire ce qui ne passe pas — en le remplaçant par une espace,
+pour que `Tom.le.chevre` rende `Tom le chevre` et non `Tomlechevre` — et l'écran
+**propose** le reste : la proposition arrive dans le champ, et c'est un second
+appui qui l'envoie. Rien n'est corrigé en silence, un nom public ne se modifie pas
+dans le dos de celui qui le porte. Quand il ne reste rien à garder, le refus est
+dit franchement.
 
 ### Trois comportements à connaître avant de les découvrir
 

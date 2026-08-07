@@ -301,15 +301,26 @@ test('toute classe posee par l ecran equipe existe dans style.css', () => {
 // --- le branchement ---------------------------------------------------------
 
 test('l equipe se monte AVANT le bloc d action, et la coque la connait', () => {
-  const perso = source('vue-perso.js');
-  assert.ok(perso.includes('monterEquipe('), 'l ecran perso monte le bloc equipe');
+  // L'equipe a quitte le bas de « Ma progression » pour son propre ecran : elle
+  // y etait derriere un calendrier de dix-neuf jours a derouler, donc nulle
+  // part. L'ORDRE INTERNE, lui, ne bouge pas — on lit ou l'on en est, puis ce
+  // qu'on peut faire.
+  const ecran = source('vue-classement.js');
+  assert.ok(ecran.includes('monterEquipe('), 'l ecran de l equipe monte le bloc equipe');
   assert.ok(
-    perso.indexOf('monterEquipe(') < perso.indexOf('monterActionClassement('),
+    ecran.indexOf('monterEquipe(') < ecran.indexOf('monterActionClassement('),
     'podium, position et jauge viennent AU-DESSUS du bouton',
   );
-  // Sans cette entree, le premier passage hors ligne sur #/perso echoue, et rien
+  // Et « Ma progression » ne le monte plus : deux endroits qui montent les memes
+  // ecouteurs sur `document` en poseraient deux par visite.
+  const perso = source('vue-perso.js');
+  assert.equal(perso.includes('monterEquipe('), false, 'un seul ecran monte l equipe');
+  assert.equal(perso.includes('monterActionClassement('), false);
+
+  // Sans ces entrees, le premier passage hors ligne sur l'ecran echoue, et rien
   // ne le signale tant qu'on reste connecte.
   assert.match(source('sw.js'), /'\/vue-equipe\.js'/);
+  assert.match(source('sw.js'), /'\/vue-classement\.js'/);
 });
 
 // --- l animation ------------------------------------------------------------

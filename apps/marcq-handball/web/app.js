@@ -12,6 +12,7 @@ import { monterReglages } from './vue-reglages.js';
 import { MOTIF_SEANCE, monterSeance } from './vue-seance.js';
 import { monterPerso } from './vue-perso.js';
 import { monterRejoindre } from './vue-rejoindre.js';
+import { monterClassement } from './vue-classement.js';
 import { brancherSynchronisation } from './classement.js';
 import { MOTIF_COACH, monterCoach } from './vue-coach.js';
 import { MOTIF_BILAN, MOTIF_RACINE, bascule, monterBilan } from './vue-bilan.js';
@@ -32,6 +33,7 @@ export const ECRANS = [
   { nom: 'reglages', motif: /^#\/reglages$/, monter: monterReglages },
   { nom: 'seance', motif: MOTIF_SEANCE, monter: monterSeance },
   { nom: 'perso', motif: /^#\/perso$/, monter: monterPerso },
+  { nom: 'equipe', motif: /^#\/equipe$/, monter: monterClassement },
   { nom: 'rejoindre', motif: /^#\/rejoindre$/, monter: monterRejoindre },
   // `sansPrenom` est l'exception minimale au verrou d'entree ci-dessous. Le
   // coach n'a pas de prenom a saisir et n'en aura jamais : sans elle, il
@@ -62,6 +64,12 @@ export const ECRANS = [
 export const LIENS = [
   { href: '#/', texte: 'Aujourd’hui' },
   { href: '#/perso', texte: 'Ma progression' },
+  // « L'equipe » a son onglet depuis que la comparaison a quitte le bas de « Ma
+  // progression » : elle y etait derriere un calendrier a derouler, donc
+  // introuvable. L'onglet mene a l'ecran de LECTURE, jamais au consentement —
+  // celui-ci reste derriere un bouton, « au moment ou il y a un vrai choix a
+  // faire » (PRD §7.4), et un test le verifie.
+  { href: '#/equipe', texte: 'L’équipe' },
   { href: '#/reglages', texte: 'Réglages' },
 ];
 

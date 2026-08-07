@@ -400,3 +400,98 @@ test('hors ligne, la reprise n agit pas et le dit', () => {
     'le garde hors ligne passe avant le premier appel reseau du fichier',
   );
 });
+
+// --- les cas d erreur -------------------------------------------------------
+//
+// Signale apres la mise en ligne : « il a ajoute un espace et un emoji dans le
+// nom, rien ne se passe ». Le message s'affichait pourtant. Il etait au BAS du
+// formulaire, a un champ, un bouton et une explication de distance du regard —
+// et derriere le clavier du telephone. Un message qu'on ne voit pas n'existe
+// pas, et un refus sans issue est une impasse.
+
+test('un emoji ne refuse pas la saisie, il propose ce qui en reste', () => {
+  assert.deepEqual(rejoindre.nettoyerPseudo('Tom 🐐'), { valeur: 'Tom', aRetire: true });
+  assert.deepEqual(rejoindre.nettoyerPseudo('Tom 👨‍👩‍👦'), { valeur: 'Tom', aRetire: true });
+  assert.deepEqual(rejoindre.nettoyerPseudo('Tom 🇫🇷'), { valeur: 'Tom', aRetire: true });
+  // Un separateur retire laisse un ESPACE : « Tom.le.chevre » vaut mieux que
+  // « Tomlechevre », qui n'est plus le nom que l'enfant a voulu.
+  assert.deepEqual(rejoindre.nettoyerPseudo('Tom.le.chevre'), { valeur: 'Tom le chevre', aRetire: true });
+  // Une saisie deja valide n'est pas « nettoyee » : sans quoi l'ecran poserait
+  // une question a quelqu'un qui n'a rien fait de mal.
+  assert.deepEqual(rejoindre.nettoyerPseudo('Chevre-07'), { valeur: 'Chevre-07', aRetire: false });
+  assert.deepEqual(rejoindre.nettoyerPseudo('L’ours'), { valeur: "L'ours", aRetire: false });
+  // Ce qui ne laisse rien ne laisse rien : le repli n'existe pas toujours.
+  assert.deepEqual(rejoindre.nettoyerPseudo('🐐'), { valeur: '', aRetire: true });
+  // Et la coupe reste a seize runes, comme la validation.
+  assert.equal([...rejoindre.nettoyerPseudo('Abcdefghijklmnopqrstuvwxyz🐐').valeur].length, 16);
+});
+
+test('ce que la proposition dit, et ce qu elle ne fait pas', () => {
+  assert.equal(
+    rejoindre.phraseNettoyage('Tom'),
+    'Les emojis et les caractères spéciaux ne passent pas. On garde « Tom » ?',
+  );
+  // Le nom propose est CITE. Sans lui, la phrase demande de comparer deux etats
+  // du champ de memoire, au moment precis ou le clavier cache le champ.
+  assert.match(rejoindre.phraseNettoyage('Tom le chevre'), /« Tom le chevre »/);
+  // Une question, pas une annonce : le nom est public, il ne se corrige pas dans
+  // le dos de celui qui le porte. Un second appui l'envoie.
+  assert.match(rejoindre.phraseNettoyage('Tom'), /\?$/);
+  assert.equal(rejoindre.RIEN_A_GARDER, 'Il ne reste rien à garder. Écris un nom en lettres ou en chiffres.');
+
+  const code = source('vue-rejoindre.js');
+  // La proposition ARRIVE DANS LE CHAMP, et l'envoi s'arrete la.
+  assert.ok(
+    code.indexOf('champPseudo.value = propre.valeur') < code.indexOf('phraseNettoyage(propre.valeur)'),
+    'le champ porte la proposition avant que la phrase ne la commente',
+  );
+  assert.equal(
+    /nettoyerPseudo\([^)]*\)[\s\S]{0,400}?await envoyer\(/.test(code), false,
+    'aucun envoi ne suit un nettoyage sans un nouveau geste',
+  );
+});
+
+test('un message d erreur se lit sous son champ, et le marque', () => {
+  const code = source('vue-rejoindre.js');
+  // Quatre signaux, et aucun ne suffit seul. La bordure est le seul qui survive
+  // a un message pousse hors de l'ecran par le clavier du telephone.
+  assert.match(code, /role', 'alert'/, 'un lecteur d ecran l annonce comme une alerte');
+  assert.match(code, /aria-invalid/);
+  assert.match(code, /aria-describedby/);
+  assert.match(code, /champ-en-erreur/);
+  assert.match(code, /champ\.focus\(\)/, 'le champ fautif vient sous les yeux');
+  assert.match(code, /scrollIntoView/, 'et le message vient avec lui');
+
+  // Il part des que l'enfant retouche sa saisie : un message qui reste sous un
+  // champ corrige devient un reproche.
+  assert.match(code, /champ\.addEventListener\('input', effacer\)/);
+
+  // La zone d'erreur generale existe toujours, pour ce qui ne vient pas d'un
+  // champ : reseau coupe, delai depasse, refus du serveur.
+  assert.match(code, /retour\.textContent = phraseDe\(resultat\)/);
+
+  const css = source('style.css');
+  for (const classe of ['.erreur-champ', '.champ-en-erreur']) {
+    assert.ok(css.includes(classe), `${classe} manque dans style.css`);
+  }
+});
+
+test('l equipe a son onglet, et le consentement n en a toujours pas', () => {
+  assert.equal(rejoindre.TITRE_ECRAN_CLASSEMENT, 'L’équipe');
+  assert.equal(rejoindre.RETOUR_CLASSEMENT, '#/equipe');
+  // On revient d ou l on vient : le bouton qui mene au consentement est sur cet
+  // ecran-la, et nulle part ailleurs.
+  assert.equal(source('vue-rejoindre.js').includes("ctx.aller('#/perso')"), false);
+
+  const app = source('app.js');
+  assert.match(app, /#\/equipe/);
+  // « L'equipe » et non « Classement » : on y lit un podium, une position ET une
+  // jauge de groupe — la seule mesure ou personne n'est dernier. « Classement »
+  // promettrait le tableau complet que le PRD §9 refuse d'afficher.
+  assert.equal(app.includes("texte: 'Classement'"), false);
+
+  const ecran = source('vue-classement.js');
+  // L'ecran est un CONTENANT : il ne calcule rien et n'appelle personne.
+  assert.equal(/fetch\(/.test(ecran), false);
+  assert.equal(ecran.includes('./etat.js'), false, 'il ne lit pas le telephone lui-meme');
+});
