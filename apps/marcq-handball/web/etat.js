@@ -133,8 +133,8 @@ function ecrireFaits(faits) {
 }
 
 // Coche un exercice et rend les faits a jour. L'horodatage n'est pas decoratif :
-// le PRD §9 departage les egalites au classement par « le premier arrive a ce
-// score ». Recocher ne rajeunit donc pas la marque.
+// il date la PREMIERE coche, et c'est ce qu'une reprise sur un second telephone
+// preserve. Recocher ne rajeunit donc pas la marque.
 export function cocher(id, quand = new Date().toISOString()) {
   const faits = lireFaits();
   if (faits[id] !== undefined) return faits;
@@ -148,10 +148,11 @@ export function cocher(id, quand = new Date().toISOString()) {
 // entre par le reseau, et il n'enleve jamais rien : ce qui est deja coche ici
 // le reste, ce qui manque est ajoute.
 //
-// L'HORODATAGE LE PLUS ANCIEN GAGNE, et ce n'est pas un detail de tri : le PRD
-// §9 departage les ex aequo par « le premier arrive a ce score ». Reprendre sa
-// progression sur un second telephone ne doit donc pas faire reculer l'enfant
-// derriere quelqu'un qui a coche apres lui.
+// L'HORODATAGE LE PLUS ANCIEN GAGNE. Il ne departage plus aucun rang — depuis
+// le 7 aout, a egalite personne n'est devant (PRD §9) — mais il dit QUAND la
+// case a ete cochee pour la premiere fois, et c'est le seul endroit ou cette
+// date se lit. Une reprise qui la rajeunirait de plusieurs jours ferait raconter
+// au telephone une histoire fausse, sans que rien ne le signale.
 //
 // Une valeur qui n'est pas une chaine non vide est ignoree, exactement comme
 // dans lireFaits : le corps vient du reseau, il se lit avec la meme defiance
@@ -287,7 +288,7 @@ export function lireRessentis() {
 }
 
 // La valeur REMPLACE celle du jour, la ou `cocher` refuse de rajeunir une
-// marque : un horodatage departage un classement (PRD §9), une reponse est
+// marque : un horodatage date un fait qui a eu lieu une fois, une reponse est
 // juste la derniere donnee.
 export function ecrireRessenti(dateISO, valeur) {
   const ressentis = lireRessentis();

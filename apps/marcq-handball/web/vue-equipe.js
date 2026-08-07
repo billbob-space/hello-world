@@ -1,7 +1,7 @@
 // vue-equipe.js — le second niveau du PRD §7.5 : ou l'enfant se situe.
 //
 // Trois blocs, dans cet ordre et il n'est pas negociable : le podium, qui nomme
-// trois personnes ; la position, qui n'en nomme aucune ; la jauge collective, la
+// trois marches ; la position, qui n'en nomme aucune ; la jauge collective, la
 // seule mesure ou personne n'est dernier — et c'est elle qu'on lit en refermant.
 //
 // Ce fichier ne calcule JAMAIS un rang que le serveur a tranche. La seule
@@ -20,9 +20,13 @@ export const TITRE_EQUIPE = 'L’équipe';
 export const TEXTE_ACTUALISER = 'Actualiser';
 export const PHRASE_PERSONNE = 'Personne n’a encore rejoint le classement.';
 
-// Le podium nomme TROIS personnes (PRD §9). La constante existe pour que la
-// regle soit un nombre nomme qu'un test lit, pas un 3 perdu dans une tranche.
+// Le podium montre TROIS MARCHES (PRD §9) — trois scores, pas trois enfants :
+// depuis que les ex aequo partagent leur place, une marche porte tous les
+// prenoms qui la partagent. La constante existe pour que la regle soit un nombre
+// nomme qu'un test lit, pas un 3 perdu dans une tranche.
 export const PODIUM_MAX = 3;
+
+export const enfants = (n) => (n === 1 ? '1 enfant' : `${n} enfants`);
 
 // --- le modele, pur --------------------------------------------------------
 
@@ -31,25 +35,44 @@ export function rangOrdinal(n) {
   return n === 1 ? '1er' : `${n}e`;
 }
 
-// Les trois premieres lignes NOMMEES, et rien d'autre. Une ligne sans pseudonyme
-// n'entre JAMAIS dans le podium, meme si elle est dans les trois premieres :
-// c'est le garde-fou du §9 rejoue cote client. Le serveur n'envoie deja pas le
-// nom du quatrieme ; cette seconde garde empeche de l'afficher s'il transitait
-// un jour.
+// Les trois premieres MARCHES, groupees par rang. Une marche rend les prenoms
+// que le serveur a envoyes et combien ils sont ; quand elle est muette — trop
+// peuplee pour une page publique —, ce nombre est tout ce qui s'affiche, et il
+// suffit : « 1er : 14 enfants, 100 % ».
+//
+// Une marche n'est nommee QUE si tous ses prenoms sont arrives. Un fragment
+// afficherait « 3e : Bibou » quand ils sont deux la, c'est-a-dire un gagnant qui
+// n'existe pas. C'est le garde-fou du §9 rejoue cote client : le serveur n'envoie
+// deja pas ces noms, cette seconde garde empeche de les afficher s'ils
+// transitaient un jour.
 export function podiumDe(instantane, monPseudo) {
   const lignes = instantane?.classement ?? [];
-  return lignes
-    .filter((l) => typeof l?.pseudo === 'string' && l.pseudo !== '')
-    .slice(0, PODIUM_MAX)
-    .map((l) => ({
-      rang: l.rang,
-      ordinal: rangOrdinal(l.rang),
-      pseudo: l.pseudo,
+  const marches = [];
+  for (const l of lignes) {
+    const derniere = marches[marches.length - 1];
+    if (derniere !== undefined && derniere.rang === l.rang) {
+      derniere.lignes.push(l);
+      continue;
+    }
+    if (marches.length === PODIUM_MAX) break;
+    marches.push({ rang: l.rang, lignes: [l] });
+  }
+  return marches.map((m) => {
+    const pseudos = m.lignes
+      .map((l) => l.pseudo)
+      .filter((p) => typeof p === 'string' && p !== '');
+    const entiere = pseudos.length === m.lignes.length;
+    return {
+      rang: m.rang,
+      ordinal: rangOrdinal(m.rang),
+      pseudos: entiere ? pseudos : [],
+      nombre: m.lignes.length,
       // Le serveur a deja arrondi `part` a trois decimales, pour que le podium
       // et l'ecran perso n'affichent pas 90,9 % et 91 % pour le meme enfant.
-      pourcent: Math.round((l.part ?? 0) * 100),
-      moi: monPseudo !== null && l.pseudo === monPseudo,
-    }));
+      pourcent: Math.round((m.lignes[0].part ?? 0) * 100),
+      moi: monPseudo !== null && entiere && pseudos.includes(monPseudo),
+    };
+  });
 }
 
 // Le rang, et l'ensemble sur lequel il porte. Les arguments sont NOMMES : quatre
@@ -61,8 +84,8 @@ export function positionDe({ instantane, moi, cochees, inscrit }) {
   if (instantane == null || !(instantane.participants > 0)) return null;
   const lignes = instantane.classement ?? [];
 
-  // Le serveur seul peut trancher les ex aequo — « a egalite, le premier arrive
-  // a ce score est devant » (PRD §9) — et il a deja tranche.
+  // Le rang vient du serveur quand le serveur l'a rendu — avec le nombre de
+  // ceux qui le partagent, que le client ne recalcule pas.
   if (moi != null && moi.jour === instantane.jour && typeof moi.rang === 'number') {
     // Le denominateur vient de LA MEME REPONSE que le rang, pas de l'instantane.
     // Les deux corps peuvent dater de deux instants differents — l'inscription
@@ -75,6 +98,9 @@ export function positionDe({ instantane, moi, cochees, inscrit }) {
     return {
       rang: moi.rang,
       ordinal: rangOrdinal(moi.rang),
+      // Un corps ancien — servi par un cache — n'a pas le champ : zero ex aequo
+      // est alors la lecture prudente, la phrase se tait plutot que d'inventer.
+      exAequo: typeof moi.exAequo === 'number' ? moi.exAequo : 0,
       participants,
       inscrit: true,
     };
@@ -83,23 +109,25 @@ export function positionDe({ instantane, moi, cochees, inscrit }) {
   // Un compte incomparable est pire qu'un rang absent : voir modeleEquipe.
   if (typeof cochees !== 'number') return null;
 
+  // Le rang compte les enfants STRICTEMENT devant, dans les deux cas : a
+  // egalite personne n'est devant (PRD §9). Ne change que le comptage des ex
+  // aequo — inscrit, ma propre ligne est dans le tableau et ne se compte pas
+  // deux fois.
+  const devant = lignes.filter((l) => (l.cochees ?? 0) > cochees).length;
+  const egaux = lignes.filter((l) => (l.cochees ?? 0) === cochees).length;
+
   if (inscrit) {
-    // Ma ligne est DANS le tableau : comparaison stricte, sinon je me compte
-    // moi-meme comme quelqu'un qui me devance. Le denominateur reste
-    // `participants` — j'y suis deja.
-    const devant = lignes.filter((l) => (l.cochees ?? 0) > cochees).length;
     return {
       rang: devant + 1,
       ordinal: rangOrdinal(devant + 1),
+      exAequo: Math.max(0, egaux - 1),
       participants: instantane.participants,
       inscrit: true,
     };
   }
 
-  // Je ne suis pas dans le tableau. Comparaison LARGE : a egalite, le §9 met
-  // devant « le premier arrive a ce score », et quelqu'un qui n'a rien publie
-  // n'a aucune date d'arrivee a faire valoir. Le rang le moins flatteur est le
-  // seul honnete.
+  // Je ne suis pas dans le tableau : les lignes a mon score sont autant d'ex
+  // aequo, et aucune ne me devance.
   //
   // Le denominateur vaut participants + 1 : l'ensemble compare, ce sont les
   // inscrits PLUS celui qui regarde. Sans le « + 1 », un non-participant moins
@@ -107,17 +135,22 @@ export function positionDe({ instantane, moi, cochees, inscrit }) {
   // promettre qu'il n'est pas dernier alors qu'il l'est. Corollaire utile : le
   // denominateur ne bouge pas quand on rejoint, donc rejoindre n'est jamais
   // presente comme un moyen de mieux se classer.
-  const devant = lignes.filter((l) => (l.cochees ?? 0) >= cochees).length;
   return {
     rang: devant + 1,
     ordinal: rangOrdinal(devant + 1),
+    exAequo: egaux,
     participants: instantane.participants + 1,
     inscrit: false,
   };
 }
 
+// « Tu es 4e sur 12, avec 1 autre. » La mention n'apparait que s'il y a
+// quelqu'un : « avec 0 autre » ferait lire une egalite qui n'existe pas.
 export function phrasePosition(position) {
-  return `Tu es ${position.ordinal} sur ${position.participants}.`;
+  const place = `Tu es ${position.ordinal} sur ${position.participants}`;
+  const autres = position.exAequo ?? 0;
+  if (autres < 1) return `${place}.`;
+  return `${place}, avec ${autres === 1 ? '1 autre' : `${autres} autres`}.`;
 }
 
 // La jauge du §7.5, mise en forme depuis le champ `groupe` du serveur, sans
@@ -206,18 +239,22 @@ function el(balise, classe, texte) {
   return noeud;
 }
 
-function lignePodium(ligne) {
-  const li = el('li', ligne.moi ? 'ligne-podium podium-moi' : 'ligne-podium');
+function lignePodium(marche) {
+  const li = el('li', marche.moi ? 'ligne-podium podium-moi' : 'ligne-podium');
+  // Une marche nommee montre ses prenoms ; une marche muette montre combien ils
+  // sont, et c'est deja la bonne information : ce qui compte est qu'ils y soient
+  // ensemble.
+  const qui = marche.pseudos.length > 0 ? marche.pseudos.join(', ') : enfants(marche.nombre);
   // Le rang est masque aux lecteurs d'ecran : « 1er Renard 100 % » lu a la file
   // ne dit pas ce que l'oeil comprend d'une colonne. La ligne cachee le dit en
   // une phrase.
-  const rang = el('span', 'rang-podium', ligne.ordinal);
+  const rang = el('span', 'rang-podium', marche.ordinal);
   rang.setAttribute('aria-hidden', 'true');
-  const pseudo = el('span', 'pseudo-podium', ligne.pseudo);
+  const pseudo = el('span', marche.pseudos.length > 0 ? 'pseudo-podium' : 'pseudo-podium nombre-podium', qui);
   pseudo.setAttribute('aria-hidden', 'true');
-  const part = el('span', 'part-podium', `${ligne.pourcent} %`);
+  const part = el('span', 'part-podium', `${marche.pourcent} %`);
   part.setAttribute('aria-hidden', 'true');
-  const dit = `${ligne.ordinal} : ${ligne.pseudo}, ${ligne.pourcent} %.${ligne.moi ? ' C’est toi.' : ''}`;
+  const dit = `${marche.ordinal} : ${qui}, ${marche.pourcent} %.${marche.moi ? ' C’est toi.' : ''}`;
   li.append(rang, pseudo, part, el('span', 'lu-seul', dit));
   return li;
 }

@@ -9,8 +9,9 @@ import * as equipe from '../web/vue-equipe.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 
-// Un instantane a neuf participants, tel que le PRP 07 l'emet : toutes les
-// lignes, nommees jusqu'a la troisieme, rangs stricts de 1 a N.
+// Un instantane a neuf participants, tel que le serveur l'emet : toutes les
+// lignes, celles des trois meilleures marches nommees. Deux enfants a 19 cases
+// PARTAGENT le rang 3, et le suivant est 5e — on compte les enfants devant.
 const NEUF = {
   jour: '2026-08-07',
   programmees: 22,
@@ -19,7 +20,7 @@ const NEUF = {
     { rang: 1, cochees: 22, part: 1, pseudo: 'Renard' },
     { rang: 2, cochees: 20, part: 0.909, pseudo: 'K7' },
     { rang: 3, cochees: 19, part: 0.864, pseudo: 'Bibou' },
-    { rang: 4, cochees: 19, part: 0.864 },
+    { rang: 3, cochees: 19, part: 0.864, pseudo: 'Tom' },
     { rang: 5, cochees: 14, part: 0.636 },
     { rang: 6, cochees: 12, part: 0.545 },
     { rang: 7, cochees: 9, part: 0.409 },
@@ -29,11 +30,21 @@ const NEUF = {
   groupe: { cochees: 121, programmees: 198, part: 0.611 },
 };
 
+// Le cas que cette branche traite : toute l'equipe a tout coche. Une seule
+// marche, trop peuplee pour etre nommee — le serveur n'envoie aucun pseudonyme.
+const TOUS_A_CENT = {
+  jour: '2026-08-07',
+  programmees: 22,
+  participants: 9,
+  classement: Array.from({ length: 9 }, () => ({ rang: 1, cochees: 22, part: 1 })),
+  groupe: { cochees: 198, programmees: 198, part: 1 },
+};
+
 const instantaneDe = (parts) => ({
   jour: '2026-08-07',
   programmees: 22,
   participants: parts.length,
-  classement: parts.map((cochees, i) => ({ rang: i + 1, cochees, part: cochees / 22 })),
+  classement: parts.map((cochees) => ({ rang: 1, cochees, part: cochees / 22 })),
   groupe: { cochees: parts.reduce((a, b) => a + b, 0), programmees: 22 * parts.length, part: 0.5 },
 });
 
@@ -49,43 +60,66 @@ test('rangOrdinal ecrit 1er, et jamais 1e ni 2eme', () => {
 
 // --- le podium --------------------------------------------------------------
 
-test('le podium nomme TROIS personnes, jamais une quatrieme', () => {
+test('le podium nomme TROIS MARCHES, et une marche porte tous ses prenoms', () => {
   const podium = equipe.podiumDe(NEUF, null);
   assert.equal(podium.length, equipe.PODIUM_MAX);
-  assert.deepEqual(podium.map((l) => l.pseudo), ['Renard', 'K7', 'Bibou']);
-  assert.deepEqual(podium.map((l) => l.ordinal), ['1er', '2e', '3e']);
-  assert.deepEqual(podium.map((l) => l.pourcent), [100, 91, 86]);
+  assert.deepEqual(podium.map((m) => m.pseudos), [['Renard'], ['K7'], ['Bibou', 'Tom']]);
+  assert.deepEqual(podium.map((m) => m.ordinal), ['1er', '2e', '3e']);
+  assert.deepEqual(podium.map((m) => m.pourcent), [100, 91, 86]);
+  // Une marche partagee nomme quatre enfants sur trois marches : l'ancienne
+  // regle coupait cette marche en deux et laissait Tom dehors sans raison.
+  assert.deepEqual(podium.map((m) => m.nombre), [1, 1, 2]);
 });
 
-test('meme si le serveur nommait tout le monde, le podium s arrete a trois', () => {
+test('une marche muette se compte en enfants, au singulier comme au pluriel', () => {
+  // Le singulier ne se rencontre pas sur le podium — une marche d'un seul enfant
+  // tient toujours sous le plafond, donc elle nomme. Il est ecrit parce qu'un
+  // accord faux se remarque, et qu'un jour cette fonction servira ailleurs.
+  assert.equal(equipe.enfants(1), '1 enfant');
+  assert.equal(equipe.enfants(14), '14 enfants');
+});
+
+test('une marche que le serveur ne nomme pas affiche combien ils sont', () => {
+  const podium = equipe.podiumDe(TOUS_A_CENT, null);
+  assert.equal(podium.length, 1, 'un seul score, donc une seule marche');
+  assert.deepEqual(podium[0].pseudos, [], 'aucun nom recu, aucun nom invente');
+  assert.equal(podium[0].nombre, 9);
+  assert.equal(podium[0].ordinal, '1er');
+  assert.equal(podium[0].pourcent, 100);
+});
+
+test('meme si le serveur nommait tout le monde, le podium s arrete a trois marches', () => {
   // Un serveur mal configure, ou un test mal ecrit : la seconde garde tient.
   // La premiere empeche le nom de transiter, celle-ci empeche de l'afficher.
   const tousNommes = {
     ...NEUF,
     classement: NEUF.classement.map((l, i) => ({ ...l, pseudo: `Enfant${i}` })),
   };
-  assert.equal(equipe.podiumDe(tousNommes, null).length, equipe.PODIUM_MAX);
+  const podium = equipe.podiumDe(tousNommes, null);
+  assert.equal(podium.length, equipe.PODIUM_MAX);
+  assert.deepEqual(podium.map((m) => m.rang), [1, 2, 3]);
 });
 
-test('une ligne anonyme n entre jamais au podium, meme parmi les trois premieres', () => {
-  const trou = {
+test('une marche a moitie nommee se tait entierement', () => {
+  // Le serveur nomme une marche entiere ou pas du tout. S'il n'en envoie qu'une
+  // partie, afficher ce fragment donnerait un podium qui ment sur sa marche :
+  // « 3e : Bibou » quand ils sont deux la, c'est nommer un gagnant qui n'existe
+  // pas. On retombe alors sur l'effectif.
+  const moitie = {
     ...NEUF,
-    classement: [
-      { rang: 1, cochees: 22, part: 1, pseudo: 'Renard' },
-      { rang: 2, cochees: 20, part: 0.909 },
-      { rang: 3, cochees: 19, part: 0.864, pseudo: 'Bibou' },
-      ...NEUF.classement.slice(3),
-    ],
+    classement: NEUF.classement.map((l) => (l.pseudo === 'Tom' ? { ...l, pseudo: undefined } : l)),
   };
-  const podium = equipe.podiumDe(trou, null);
-  assert.deepEqual(podium.map((l) => l.pseudo), ['Renard', 'Bibou']);
+  const podium = equipe.podiumDe(moitie, null);
+  assert.deepEqual(podium[2].pseudos, []);
+  assert.equal(podium[2].nombre, 2);
 });
 
-test('ma ligne est marquee, et une seule', () => {
-  const podium = equipe.podiumDe(NEUF, 'K7');
-  assert.deepEqual(podium.map((l) => l.moi), [false, true, false]);
-  // Sans pseudonyme, personne n'est moi — et surtout pas la ligne anonyme.
-  assert.deepEqual(equipe.podiumDe(NEUF, null).map((l) => l.moi), [false, false, false]);
+test('ma marche est marquee, et une seule', () => {
+  const podium = equipe.podiumDe(NEUF, 'Tom');
+  assert.deepEqual(podium.map((m) => m.moi), [false, false, true]);
+  // Sans pseudonyme, personne n'est moi — et surtout pas une marche muette.
+  assert.deepEqual(equipe.podiumDe(NEUF, null).map((m) => m.moi), [false, false, false]);
+  assert.deepEqual(equipe.podiumDe(TOUS_A_CENT, 'Renard').map((m) => m.moi), [false]);
 });
 
 // --- la position ------------------------------------------------------------
@@ -97,12 +131,12 @@ test('sans classement, il n y a pas de position', () => {
   assert.equal(equipe.positionDe({ instantane: vide, moi: null, cochees: 5, inscrit: false }), null);
 });
 
-test('le rang tranche par le serveur est repris tel quel', () => {
-  // Seul le serveur peut departager les ex aequo : il stocke les horodatages de
-  // reception, le client n'a aucun champ ou les lire.
-  const moi = { pseudo: 'K7', jour: '2026-08-07', rang: 2, participants: 9, cochees: 20 };
-  const p = equipe.positionDe({ instantane: NEUF, moi, cochees: 20, inscrit: true });
-  assert.deepEqual(p, { rang: 2, ordinal: '2e', participants: 9, inscrit: true });
+test('le rang tranche par le serveur est repris tel quel, ex aequo compris', () => {
+  // Le rang et le nombre d'ex aequo viennent du serveur : le client ne calcule
+  // pas un rang qu'il n'a pas tranche (ossature §2).
+  const moi = { pseudo: 'Tom', jour: '2026-08-07', rang: 3, exAequo: 1, participants: 9, cochees: 19 };
+  const p = equipe.positionDe({ instantane: NEUF, moi, cochees: 19, inscrit: true });
+  assert.deepEqual(p, { rang: 3, ordinal: '3e', exAequo: 1, participants: 9, inscrit: true });
 });
 
 test('un rang du serveur d un AUTRE jour n est pas repris', () => {
@@ -114,19 +148,21 @@ test('un rang du serveur d un AUTRE jour n est pas repris', () => {
   assert.equal(p.participants, 9, 'j y suis deja : le denominateur ne bouge pas');
 });
 
-test('un inscrit se compare STRICTEMENT — sinon il se compterait lui-meme', () => {
-  // 19 cases : deux lignes ont plus (22 et 20), deux autres ont exactement 19 —
-  // dont la mienne. Une comparaison large me placerait 5e au lieu de 3e.
+test('un inscrit compte ses ex aequo sans se compter lui-meme', () => {
+  // 19 cases : deux lignes ont plus (22 et 20), deux ont exactement 19 — dont la
+  // mienne. Je suis donc 3e avec UN autre, et non 3e avec deux.
   const p = equipe.positionDe({ instantane: NEUF, moi: null, cochees: 19, inscrit: true });
   assert.equal(p.rang, 3);
+  assert.equal(p.exAequo, 1);
   assert.equal(p.participants, 9);
 });
 
-test('un NON-participant se compare largement, et le denominateur le compte', () => {
-  // A egalite, le §9 met devant « le premier arrive a ce score », et quelqu'un
-  // qui n'a rien publie n'a aucune date d'arrivee a faire valoir.
+test('un NON-participant a egalite partage la place, il ne passe plus derriere', () => {
+  // Il n'a aucune date d'arrivee a faire valoir — mais l'heure ne departage plus
+  // personne, donc rien ne justifie de le repousser derriere les inscrits.
   const p = equipe.positionDe({ instantane: NEUF, moi: null, cochees: 19, inscrit: false });
-  assert.equal(p.rang, 5, 'quatre lignes ont 19 cases ou plus');
+  assert.equal(p.rang, 3, 'deux lignes ont STRICTEMENT plus de 19 cases');
+  assert.equal(p.exAequo, 2, 'les deux inscrits a 19 cases');
   assert.equal(p.participants, 10, 'les neuf inscrits, plus celui qui regarde');
   assert.equal(p.inscrit, false);
 });
@@ -134,10 +170,22 @@ test('un NON-participant se compare largement, et le denominateur le compte', ()
 test('le rang d un non-participant ne depasse jamais son denominateur', () => {
   // C'est le motif du « + 1 » : « 10e sur 9 » est faux au sens le plus simple.
   const dernier = equipe.positionDe({ instantane: NEUF, moi: null, cochees: 0, inscrit: false });
-  assert.deepEqual(dernier, { rang: 10, ordinal: '10e', participants: 10, inscrit: false });
+  assert.deepEqual(dernier, { rang: 9, ordinal: '9e', exAequo: 1, participants: 10, inscrit: false });
 
   const premier = equipe.positionDe({ instantane: NEUF, moi: null, cochees: 99, inscrit: false });
-  assert.deepEqual(premier, { rang: 1, ordinal: '1er', participants: 10, inscrit: false });
+  assert.deepEqual(premier, { rang: 1, ordinal: '1er', exAequo: 0, participants: 10, inscrit: false });
+});
+
+test('tout le monde a 100 % : chacun est 1er, avec tous les autres', () => {
+  // Le cas nominal d'une equipe motivee, et celui que l'ancienne regle rendait
+  // illisible : « 9e sur 9 » a un enfant qui avait tout fait.
+  const moi = { pseudo: 'Renard', jour: '2026-08-07', rang: 1, exAequo: 8, participants: 9 };
+  const inscrit = equipe.positionDe({ instantane: TOUS_A_CENT, moi, cochees: 22, inscrit: true });
+  assert.equal(equipe.phrasePosition(inscrit), 'Tu es 1er sur 9, avec 8 autres.');
+
+  // Et celui qui n'a pas rejoint, lui aussi a 100 %, lit la meme place.
+  const dehors = equipe.positionDe({ instantane: TOUS_A_CENT, moi: null, cochees: 22, inscrit: false });
+  assert.equal(equipe.phrasePosition(dehors), 'Tu es 1er sur 10, avec 9 autres.');
 });
 
 test('rejoindre ne change pas le denominateur — donc n est pas un moyen de mieux se classer', () => {
@@ -167,11 +215,15 @@ test('aucun effectif d equipe n est ecrit nulle part', () => {
   assert.deepEqual(phrases, ['Tu es 4e sur 4.', 'Tu es 10e sur 10.', 'Tu es 21e sur 21.']);
 });
 
-test('phrasePosition dit le rang et l ensemble', () => {
-  assert.equal(
-    equipe.phrasePosition({ rang: 3, ordinal: '3e', participants: 10 }),
-    'Tu es 3e sur 10.',
-  );
+test('phrasePosition dit le rang, l ensemble, et ceux qui le partagent', () => {
+  const dire = (exAequo) => equipe.phrasePosition({ rang: 3, ordinal: '3e', participants: 10, exAequo });
+  // Seul a ce niveau : pas de mention. En ajouter une — « avec 0 autre » —
+  // ferait lire une egalite qui n'existe pas.
+  assert.equal(dire(0), 'Tu es 3e sur 10.');
+  assert.equal(dire(1), 'Tu es 3e sur 10, avec 1 autre.');
+  assert.equal(dire(4), 'Tu es 3e sur 10, avec 4 autres.');
+  // Un vieux corps sans le champ ne fait pas mentir la phrase.
+  assert.equal(equipe.phrasePosition({ rang: 3, ordinal: '3e', participants: 10 }), 'Tu es 3e sur 10.');
 });
 
 // --- la jauge et la datation ------------------------------------------------
@@ -292,8 +344,9 @@ test('toute classe posee par l ecran equipe existe dans style.css', () => {
   // FICHIER PAR FICHIER : un test qui parcourt zero classe passe sans rien
   // verifier, et c'est le pire mode de defaillance d'un garde-fou.
   assert.ok(classes.size >= 10, `${classes.size} classes lues : le motif a cesse de correspondre`);
-  // Les noms construits par gabarit, que le motif ci-dessus ne peut pas voir.
-  for (const c of [...classes, 'ligne-podium', 'podium-moi', 'rang-monte', 'rang-descend']) {
+  // Les noms construits par gabarit ou par ternaire, que le motif ci-dessus ne
+  // peut pas voir.
+  for (const c of [...classes, 'ligne-podium', 'podium-moi', 'nombre-podium', 'rang-monte', 'rang-descend']) {
     assert.ok(css.includes(`.${c}`), `.${c} manque dans style.css`);
   }
 });

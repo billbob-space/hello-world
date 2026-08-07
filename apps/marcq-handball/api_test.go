@@ -329,11 +329,12 @@ func TestLaSuppressionSurLaRoute(t *testing.T) {
 		t.Errorf("suppression rejouee : %+v, attendu supprime=false participants=2", sup)
 	}
 
-	// Les rangs restants sont 1..N sans trou, et le nom a quitte le fichier.
+	// Les deux fiches restantes ont une case chacune : elles sont ex aequo, donc
+	// toutes deux 1res. Et le nom a quitte le fichier.
 	cl := corpsJSON[reponseClassement](t, get(t, h, "/api/classement"))
 	for i, l := range cl.Classement {
-		if l.Rang != i+1 {
-			t.Errorf("ligne %d : rang %d, attendu %d", i, l.Rang, i+1)
+		if l.Rang != 1 {
+			t.Errorf("ligne %d : rang %d, attendu 1 — les deux restants sont a egalite", i, l.Rang)
 		}
 		if l.Pseudo == "Renard" {
 			t.Error("Renard est encore au classement")
@@ -421,8 +422,12 @@ func TestChaqueSentinelleEstTraduite(t *testing.T) {
 // au-dela du podium, aucun horodatage, aucune empreinte.
 func TestLaRouteCoachNExposeRienDePlus(t *testing.T) {
 	h, _, _, horloge := serveurAvecMagasin(t)
+	// Quatre scores DIFFERENTS, donc quatre marches : le podium en nomme trois,
+	// et le quatrieme reste anonyme. A egalite, ils seraient tous les quatre
+	// nommes sur la meme marche — c'est la regle, pas une fuite.
 	for i, pseudo := range []string{"Un", "Deux", "Trois", "Quatre"} {
-		poster(t, h, `{"pseudo":"`+pseudo+`","code":"111`+string(rune('1'+i))+`","faits":["s1-c1"]}`)
+		faits, _ := json.Marshal([]string{"s1-c1", "s1-c2", "s1-r1", "s1-r2"}[:4-i])
+		poster(t, h, `{"pseudo":"`+pseudo+`","code":"111`+string(rune('1'+i))+`","faits":`+string(faits)+`}`)
 		horloge.avancer(time.Minute)
 	}
 

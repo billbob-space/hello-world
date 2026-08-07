@@ -82,9 +82,13 @@ type envoiClassement struct {
 // autres envois, `omitempty` l'efface du corps — un enfant qui coche ne recoit
 // jamais la liste de ce qu'il a deja coche, il l'a deja.
 type reponseEnvoi struct {
-	Pseudo       string            `json:"pseudo"`
-	Jour         string            `json:"jour"`
-	Rang         int               `json:"rang"`
+	Pseudo string `json:"pseudo"`
+	Jour   string `json:"jour"`
+	Rang   int    `json:"rang"`
+	// ExAequo compte les AUTRES au meme rang, moi excepte. Il n'est pas
+	// `omitempty` : zero ex aequo est une reponse, et un champ absent
+	// obligerait le client a distinguer « seul a ce rang » de « vieux serveur ».
+	ExAequo      int               `json:"exAequo"`
 	Participants int               `json:"participants"`
 	Cochees      int               `json:"cochees"`
 	Programmees  int               `json:"programmees"`

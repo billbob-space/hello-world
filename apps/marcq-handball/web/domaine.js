@@ -138,7 +138,7 @@ export function totauxPrescrits(prog) {
 
 // Volume reellement accompli, d'apres les cases cochees. `faits` est l'objet
 // { [idExercice]: horodatageISO } de l'ossature §6 : la presence de la cle vaut
-// coche, sa valeur ne sert qu'a departager les egalites au classement.
+// coche, sa valeur ne sert qu'a dater la premiere coche.
 export function totauxAccomplis(prog, faits = {}) {
   return cumuler(prog, (ex) => estFait(faits, ex.id));
 }

@@ -313,10 +313,11 @@ respecte le même ordre sans le payer : il ne devance personne, il se choisit.
 - calendrier des sept séances : faite, manquée, à venir, repos.
 
 **L'équipe** — la comparaison :
-- **podium** des trois premiers pseudonymes ;
-- **ma position** : *« tu es 3e sur 9 »*, affichée même sans avoir rejoint — et
-  **le dénominateur inclut celui qui regarde** : à 8 inscrits, un enfant qui n'a
-  pas rejoint lit « 9e sur 9 » et non « 9e sur 8 » ;
+- **podium** des trois meilleurs scores — trois *marches*, et non trois enfants :
+  une marche partagée porte tous ses pseudonymes ;
+- **ma position** : *« tu es 3e sur 9, avec 1 autre »*, affichée même sans avoir
+  rejoint — et **le dénominateur inclut celui qui regarde** : à 8 inscrits, un
+  enfant qui n'a pas rejoint lit « 9e sur 9 » et non « 9e sur 8 » ;
 - **progression du groupe** : une jauge collective, la seule mesure où personne
   n'est dernier.
 
@@ -419,8 +420,22 @@ faux.
 
 **Le classement mesure la régularité.** Le rang est établi sur la part
 d'exercices accomplis parmi ceux déjà programmés à ce jour — pas sur le total du
-programme, sinon tout le monde est à 15 % le 5 août. À égalité, le premier
-arrivé à ce score est devant.
+programme, sinon tout le monde est à 15 % le 5 août.
+
+**À égalité, personne n'est devant.** Deux enfants au même score partagent la
+même place, et l'heure à laquelle ils ont coché n'y change rien. La règle
+précédente — *« à égalité, le premier arrivé à ce score est devant »* — a tenu
+jusqu'au 7 août : dans une équipe où la plupart cochent tout, elle ne classait
+plus l'assiduité mais la vitesse à sortir son téléphone après la séance, elle
+récompensait de cocher avant d'avoir fait, et elle pénalisait celui qui n'a pas
+de réseau au gymnase. Un enfant à 100 % pouvait lire « 9e sur 12 » sans qu'aucun
+écran ne lui dise pourquoi.
+
+**Le rang compte les enfants devant, pas les scores.** Trois premiers à 100 %,
+puis le suivant est **4e**, jamais 2e : « 2e sur 12 » quand onze sont à égalité
+devant serait faux, et le dénominateur honnête ci-dessous perdrait tout son
+sens. Conséquence assumée : ceux qui n'ont encore rien coché partagent la
+dernière place, et personne n'est dernier tout seul.
 
 **Le volume est un récit, pas un rang.** Le cumul de pompes, squats et
 kilomètres s'affiche en grand sur la page perso parce que c'est le chiffre qu'un
@@ -429,10 +444,18 @@ est déduit du programme, il classerait dans le même ordre que la régularité,
 du bruit près. Deux podiums qui disent la même chose, c'est un podium plus de la
 confusion.
 
-**Le podium nomme trois personnes, la position en nomme zéro.** On affiche les
-trois premiers pseudonymes, puis « tu es 7e sur 12 » sans nommer les rangs
-intermédiaires. On garde le plaisir de grimper sans afficher publiquement qui est
-dernier.
+**Le podium nomme trois marches, la position en nomme zéro.** On affiche les
+trois meilleurs scores, chaque marche portant tous les pseudonymes qui la
+partagent, puis « tu es 7e sur 12 » sans nommer les rangs intermédiaires. On
+garde le plaisir de grimper sans afficher publiquement qui est dernier.
+
+**Huit prénoms au plus par marche.** La page est publique : quatorze
+pseudonymes de mineurs n'ont pas à y être épelés pour dire une chose qu'un
+nombre dit mieux. Une marche de plus de huit affiche donc son effectif —
+*« 1er : 14 enfants, 100 % »*. **Chaque marche est jugée seule** : celles du
+dessous nomment quand même, parce que cacher le prénom d'un enfant seul sur sa
+marche ne protège rien et perd une information. Le plafond vise la liste
+interminable, pas le nombre total de prénoms affichés.
 
 **Le dénominateur est honnête.** « 3e sur 9 » compte les participants au
 classement, pas l'effectif de l'équipe. On n'affiche jamais un rang sur un
