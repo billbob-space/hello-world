@@ -18,10 +18,17 @@ on:
         default: false
 
 # Une seule stack dockhand : deux deploiements concurrents se marcheraient
-# dessus. On serialise sans annuler — un deploiement engage doit finir.
+# dessus. Sur main on serialise donc SANS annuler — un deploiement engage doit
+# finir, quitte a faire la queue.
+#
+# Sur une pull request il n'y a rien a proteger : aucun deploiement, aucune
+# publication d'image, et le seul verdict qui compte est celui du DERNIER
+# commit pousse. Laisser tourner les precedents faisait payer plusieurs fois la
+# meme verification et retardait le verdict utile, puisque le groupe est
+# serialise — le second run attendait la fin du premier au lieu de le remplacer.
 concurrency:
   group: fabrique-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Le contrat devient un verrou de CI, et non plus un geste manuel : avec une
@@ -35,14 +42,26 @@ jobs:
   # Le verrou verifie le depot ; celui-ci verifie le VERROU. init.sh etait le
   # seul programme du depot que rien ne testait, alors qu'un « ok » errone de sa
   # part laisse passer une faute dans toutes les apps a la fois. Job separe et
-  # non etape du job contrat : chaque cas recopie le depot et relance --check,
-  # les deux jobs durent donc autant l'un que l'autre et tournent en parallele.
+  # non etape du job contrat : chaque cas recopie le depot et relance --check.
   #
   # cout.sh a rejoint init.sh ici pour la raison inverse et symetrique : il ne
   # casse rien quand il se trompe, il MENT — un total faux ressemble trait pour
   # trait a un total juste, et le sien l'etait d'un facteur deux pendant huit
   # entrees de journal sans que rien ne l'attrape.
+  #
+  # C'EST LE JOB LE PLUS LONG DE LA CHAINE — 3 min 20 mesurees, dont 1 min 56
+  # pour le seul test-init.sh, contre 10 s au job contrat. Deux choses le
+  # tiennent desormais a l'ecart du chemin critique :
+  #   - il ne tourne que si l'outillage a bouge (voir detect.outputs.outillage),
+  #     ce qui l'ecarte de 16 fusions sur 20 mesurees sur main ;
+  #   - test et build ne l'attendent plus. Il ne teste PAS les applications :
+  #     rien de ce qu'il dit ne peut invalider une image. Seul deploy l'attend,
+  #     et pour une raison precise : il valide init.sh --check, dont le job
+  #     contrat n'est que l'execution. Mettre en ligne sur la foi d'un verrou
+  #     dont on n'a pas verifie le mecanisme, c'est n'avoir aucun verrou.
   tests-de-l-outillage:
+    needs: detect
+    if: needs.detect.outputs.outillage == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,6 +84,7 @@ jobs:
     outputs:
       apps: ${{ steps.choix.outputs.apps }}
       deploy: ${{ steps.choix.outputs.deploy }}
+      outillage: ${{ steps.choix.outputs.outillage }}
       registry: ${{ steps.fab.outputs.registry }}
       org: ${{ steps.fab.outputs.org }}
       repo: ${{ steps.fab.outputs.repo }}
@@ -120,14 +140,42 @@ jobs:
           fi
 
           if [ "$tout" = 1 ]; then
-            apps="$toutes"; deploy=true
+            apps="$toutes"; deploy=true; outillage=true
           else
             changed=$(git diff --name-only "$base" "$APRES")
             echo "fichiers modifies :"; printf '  %s\n' $changed
 
-            if printf '%s\n' "$changed" | grep -qE '^(init\.sh|fabrique\.yml|\.github/workflows/)'; then
-              # Le generateur ou la CI ont bouge : plus rien ne garantit que les
-              # images publiees correspondent aux Dockerfile courants.
+            # Les tests de l'outillage ne peuvent changer d'avis que si
+            # l'outillage change — ils ne testent que lui. Deux exceptions, et
+            # elles sont dans la liste : test-init.sh travaille dans une COPIE
+            # du depot ou il casse apps/hello-world, apps/cadran et
+            # apps/ramure-v2 pour verifier que --check les nomme. Un manifeste
+            # ou un Dockerfile qui bouge peut donc deplacer son resultat ; le
+            # CODE d'une application, jamais — il n'entre dans aucun de ses cas.
+            if printf '%s\n' "$changed" \
+                 | grep -qE '^(init\.sh|fabrique\.yml|lib/|scripts/|test-[^/]*\.sh|\.github/workflows/)|^apps/[^/]+/(app\.yml|Dockerfile)$'; then
+              outillage=true
+            else
+              outillage=false
+            fi
+
+            if printf '%s\n' "$changed" | grep -qE '^(fabrique\.yml|\.github/workflows/)'; then
+              # La recette de construction a bouge — le workflow lui-meme, ou
+              # les valeurs qu'il relit a chaque run et qui composent les tags.
+              # Plus rien ne garantit que les images publiees ont ete faites
+              # avec la recette courante.
+              #
+              # init.sh N'EST PLUS dans cette liste, et c'est deliberé : le
+              # contexte de construction est « apps/<app> » et rien d'autre, si
+              # bien qu'AUCUN fichier hors de ce repertoire n'entre dans une
+              # image. Le generateur ne peut donc pas en changer une seule. Ce
+              # qu'il change, c'est compose.yaml — un artefact COMMITTE, qui
+              # apparait donc de lui-meme dans ce diff et declenche plus bas le
+              # redeploiement. Et si le generateur devient plus severe, c'est le
+              # job contrat qui le rattrape : il relit le depot ENTIER a chaque
+              # run, sans egard a cette liste. On reconstruisait les six images
+              # a chaque retouche du generateur — 4 fusions sur 20 mesurees sur
+              # main, dont une qui ne touchait aucune application.
               apps="$toutes"
             else
               # Un repertoire sous apps/ n'est une application que s'il porte un
@@ -162,13 +210,14 @@ jobs:
             fi
           fi
 
-          echo "apps=$apps"     >> "$GITHUB_OUTPUT"
-          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
-          echo "-> apps : $apps   deploy : $deploy"
+          echo "apps=$apps"           >> "$GITHUB_OUTPUT"
+          echo "deploy=$deploy"       >> "$GITHUB_OUTPUT"
+          echo "outillage=$outillage" >> "$GITHUB_OUTPUT"
+          echo "-> apps : $apps   deploy : $deploy   outillage : $outillage"
 
   # Une matrice vide fait echouer le job : d'ou le garde sur '[]'.
   test:
-    needs: [contrat, tests-de-l-outillage, detect]
+    needs: [contrat, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     strategy:
@@ -185,7 +234,7 @@ jobs:
         run: ./apps/${{ matrix.app }}/test.sh
 
   build:
-    needs: [contrat, tests-de-l-outillage, detect, test]
+    needs: [contrat, detect, test]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     permissions:
@@ -299,6 +348,15 @@ jobs:
     # reconstruire, mais le compose a change) doit laisser passer, un build en
     # echec doit bloquer. Sinon un commit a moitie construit referencerait une
     # image inexistante et emporterait les apps saines.
+    #
+    # Et il faut le dire de CHAQUE job attendu, un par un : « always() » desarme
+    # le blocage implicite de « needs », si bien qu'un job absent de cette liste
+    # peut echouer sans rien empecher. C'etait le cas de tests-de-l-outillage —
+    # present dans « needs », nulle part ici : la mise en ligne partait meme
+    # quand la preuve du verrou tombait. La ligne ci-dessous ferme ce trou en
+    # meme temps qu'elle admet le saut, desormais le cas courant.
+    # Ecriture entre crochets : un trait d'union est un signe de soustraction
+    # dans une expression, « needs.tests-de-l-outillage » ne se lit pas.
     if: >-
       always()
       && github.event_name == 'push'
@@ -306,6 +364,7 @@ jobs:
       && needs.detect.outputs.deploy == 'true'
       && needs.contrat.result == 'success'
       && needs.detect.result == 'success'
+      && (needs['tests-de-l-outillage'].result == 'success' || needs['tests-de-l-outillage'].result == 'skipped')
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
