@@ -48,6 +48,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: ./test-init.sh
       - run: ./test-cout.sh
+      # pret.sh est le troisieme, et pour une troisieme raison : son garde-fou
+      # « le PRD suit-il ? » est le seul de la fabrique a reposer sur une
+      # heuristique. Trop bavarde on l'ignore, muette on ne la voit pas — les
+      # deux derives passent la relecture, aucune ne passe ses huit cas.
+      - run: ./test-pret.sh
 
   detect:
     runs-on: ubuntu-latest

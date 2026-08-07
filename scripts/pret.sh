@@ -26,11 +26,22 @@ cd "$(git rev-parse --show-toplevel)"
 
 BASE=$(fab base_branch main)
 
-apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+fichiers_touches() {  # tout ce que la branche touche, travail non committe inclus
   {
     git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
     git status --porcelain 2>/dev/null | cut -c4- || true
-  } | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+  } | LC_ALL=C sort -u
+}
+
+fichiers_ajoutes() {  # ceux que la branche CREE — les autres statuts ne comptent pas
+  {
+    git diff --name-status --diff-filter=A "origin/$BASE...HEAD" 2>/dev/null | cut -f2- || true
+    git status --porcelain 2>/dev/null | grep -E '^(A.|\?\?)' | cut -c4- || true
+  } | LC_ALL=C sort -u
+}
+
+apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+  fichiers_touches | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
     | while IFS= read -r a; do
         # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
         # ferait sortir la boucle en code 1, donc la substitution de commande,
@@ -94,6 +105,43 @@ else
     rm -f /tmp/.pret-test.$$
   done
 fi
+
+# Le PRD ne suit pas tout seul. Une CORRECTION passe par une ligne deja ecrite
+# du document, donc la fait bouger ; une CAPACITE NEUVE ne passe par aucune —
+# elle s'ajoute A COTE du PRD, et le document continue d'affirmer le contraire
+# de ce que l'app fait. C'est arrive trois fois le meme jour sur
+# marcq-handball : un minuteur et des liens video livres alors que le PRD les
+# listait « hors perimetre, decide et non oublie ».
+#
+# Le signal retenu est le fichier de code NEUF — chrono.js, video.js,
+# vue-classement.js sont les trois, et les quatre corrections du meme jour n'en
+# ont cree aucun. Les .md et les tests sont exclus : un test qui accompagne un
+# correctif est un fichier neuf et ne dit rien du perimetre.
+#
+# Avertissement et non blocage, deliberement : le rapprochement est bon, il
+# n'est pas infaillible — un refactoring qui deplace du code dans un fichier
+# neuf le declenchera sans rien devoir au PRD. Bloquer sur un signal
+# heuristique apprend a le contourner ; le montrer suffit a ce qu'on y pense.
+#
+# Son angle mort est l'autre bout de la meme mesure : la comparaison porte sur
+# la BRANCHE ENTIERE depuis origin/main. Un PRODUCT.md touche au premier commit
+# eteint l'avertissement pour tous les suivants, capacite neuve comprise. Le
+# resserrer sur le dernier commit rendrait la moitie non committee inobservable,
+# ce qui est pire : c'est la seule moitie qu'on peut encore corriger avant de
+# committer. Ce que ce garde-fou rattrape ne dispense donc pas de relire le PRD
+# avant la pull request — il rattrape l'oubli, pas la negligence.
+# ./test-pret.sh tient les huit cas, en CI comme en local.
+touches=$(fichiers_touches)
+ajoutes=$(fichiers_ajoutes)
+for a in $touchees; do
+  [ -f "apps/$a/PRODUCT.md" ] || continue
+  if printf '%s\n' "$touches" | grep -qxF "apps/$a/PRODUCT.md"; then continue; fi
+  neufs=$(printf '%s\n' "$ajoutes" \
+    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/' || true)
+  [ -n "$neufs" ] || continue
+  warn "[$a] du code neuf, et apps/$a/PRODUCT.md ne bouge pas — une capacite neuve se declare dans le PRD :"
+  printf '%s\n' "$neufs" | sed 's/^/          /'
+done
 
 echo
 [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s) — ne committe pas en l'etat."; exit 1; }
