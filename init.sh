@@ -1712,15 +1712,17 @@ apps/$a echafaude. Il te reste a ecrire :
 Puis, dans cet ordre — construire d'abord, brancher ensuite :
 
   ./init.sh --check
-  git add apps/$a compose.yaml .github .gitignore .claude go.work
+  git add apps/$a compose.yaml .gitignore go.work
   git commit                        # commit 1 : la CI publie l'image
   ./init.sh --app $a --enable       # une fois l'image publiee
   git add apps/$a/app.yml compose.yaml && git commit   # commit 2 : le deploiement
 
 Le commit 1 emporte les artefacts regeneres : --add vient de reecrire
-compose.yaml, le workflow et .gitignore — plus .claude/ si le langage ou ui:
-est nouveau, et go.work des que le module Go existe. N'ajouter que apps/$a
-fait echouer le job « contrat » sur « compose.yaml desynchronise ».
+compose.yaml, .gitignore et, des que le module Go existe, go.work. N'ajouter
+que apps/$a fait echouer le job « contrat » sur « compose.yaml desynchronise ».
+Le workflow et .claude/ sont des fichiers ORDINAIRES, que --add ne touche pas :
+si cette app introduit un langage ou un ui: nouveau, edite .claude/ a la main.
+Le detail : memory/ajouter-une-app.md.
 
 Le healthcheck appellera : $health_cmd
 Assure-toi que cet outil existe dans l'image finale, sinon le conteneur sera

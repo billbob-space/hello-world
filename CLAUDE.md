@@ -97,29 +97,12 @@ sont toutes vérifiées : détail et pièges dans `memory/app-yml.md`.
 
 ## Ajouter une application
 
-Deux commits, dans cet ordre : **construire d'abord, brancher ensuite.**
-
-```bash
-./init.sh --add ma-nouvelle-app --stack go --exposure private
-# écris apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
-./init.sh --check
-git add apps/ma-nouvelle-app compose.yaml .gitignore go.work  # + .claude si édité
-git commit                                    # commit 1 : la CI publie l'image
-
-./init.sh --app ma-nouvelle-app --enable      # une fois l'image publiée
-./init.sh --check
-git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2 : le déploiement
-```
-
-**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`** : `--add`
-réécrit `compose.yaml`, `.gitignore` et, dès que le module Go existe, `go.work`.
-N'ajouter que `apps/<nom>` fait échouer le job `contrat` en CI sur « compose.yaml
-désynchronisé des manifestes », avant même la construction. S'il introduit un langage
-ou un `ui: true` nouveau, édite `.claude/settings.json` et `.claude/cloud-setup.sh` —
-`--check` avertit si un plugin manque. Le commit 2 ne touche que `app.yml` et `compose.yaml`.
-
-Le chemin en un seul commit fonctionne aussi, mais la séquence en deux fait arriver
-l'échec « l'image ne se construit pas » sur un commit qui **ne peut pas** casser les autres.
+**Construire d'abord, brancher ensuite** : un premier commit fait publier l'image
+par la CI, un second seulement fait entrer l'app dans le compose — c'est pourquoi
+elle naît `enabled: false`. Le commit 1 emporte **les artefacts régénérés**, pas
+seulement `apps/<nom>` : sinon le job `contrat` échoue en CI sur « compose.yaml
+désynchronisé », et la CI est rouge pour tout le monde. La séquence exacte, ce que
+`--add` réécrit et ce qu'il ne réécrit pas : `memory/ajouter-une-app.md`.
 
 ## Les trois sortes de services — une seule est routée
 
@@ -275,6 +258,7 @@ l'essentiel ; le détail, les formes admises et les pièges y sont.
 | Champs de `app.yml` | `memory/app-yml.md` | avant de créer ou modifier un `app.yml` |
 | Trois sortes de services | `memory/services.md` | avant d'ajouter un service à une app ou à la fabrique |
 | Journal, garde-fous, agents | `memory/travail.md` | avant de remplir le journal ou de lancer un agent |
+| Ajouter une application | `memory/ajouter-une-app.md` | avant `--add`, et avant chacun de ses deux commits |
 | Le PRD suit l'app | `memory/produit.md` | avant de livrer un ajout que nul PRP ne prévoyait |
 | Outillage, plugins, LSP | `memory/outillage.md` | quand un plugin ou un LSP manque |
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |

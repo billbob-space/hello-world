@@ -54,6 +54,30 @@ rien écrire.
 **Action** — `contrat` — le PRD reçoit une section « Ajouté après les PRP » ;
 c'est l'endroit manquant, et le contrat dit désormais qu'il faut le remplir.
 
+### 3. La procédure d'ajout d'une app existait en trois copies, dont deux fausses
+
+**Symptome** — en allégeant le contrat, trouvé que la séquence « construire
+d'abord, brancher ensuite » est écrite trois fois : dans `CLAUDE.md`, dans
+`README.md`, et dans le message que `./init.sh --add` affiche à la fin.
+
+Les deux dernières donnent la même consigne fausse — `git add … .github …
+.claude …`, et « `--add` vient de réécrire compose.yaml, **le workflow** et
+.gitignore ». Le workflow n'est plus généré : `--check` en vérifie deux
+propriétés depuis qu'il a cessé de l'être, et `.claude/settings.json` n'est plus
+régénéré non plus. Seul `CLAUDE.md` était à jour. Le message de `--add` est le
+plus nuisible des trois : il s'affiche au moment exact où on va committer.
+
+**Cause** — une copie ne vieillit pas au même rythme que son original. Le commit
+qui a cessé de générer le workflow a corrigé le contrat, qui parle du workflow,
+et n'a pas pensé aux deux textes qui parlent d'*ajouter une app* — le sujet
+n'était pas le même, la phrase l'était. Rien ne relie une phrase à sa copie ;
+c'est ce qui rend la duplication coûteuse longtemps après avoir été écrite.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — la procédure vit désormais dans un seul fichier ; le
+contrat, le README et le message de `--add` y renvoient au lieu de la recopier.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
