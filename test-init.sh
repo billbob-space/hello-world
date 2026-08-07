@@ -288,6 +288,48 @@ refuse "un agent declare mais absent est refuse" "artisan.md absent" <<'FIN'
 rm -f .claude/agents/artisan.md
 FIN
 
+# avertit <nom> <motif> — le pendant de « refuse » pour ce qui n'est pas une
+# faute : --check doit sortir a ZERO et porter l'avertissement. Un tel controle
+# ne peut pas se tester avec « refuse », qui exige un code de sortie non nul, et
+# sans lui un avertissement peut disparaitre sans que rien ne bouge.
+avertit() {  # avertit <nom> <motif attendu>
+  local nom="$1" motif="$2" d sortie code=0
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  bash -c "cd '$d' && $(cat)" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
+  if [ "$code" != 0 ]; then
+    echec "$nom" "--check a refuse (sortie $code) la ou il devait seulement avertir"
+  elif ! printf '%s\n' "$sortie" | grep -q -- "$motif"; then
+    echec "$nom" "aucune ligne ne porte « $motif »"
+  else
+    reussi "$nom"
+  fi
+}
+
+printf '\n-- journal\n'
+
+# Huit entrees reelles portent deja un total sans detail ; la neuvieme prouve que
+# le compte suit, et qu'il ne s'agit pas d'un nombre ecrit en dur.
+avertit "un releve de cout sans detail par tour est signale" "9 releve(s) de cout sans detail" <<'FIN'
+cat > journal/2026-01-01-fabrique-sans-detail.md <<'ENTREE'
+# 2026-01-01 — fabrique/sans-detail
+
+Branche : `fabrique/sans-detail`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+
+<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
+<!-- cout-total: 1000 -->
+<!-- /cout -->
+ENTREE
+git add -A
+FIN
+
 printf '\n-- documents\n'
 
 refuse "un lien mort entre documents est refuse" "lien mort" <<'FIN'

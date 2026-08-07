@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as domaine from '../web/domaine.js';
+import { sansCommentaires, interdits } from './source.js';
 
 // Le programme est lu comme un fichier, pas importe : la syntaxe
 // `import ... with { type: 'json' }` n'est pas stable d'une version de Node a
@@ -54,16 +55,21 @@ test('les 53 identifiants sont uniques et suivent le format s<n>-<c|r><n>', () =
   }
   assert.equal(ids.length, 53, 'nombre de cases');
   assert.equal(new Set(ids).size, ids.length, 'aucun identifiant en double');
-  // Le nombre de seances n'est pas fige dans le motif : la page 3 de la note du
-  // coach peut en ajouter (PRD §12.3), et `s8-r1` doit rester valide.
+  // Le nombre de seances n'est pas fige dans le motif, et il le reste alors meme
+  // que le programme est clos depuis le 7 aout (PRD §12.3) : « s8-r1 » doit
+  // rester valide. Fermer le motif sur sept seances ne protegerait de rien et
+  // ferait echouer le jour ou le fichier de donnees bouge pour une autre raison.
   for (const id of ids) assert.match(id, /^s[1-9]\d*-[cr][1-9]\d*$/, `format de ${id}`);
 });
 
 test('domaine.js est pur : ni dependance, ni navigateur, ni horloge', () => {
-  const source = readFileSync(new URL('../web/domaine.js', import.meta.url), 'utf8');
-  for (const interdit of ['document', 'window', 'localStorage', 'new Date', 'Date.now', 'fetch(']) {
-    assert.equal(source.includes(interdit), false, `domaine.js ne doit pas contenir ${interdit}`);
-  }
+  const source = sansCommentaires(
+    readFileSync(new URL('../web/domaine.js', import.meta.url), 'utf8'),
+  );
+  assert.deepEqual(
+    interdits(source, ['document', 'window', 'localStorage', 'new Date', 'Date.now', 'fetch(']), [],
+    'domaine.js reste pur : ni dependance, ni navigateur, ni horloge',
+  );
   assert.equal(/^\s*import\s/m.test(source), false, 'domaine.js n importe rien');
 });
 

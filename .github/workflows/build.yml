@@ -53,6 +53,12 @@ jobs:
       # heuristique. Trop bavarde on l'ignore, muette on ne la voit pas — les
       # deux derives passent la relecture, aucune ne passe ses huit cas.
       - run: ./test-pret.sh
+      # jetons.sh est le quatrieme, et pour la meme raison que cout.sh : il rend
+      # des nombres a sept chiffres qu'aucune relecture ne verifie a l'oeil. Sa
+      # premiere version comptait trois cents lignes de PROSE comme des tours,
+      # parce qu'une entree de journal qui cite un marqueur ouvrait le bloc que
+      # ce marqueur delimite. La sortie restait plausible de bout en bout.
+      - run: ./test-jetons.sh
 
   detect:
     runs-on: ubuntu-latest

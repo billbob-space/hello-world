@@ -522,10 +522,13 @@ n'en dépend pas.
    constitue un tel état. Le lot 2 ne peut pas être livré sans que cette règle
    soit desserrée — délibérément, et en connaissance de ce qu'elle protège.
 
-3. **La page 3 sur 3 de la note du coach manque.** La capture reçue s'arrête
-   après le lundi 17 août. Le programme documenté ici couvre sept séances ; si
-   la troisième page en ajoute, le fichier de données doit être complété avant
-   le 17.
+3. ~~**La page 3 sur 3 de la note du coach manque.**~~ — *tranché le 7 août :
+   **il n'y aura pas de programme après le 17 août**.* La capture reçue
+   s'arrêtait après le lundi 17 ; elle s'arrêtait là parce que le programme
+   s'arrête là. Les sept séances, les 53 exercices cochables et les dix-neuf
+   jours du § 8 sont donc **définitifs**, et le § 9 avec eux. Rien n'est à
+   compléter, et `web/programme.json` ne bougera plus. Le bilan du 22 août
+   (§ 6, lot 3) reste la fin prévue.
 
 ### 13. Décisions écartées
 
@@ -576,7 +579,9 @@ quatorzième.
 
 ### 15. Questions ouvertes
 
-1. **Page 3 sur 3 du programme** — à récupérer auprès du coach (§ 12.3).
+1. ~~**Page 3 sur 3 du programme**~~ — *tranché le 7 août : il n'y a pas de
+   programme après le 17 août, et la capture n'était donc pas incomplète.* Le
+   § 12.3 est clos.
 2. ~~**Effectif réel de l'équipe**~~ — *tranché : le produit n'en dépend pas.*
    Les cibles du § 4 sont exprimées en proportion, les rangs comptent les
    participants et non l'effectif (§ 9), et aucun écran n'affiche de total
@@ -587,16 +592,20 @@ quatorzième.
 
 ### 16. Ajouté après les PRP
 
-Les onze PRP livrés le 7 août ne sont pas le dernier état de l'application :
-sept changements ont suivi dans la journée, tous nés de l'usage réel et aucun
+Les onze PRP livrés le 6 août ne sont pas le dernier état de l'application :
+huit changements ont suivi le 7 août, tous nés de l'usage réel et aucun
 prévu par un PRP. Cette section les tient, et elle est la contrepartie des
 § 6 et § 13 : sans elle, le seul endroit du dépôt où ces changements existent
 est l'historique des commits, que personne ne relit pour savoir ce que
 l'application fait aujourd'hui.
 
 Trois d'entre eux ont **déplacé le périmètre** — ils ont rendu faux ce que ce
-document affirmait. Ce sont les § 16.1 à § 16.3. Les quatre autres ont livré ce
-que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4.
+document affirmait. Ce sont les § 16.1 à § 16.3. Quatre autres ont livré ce
+que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4. Le
+huitième est le thème visuel du club (§ 16.5) : il ne lève aucune exclusion —
+les trois interdits du § 10 tiennent — mais il arbitre deux choses que ce
+document ne disait nulle part, une couleur par fonction et le partage entre
+écran sombre et écran clair.
 
 #### 16.1 Le minuteur d'exercice — 7 août
 

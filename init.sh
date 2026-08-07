@@ -2566,6 +2566,19 @@ check_journal() {
       [ "$faute" = 0 ] || mauvaises=$((mauvaises+1))
     done
     [ "$mauvaises" -eq 0 ] && ok "$total entree(s), $anomalies anomalie(s), champs agregeables"
+
+    # Un releve de cout sans son detail par tour est hors de portee de
+    # ./scripts/jetons.sh : il entre dans le total du depot et dans aucun poste.
+    # AVERTISSEMENT et jamais KO — le bloc de detail est arrive apres les huit
+    # premieres entrees, et le fichier de conversation qui les a produites a
+    # disparu avec son conteneur. Il n'y a rien a reparer, seulement a savoir.
+    sans_detail=0
+    for e in journal/*.md; do
+      [ -f "$e" ] || continue
+      grep -q '^<!-- cout-total:' "$e" || continue
+      grep -q '^<!-- cout-detail' "$e" || sans_detail=$((sans_detail+1))
+    done
+    [ "$sans_detail" -gt 0 ] && warn "$sans_detail releve(s) de cout sans detail par tour — hors de portee de ./scripts/jetons.sh"
   else
     warn "aucun journal/ — la premiere ./scripts/branche.sh l'ouvrira"
   fi

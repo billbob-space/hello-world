@@ -80,8 +80,10 @@ test('le programme reel donne un rebours a vingt-quatre de ses exercices', () =>
       }
     }
   }
-  // Comptes depuis programme.json et non recopies : ajouter la troisieme page
-  // du coach (PRD §12.3) fera bouger ces nombres, et ce test dira lesquels.
+  // Comptes depuis programme.json et non recopies. Le programme est clos depuis
+  // le 7 aout (PRD §12.3) : ces trois nombres sont donc definitifs, et ce test
+  // est desormais un garde-fou de non-regression — il dira lequel a bouge si le
+  // fichier de donnees change, ce qui n'est plus attendu.
   assert.equal(rebours, 24);
   assert.equal(repetitions, 29);
   assert.equal(rebours + repetitions, 53, 'les 53 cases du programme');

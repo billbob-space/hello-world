@@ -264,13 +264,19 @@ Les assertions de totaux échoueront tant que le fichier ne se recalcule pas sur
 les valeurs attendues. Si le programme change vraiment de contenu, ce sont ces
 valeurs attendues qu'il faut mettre à jour — dans le test, jamais dans le code.
 
-### Reste à recevoir
+### Le programme est complet, et il ne bougera plus
 
-La page 3 sur 3 de la note du coach manque (PRD §12.3). La capture reçue
-s'arrête après le lundi 17 août ; les sept séances saisies ici couvrent tout ce
-qui est connu. Si la troisième page ajoute des séances, elles s'ajoutent à
-`web/programme.json` — dates, identifiants `s8-*` et suivants, volumes — et les
-totaux attendus du test se recalculent. À lever **avant le 17 août**.
+**Tranché le 7 août : il n'y a pas de programme après le 17 août** (PRD §12.3,
+clos). La capture s'arrêtait après le lundi 17 parce que le programme s'arrête
+là — elle n'était pas incomplète. Les sept séances, les 53 exercices et les
+dix-neuf jours sont définitifs.
+
+Ce que ça change pour qui touche à `web/programme.json` : plus rien n'oblige à y
+ajouter des séances, mais **le code n'a pas été refermé pour autant**. Les
+identifiants `s8-*` restent valides, les dénominateurs restent calculés, et
+`tests/documents.test.js` recalcule les cinq nombres depuis le fichier plutôt que
+de les figer. Un programme qui change resterait donc correct — il n'est
+simplement plus attendu.
 
 ## Les écrans et leurs routes
 
@@ -578,6 +584,8 @@ dénominateur vient de `participants`, jamais d'un nombre écrit en dur (PRD §4
 
 ## Le ressenti de fin de séance
 
+`web/ressenti.js` porte les trois émojis et leur envoi.
+
 Trois émojis — 🙂 Facile, 😐 Correct, 🥵 Dur — **dans** le panneau qui célèbre la
 fin d'une séance, entre les compteurs et le bouton. Jamais un second panneau :
 deux fenêtres modales ouvertes sur le même événement, c'est un écran inerte et un
@@ -603,6 +611,8 @@ changer est de décocher puis recocher la dernière case, ce qui rouvre le panne
 C'est cohérent avec ce qu'il mesure — une humeur datée, pas une déclaration.
 
 ## La vue coach — et pourquoi elle n'a pas de mot de passe
+
+`web/vue-coach.js` monte cet écran.
 
 Le lien à envoyer au coach : **https://marcq-handball.apps.billbob.ovh/#/coach**.
 Il n'est listé nulle part dans la navigation de l'application.
@@ -637,6 +647,8 @@ les enfants qui ont rejoint le classement. Un coach qui lirait « 4 facile /
 dit, ce README aussi.
 
 ## Le bilan, après le 21 août
+
+`web/vue-bilan.js` monte cet écran.
 
 Le 22 août au matin, ouvrir le lien ne montre plus un programme terminé : il
 montre ce que l'enfant a fait pendant trois semaines. **La bascule se produit
@@ -680,7 +692,8 @@ tout envoi postérieur, donc le classement est constant par construction.
 Il écoute `marcq:seance-complete` et ouvre le panneau de fin de séance.
 
 Deux des récompenses n'ont **aucun JavaScript** : la ligne qui se barre et la
-barre de progression qui rebondit sont des transitions CSS. C'est ce qui
+barre de progression qui avance — d'un trait, sans rebond depuis que le ressort
+a été retiré — sont des transitions CSS. C'est ce qui
 garantit qu'un tap ne peut pas être retardé par ce module — il ne l'exécute pas.
 
 Trois règles s'appliquent, et ce sont des critères d'acceptation (PRD §10) :
