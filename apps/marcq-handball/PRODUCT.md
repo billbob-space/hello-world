@@ -295,7 +295,9 @@ Deux niveaux, dans cet ordre :
 
 **L'équipe** — la comparaison :
 - **podium** des trois premiers pseudonymes ;
-- **ma position** : *« tu es 3e sur 9 »*, affichée même sans avoir rejoint ;
+- **ma position** : *« tu es 3e sur 9 »*, affichée même sans avoir rejoint — et
+  **le dénominateur inclut celui qui regarde** : à 8 inscrits, un enfant qui n'a
+  pas rejoint lit « 9e sur 9 » et non « 9e sur 8 » ;
 - **progression du groupe** : une jauge collective, la seule mesure où personne
   n'est dernier.
 
@@ -416,6 +418,14 @@ dernier.
 **Le dénominateur est honnête.** « 3e sur 9 » compte les participants au
 classement, pas l'effectif de l'équipe. On n'affiche jamais un rang sur un
 effectif qu'on ne mesure pas.
+
+**Le dénominateur inclut celui qui regarde.** Un enfant qui n'a pas rejoint est
+compté dans le total qu'on lui montre : à 8 inscrits, il lit « 9e sur 9 ». Sans
+ce « + 1 », quelqu'un de moins avancé que tous les inscrits lirait « 9e sur 8 »,
+et écrêter son rang à 8 reviendrait à lui promettre qu'il n'est pas dernier alors
+qu'il l'est. Deux conséquences suivent, et la seconde décide : le rang affiché
+est toujours atteignable, et **le dénominateur ne bouge pas quand on rejoint** —
+rejoindre n'est donc jamais un moyen de mieux se classer.
 
 **Après le 21 août.** L'application bascule sur l'écran de bilan. Le classement
 est figé, plus rien n'est cochable, et chacun voit ce qu'il a accompli sur les

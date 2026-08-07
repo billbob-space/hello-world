@@ -330,10 +330,44 @@ raccourcit rien et peut, comme ici, immobiliser le seul run capable de deployer 
 aucun bouton ne remplace la fabrication issue de la fusion. Il ne reste alors qu'un
 nouveau commit sur `main`, ce que cette entree meme est venue fournir.
 
+### 16. Le commit cense redeclencher la mise en ligne ne la redeclenche pas
+
+**Symptome** — le commit de journal de l'anomalie 15 est fusionne, le run de
+`main` demarre enfin sur de vraies machines, `contrat` et `detect` passent au
+vert — et `test`, `build` et `deploy` sont tous les trois `skipped`. La version
+servie ne bouge pas. Le geste ecrit noir sur blanc dans l'anomalie 15 — « il ne
+reste qu'un nouveau commit sur `main` » — etait faux tel qu'il etait formule.
+
+**Cause** — deux conditions, et une seule avait ete lue. Le job `detect` ne
+declare `deploy=true` que si une app change **ou** si `compose.yaml` change :
+« sinon un commit de documentation redemarrerait toute la stack », dit le
+commentaire du workflow, et c'est une bonne regle. Un commit qui ne touche que
+`journal/` ne remplit ni l'une ni l'autre. La seconde condition est plus serieuse
+et n'avait pas ete vue du tout : sur une pull request, `build` construit **sans
+publier** — le tag `:main` que le serveur suit datait donc encore de la PR 56.
+Meme un `deploy` qui aurait tourne aurait redeploye l'ancienne image.
+
+**Consequence tenue** — le commit qui redeclenche doit toucher
+`apps/marcq-handball/`, pour que l'app entre dans la matrice, que `build` publie
+`:main`, et que `deploy` suive. Ce qui a ete ecrit n'est pas un pretexte : c'est
+l'arbitrage que le PRP 09 avait tranche et que le PRD ne portait pas encore —
+« le denominateur inclut celui qui regarde », §7.5 et §9.
+
+**Detecte par** — `production`
+
+**Action** — `contrat` — « refaire un commit sur `main` » n'est pas un remede
+suffisant et l'ecrire ainsi a coute une fusion pour rien. La formulation juste
+tient en une phrase : **redeployer une app exige un commit qui touche le
+repertoire de cette app**, parce que la publication de son image et son
+deploiement sont conditionnes a sa presence dans la matrice de `detect`. Le PRP
+01 et le contrat decrivent la sequence « construire d'abord, brancher ensuite »
+pour une app neuve ; personne n'avait ecrit ce qu'elle implique pour une app
+deja en ligne dont on veut rejouer la mise en ligne.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 07:39 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 08:05 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -341,22 +375,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 927 | 0,00 $ |
-| Écriture de cache | 3 171 928 | 16,06 $ |
-| Lecture de cache | 128 623 102 | 61,34 $ |
-| Sortie | 413 729 | 8,07 $ |
-| **Total** | **132 209 686** | **85,48 $ — 74,23 €** |
+| Entrée | 979 | 0,00 $ |
+| Écriture de cache | 3 198 824 | 16,23 $ |
+| Lecture de cache | 133 375 528 | 63,72 $ |
+| Sortie | 424 827 | 8,35 $ |
+| **Total** | **137 000 158** | **88,30 $ — 76,68 €** |
 
 **Ce qui coûte**
 
-- **490 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **516 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   54 704 jetons, écrits une fois par session puis relus à chaque
-  échange : 26 750 256 jetons de relecture, 20 % de tout ce qui a été relu.
+  échange : 28 172 560 jetons de relecture, 21 % de tout ce qui a été relu.
 - **Croissance** — 54 704 jetons relus au premier appel qui relise
-  quelque chose, 168 171 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 194 392 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 132209686 -->
+<!-- cout-total: 137000158 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 54704 0 374
 2 principal claude-opus-5 1047 54704 178
@@ -848,5 +882,31 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 488 principal claude-opus-5 1665 165856 90
 489 principal claude-opus-5 650 167521 97
 490 principal claude-opus-5 301 168171 96
+491 principal claude-opus-5 4485 168472 99
+492 principal claude-opus-5 247 172957 850
+493 principal claude-opus-5 884 173204 112
+494 principal claude-opus-5 215 174088 129
+495 principal claude-opus-5 350 174303 489
+496 principal claude-opus-5 846 174653 1195
+497 principal claude-opus-5 1710 175499 448
+498 principal claude-opus-5 525 177209 225
+499 principal claude-opus-5 247 177959 170
+500 principal claude-opus-5 1118 178206 140
+501 principal claude-opus-5 655 179464 216
+502 principal claude-opus-5 727 180119 244
+503 principal claude-opus-5 339 180846 219
+504 principal claude-opus-5 2418 181185 320
+505 principal claude-opus-5 1696 183603 502
+506 principal claude-opus-5 2094 185299 1828
+507 principal claude-opus-5 1862 187393 420
+508 principal claude-opus-5 805 189255 144
+509 principal claude-opus-5 612 190060 335
+510 principal claude-opus-5 395 190672 119
+511 principal claude-opus-5 1345 191067 293
+512 principal claude-opus-5 353 192412 557
+513 principal claude-opus-5 617 192765 522
+514 principal claude-opus-5 580 193382 131
+515 principal claude-opus-5 430 193962 1270
+516 principal claude-opus-5 1341 194392 121
 -->
 <!-- /cout -->
