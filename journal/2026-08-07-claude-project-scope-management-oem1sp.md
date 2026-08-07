@@ -104,6 +104,38 @@ se rédige depuis la sortie du programme, jamais de mémoire. Aucun garde-fou
 plausible ne distingue deux paragraphes qui redisent la même chose d'un rappel
 volontaire ; c'est la relecture qui doit changer, pas l'outillage.
 
+### 5. Quatre affirmations du README étaient périmées, dont deux au même endroit
+
+**Symptome** — en corrigeant le doublon, relu le reste du fichier. Quatre
+affirmations fausses :
+
+- le tableau des applications en listait **trois** ; il y en a six actives ;
+- « aucune application ne déclare de volume ni de service partagé,
+  `shared_services` est vide » — il y a trois volumes nommés, deux bases annexes
+  et un cache Valkey partagé ;
+- l'arborescence annonçait `.github/workflows/` et `.claude/` **GÉNÉRÉS** ;
+  c'est la faute déjà corrigée hier dans le message de `--add`, restée dans un
+  troisième document que la correction d'hier n'avait pas atteint ;
+- « à vérifier avant d'ajouter la **deuxième** application », alors que la
+  septième est en cours.
+
+**Cause** — un `README` n'a pas de garde-fou parce qu'aucune de ses phrases n'est
+dérivable d'un manifeste : `--check` sait comparer `compose.yaml` à ce
+qu'`init.sh` écrirait, il ne sait pas comparer une prose à un état. Le fichier
+vieillit donc à la vitesse de la fabrique, sans que rien ne le signale, et une
+phrase écrite juste devient fausse sans être touchée.
+
+Le troisième point est le plus instructif : la correction d'hier a cherché les
+copies de la procédure d'ajout et les a toutes trouvées — deux — sans penser que
+la même *affirmation* vivait ailleurs, dans un tableau qui ne parle pas d'ajouter
+une app. Chercher les copies d'un paragraphe ne trouve pas les copies d'un fait.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — relire le `README` en entier quand on y touche, et
+vérifier ses affirmations chiffrées contre la sortie des scripts plutôt que
+contre le souvenir qu'on en a.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
