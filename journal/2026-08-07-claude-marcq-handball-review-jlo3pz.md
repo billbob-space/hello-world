@@ -44,9 +44,14 @@ yeux. Une propriété change, ses mentions sont ailleurs.
 
 **Detecte par** — `relecture`
 
-**Action** — `garde-fou` — `pret.sh` avertit déjà quand une app reçoit du code
-neuf sans que son `PRODUCT.md` bouge. Le `README.md` de l'app n'est pas couvert
-par cet avertissement, et c'est exactement la dérive qu'il aurait attrapée.
+**Action** — `garde-fou` — première idée, et elle est fausse : étendre au
+`README.md` l'avertissement de `pret.sh` sur le `PRODUCT.md`. Vérification faite
+sur le commit `57a22de`, le `README.md` **a bougé** — 85 lignes — dans le commit
+fautif ; il a bougé incomplètement. Un garde-fou qui regarde si un fichier a été
+touché ne peut pas voir ça. Ce qui le voit est un test qui lit ce que le
+document **dit** et le compare au code, comme `tests/rejoindre.test.js` le fait
+déjà pour le § 7.4 du PRD. C'est la tâche 1 de
+`docs/superpowers/plans/2026-08-07-gardes-documentaires-et-mesure-des-jetons.md`.
 
 ### 3. Huit relevés de coût sur treize ne sont qu'un total
 
@@ -104,7 +109,7 @@ est à désactiver. Un avertissement qui dure trois jours cesse d'être lu.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 18:43 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 19:25 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -112,22 +117,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 79 | 0,00 $ |
-| Écriture de cache | 134 972 | 0,84 $ |
-| Lecture de cache | 4 266 662 | 2,13 $ |
-| Sortie | 28 106 | 0,70 $ |
-| **Total** | **4 429 819** | **3,68 $ — 3,20 €** |
+| Entrée | 360 | 0,00 $ |
+| Écriture de cache | 368 557 | 2,30 $ |
+| Lecture de cache | 11 884 267 | 5,94 $ |
+| Sortie | 88 382 | 2,21 $ |
+| **Total** | **12 341 566** | **10,46 $ — 9,08 €** |
 
 **Ce qui coûte**
 
-- **42 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **83 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   55 815 jetons, écrits une fois par session puis relus à chaque
-  échange : 2 288 415 jetons de relecture, 53 % de tout ce qui a été relu.
+  échange : 4 576 830 jetons de relecture, 38 % de tout ce qui a été relu.
 - **Croissance** — 55 815 jetons relus au premier appel qui relise
-  quelque chose, 134 626 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 231 061 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 4429819 -->
+<!-- cout-total: 12341566 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 55815 0 500
 2 principal claude-opus-5 2371 55815 282
@@ -171,5 +176,46 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 40 principal claude-opus-5 547 131158 428
 41 principal claude-opus-5 2921 131705 143
 42 principal claude-opus-5 346 134626 93
+43 principal claude-opus-5 571 134972 1313
+44 principal claude-opus-5 1356 135543 105
+45 principal claude-opus-5 278 136899 1133
+46 principal claude-opus-5 145242 0 1440
+47 principal claude-opus-5 3894 145242 2011
+48 principal claude-opus-5 3705 149136 135
+49 principal claude-opus-5 3081 152841 637
+50 principal claude-opus-5 1320 155922 2489
+51 principal claude-opus-5 3194 157242 1348
+52 principal claude-opus-5 1800 160436 129
+53 principal claude-opus-5 1315 162236 464
+54 principal claude-opus-5 2172 163551 92
+55 principal claude-opus-5 2651 165723 446
+56 principal claude-opus-5 1226 168374 91
+57 principal claude-opus-5 592 169600 2401
+58 principal claude-opus-5 2491 170192 253
+59 principal claude-opus-5 635 172683 2069
+60 principal claude-opus-5 2614 173318 4582
+61 principal claude-opus-5 6794 175932 18769
+62 principal claude-opus-5 18848 182726 1724
+63 principal claude-opus-5 4258 201574 1238
+64 principal claude-opus-5 2711 205832 180
+65 principal claude-opus-5 378 208543 141
+66 principal claude-opus-5 2614 208921 2460
+67 principal claude-opus-5 2696 211535 474
+68 principal claude-opus-5 555 214231 1252
+69 principal claude-opus-5 1334 214786 1877
+70 principal claude-opus-5 1959 216120 481
+71 principal claude-opus-5 563 218079 792
+72 principal claude-opus-5 988 218642 141
+73 principal claude-opus-5 500 219630 474
+74 principal claude-opus-5 556 220130 465
+75 principal claude-opus-5 547 220686 1042
+76 principal claude-opus-5 1114 221233 486
+77 principal claude-opus-5 682 222347 325
+78 principal claude-opus-5 390 223029 988
+79 principal claude-opus-5 3137 223419 2300
+80 principal claude-opus-5 2382 226556 725
+81 principal claude-opus-5 807 228938 1157
+82 principal claude-opus-5 1316 229745 118
+83 principal claude-opus-5 319 231061 1529
 -->
 <!-- /cout -->

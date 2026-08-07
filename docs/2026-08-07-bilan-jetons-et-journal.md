@@ -116,10 +116,13 @@ procédure d'ajout d'app en trois copies dont deux fausses, `--check` décrit de
 fois dans le README. Deux de plus le 7 août (§ 1 de l'entrée du jour).
 *Ce qui existe déjà* : `pret.sh` avertit quand une app reçoit du code neuf sans
 que son `PRODUCT.md` bouge — c'est la parade née de cette famille.
-*L'angle mort qui reste* : le **`README.md` de l'app** n'est pas couvert. La
-dérive trouvée aujourd'hui — une récompense décrite alors qu'elle a été retirée
-— est exactement celle que l'avertissement aurait attrapée s'il regardait les
-deux fichiers.
+*L'angle mort qui reste, et ce n'est pas celui qu'on croit* : étendre cet
+avertissement au `README.md` ne servirait à rien. La dérive trouvée le 7 août —
+une récompense décrite alors qu'elle venait d'être retirée — est arrivée dans un
+commit où le `README.md` **a bougé de 85 lignes**. Un garde-fou qui regarde si
+un fichier a été touché ne voit pas un document mis à jour à moitié. Ce qui le
+voit est un test qui lit ce que le document **dit** : l'app le fait déjà pour le
+texte du § 7.4 du PRD, jamais pour ses nombres.
 
 ### Ce qui se transporte à la prochaine app
 
@@ -132,4 +135,9 @@ deux fichiers.
 4. **Exécuter un PRP avant de le figer** — la famille A n'a jamais été outillée.
 5. **Prouver qu'un garde-fou de source attrape encore quelque chose** — sinon il
    ne garde plus rien, et sans bruit.
-6. **Étendre à `README.md` l'avertissement de `pret.sh` sur le PRD.**
+6. **Faire lire les documents par les tests** — leurs nombres sont calculables
+   depuis les données de l'app ; ceux qui ne le sont plus doivent faire échouer
+   quelque chose.
+
+Le plan qui les met en œuvre, avec le test de validation de chacun :
+`docs/superpowers/plans/2026-08-07-gardes-documentaires-et-mesure-des-jetons.md`.
