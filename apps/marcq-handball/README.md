@@ -692,3 +692,75 @@ Trois règles s'appliquent, et ce sont des critères d'acceptation (PRD §10) :
 - `prefers-reduced-motion: reduce` supprime tout mouvement et l'application
   reste entièrement utilisable : les compteurs affichent leur valeur, le panneau
   s'affiche sans confettis, et il se ferme des trois mêmes façons.
+
+## Le thème visuel
+
+`web/style.css` porte un thème unique, décrit en tête de fichier. Deux sources,
+et aucune autre : le **blason du club** (`web/mhb.webp`), dont les couleurs sont
+relevées au pixel près, et le **terrain de handball**, dont on reprend la surface
+de but et ses deux lignes. Trois règles s'y tiennent, et une modification qui les
+enfreint fera diverger l'application sans qu'aucun test ne s'en aperçoive :
+
+- **Une couleur, une fonction.** `--marcq-bleu` (#0a67a6) ne désigne que ce qui
+  est vivant maintenant : la séance du jour, le bouton, aujourd'hui au
+  calendrier, le minuteur qui tourne. `--marcq-fait` désigne l'accompli.
+  `--marcq-danger` est réservé aux gestes destructifs. Rien d'autre n'est coloré.
+- **L'accompli prend le plus fort contraste du fond** — d'où `--marcq-fait:
+  var(--marcq-nuit)` sur les écrans clairs, et le blanc posé explicitement sur le
+  bandeau sombre de l'écran du jour et sur le panneau de fin de séance. C'est une
+  règle, pas une exception : un écran sombre futur doit faire de même.
+- **Le trait plein est la ligne des 6 m, le pointillé celle des 9 m.** Plein :
+  atteint (un exercice fait, une séance faite). Pointillé : hors d'atteinte
+  aujourd'hui (une séance à venir, un jour à venir, un avis de bilan anticipé).
+
+Le bleu du club existe en deux valeurs, et le choix ne se fait pas au goût : sur
+fond clair `--marcq-bleu` (6,0:1 avec du blanc) ; sur les trois surfaces de nuit
+— l'écran du jour, la barre d'onglets, le panneau de fin — il tomberait à 3:1 et
+c'est `--marcq-bleu-clair` (8,6:1) qui prend le relais, anneau de focus compris.
+
+Trois familles, trois registres : `--marcq-titre` (Anton) pour les titres, les
+grands nombres et les onglets ; `--marcq-texte` (pile système) pour tout ce qui
+se lit comme une phrase ; `--marcq-tableau` (chasse fixe) pour ce qui **se
+mesure** — minuteurs, comptes, pourcentages, dates. Jamais pour donner un air
+technique à une phrase : « Salut Lucas » est en pile système, « Semaine 1 ·
+vendredi 7 août » en chasse fixe, et la différence est délibérée.
+
+**La police et le blason sont servis par l'application.** `web/anton.woff2`
+(sous-ensemble latin, 18 Ko, SIL Open Font License 1.1 — le texte de la licence
+est dans `web/anton-OFL.txt` et doit rester livré avec le fichier) et
+`web/mhb.webp` (32 Ko). Tous deux sont déclarés dans `COQUE` (`web/sw.js`), la
+police est préchargée par `web/index.html`, et `main.go` enregistre les types
+MIME `font/woff2` et `image/webp` : Alpine n'embarque aucune table
+`/etc/mime.types` et celle que Go compile en dur ne les couvre pas, si bien que
+le préchargement serait rejeté sans ces lignes. Aucune ressource n'est chargée
+hors de l'origine, et `tests/coque.test.js` le vérifie.
+
+**Le blason apparaît à trois endroits et à trois titres**, et nulle part
+ailleurs : image du document au premier lancement (`web/vue-prenom.js`, avec un
+texte de remplacement — là, il répond à une question), fond de l'écran du jour
+(`.cas-aujourd-hui`, purement décoratif, donc invisible aux lecteurs d'écran), et
+icône d'onglet. Ce n'est pas la mascotte que le PRD § 10 refuse : voir § 16.5.
+
+## La barre de progression
+
+Six écrans en affichent une, et une seule mécanique les sert : `web/barre.js`.
+Elle n'est plus un `<progress>` natif mais un cadre qui rogne un bloc pleine
+largeur, déplacé par `translate` selon la propriété `--part`. Une largeur animée
+obligerait le navigateur à refaire la mise en page à chaque image ; un
+déplacement ne touche ni la mise en page ni le dessin.
+
+Deux conséquences à connaître avant d'y toucher :
+
+- **le déplacement, et non `scaleX`** : une mise à l'échelle écraserait aussi les
+  extrémités arrondies, et le bout de la barre serait d'autant plus pincé que la
+  progression est faible ;
+- **le rôle et les valeurs ARIA sont posés à la main**, puisque `<progress>` ne
+  les fournit plus. C'est la seule raison pour laquelle ce module existe plutôt
+  que quatre lignes recopiées : recopiées, l'une des six les aurait perdues.
+  `creerBarre(..., { muette: true })` retire la barre de la restitution là où le
+  nombre est déjà écrit juste à côté — le bilan, la jauge de groupe, la page du
+  coach.
+
+`tests/barre.test.js` tient les deux : le calcul de la part (division par zéro,
+écrêtage, valeurs illisibles) et le fait qu'aucun écran ne reconstruise sa propre
+barre.

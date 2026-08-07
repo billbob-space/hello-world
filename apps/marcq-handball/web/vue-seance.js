@@ -5,6 +5,7 @@
 //   - le modele, pur, qui prend toutes les decisions et que node --test prouve ;
 //   - le montage, qui pose ce modele dans le DOM et n'y ajoute aucune decision.
 
+import { creerBarre, reglerBarre } from './barre.js';
 import { etatSeance } from './domaine.js';
 import { cocher, decocher } from './etat.js';
 import { creerOrchestre, monterChrono } from './chrono.js';
@@ -196,12 +197,11 @@ export function monterSeance(hote, ctx) {
     el('h1', 'titre-ecran', modele.titre),
   );
 
-  // <progress> natif, comme l'ecran du jour : annonce par les lecteurs d'ecran,
-  // sans calcul de largeur ni bibliotheque. Le ressort du PRD §10 s'ajoutera
-  // par le CSS au PRP 06, sans changer une ligne d'ici.
+  // La barre commune de barre.js, comme l'ecran du jour. C'est la seule de
+  // l'application qui bouge sous les yeux : `reglerBarre` est rappelee a chaque
+  // coche, et c'est le CSS qui fait glisser le remplissage (PRD §10).
   const progression = el('p', 'progression-seance');
-  const barre = el('progress', 'barre');
-  barre.max = modele.total;
+  const barre = creerBarre(0, modele.total);
   const compte = el('span', 'compte');
   progression.append(barre, compte);
   section.append(progression);
@@ -267,7 +267,7 @@ export function monterSeance(hote, ctx) {
   if (pied) section.append(pied);
 
   function majProgression(m) {
-    barre.value = m.coches;
+    reglerBarre(barre, m.coches, m.total);
     compte.textContent = m.coches === m.total
       ? `Séance complète · ${m.total} / ${m.total}`
       : `${m.coches} / ${m.total}`;

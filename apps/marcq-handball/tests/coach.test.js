@@ -165,11 +165,11 @@ test('la page coach ne peut RIEN lire du telephone de qui que ce soit', () => {
   const code = source('vue-coach.js');
 
   const imports = [...code.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]);
-  assert.deepEqual(imports.sort(), ['./ressenti.js', './vue-jour.js'],
-    'deux imports, et aucun ne touche au stockage');
+  assert.deepEqual(imports.sort(), ['./barre.js', './ressenti.js', './vue-jour.js'],
+    'trois imports, et aucun ne touche au stockage');
 
-  // Ni directement, ni par un transitif : vue-jour.js n'importe que domaine.js,
-  // ressenti.js n'importe rien du tout.
+  // Ni directement, ni par un transitif : vue-jour.js n'importe que domaine.js
+  // et barre.js, ressenti.js et barre.js n'importent rien du tout.
   for (const module of imports) {
     const transitif = [...source(module.replace('./', '')).matchAll(/^import .* from '([^']+)';$/gm)]
       .map((m) => m[1]);

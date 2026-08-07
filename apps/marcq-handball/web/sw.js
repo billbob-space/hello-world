@@ -18,9 +18,16 @@ const NOM_CACHE = `marcq-${VERSION}`;
 const COQUE = [
   '/',
   '/style.css',
+  // La police du titrage et le blason du club. Hors du cache, une ouverture sans
+  // reseau retomberait sur la pile systeme et perdrait le blason : lisible, mais
+  // ce nest plus la meme application. Pas dapostrophe dans ce bloc : la liste
+  // est relue au motif des quotes simples.
+  '/anton.woff2',
+  '/mhb.webp',
   '/programme.json',
   '/app.js',
   '/etat.js',
+  '/barre.js',
   '/domaine.js',
   '/vue-prenom.js',
   '/vue-jour.js',

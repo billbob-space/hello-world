@@ -14,6 +14,7 @@
 // avoir envie de lire cet ecran ; trois seances, c'est trois de plus que zero,
 // et c'est le seul cadrage a la fois vrai et lisible.
 
+import { creerBarre } from './barre.js';
 import { etatSeance, progression, seanceDuJour, totauxAccomplis } from './domaine.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 import { ETATS, lignesVolume } from './vue-perso.js';
@@ -194,12 +195,10 @@ export function monterBilan(hote, ctx) {
   if (m.avis !== null) section.append(el('p', 'avis-bilan', m.avis));
 
   const resume = el('div', 'resume-bilan');
-  const barre = el('progress', 'barre');
-  barre.max = m.resume.echelle;
-  barre.value = m.resume.cases;
-  barre.setAttribute('aria-hidden', 'true');
+  // Muette : le pourcentage est ecrit en toutes lettres juste au-dessus, et
+  // l'annoncer deux fois n'apprend rien.
   const ligneBarre = el('p', 'progression-bilan');
-  ligneBarre.append(barre);
+  ligneBarre.append(creerBarre(m.resume.cases, m.resume.echelle, { muette: true }));
   resume.append(
     el('p', 'chiffre-bilan', `${m.resume.pourcent} %`),
     ligneBarre,

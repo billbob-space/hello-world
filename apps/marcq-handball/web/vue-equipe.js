@@ -9,6 +9,7 @@
 // est nommee comme telle. Un rang calcule par le client serait un rang declare
 // par le client (ossature §2).
 
+import { creerBarre } from './barre.js';
 import { EVT_CLASSEMENT, synchroniser } from './classement.js';
 import { lireClassement } from './etat.js';
 import { progression } from './domaine.js';
@@ -294,11 +295,10 @@ export function majEquipe(equipe, modele, options = {}) {
     animerLeRang(equipe, nombre, ancienRang, modele, ancienJour, roulerFn);
   }
 
+  // Muette : la phrase juste a cote porte les deux nombres.
   const groupe = el('p', 'groupe-equipe');
-  const barre = el('progress', 'barre jauge-groupe');
-  barre.max = modele.groupe.echelle;
-  barre.value = modele.groupe.cochees;
-  barre.setAttribute('aria-hidden', 'true');
+  const barre = creerBarre(modele.groupe.cochees, modele.groupe.echelle,
+    { classe: 'jauge-groupe', muette: true });
   groupe.append(barre, el('span', 'phrase-groupe', modele.groupe.phrase));
   equipe.append(groupe, boutonActualiser(ctx));
 }

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -44,6 +45,22 @@ var version = "dev"
 // laisser dans le fichier source garde web/sw.js executable tel quel par un
 // navigateur et lisible par node --test, sans etage de construction.
 const jetonVersion = "__VERSION__"
+
+// Les deux seuls binaires de la coque : la police du titrage et le blason du
+// club. Alpine n'embarque aucune table /etc/mime.types et celle que Go compile
+// en dur ne les couvre pas, si bien qu'ils partiraient en
+// application/octet-stream. Un navigateur les afficherait quand meme, mais le
+// prechargement de la police declare dans index.html serait rejete — le titre du
+// jour s'afficherait deux fois, une fois dans la police du telephone puis une
+// fois dans la sienne. Quatre lignes ici valent mieux qu'un fichier a poser dans
+// l'image.
+func init() {
+	for ext, typ := range map[string]string{".woff2": "font/woff2", ".webp": "image/webp"} {
+		if err := mime.AddExtensionType(ext, typ); err != nil {
+			log.Printf("type %s non declare, le fichier sera servi en octet-stream : %v", ext, err)
+		}
+	}
+}
 
 func main() {
 	log.SetFlags(0) // l'infra horodate les logs ; on ecrit sur la sortie standard

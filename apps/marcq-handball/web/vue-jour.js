@@ -5,6 +5,7 @@
 // l'ecrit dans le DOM et ne calcule rien. C'est ce partage qui rend les trois
 // cas du PRD §6 verifiables sans navigateur.
 
+import { creerBarre } from './barre.js';
 import { etatSeance, seanceDuJour } from './domaine.js';
 
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -115,17 +116,13 @@ export function monterJour(hote, ctx) {
   hote.append(section);
 }
 
-// `<progress>` natif : annonce par les lecteurs d'ecran, sans calcul de largeur
-// ni bibliotheque. C'est un etat, pas une recompense — la barre a ressort du
-// PRD §10 est celle de l'ecran de seance, et elle appartient au PRP 06.
+// La barre commune de barre.js. C'est un etat, pas une recompense : le mouvement
+// du PRD §10 est celui de l'ecran de seance, qui recoche.
 function barreProgression(etat) {
   const bloc = document.createElement('p');
   bloc.className = 'progression-jour';
 
-  const barre = document.createElement('progress');
-  barre.className = 'barre';
-  barre.max = etat.total;
-  barre.value = etat.coches;
+  const barre = creerBarre(etat.coches, etat.total);
 
   const compte = document.createElement('span');
   compte.className = 'compte';

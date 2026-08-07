@@ -1,153 +1,101 @@
-/* Jetons et socle de marcq-handball.
+/* marcq-handball — le theme du club.
  *
- * L'app est ouverte dehors, en plein soleil, sur un telephone tenu a bout de
- * bras entre deux series. D'ou un theme CLAIR par defaut et des contrastes
- * eleves : un ecran sombre au soleil ne se lit pas. La variante sombre suit le
- * reglage du telephone, elle ne s'impose pas.
+ * Ce que l'app doit avoir l'air d'etre : le programme d'ete du Marcq Handball,
+ * tenu par des U15, et pas un formulaire. Deux sources, et rien d'autre : le
+ * BLASON DU CLUB, dont les couleurs sont reprises au pixel pres, et le TERRAIN,
+ * dont on reprend la surface de but et ses deux lignes.
  *
- * Aucune police distante : la page est publique, tout ce qu'elle charge est en
- * meme origine (ossature §2). La pile systeme est deja celle que l'ado lit
- * partout ailleurs sur son telephone. */
+ * Les couleurs sont celles du blason (web/mhb.webp), relevees dessus :
+ *   NUIT     #121026  la criniere exterieure et les contours. Ici : l'encre, le
+ *                     fond des deux bandeaux, et le remplissage de ce qui est
+ *                     ACCOMPLI sur fond clair ;
+ *   BLEU     #0a67a6  le bleu du blason, d'un cran plus profond pour porter du
+ *                     blanc (6,0:1). Il ne dit qu'une chose : ce qui est vivant
+ *                     MAINTENANT — le bouton, aujourd'hui, le minuteur qui
+ *                     tourne ;
+ *   BLEU CLAIR #6fb8ec le meme bleu vu sur le bandeau de nuit, ou le precedent
+ *                     tomberait a 3:1 : sur-titres, arcs du terrain, cage.
+ * Le blanc et le gris froid du fond viennent du blason eux aussi.
+ *
+ * Une seule regle de couleur, et elle vaut partout : L'ACCOMPLI PREND LE PLUS
+ * FORT CONTRASTE DU FOND — l'encre de nuit sur clair, le blanc sur le bandeau de
+ * nuit. Le bleu reste donc libre pour le present, qui est la seule chose sur
+ * laquelle l'app veut faire taper.
+ *
+ * Deux traits, et ils disent quelque chose de vrai — ce sont les deux lignes du
+ * terrain, et elles gardent leur sens :
+ *   PLEIN     ce qui est atteint : la ligne des 6 m ;
+ *   POINTILLE ce qui ne l'est pas encore : la ligne des 9 m. Une seance a venir,
+ *             un jour a venir, un repos : rien a y faire aujourd'hui.
+ *
+ * Ce qui ne change pas, parce que le PRD §11 l'impose : fond CLAIR — l'app est
+ * ouverte dehors, en plein soleil, et un ecran sombre ne s'y lit pas ; zones de
+ * tap d'au moins 48 px ; aucune interaction au survol ; mouvement neutralise
+ * par prefers-reduced-motion. Les deux bandeaux de nuit ne contredisent pas la
+ * regle : le texte y est blanc sur bleu tres fonce, soit le contraste le plus
+ * eleve de toute la feuille.
+ *
+ * Aucune ressource distante : la page est publique, tout ce qu'elle charge est
+ * en meme origine (ossature §2). La police d'affichage et le blason sont donc
+ * SERVIS PAR L'APP, jamais appeles chez un tiers.
+ */
 
-:root {
-  color-scheme: light dark;
-
-  --papier:      #f6f4ef;  /* le fond */
-  --carte:       #ffffff;  /* les surfaces posees dessus */
-  --encre:       #14161c;  /* le texte, jamais du noir pur */
-  --encre-douce: #545a68;  /* les mentions secondaires */
-  --trait:       #ded8cd;  /* les separations */
-  --signal:      #d62839;  /* l'accent : progression, validation, et rien d'autre */
-  --signal-lisible: #ffffff;  /* ce qui s'ecrit sur le signal */
-  --fait:        #16794a;  /* ce qui est accompli */
-
-  /* Zone de tap minimale — PRD §11, mains moites et telephone a bout de bras.
-     Aucune cible interactive de l'app ne descend sous cette valeur. */
-  --tap: 44px;
-
-  --pas:   0.5rem;
-  --marge: clamp(1.25rem, 5vw, 2rem);
-  --rayon: 12px;
-
-  --texte: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-           "Helvetica Neue", Arial, sans-serif;
-  --chiffres: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono",
-              "Liberation Mono", Consolas, monospace;
+/* Anton — SIL Open Font License 1.1, texte complet dans web/anton-OFL.txt.
+   Le sous-ensemble latin seul : 18 Ko, et il couvre les accents du francais
+   (« aout », « seance validee ») verifies a l'ecran.
+   `swap` plutot que `block` : le programme du jour s'affiche a la premiere
+   image avec la police du telephone, la police d'affichage arrive apres. Le
+   PRD §4 se joue sur la premiere seconde ; une police n'a pas le droit de la
+   retarder. */
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/anton.woff2') format('woff2');
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --papier:      #101216;
-    --carte:       #191c22;
-    --encre:       #edeae3;
-    --encre-douce: #9aa1ad;
-    --trait:       #2b2f38;
-    --signal:      #ff5566;
-    --signal-lisible: #14161c;
-    --fait:        #4ec98a;
-  }
+:root {
+  /* Le theme est clair, et seulement clair. Une variante sombre suivrait le
+     reglage du telephone et retirerait au soleil le seul contraste qui y
+     fonctionne. */
+  color-scheme: light;
+
+  /* Les quatre couleurs du blason, relevees dessus. */
+  --marcq-nuit:        #121026;   /* l'encre, les bandeaux, et l'accompli */
+  --marcq-bleu:        #0a67a6;   /* ce qui est vivant maintenant */
+  --marcq-bleu-clair:  #6fb8ec;   /* le meme, sur le bandeau de nuit — 8,6:1 */
+  --marcq-sur-bleu:    #ffffff;   /* 6,0:1 sur le bleu */
+
+  --marcq-encre:       #121026;
+  --marcq-encre-douce: #4d5666;   /* 6,5:1 sur le fond */
+  --marcq-fond:        #eef0f3;   /* le gris froid du blason, eclairci */
+  --marcq-carte:       #ffffff;
+  --marcq-trait:       #d3d8e0;
+
+  /* L'accompli. Alias delibere de la nuit plutot que sa valeur : c'est le nom
+     qui porte la regle, et un ecran futur qui veut « fait » ne va pas piocher
+     dans l'encre au hasard. */
+  --marcq-fait:        var(--marcq-nuit);
+
+  --marcq-danger:      #9e1220;   /* 8,6:1 sur blanc */
+
+  --marcq-tap: 48px;
+
+  --marcq-titre: 'Anton', 'Arial Narrow', ui-sans-serif, system-ui, sans-serif;
+  --marcq-texte: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* La chasse fixe ne sert QU'A la mesure — minuteurs, comptes, pourcentages,
+     dates. Jamais a donner un air technique a une phrase. */
+  --marcq-tableau: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono",
+                   "Liberation Mono", Consolas, monospace;
+
+  /* Une deceleration franche, sans depassement : un objet reel ralentit, il ne
+     revient pas en arriere. Remplace le ressort d'origine, qui datait le
+     mouvement et que le PRD §10 decrivait a tort comme un rebond. */
+  --marcq-sortie: cubic-bezier(.22, 1, .36, 1);
 }
 
 * { box-sizing: border-box; }
-
-html { -webkit-text-size-adjust: 100%; }
-
-body {
-  margin: 0;
-  min-height: 100dvh;
-  padding: var(--marge);
-  /* La barre d'adresse du telephone mange le bas de l'ecran : sans cette
-     reserve, le dernier exercice d'une seance se cache derriere elle. */
-  padding-bottom: calc(var(--marge) + env(safe-area-inset-bottom));
-  background: var(--papier);
-  color: var(--encre);
-  font-family: var(--texte);
-  font-size: 17px;
-  line-height: 1.5;
-}
-
-h1 {
-  margin: 0 0 var(--pas);
-  font-size: clamp(2rem, 9vw, 2.75rem);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-/* Toute cible interactive, partout dans l'app. Les ecrans des PRP suivants
-   s'appuient dessus plutot que de redeclarer une hauteur a chaque bouton. */
-.tap {
-  min-height: var(--tap);
-  min-width: var(--tap);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--pas);
-}
-
-:focus-visible {
-  outline: 3px solid var(--signal);
-  outline-offset: 2px;
-}
-
-/* ---- la page d'attente ---------------------------------------------------
-   Elle dit ce qu'elle est. Elle n'imite aucun ecran de l'application : une
-   fausse seance donnerait envie de taper dessus, et le premier tap serait un
-   echec. */
-
-.attente {
-  max-width: 32rem;
-  margin: 0 auto;
-  padding-top: clamp(2rem, 12vh, 6rem);
-}
-
-.sur-titre {
-  margin: 0 0 var(--pas);
-  font-family: var(--chiffres);
-  font-size: 0.8125rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--signal);
-}
-
-.periode {
-  margin: 0 0 calc(var(--pas) * 4);
-  font-family: var(--chiffres);
-  color: var(--encre-douce);
-}
-
-.dit {
-  margin: 0 0 calc(var(--pas) * 2);
-  font-size: 1.125rem;
-}
-
-.note {
-  margin: 0;
-  padding: calc(var(--pas) * 2);
-  background: var(--carte);
-  border: 1px solid var(--trait);
-  border-radius: var(--rayon);
-  color: var(--encre-douce);
-}
-
-
-/* ---------------------------------------------------------------------------
-   Les ecrans — PRP 03.
-   Mobile d'abord : une colonne, des zones de tap d'au moins 48 px, un contraste
-   eleve (PRD §11). Le fond est clair et l'encre presque noire : c'est ce qui se
-   lit le mieux dehors, ecran a pleine luminosite. Aucune police distante — la
-   page est publique et ne charge que sa propre origine (ossature §2).
-   --------------------------------------------------------------------------- */
-
-:root {
-  --marcq-encre: #14181f;
-  --marcq-encre-douce: #4a5364;
-  --marcq-fond: #f4f6f9;
-  --marcq-carte: #ffffff;
-  --marcq-accent: #0b4fa8;      /* 7,4:1 sur blanc */
-  --marcq-sur-accent: #ffffff;
-  --marcq-danger: #a11221;      /* 7,9:1 sur blanc */
-  --marcq-trait: #d7dce4;
-  --marcq-tap: 48px;
-}
 
 body {
   margin: 0;
@@ -156,7 +104,7 @@ body {
   padding: 0 0 calc(var(--marcq-tap) + env(safe-area-inset-bottom, 0px) + 1.5rem);
   background: var(--marcq-fond);
   color: var(--marcq-encre);
-  font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 17px/1.5 var(--marcq-texte);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -171,26 +119,67 @@ body {
   padding: 1.25rem 1.1rem 0;
 }
 /* Le premier lancement est centre : un champ seul en haut d'un ecran vide a
-   l'air d'un formulaire inacheve. */
-.ecran-prenom { min-height: 65vh; justify-content: center; }
-.ecran-jour { gap: 1.1rem; }
+   l'air d'un formulaire inacheve. C'est le seul ecran ou le blason est une
+   IMAGE et non un fond : il repond ici a la question que se pose l'enfant qui
+   ouvre un lien recu sur le groupe de l'equipe — de qui vient ce lien. Ailleurs
+   il n'apprendrait plus rien et redeviendrait un decor. */
+.ecran-prenom { min-height: 72vh; justify-content: center; }
+.blason-accueil { width: 7.5rem; height: auto; margin: 0 0 .2rem; }
 .ecran-reglages { gap: 1.1rem; }
+
+/* ---- le titre, et la ligne qui le precede --------------------------------
+   Un seul traitement pour tous les ecrans : Anton en capitales, serre, une
+   ligne de plus que necessaire evitee. C'est la police qui fait le theme —
+   « AUTRE SPORT + RENFORCEMENT » tient sur une ligne la ou la pile systeme en
+   demandait trois, et sur un telephone deux lignes gagnees valent un exercice
+   de plus visible sans defiler. */
 
 .titre-accueil,
 .titre-jour,
-.titre-ecran { margin: 0; font-size: 1.6rem; line-height: 1.2; }
-.titre-bloc { margin: 0 0 .6rem; font-size: 1.05rem; }
+.titre-ecran {
+  margin: 0;
+  font-family: var(--marcq-titre);
+  font-size: clamp(1.9rem, 8.5vw, 2.6rem);
+  font-weight: 400;
+  line-height: .95;
+  letter-spacing: .005em;
+  text-transform: uppercase;
+}
 
+/* Ce qui situe, au-dessus du titre. Les deux sont en capitales espacees et
+   dans le bleu du club, mais pas dans la meme police : « Semaine 1 · vendredi
+   7 aout » DATE, donc chasse fixe, comme tout ce qui se mesure dans cette
+   feuille ; « Salut Lucas » PARLE, et la chasse fixe ne serait la qu'un
+   costume. */
 .salutation,
+.date-seance {
+  margin: 0;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--marcq-bleu);
+}
+.date-seance { font-family: var(--marcq-tableau); }
+
 .details-jour { margin: 0; color: var(--marcq-encre-douce); }
-.salutation { font-size: 1.05rem; }
+
+.titre-bloc {
+  margin: 0 0 .6rem;
+  font-family: var(--marcq-titre);
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+}
+
+/* ---- les commandes ------------------------------------------------------- */
 
 .formulaire-prenom { display: flex; flex-direction: column; gap: .7rem; }
 .etiquette { display: block; font-weight: 600; }
 .aide { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
 
 .champ {
-  box-sizing: border-box;
   width: 100%;
   min-height: var(--marcq-tap);
   padding: 0 .8rem;
@@ -201,7 +190,7 @@ body {
   font: inherit;
   font-size: 17px;
 }
-.champ:focus-visible { border-color: var(--marcq-accent); outline: none; }
+.champ:focus-visible { border-color: var(--marcq-bleu); outline: none; }
 
 .bouton {
   display: inline-flex;
@@ -214,134 +203,232 @@ body {
   background: var(--marcq-carte);
   color: inherit;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
 }
+
+/* Le seul aplat de bleu plein de l'app, et il ne dit qu'une chose : va faire ta
+   seance. Blanc dessus — 6,0:1, la nuance du blason a ete descendue d'un cran
+   exactement pour ca. */
 .bouton-principal {
-  border-color: var(--marcq-accent);
-  background: var(--marcq-accent);
-  color: var(--marcq-sur-accent);
+  border-color: var(--marcq-bleu);
+  background: var(--marcq-bleu);
+  color: var(--marcq-sur-bleu);
+  font-family: var(--marcq-titre);
+  font-weight: 400;
+  font-size: 1.15rem;
+  letter-spacing: .02em;
+  text-transform: uppercase;
 }
 .bouton-danger { border-color: var(--marcq-danger); color: var(--marcq-danger); }
-.bouton:focus-visible,
-.lien-nav:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 
-.progression-jour { display: flex; align-items: center; gap: .7rem; margin: 0; }
-.barre { flex: 1; height: .7rem; }
-.compte { font-variant-numeric: tabular-nums; font-weight: 600; }
+:focus-visible { outline: 3px solid var(--marcq-bleu); outline-offset: 2px; }
+.bouton:focus-visible { outline: 3px solid var(--marcq-bleu); outline-offset: 2px; }
+/* Sur les trois surfaces de nuit, le bleu du blason tombe a 3:1 contre le fond :
+   l'anneau y passe au bleu clair, sans quoi il serait la sans se voir. */
+.nav-app :focus-visible,
+.cas-aujourd-hui :focus-visible,
+.carte-fin :focus-visible { outline-color: var(--marcq-bleu-clair); }
 
-.bloc-reglage {
-  padding: 1rem;
-  border: 1px solid var(--marcq-trait);
-  border-radius: .8rem;
-  background: var(--marcq-carte);
+/* ---- la barre de progression ---------------------------------------------
+   Un cadre qui rogne, et dedans un bloc PLEINE LARGEUR qui glisse : a `--part`
+   valant 0 il est entierement a gauche, a 1 il est en place. Une largeur qui
+   s'anime obligerait le navigateur a refaire la mise en page a chaque image ;
+   un deplacement ne touche ni la mise en page ni le dessin. Le detail, et
+   pourquoi un deplacement plutot qu'une mise a l'echelle : web/barre.js.
+
+   Le remplissage prend l'encre de nuit — il montre ce qui est ACCOMPLI, et le
+   bleu du club reste libre pour ce qui est a faire maintenant. */
+
+.barre {
+  overflow: hidden;
+  height: .85rem;
+  border-radius: 999px;
+  background: var(--marcq-trait);
 }
-.bloc-danger { border-color: var(--marcq-danger); }
 
-/* Le choix de la sonnerie. Une ligne par option, chacune une zone de tap
-   pleine : on choisit un son du pouce, entre deux series. */
-.choix-sonnerie { display: flex; flex-direction: column; }
-.ligne-sonnerie {
-  display: flex;
-  align-items: center;
+.barre-remplissage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--marcq-fait);
+  translate: calc((var(--part, 0) - 1) * 100%) 0;
+  transition: translate 260ms var(--marcq-sortie);
+}
+
+.progression-jour,
+.progression-seance { display: flex; align-items: center; gap: .7rem; margin: 0; }
+.progression-jour .barre,
+.progression-seance .barre { flex: 1; }
+
+/* Le compte se lit comme un score : chiffres a chasse fixe, corps eleve. */
+.compte {
+  font-family: var(--marcq-tableau);
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   L'ecran du jour — la surface de but.
+   C'est le seul endroit ou l'app hausse la voix, et c'est le bon : c'est l'ecran
+   qu'on ouvre. Le bandeau de nuit porte les deux arcs du terrain, traces au
+   bord haut comme ils le sont sous la ligne de but — le plein a 6 m, le
+   pointille a 9 m. Rien d'autre dans l'app ne les redessine.
+   --------------------------------------------------------------------------- */
+
+.ecran-jour { gap: 1.1rem; }
+
+.cas-aujourd-hui {
+  position: relative;
+  /* La surface va jusqu'a la barre d'onglets, et le contenu se cale en bas :
+     l'ecran du jour ne montre qu'une chose, autant qu'il la montre en entier.
+     Ce qui reste au-dessus n'est pas du vide, c'est le terrain. `min-height` et
+     non `height` : sur un telephone court, le contenu depasse et la regle ne
+     fait rien plutot que de le tronquer. `dvh` et non `vh` — la barre d'adresse
+     du telephone se retracte, et `vh` laisserait un blanc de sa hauteur. */
+  min-height: calc(100dvh - var(--marcq-tap) - env(safe-area-inset-bottom, 0px) - 1.5rem);
+  justify-content: flex-end;
   gap: .8rem;
-  min-height: var(--marcq-tap);
-  padding: .5rem 0;
-  cursor: pointer;
+  padding: calc(1.6rem + env(safe-area-inset-top, 0px)) 1.2rem 1.5rem;
+  border-radius: 0 0 1.5rem 1.5rem;
+  /* Le blason, pose sur la nuit, au sommet des deux arcs — la ou serait la cage.
+     Il y tient trois roles a la fois : il dit de qui vient l'application, il
+     donne aux arcs le point d'ou ils partent, et il occupe le haut de l'ecran,
+     qui n'a rien d'autre a montrer.
+     En FOND, et non en image du document : il ne dit rien que le texte ne dise
+     deja, un lecteur d'ecran n'a rien a y gagner, et il n'a donc pas a le
+     rencontrer. L'ecran du premier lancement, lui, le pose dans le document avec
+     un texte de remplacement — la, il repond a une question. */
+  background: url('/mhb.webp') center 2.2rem / auto 7.5rem no-repeat var(--marcq-nuit);
+  color: #ffffff;
+  overflow: hidden;
 }
-.ligne-sonnerie + .ligne-sonnerie { border-top: 1px solid var(--marcq-trait); }
-.case-sonnerie { flex: 0 0 auto; width: 22px; height: 22px; margin: 0; accent-color: var(--marcq-accent); }
-.case-sonnerie:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
-.texte-sonnerie { display: flex; flex-direction: column; }
-.nom-sonnerie { font-weight: 600; }
-.avertissement { margin: 0 0 .8rem; color: var(--marcq-encre-douce); font-size: .95rem; }
-/* La hauteur est reservee : sans elle, le retour ferait sauter le bouton. */
-.retour { margin: 0; min-height: 1.5rem; color: var(--marcq-accent); font-size: .95rem; }
 
-/* Le message d'un champ, sous le champ. Aucune hauteur reservee : il n'existe
-   que quand il a quelque chose a dire, et le formulaire ne doit pas garder un
-   trou a sa place. */
-.erreur-champ { margin: -.35rem 0 0; color: var(--marcq-danger); font-size: .95rem; }
-/* La bordure survit a un message pousse hors de l'ecran par le clavier : c'est
-   le seul signal qui reste quand le telephone mange la moitie de la page. */
-.champ-en-erreur { border-color: var(--marcq-danger); }
-.champ-en-erreur:focus-visible { outline-color: var(--marcq-danger); }
+/* Les deux arcs de la surface de but, traces depuis le bord haut du bandeau —
+   la ligne de but — exactement comme sur un terrain vu du dessus : le 6 m plein
+   a l'interieur, le 9 m pointille autour. Ils debordent sur les cotes, comme les
+   vrais debordent de la surface. `pointer-events: none` — un decor n'intercepte
+   jamais un tap. */
+.cas-aujourd-hui::before,
+.cas-aujourd-hui::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  translate: -50% -50%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.cas-aujourd-hui::before {
+  width: 150%;
+  height: 118%;
+  border: 2px dashed rgb(255 255 255 / .12);
+}
+/* Assez pale pour passer DERRIERE le titre sans le disputer : c'est un terrain
+   imprime sous le texte, pas un trait par-dessus. */
+.cas-aujourd-hui::after {
+  width: 104%;
+  height: 92%;
+  border: 3px solid rgb(111 184 236 / .34);
+}
 
-.panne { max-width: 34rem; margin: 2rem auto; padding: 0 1.1rem; color: var(--marcq-danger); }
+/* Le contenu passe devant les arcs. */
+.cas-aujourd-hui > * { position: relative; z-index: 1; }
 
-.nav-app {
-  position: fixed;
-  inset: auto 0 0;
-  display: flex;
-  border-top: 1px solid var(--marcq-trait);
+.cas-aujourd-hui .salutation { color: var(--marcq-bleu-clair); }
+.cas-aujourd-hui .details-jour {
+  color: rgb(255 255 255 / .72);
+  font-family: var(--marcq-tableau);
+  font-size: .9rem;
+}
+/* Sur la nuit, l'accompli passe au blanc : la regle est « le plus fort
+   contraste du fond », pas « toujours la meme couleur ». */
+.cas-aujourd-hui .barre { background: rgb(255 255 255 / .18); }
+.cas-aujourd-hui .barre-remplissage { background: #ffffff; }
+.cas-aujourd-hui .compte { color: #ffffff; }
+.cas-aujourd-hui .bouton-principal { margin-top: .2rem; }
+
+/* Repos et fin de programme : rien a faire ici aujourd'hui, donc le cadre
+   pointille — la ligne des 9 m — et pas un aplat. Ils n'appellent pas, ils
+   informent. */
+.cas-repos,
+.cas-terminee {
+  gap: .7rem;
+  width: calc(100% - 2.2rem);
+  margin: 1.1rem auto 0;
+  padding: 1.4rem 1.2rem;
+  border-radius: 1rem;
   background: var(--marcq-carte);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.nav-app[hidden] { display: none; }
-.lien-nav {
-  display: inline-flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--marcq-tap);
-  color: var(--marcq-encre-douce);
-  font-weight: 600;
-  text-decoration: none;
-}
-.lien-nav[aria-current="page"] {
-  color: var(--marcq-accent);
-  box-shadow: inset 0 -3px 0 var(--marcq-accent);
-}
-
-/* Les trois cas de l'ecran du jour se lisent a la couleur du titre : un jour de
-   seance appelle, un jour de repos rassure, la fin du programme clot. */
-.cas-aujourd-hui .titre-jour { color: var(--marcq-accent); }
+.cas-repos { border: 2px dashed var(--marcq-trait); }
+.cas-terminee { border: 2px solid var(--marcq-trait); }
 .cas-repos .titre-jour { color: var(--marcq-encre-douce); }
-.cas-terminee .titre-jour { color: var(--marcq-encre); }
 
-/* ---- l'ecran de seance ----------------------------------------------------
+/* ---------------------------------------------------------------------------
+   L'ecran de seance.
    Ouvert dehors, au soleil, sur un telephone tenu a bout de bras entre deux
    series. D'ou la ligne entiere comme zone de tap et des separations franches
-   plutot que des nuances de gris. Les titres, la barre et le compte
-   reutilisent les classes de l'ecran du jour : une jumelle divergerait. */
+   plutot que des nuances de gris.
+   --------------------------------------------------------------------------- */
 
 .ecran-seance { gap: 1.1rem; }
 
-/* Le sur-titre : la semaine du coach et la date en toutes lettres. */
-.date-seance { margin: 0; color: var(--marcq-encre-douce); font-size: 1.05rem; }
-
-.progression-seance { display: flex; align-items: center; gap: .7rem; margin: 0; }
-
 /* Le motif du verrou. Une phrase, pas une infobulle : il n'y a pas de survol
-   sur un telephone. */
+   sur un telephone. Le trait est pointille comme tout ce qui n'est pas
+   atteignable aujourd'hui. */
 .verrou-seance {
   margin: 0;
-  padding: .7rem .9rem;
-  border-left: 4px solid var(--marcq-encre-douce);
-  border-radius: 8px;
+  padding: .8rem .9rem;
+  border: 2px dashed var(--marcq-trait);
+  border-radius: .8rem;
   background: var(--marcq-carte);
   color: var(--marcq-encre-douce);
 }
 
 .bloc-seance { display: flex; flex-direction: column; gap: .4rem; }
 
-/* `.titre-bloc` porte une marge basse pour les reglages ; ici c'est `gap` qui
+/* Les blocs sont le decoupage du coach — « Course », puis « Renforcement »
+   (PRD §7.3). Une vraie structure, donc un vrai reperage : un trait de bleu
+   devant le titre, et le nombre de tours en pastille de tableau d'affichage.
+   `.titre-bloc` porte une marge basse pour les reglages ; ici c'est `gap` qui
    espace, et les deux se cumuleraient. */
-.bloc-seance .titre-bloc { margin: 0; }
+.bloc-seance .titre-bloc {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin: 0;
+}
+.bloc-seance .titre-bloc::before {
+  content: '';
+  width: .3rem;
+  height: 1.15em;
+  border-radius: 999px;
+  background: var(--marcq-bleu);
+}
 
 .tours-bloc {
+  align-self: flex-start;
   margin: 0;
-  color: var(--marcq-encre-douce);
-  font-size: .95rem;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+  background: var(--marcq-nuit);
+  color: #ffffff;
+  font-family: var(--marcq-tableau);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
 }
 
 .exercices {
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--marcq-trait);
-  border-radius: 10px;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .9rem;
   background: var(--marcq-carte);
   overflow: hidden;
 }
@@ -350,16 +437,23 @@ body {
 
 /* La ligne porte l'etiquette ET le minuteur, cote a cote. Le minuteur est hors
    de l'etiquette — sans quoi le demarrer cocherait l'exercice — et il garde donc
-   sa propre marge de droite. */
+   sa propre marge de droite. Les deux commandes de droite sont tenues au plus
+   serre : chaque pixel qu'elles prennent est un mot de plus que l'etiquette
+   renvoie a la ligne suivante, et « 30 a 40 minutes d'un autre sport (piscine,
+   velo...) » en tenait cinq. */
 .exercice {
   display: flex;
   align-items: center;
-  gap: .4rem;
-  padding-inline-end: .6rem;
+  gap: .2rem;
+  padding-inline-end: .45rem;
 }
 
-.actions-exercice { display: flex; align-items: center; gap: .15rem; flex: 0 0 auto; }
-.chrono-groupe { display: flex; align-items: center; gap: .2rem; }
+/* Un exercice fait porte le trait plein des 6 m, sur toute la hauteur de sa
+   ligne : de loin, on voit ou on en est sans lire un mot. */
+.exercice.fait { box-shadow: inset .3rem 0 0 var(--marcq-fait); }
+
+.actions-exercice { display: flex; align-items: center; gap: .1rem; flex: 0 0 auto; }
+.chrono-groupe { display: flex; align-items: center; gap: .15rem; }
 
 /* Le lien vers la demonstration. Un symbole et non un mot : la place a droite
    d'une ligne est comptee, et « ▶ » se lit sans traduction. Le nom du mouvement
@@ -368,33 +462,44 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.2rem;
+  min-width: 1.75rem;
   min-height: var(--marcq-tap);
-  color: var(--marcq-accent);
+  color: var(--marcq-encre-douce);
   text-decoration: none;
-  font-size: .9rem;
+  font-size: .85rem;
 }
-.video-exercice:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 .exercice.fait .video-exercice { opacity: .55; }
 
-/* Chiffres tabulaires : sans eux, « 0:39 » puis « 0:38 » font sauter le bouton
-   a chaque seconde, et l'oeil suit le mouvement au lieu du nombre. */
+/* Le minuteur, en tableau d'affichage : chiffres a chasse fixe — sans eux,
+   « 0:39 » puis « 0:38 » font sauter le bouton a chaque seconde, et l'oeil suit
+   le mouvement au lieu du nombre. Les trois etats se lisent a la couleur : au
+   repos il se tait, il tourne en bleu, il est fini en nuit. */
 .chrono {
-  min-width: 3.8rem;
+  min-width: 3.15rem;
   min-height: var(--marcq-tap);
-  padding: 0 .35rem;
-  border: 1px solid var(--marcq-trait);
-  border-radius: 8px;
+  padding: 0 .25rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .5rem;
   background: transparent;
   color: var(--marcq-encre-douce);
-  font: inherit;
+  font-family: var(--marcq-tableau);
+  font-size: .95rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.chrono-actif { border-color: var(--marcq-accent); color: var(--marcq-accent); font-weight: 600; }
-.chrono-fini { border-color: var(--marcq-accent); background: var(--marcq-accent); color: #fff; }
+.chrono-actif {
+  border-color: var(--marcq-bleu);
+  background: var(--marcq-bleu);
+  color: var(--marcq-sur-bleu);
+}
+.chrono-fini {
+  border-color: var(--marcq-nuit);
+  background: var(--marcq-nuit);
+  color: var(--marcq-bleu-clair);
+}
 .chrono-remise {
-  min-width: 1.9rem;
+  min-width: 1.45rem;
   min-height: var(--marcq-tap);
   border: 0;
   background: transparent;
@@ -403,8 +508,6 @@ body {
   cursor: pointer;
 }
 .chrono-remise-dort { visibility: hidden; }
-.chrono:focus-visible,
-.chrono-remise:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 
 /* Un exercice coche garde son minuteur — on peut vouloir le relancer pour un
    second tour —, mais il cesse d'attirer l'oeil. */
@@ -415,10 +518,10 @@ body {
 .ligne-exercice {
   display: flex;
   align-items: center;
-  gap: .8rem;
+  gap: .6rem;
   width: 100%;
   min-height: calc(var(--marcq-tap) + 8px);
-  padding: .7rem .9rem;
+  padding: .7rem .45rem .7rem .65rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -428,24 +531,29 @@ body {
   width: 26px;
   height: 26px;
   margin: 0;
-  accent-color: var(--marcq-accent);
+  accent-color: var(--marcq-fait);
 }
-
-.case-exercice:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 
 .libelle-exercice { flex: 1 1 auto; }
 
-/* Coche : la ligne se barre. C'est tout ce que ce PRP anime — le ressort et les
-   confettis sont le PRP 06, branches sur marcq:exercice-coche. */
-.exercice.fait .libelle-exercice {
-  color: var(--marcq-encre-douce);
-  text-decoration: line-through;
+/* Coche : la ligne se barre. C'est la COULEUR du trait qui s'anime, pas sa
+   largeur. Le trait est present des le depart, en transparent, ce qui evite
+   deux ecueils — un trait qui pousse de gauche a droite se casse sur un libelle
+   a deux lignes, et une transition ne demarre jamais au tout premier calcul de
+   style, donc une seance rouverte deja cochee ne rejoue rien (deuxieme
+   interdit, PRD §10). */
+.libelle-exercice {
+  text-decoration-line: line-through;
   text-decoration-thickness: 2px;
+  text-decoration-color: transparent;
+  transition: color 220ms ease-out, text-decoration-color 220ms ease-out;
 }
+.exercice.fait .libelle-exercice { color: var(--marcq-encre-douce); }
+.exercice.fait .libelle-exercice { text-decoration-color: currentColor; }
 
-/* Une seance a venir : le cadre passe en pointilles et les cases s'effacent,
-   mais le texte reste plein contraste — on vient justement lire ce qui arrive
-   (PRD §9). */
+/* Une seance a venir : le cadre passe en pointilles — la ligne des 9 m, celle
+   qu'on n'a pas encore franchie — et les cases s'effacent, mais le texte reste
+   plein contraste : on vient justement lire ce qui arrive (PRD §9). */
 .seance-verrouillee .exercices { border-style: dashed; background: transparent; }
 .seance-verrouillee .ligne-exercice { cursor: default; }
 .seance-verrouillee .case-exercice { opacity: .5; }
@@ -461,24 +569,24 @@ body {
   display: inline-flex;
   align-items: center;
   min-height: var(--marcq-tap);
-  color: var(--marcq-accent);
-  font-weight: 600;
+  color: var(--marcq-encre);
+  font-family: var(--marcq-tableau);
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   text-decoration: none;
 }
-
-.lien-voisine:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 
 /* Sans cela, la seule voisine d'une seance de bord se collerait a gauche, quel
    que soit le sens dans lequel elle emmene. */
 .vers-suivante { margin-left: auto; }
 
-/* ---- l'ecran perso --------------------------------------------------------
-   « Ma progression » (PRD §7.5) : on se lit, on ne se compare pas. Un chiffre en
-   grand, le volume en pastilles juste dessous — c'est le second chiffre saillant
-   de l'ecran (PRD §9) —, et dix-neuf jours qui tiennent sur la largeur
-   d'un telephone sans defilement horizontal. Les titres, la barre et le bloc
-   d'aide reutilisent les classes des ecrans precedents : une jumelle
-   divergerait. */
+/* ---------------------------------------------------------------------------
+   L'ecran perso — « Ma progression » (PRD §7.5) : on se lit, on ne se compare
+   pas. Le pourcentage est le numero au dos du maillot : c'est le chiffre qu'on
+   retient, il prend donc toute la largeur qu'il peut.
+   --------------------------------------------------------------------------- */
 
 .ecran-perso { gap: 1.4rem; }
 /* L'ecran de l'equipe ne porte qu'un titre et un bloc : le meme rythme vertical
@@ -493,46 +601,51 @@ body {
 .calendrier-perso { display: block; }
 
 .part-perso {
-  padding: 1rem;
-  border: 1px solid var(--marcq-trait);
-  border-radius: 10px;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: 1rem;
   background: var(--marcq-carte);
 }
 
 .chiffre-part {
   margin: 0;
-  font-size: clamp(2.5rem, 14vw, 3.5rem);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-family: var(--marcq-titre);
+  font-size: clamp(3.6rem, 20vw, 5.5rem);
+  font-weight: 400;
+  line-height: .85;
+  letter-spacing: -.01em;
   font-variant-numeric: tabular-nums;
 }
 
-.progression-perso { display: flex; align-items: center; margin: .6rem 0; }
+.progression-perso { display: flex; align-items: center; margin: .8rem 0 .5rem; }
+.progression-perso .barre { width: 100%; }
 
 .phrase-part { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
 
 /* Le volume en pastilles : une liste de choses a dire a table, pas un tableau
-   de bord. Le PRD §9 veut ce cumul « en grand sur la page perso » — les
-   pastilles portent donc le second corps de texte de l'ecran, juste sous le
-   pourcentage, et loin devant la phrase et le calendrier. */
+   de bord (PRD §9). En capitales d'affichage, elles se lisent comme les
+   statistiques d'apres-match — et la police etroite en fait tenir deux par
+   ligne la ou la pile systeme n'en tenait qu'une. */
 .liste-volume {
   display: flex;
   flex-wrap: wrap;
-  gap: .5rem;
+  gap: .45rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .item-volume {
-  padding: .45rem .9rem;
-  border: 1px solid var(--marcq-trait);
+  padding: .4rem .8rem .3rem;
+  border: 2px solid var(--marcq-nuit);
   border-radius: 999px;
   background: var(--marcq-carte);
-  font-size: clamp(1.15rem, 5.5vw, 1.5rem);
-  font-weight: 600;
-  line-height: 1.2;
+  font-family: var(--marcq-titre);
+  font-size: clamp(1.1rem, 5vw, 1.4rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: .01em;
+  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
 
@@ -552,57 +665,66 @@ body {
 .entete-calendrier {
   margin-bottom: 4px;
   color: var(--marcq-encre-douce);
-  font-size: .75rem;
+  font-family: var(--marcq-tableau);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
   text-align: center;
 }
 
 /* La hauteur ne descend jamais sous la zone de tap ; la largeur suit la
    colonne — sept colonnes de 48 px ne tiennent sur aucun telephone, et aucune
-   action de l'app ne depend de cette grille (voir « Points d'attention »). */
+   action de l'app ne depend de cette grille. */
 .jour-calendrier {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   min-height: var(--marcq-tap);
   padding: 2px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: 2px solid transparent;
+  border-radius: .55rem;
   color: inherit;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.numero-jour { font-size: .875rem; line-height: 1; font-variant-numeric: tabular-nums; }
-.marque-jour { font-size: .75rem; line-height: 1; }
+.numero-jour {
+  font-family: var(--marcq-titre);
+  font-size: 1.1rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.marque-jour { font-size: .7rem; line-height: 1; }
 
 .jour-hors { visibility: hidden; }
 .jour-repos { color: var(--marcq-encre-douce); }
-.jour-a-venir { border-color: var(--marcq-trait); background: var(--marcq-carte); }
+/* Pointille : la seance est la, on ne peut pas encore la cocher. */
+.jour-a-venir { border-color: var(--marcq-trait); border-style: dashed; background: var(--marcq-carte); }
 .jour-manquee {
   border-style: dashed;
   border-color: var(--marcq-trait);
   color: var(--marcq-encre-douce);
 }
 .jour-partielle {
-  border-color: var(--marcq-accent);
+  border-color: var(--marcq-fait);
   background: var(--marcq-carte);
-  color: var(--marcq-accent);
+  color: var(--marcq-fait);
 }
 .jour-faite {
-  border-color: var(--marcq-accent);
-  background: var(--marcq-accent);
-  color: var(--marcq-sur-accent);
+  border-color: var(--marcq-fait);
+  background: var(--marcq-fait);
+  color: #ffffff;
 }
+/* Aujourd'hui n'est pas un danger, c'est ce qui est vivant : le bleu du club,
+   comme partout ailleurs. Une seance faite prend la nuit — le plus fort
+   contraste du fond — et les deux ne se confondent a aucune luminosite. */
 .jour-aujourd-hui {
-  border-color: var(--marcq-danger);
-  background: var(--marcq-carte);
-  box-shadow: inset 0 0 0 1px var(--marcq-danger);
-  font-weight: 700;
+  border-color: var(--marcq-bleu);
+  background: var(--marcq-bleu);
+  color: var(--marcq-sur-bleu);
 }
-
-.jour-calendrier:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 
 .legende-calendrier {
   display: flex;
@@ -623,45 +745,102 @@ body {
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  font-size: .75rem;
+  border: 2px solid transparent;
+  border-radius: .4rem;
+  font-size: .72rem;
 }
 
-/* Lu par les lecteurs d'ecran, invisible a l'oeil. `display: none` le retirerait
-   aussi de leur restitution : ce qui doit etre annonce reste dans le flux,
-   reduit a un pixel. */
-.lu-seul {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* ---- les blocs de reglages ---------------------------------------------- */
 
-/* Le troisieme onglet arrive avec cet ecran, et « Ma progression » passe sur
-   deux lignes des 360 px : sans ces trois lignes le texte deborde de la barre,
-   qui n'a que la hauteur d'une zone de tap. Le reglage vit ici plutot qu'avec la
-   barre du PRP 03 — c'est ce PRP qui ajoute l'onglet, donc le probleme. */
+.bloc-reglage {
+  padding: 1rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .9rem;
+  background: var(--marcq-carte);
+}
+.bloc-danger { border-color: var(--marcq-danger); }
+
+/* Le choix de la sonnerie. Une ligne par option, chacune une zone de tap
+   pleine : on choisit un son du pouce, entre deux series. */
+.choix-sonnerie { display: flex; flex-direction: column; }
+.ligne-sonnerie {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  min-height: var(--marcq-tap);
+  padding: .5rem 0;
+  cursor: pointer;
+}
+.ligne-sonnerie + .ligne-sonnerie { border-top: 1px solid var(--marcq-trait); }
+.case-sonnerie { flex: 0 0 auto; width: 22px; height: 22px; margin: 0; accent-color: var(--marcq-bleu); }
+.texte-sonnerie { display: flex; flex-direction: column; }
+.nom-sonnerie { font-weight: 600; }
+.avertissement { margin: 0 0 .8rem; color: var(--marcq-encre-douce); font-size: .95rem; }
+/* La hauteur est reservee : sans elle, le retour ferait sauter le bouton. */
+.retour { margin: 0; min-height: 1.5rem; color: var(--marcq-bleu); font-size: .95rem; }
+
+/* Le message d'un champ, sous le champ. Aucune hauteur reservee : il n'existe
+   que quand il a quelque chose a dire, et le formulaire ne doit pas garder un
+   trou a sa place. */
+.erreur-champ { margin: -.35rem 0 0; color: var(--marcq-danger); font-size: .95rem; }
+/* La bordure survit a un message pousse hors de l'ecran par le clavier : c'est
+   le seul signal qui reste quand le telephone mange la moitie de la page. */
+.champ-en-erreur { border-color: var(--marcq-danger); }
+.champ-en-erreur:focus-visible { outline-color: var(--marcq-danger); }
+
+.panne { max-width: 34rem; margin: 2rem auto; padding: 0 1.1rem; color: var(--marcq-danger); }
+
+/* ---- la barre d'onglets --------------------------------------------------
+   Fond de nuit : elle est le chassis de l'app, pas son contenu, et la separer
+   franchement du fond clair evite le trait de 1 px qui disparait au soleil. Les
+   libelles sont en Anton, capitales : c'est la seule facon de faire tenir
+   « MA PROGRESSION » sur une ligne dans un quart de 360 px — avec la pile
+   systeme, il passait sur deux lignes et « Reglages » sortait de l'ecran. */
+
+.nav-app {
+  position: fixed;
+  inset: auto 0 0;
+  display: flex;
+  background: var(--marcq-nuit);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-app[hidden] { display: none; }
 .lien-nav {
-  padding: .25rem .4rem;
-  line-height: 1.15;
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--marcq-tap);
+  padding: .25rem .25rem;
+  color: rgb(255 255 255 / .6);
+  font-family: var(--marcq-titre);
+  /* Les quatre libelles tiennent chacun sur UNE ligne, a toutes les largeurs :
+     « Ma progression », le plus long, mesure 6,7 fois le corps en Anton, et
+     6,7 x 3,05vw reste sous le quart de la largeur, marges deduites. Deux
+     lignes sur un onglet et une sur les trois autres se lisent comme un
+     defaut d'alignement, pas comme un choix. */
+  font-size: min(.82rem, 3.05vw);
+  font-weight: 400;
+  letter-spacing: .01em;
+  line-height: 1.1;
+  white-space: nowrap;
   text-align: center;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.lien-nav[aria-current="page"] {
+  color: #ffffff;
+  box-shadow: inset 0 3px 0 var(--marcq-bleu);
 }
 
 /* ---------------------------------------------------------------------------
-   Les recompenses — PRP 06.
-   L'animation vient apres l'action et ne retarde aucun tap (PRD §10).
+   Les recompenses — PRD §10 : l'animation vient apres l'action et ne retarde
+   aucun tap.
    --------------------------------------------------------------------------- */
 
-/* Le SEUL bloc de mouvement reduit de la feuille : il remplace celui du PRP 01.
-   Volontairement universel — il couvre ce qui suit dans ce fichier, mais aussi
-   ce qu'un PRP futur y ajoutera sans y penser. Sa position n'a aucun effet,
-   `!important` gagnant quel que soit l'ordre ; c'est son EXISTENCE des la
-   premiere animation qui compte.
+/* Le SEUL bloc de mouvement reduit de la feuille. Volontairement universel — il
+   couvre ce qui suit, mais aussi ce qu'un ajout futur y mettra sans y penser.
+   Sa position n'a aucun effet, `!important` gagnant quel que soit l'ordre.
    `.001ms` plutot que `0s` : l'animation se termine a l'image suivante, donc
    `animationend` et `transitionend` sont bien emis, et un code qui attend l'un
    des deux pour nettoyer n'attend pas indefiniment. */
@@ -676,51 +855,10 @@ body {
   }
 }
 
-:root {
-  /* Un depassement leger a l'arrivee : c'est ce que l'oeil lit comme du
-     ressort. Au-dela, la barre a l'air de rebondir sur un mur. */
-  --marcq-ressort: cubic-bezier(.2, .9, .25, 1.25);
-}
-
-/* `appearance: none` est ce qui rend le remplissage stylable dans les
-   navigateurs WebKit et Blink : sans lui, ::-webkit-progress-value n'existe pas
-   et la barre garde son apparence systeme. Le fond et la couleur sont donc
-   reposes ici, pour les deux ecrans qui utilisent `.barre` — le jour et la
-   seance : une barre stylee d'un cote et systeme de l'autre serait la meme
-   information dans deux dialectes. */
-.barre {
-  appearance: none;
-  -webkit-appearance: none;
-  border: none;
-  border-radius: 999px;
-  background: var(--marcq-trait);
-  overflow: hidden;
-}
-
-.barre::-webkit-progress-bar { background: var(--marcq-trait); }
-
-.barre::-webkit-progress-value {
-  border-radius: 999px;
-  background: var(--marcq-accent);
-  transition: width 260ms var(--marcq-ressort);
-}
-
-.barre::-moz-progress-bar { border-radius: 999px; background: var(--marcq-accent); }
-
-/* La ligne se barre : c'est la COULEUR du trait qui s'anime, pas sa largeur. Le
-   trait est present des le depart, en transparent, ce qui evite deux ecueils —
-   un trait qui pousse de gauche a droite se casse sur un libelle a deux lignes,
-   et une transition ne demarre jamais au tout premier calcul de style, donc une
-   seance rouverte deja cochee ne rejoue rien (deuxieme interdit, PRD §10). */
-.libelle-exercice {
-  text-decoration-line: line-through;
-  text-decoration-thickness: 2px;
-  text-decoration-color: transparent;
-  transition: color 220ms ease-out, text-decoration-color 220ms ease-out;
-}
-
 /* Le panneau de fin de seance. `<dialog>` en couche superieure : il passe
-   au-dessus de tout sans qu'aucun z-index n'ait a etre arbitre. */
+   au-dessus de tout sans qu'aucun z-index n'ait a etre arbitre. C'est le moment
+   fort du PRD §10, donc le seul autre endroit qui reprend le bandeau de nuit et
+   son arc : fermer une seance et ouvrir l'app se repondent. */
 .panneau-fin {
   width: min(22rem, calc(100vw - 2rem));
   padding: 0;
@@ -729,39 +867,74 @@ body {
   color: inherit;
 }
 
-.panneau-fin::backdrop { background: rgb(20 24 31 / .55); }
+.panneau-fin::backdrop { background: rgb(13 22 38 / .62); }
 
 .carte-fin {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: .8rem;
-  padding: 1.4rem 1.2rem;
-  border-radius: 1rem;
-  background: var(--marcq-carte);
+  padding: 1.5rem 1.2rem 1.3rem;
+  border-radius: 1.2rem;
+  background: var(--marcq-nuit);
+  color: #ffffff;
   text-align: center;
-  animation: marcq-monte 260ms var(--marcq-ressort);
+  overflow: hidden;
+  animation: marcq-monte 260ms var(--marcq-sortie);
 }
+/* Le meme arc que l'ecran du jour, en rappel, et assez pale pour rester
+   derriere les chiffres : c'est ce qui fait que fermer une seance et ouvrir
+   l'app se repondent. */
+.carte-fin::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 132%;
+  height: 62%;
+  translate: -50% -50%;
+  border: 3px solid rgb(111 184 236 / .26);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.carte-fin > * { position: relative; z-index: 1; }
 
 @keyframes marcq-monte {
   from { transform: translateY(14px) scale(.96); opacity: 0; }
   to   { transform: none; opacity: 1; }
 }
 
-.fin-date { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
-.fin-titre { margin: 0; font-size: 1.5rem; line-height: 1.2; }
-.fin-seances { margin: 0; color: var(--marcq-encre-douce); }
+.fin-date {
+  margin: 0;
+  color: var(--marcq-bleu-clair);
+  font-family: var(--marcq-tableau);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.fin-titre {
+  margin: 0;
+  font-family: var(--marcq-titre);
+  font-size: 2rem;
+  font-weight: 400;
+  line-height: .95;
+  text-transform: uppercase;
+}
+.fin-seances { margin: 0; color: rgb(255 255 255 / .72); font-size: .95rem; }
 
 /* « En grand » (PRD §10) : le compteur de seances est le chiffre qu'on retient
    en fermant le panneau. Il arrive a sa valeur avec un agrandissement court, il
    ne roule pas — il augmente de un. */
 .fin-nombre-seances {
   display: inline-block;
-  color: var(--marcq-encre);
-  font-size: 2.6rem;
-  font-weight: 700;
+  color: var(--marcq-bleu-clair);
+  font-family: var(--marcq-titre);
+  font-size: 3.2rem;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  animation: marcq-pop 320ms var(--marcq-ressort);
+  line-height: 1;
+  animation: marcq-pop 320ms var(--marcq-sortie);
 }
 
 @keyframes marcq-pop {
@@ -781,30 +954,34 @@ body {
 .fin-ligne {
   padding: .5rem .2rem;
   border-radius: .6rem;
-  background: var(--marcq-fond);
-  color: var(--marcq-encre-douce);
-  font-size: .9rem;
+  background: rgb(255 255 255 / .08);
+  color: rgb(255 255 255 / .72);
+  font-size: .85rem;
 }
 
 /* `tabular-nums` : sans chiffres a chasse fixe, la ligne tremble a chaque image
    du roulement — c'est le detail qui fait passer une animation pour un bogue. */
 .fin-nombre {
   display: block;
-  color: var(--marcq-encre);
-  font-size: 1.5rem;
-  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--marcq-titre);
+  font-size: 1.6rem;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 
 .fin-fermer { align-self: stretch; }
 
+/* Quatre couleurs choisies, jamais une teinte tiree au hasard : le hasard
+   produit tot ou tard un confetti illisible. Ce sont les quatre du blason, et
+   elles tombent sur deux fonds — la carte de nuit et la page claire derriere —
+   d'ou une paire claire et une paire foncee, pour qu'aucun grain ne disparaisse
+   des deux cotes a la fois. */
 :root {
-  /* Quatre couleurs choisies, jamais une teinte tiree au hasard : le hasard
-     produit tot ou tard un confetti illisible sur fond clair. */
-  --marcq-confetti-1: #0b4fa8;
-  --marcq-confetti-2: #f2b705;
-  --marcq-confetti-3: #d94f04;
-  --marcq-confetti-4: #1f9d55;
+  --marcq-confetti-1: #0a67a6;
+  --marcq-confetti-2: #6fb8ec;
+  --marcq-confetti-3: #121026;
+  --marcq-confetti-4: #ffffff;
 }
 
 /* La couche ne recoit aucun pointeur : elle ne peut pas intercepter un tap,
@@ -839,19 +1016,20 @@ body {
 
 .ecran-rejoindre { gap: 1.1rem; }
 
-/* Le message du PRD §7.4 se lit d'un bloc, sans avoir a le chercher : fond de
-   carte, un trait d'accent a gauche, et un corps un cran au-dessus du texte
-   courant. C'est le seul ecran de l'app ou l'on demande a un enfant de decider
-   quelque chose d'irreversible pour d'autres que lui. */
+/* Le message du PRD §7.4. C'est le seul ecran de l'app ou l'on demande a un
+   enfant de decider quelque chose d'irreversible pour d'autres que lui : il ne
+   prend donc pas un filet de couleur au bord d'une carte comme les autres
+   encadres, il prend le fond de nuit en entier. On ne peut pas le survoler du
+   regard. */
 .consentement-avertissement {
   margin: 0;
-  padding: .9rem 1rem;
-  border-inline-start: 4px solid var(--marcq-accent);
-  border-radius: .2rem .8rem .8rem .2rem;
-  background: var(--marcq-carte);
+  padding: 1rem 1.1rem;
+  border-radius: .8rem;
+  background: var(--marcq-nuit);
+  color: #ffffff;
   font-size: 1.05rem;
 }
-.consentement-parent { margin: 0; font-size: 1.05rem; }
+.consentement-parent { margin: 0; font-size: 1.05rem; font-weight: 600; }
 
 /* En colonne : sur 320 px, deux boutons cote a cote donnent deux cibles
    etroites, et « Non merci » doit rester aussi facile a viser que l'autre. */
@@ -875,25 +1053,35 @@ body {
   padding: 0;
   border: none;
   background: none;
-  color: var(--marcq-accent);
+  color: var(--marcq-bleu);
   font: inherit;
+  font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
 }
-.bouton-lien:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 
-/* --- le bloc « L'equipe » de #/perso (PRP 08) ----------------------------- */
+/* --- le bloc « L'equipe » (PRP 08) ---------------------------------------- */
 
-/* Le conteneur que le PRP 09 remplira par le haut — podium, position, jauge —
-   au-dessus du bloc d'action. Il ferme l'ecran perso : le PRD §7.5 met la
-   comparaison au second niveau, jamais avant. */
 .bloc-equipe {
   display: flex;
   flex-direction: column;
   gap: .8rem;
   padding-block-start: 1.2rem;
-  border-block-start: 1px solid var(--marcq-trait);
+  border-block-start: 2px solid var(--marcq-trait);
 }
+/* Sur son propre onglet, « L'equipe » n'est plus le titre d'un bloc mais celui
+   de l'ecran : il en prend le corps, et le trait qui le separait du calendrier
+   de « Ma progression » n'a plus rien a separer — depuis le deplacement en
+   onglet, il flottait en haut de l'ecran. Le bilan, lui, garde les deux : ce
+   bloc y est bien un bloc parmi d'autres. */
+.ecran-classement > .bloc-equipe { padding-block-start: 0; border-block-start: none; }
+.ecran-classement .titre-bloc {
+  margin: 0;
+  font-size: clamp(1.9rem, 8.5vw, 2.6rem);
+  line-height: .95;
+  letter-spacing: .005em;
+}
+
 .action-classement { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
 .action-classement .bouton { width: 100%; }
 .nom-classement { margin: 0; font-weight: 600; }
@@ -919,7 +1107,12 @@ body {
 /* Elle date les NOMBRES affiches — le jour du denominateur —, la ou la ligne
    d'etat juste dessous date la reception. Deux informations differentes, deux
    lignes : un podium sans sa date se lit comme un podium en direct. */
-.datation-equipe { margin: 0; color: var(--marcq-encre-douce); font-size: .95rem; }
+.datation-equipe {
+  margin: 0;
+  color: var(--marcq-encre-douce);
+  font-family: var(--marcq-tableau);
+  font-size: .8rem;
+}
 
 .podium { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
 
@@ -928,20 +1121,36 @@ body {
    hors de l'ecran a 360 px. */
 .ligne-podium {
   display: grid;
-  grid-template-columns: 2.6rem 1fr auto;
-  align-items: baseline;
+  grid-template-columns: 2.4rem 1fr auto;
+  align-items: center;
   gap: .6rem;
-  padding: .5rem .7rem;
-  border-radius: .6rem;
+  padding: .5rem .8rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .7rem;
   background: var(--marcq-carte);
 }
-.podium-moi { outline: 2px solid var(--marcq-accent); }
-.rang-podium { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.podium-moi { border-color: var(--marcq-bleu); }
+.rang-podium {
+  font-family: var(--marcq-titre);
+  font-size: 1.6rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .pseudo-podium { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-.part-podium { color: var(--marcq-encre-douce); font-variant-numeric: tabular-nums; }
+.part-podium {
+  color: var(--marcq-encre-douce);
+  font-family: var(--marcq-tableau);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 .position-equipe { display: flex; align-items: baseline; gap: .6rem; margin: 0; }
-.rang-position { color: var(--marcq-accent); font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rang-position {
+  font-family: var(--marcq-titre);
+  font-size: 2.6rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .phrase-position { font-size: 1.05rem; }
 
 .groupe-equipe { display: flex; flex-direction: column; gap: .4rem; margin: 0; }
@@ -972,15 +1181,15 @@ body {
   100% { transform: translateY(0); }
 }
 
-/* --- le ressenti de fin de seance (PRP 10) -------------------------------- */
+/* --- le ressenti de fin de seance (PRP 10) --------------------------------
+   Dans le panneau de fin, donc sur fond de nuit. Aucune animation : le PRD §10
+   reserve le mouvement a ce qui recompense, et une question n'est pas une
+   recompense. */
 
-/* Dans le panneau de fin, entre les compteurs et le bouton. Aucune animation :
-   le PRD §10 reserve le mouvement a ce qui recompense, et une question n'est pas
-   une recompense. */
 .ressenti { margin: .4rem 0 0; padding: 0; border: none; }
-.ressenti-question { padding: 0; font-weight: 600; }
+.ressenti-question { padding: 0; color: rgb(255 255 255 / .8); font-weight: 600; }
 /* Une rangee qui se replie sous 320 px. */
-.ressenti-choix { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0; }
+.ressenti-choix { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0 0; }
 
 .choix-ressenti {
   display: flex;
@@ -990,19 +1199,20 @@ body {
   gap: .15rem;
   min-height: var(--marcq-tap);
   padding: .5rem;
-  border: 2px solid var(--marcq-trait);
+  border: 2px solid rgb(255 255 255 / .25);
   border-radius: .6rem;
-  background: var(--marcq-carte);
-  color: inherit;
+  background: transparent;
+  color: #ffffff;
   font: inherit;
   cursor: pointer;
 }
-.choix-ressenti.choisi { border-color: var(--marcq-accent); }
-.choix-ressenti:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+.choix-ressenti.choisi { border-color: var(--marcq-bleu-clair); background: rgb(111 184 236 / .18); }
 .ressenti-emoji { font-size: 1.6rem; line-height: 1; }
 .ressenti-mot { font-size: .9rem; font-weight: 600; }
 
-/* --- la page du coach (PRP 10) -------------------------------------------- */
+/* --- la page du coach (PRP 10) --------------------------------------------
+   Elle se lit sur un telephone comme tout le reste, mais elle n'est pas faite
+   pour un ado : elle reste sobre, en registre tableau d'affichage. */
 
 .ecran-coach { gap: 1.1rem; }
 
@@ -1011,8 +1221,8 @@ body {
 .mention-publique {
   margin: 0;
   padding: .7rem .9rem;
-  border-inline-start: 4px solid var(--marcq-accent);
-  border-radius: .2rem .6rem .6rem .2rem;
+  border: 1px solid var(--marcq-trait);
+  border-radius: .6rem;
   background: var(--marcq-carte);
   font-size: .95rem;
 }
@@ -1022,11 +1232,18 @@ body {
 
 .bloc-coach {
   padding: .9rem 1rem;
-  border: 1px solid var(--marcq-trait);
-  border-radius: .8rem;
+  border: 2px solid var(--marcq-trait);
+  border-radius: .9rem;
   background: var(--marcq-carte);
 }
-.coach-entete { margin: 0 0 .5rem; font-weight: 600; }
+.coach-entete {
+  margin: 0 0 .5rem;
+  font-family: var(--marcq-titre);
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
 .coach-aide { color: var(--marcq-encre-douce); font-size: .95rem; }
 
 /* Des listes, pas des tableaux : le coach lit sur son telephone comme tout le
@@ -1035,28 +1252,47 @@ body {
 .ligne-coach { display: grid; grid-template-columns: 2.4rem 1fr auto; align-items: baseline; gap: .6rem; }
 .ligne-nommee .coach-libelle { font-weight: 600; }
 .ligne-seance-coach { display: flex; flex-direction: column; gap: .1rem; padding-block: .3rem; }
-.coach-nombre { color: var(--marcq-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.coach-nombre {
+  font-family: var(--marcq-titre);
+  font-size: 1.25rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .coach-libelle { min-width: 0; overflow-wrap: anywhere; }
 .coach-emoji { font-size: 1.2rem; line-height: 1; }
 
 /* --- le bilan, apres le 21 aout (PRP 11) ---------------------------------- */
 
 .ecran-bilan { gap: 1.1rem; }
-.periode-bilan { margin: 0; color: var(--marcq-encre-douce); }
+.periode-bilan {
+  margin: 0;
+  color: var(--marcq-encre-douce);
+  font-family: var(--marcq-tableau);
+  font-size: .82rem;
+  letter-spacing: .04em;
+}
 
 /* La ligne qui dit que ce n'est pas encore fini, quand on ouvre le bilan en
-   avance. Elle informe, elle n'alarme pas. */
+   avance. Elle informe, elle n'alarme pas — donc le pointille, pas la couleur. */
 .avis-bilan {
   margin: 0;
   padding: .7rem .9rem;
-  border-radius: .6rem;
+  border: 2px dashed var(--marcq-trait);
+  border-radius: .7rem;
   background: var(--marcq-carte);
   color: var(--marcq-encre-douce);
   font-size: .95rem;
 }
 
 .resume-bilan { display: flex; flex-direction: column; gap: .5rem; }
-.chiffre-bilan { margin: 0; color: var(--marcq-accent); font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.chiffre-bilan {
+  margin: 0;
+  font-family: var(--marcq-titre);
+  font-size: clamp(3.2rem, 18vw, 5rem);
+  font-weight: 400;
+  line-height: .85;
+  font-variant-numeric: tabular-nums;
+}
 .progression-bilan { margin: 0; }
 .progression-bilan .barre { width: 100%; }
 /* La phrase de tete : c'est elle qu'on lit en premier, et c'est elle qui porte
@@ -1071,19 +1307,37 @@ body {
 .lien-seance {
   display: grid;
   grid-template-columns: 1.8rem 1fr auto;
-  align-items: baseline;
+  align-items: center;
   gap: .6rem;
   min-height: var(--marcq-tap);
-  padding: .5rem .7rem;
+  padding: .5rem .8rem;
   border: 2px solid var(--marcq-trait);
-  border-radius: .6rem;
+  border-radius: .7rem;
   background: var(--marcq-carte);
   color: inherit;
   text-decoration: none;
 }
-.lien-seance:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
 /* La marque double la couleur : pour qui lit au soleil, ou distingue mal le
    rouge du vert. */
 .marque-seance { font-weight: 700; text-align: center; }
 .texte-seance { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-.detail-seance { color: var(--marcq-encre-douce); font-size: .95rem; font-variant-numeric: tabular-nums; }
+.detail-seance {
+  color: var(--marcq-encre-douce);
+  font-family: var(--marcq-tableau);
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lu par les lecteurs d'ecran, invisible a l'oeil. `display: none` le retirerait
+   aussi de leur restitution : ce qui doit etre annonce reste dans le flux,
+   reduit a un pixel. */
+.lu-seul {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
