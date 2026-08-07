@@ -241,7 +241,7 @@ Les trois autres se gardent sans discuter.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 19:25 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 19:58 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -249,22 +249,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 360 | 0,00 $ |
-| Écriture de cache | 368 557 | 2,30 $ |
-| Lecture de cache | 11 884 267 | 5,94 $ |
-| Sortie | 88 382 | 2,21 $ |
-| **Total** | **12 341 566** | **10,46 $ — 9,08 €** |
+| Entrée | 7 319 | 0,00 $ |
+| Écriture de cache | 604 468 | 2,97 $ |
+| Lecture de cache | 41 464 459 | 19,96 $ |
+| Sortie | 171 336 | 3,76 $ |
+| **Total** | **42 247 582** | **26,69 $ — 23,18 €** |
 
 **Ce qui coûte**
 
-- **83 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **217 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   55 815 jetons, écrits une fois par session puis relus à chaque
-  échange : 4 576 830 jetons de relecture, 38 % de tout ce qui a été relu.
+  échange : 12 056 040 jetons de relecture, 29 % de tout ce qui a été relu.
+- **Tours courts** — 67 des 217 tours (30 %) sortent
+  moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
+  une sortie de rien. Ils coûtent 8,56 $, soit 32 % de la facture.
+  Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 55 815 jetons relus au premier appel qui relise
-  quelque chose, 231 061 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 338 524 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 12341566 -->
+<!-- cout-total: 42247582 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 55815 0 500
 2 principal claude-opus-5 2371 55815 282
@@ -349,5 +353,139 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 81 principal claude-opus-5 807 228938 1157
 82 principal claude-opus-5 1316 229745 118
 83 principal claude-opus-5 319 231061 1529
+84 principal claude-opus-5 5592 231380 106
+85 principal claude-opus-5 231 236972 1164
+86 principal claude-opus-5 8 238367 224
+87 principal claude-opus-5 1199 238375 2710
+88 principal claude-opus-5 2767 239574 168
+89 principal claude-opus-5 324 242341 238
+90 principal claude-opus-5 345 242665 141
+91 principal claude-opus-5 1279 243010 265
+92 principal claude-opus-5 343 244289 292
+93 principal claude-opus-5 347 244632 251
+94 principal claude-opus-5 306 244979 164
+95 principal claude-opus-5 197 245285 258
+96 principal claude-opus-5 589 245482 1077
+97 principal claude-opus-5 1112 246071 927
+98 principal claude-opus-5 1284 247183 201
+99 principal claude-opus-4-7 34023 0 682
+100 principal claude-opus-4-7 0 34023 314
+101 principal claude-opus-5 322 248467 419
+102 principal claude-opus-5 474 248789 137
+103 principal claude-opus-5 131 249263 503
+104 principal claude-opus-5 2173 249394 731
+105 principal claude-opus-5 921 251567 687
+106 principal claude-opus-5 1547 252488 415
+107 principal claude-opus-5 499 254035 208
+108 principal claude-opus-5 269 254534 99
+109 principal claude-opus-5 279 254803 231
+110 principal claude-opus-5 292 255082 248
+111 principal claude-opus-5 309 255374 202
+112 principal claude-opus-5 263 255683 495
+113 principal claude-opus-5 558 255946 202
+114 principal claude-opus-5 265 256504 415
+115 principal claude-opus-5 607 256769 201
+116 principal claude-opus-5 262 257376 314
+117 principal claude-opus-5 378 257638 205
+118 principal claude-opus-5 269 258016 97
+119 principal claude-opus-5 254 258285 301
+120 principal claude-opus-5 365 258539 144
+121 principal claude-opus-5 200 258904 410
+122 principal claude-opus-5 474 259104 1083
+123 principal claude-opus-5 1155 259578 136
+124 principal claude-opus-5 337 260733 1070
+125 principal claude-opus-4-7 7681 28262 784
+126 principal claude-opus-5 1241 261070 2682
+127 principal claude-opus-4-7 1168 35943 705
+128 principal claude-opus-5 2883 262311 113
+129 principal claude-opus-4-7 0 35943 737
+130 principal claude-opus-4-7 785 35943 96
+131 principal claude-opus-4-7 221 36728 89
+132 principal claude-opus-5 516 265194 368
+133 principal claude-opus-4-7 465 36949 947
+134 principal claude-opus-5 1621 265710 1255
+135 principal claude-opus-5 1303 267331 781
+136 principal claude-opus-5 986 268634 153
+137 principal claude-opus-5 556 269620 119
+138 principal claude-opus-5 543 270176 302
+139 principal claude-opus-5 330 270719 2768
+140 principal claude-opus-5 2947 271049 115
+141 principal claude-opus-5 382 273996 462
+142 principal claude-opus-5 3524 274378 121
+143 principal claude-opus-5 708 277902 958
+144 principal claude-opus-5 1085 278610 1542
+145 principal claude-opus-5 1799 279695 1449
+146 principal claude-opus-5 4448 281494 148
+147 principal claude-opus-5 205 285942 88
+148 principal claude-opus-5 677 286147 554
+149 principal claude-opus-5 730 286824 202
+150 principal claude-opus-5 379 287554 92
+151 principal claude-opus-5 1254 287933 120
+152 principal claude-opus-5 1937 289187 1279
+153 principal claude-opus-5 1312 291124 173
+154 principal claude-opus-5 313 292436 591
+155 principal claude-opus-5 1113 292749 106
+156 principal claude-opus-5 668 293862 1662
+157 principal claude-opus-5 5829 294530 904
+158 principal claude-opus-5 1268 300359 411
+159 principal claude-opus-5 508 301627 644
+160 principal claude-opus-5 1011 302135 1805
+161 principal claude-opus-5 1877 303146 108
+162 principal claude-opus-5 314 305023 481
+163 principal claude-opus-5 600 305337 524
+164 principal claude-opus-5 532 305937 129
+165 principal claude-opus-5 330 306469 1338
+166 principal claude-opus-5 1375 306799 241
+167 principal claude-opus-4-7 14873 28262 328
+168 principal claude-opus-4-7 1141 43135 75
+169 principal claude-opus-4-7 0 43135 245
+170 principal claude-opus-4-7 120 44276 93
+171 principal claude-opus-5 869 308174 997
+172 principal claude-opus-4-7 1058 43135 75
+173 principal claude-opus-4-7 218 44396 82
+174 principal claude-opus-4-7 120 44193 93
+175 principal claude-opus-4-7 973 44614 83
+176 principal claude-opus-4-7 218 44313 82
+177 principal claude-opus-4-7 973 44531 83
+178 principal claude-opus-4-7 3137 45587 82
+179 principal claude-opus-4-7 3137 45504 82
+180 principal claude-opus-4-7 9483 48724 122
+181 principal claude-opus-4-7 9483 48641 196
+182 principal claude-opus-4-7 2339 58124 81
+183 principal claude-opus-5 1203 309043 283
+184 principal claude-opus-5 1547 310246 772
+185 principal claude-opus-5 833 311793 836
+186 principal claude-opus-5 941 312626 90
+187 principal claude-opus-4-7 2265 58207 3128
+188 principal claude-opus-4-7 3144 60472 156
+189 principal claude-opus-5 328 313567 1065
+190 principal claude-opus-4-7 226 63616 103
+191 principal claude-opus-4-7 278 63842 319
+192 principal claude-opus-5 1080 313895 161
+193 principal claude-opus-5 1011 314975 285
+194 principal claude-opus-4-7 6922 60463 4361
+195 principal claude-opus-4-7 470 64120 525
+196 principal claude-opus-4-7 4395 67385 121
+197 principal claude-opus-5 425 315986 284
+198 principal claude-opus-4-7 623 64590 1463
+199 principal claude-opus-4-7 540 71780 1856
+200 principal claude-opus-5 369 316411 188
+201 principal claude-opus-5 281 316780 256
+202 principal claude-opus-5 732 317061 1115
+203 principal claude-opus-5 1361 317793 448
+204 principal claude-opus-4-7 7265 28262 190
+205 principal claude-opus-5 773 319154 491
+206 principal claude-opus-5 770 319927 1382
+207 principal claude-opus-4-7 10801 35527 2563
+208 principal claude-opus-5 1569 320697 2246
+209 principal claude-opus-5 2689 322266 656
+210 principal claude-opus-5 938 324955 1379
+211 principal claude-opus-5 2500 325893 2334
+212 principal claude-opus-5 2536 328393 1169
+213 principal claude-opus-5 1247 330929 352
+214 principal claude-opus-5 410 332176 560
+215 principal claude-opus-5 646 332586 1171
+216 principal claude-opus-5 5292 333232 1337
+217 principal claude-opus-5 1386 338524 229
 -->
 <!-- /cout -->
