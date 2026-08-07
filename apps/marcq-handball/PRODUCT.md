@@ -565,7 +565,7 @@ quatorzième.
 | Abandon après deux séances | L'app ne mesure plus rien | Zéro friction à l'entrée, récompense à chaque séance, aucun compte |
 | Un enfant gonfle son score | Classement faussé | Assumé : une équipe de gamins qui se connaissent, la triche se voit au vestiaire. Le classement est indicatif, pas un titre |
 | Perte du téléphone ou vidage du navigateur | Progression perdue | Assumé et **annoncé** : sans compte, il n'y a pas de sauvegarde. La page de réglages le dit. **Une seule exception, et elle se mérite** : celui qui a rejoint le classement retrouve ses séances sur un autre téléphone en ressaisissant son nom et son code — le serveur en tient la liste depuis qu'il l'a rejoint. Le prénom, les ressentis et tout ce qui précède l'inscription ne se récupèrent pas |
-| Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et supprimable |
+| Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et **supprimable depuis n'importe quel téléphone** en le retapant avec son code (§ 16.6) — le porter n'est pas la condition pour le retirer |
 | Trafic automatisé sur l'URL publique | Bruit, charge | Aucune donnée sensible à atteindre ; c'est le principe même du § 5 |
 
 ### 15. Questions ouvertes
@@ -710,6 +710,35 @@ sur l'écran qu'on **ouvre**, d'un coup d'œil et d'un tap ; l'écran de séance
 celui qu'on tient à bout de bras entre deux séries, reste clair. Si la lecture au
 soleil pose problème sur le terrain, c'est l'écran du jour qu'il faut éclaircir,
 et lui seul.
+
+#### 16.6 Retirer un nom depuis un téléphone qui ne le porte pas — 7 août
+
+Le bloc « Mon nom au classement », dans les réglages, **existe désormais
+toujours**. Quand ce téléphone porte un nom, rien ne change : il l'affiche et un
+seul tap le retire. Quand il n'en porte aucun, il demande **le nom et son code à
+4 chiffres**, puis retire la fiche — les deux seules valeurs que le serveur a
+jamais exigées.
+
+Signalé par un parent après mise en ligne, dans ses mots : *« j'ai déjà fait une
+boulette en allant voir depuis mon téléphone et en créant un compte pour Charlie
+que je n'arrive plus à supprimer pour qu'il me fasse lui-même de son tél »*.
+
+*Ce que le PRD disait* : § 14 promettait un pseudonyme « supprimable », et le
+§ 7.4 fait du code la clé qui commande la fiche. Les deux étaient vrais du
+**serveur**, qui accepte depuis toujours un retrait présenté avec le bon code,
+d'où qu'arrive la requête. C'est l'**écran** qui ajoutait une condition que le
+document n'énonce nulle part : ne proposer le geste qu'au téléphone porteur du
+nom. Un parent qui crée un nom depuis son propre téléphone, puis fait « changer
+d'enfant », laissait donc au classement un nom que **plus personne** ne pouvait
+retirer — y compris lui, qui en connaissait le code. C'est une correction : la
+ligne du § 14 est précisée, aucune décision n'est rouverte.
+
+*Ce qui n'a pas été fait, et pourquoi* : rien n'ouvre un nom dont le code est
+**perdu**. L'application est publique et ne sait qui est personne ; une porte de
+secours demanderait un mot de passe de coach, donc le premier secret d'un projet
+qui n'en a aucun. Sur trois semaines et 200 places, un nom orphelin sans code
+reste un incident isolé, qui se traite à la main sur le volume. Arbitré le
+7 août, à reprendre si le cas se présente deux fois.
 
 ---
 
