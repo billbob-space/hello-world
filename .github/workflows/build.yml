@@ -84,6 +84,7 @@ jobs:
     outputs:
       apps: ${{ steps.choix.outputs.apps }}
       deploy: ${{ steps.choix.outputs.deploy }}
+      compose: ${{ steps.choix.outputs.compose }}
       outillage: ${{ steps.choix.outputs.outillage }}
       registry: ${{ steps.fab.outputs.registry }}
       org: ${{ steps.fab.outputs.org }}
@@ -139,6 +140,12 @@ jobs:
             tout=1
           fi
 
+          # compose : le fichier a-t-il change DANS CE QUI EST POUSSE, avant
+          # tout epinglage. C'est ce qui distingue « il y a quelque chose a
+          # redeployer » de « on a seulement construit une image ». Faux quand
+          # on reconstruit tout : l'epinglage fera bouger le compose de lui-meme,
+          # et c'est lui qui tranchera.
+          compose=false
           if [ "$tout" = 1 ]; then
             apps="$toutes"; deploy=true; outillage=true
           else
@@ -201,9 +208,11 @@ jobs:
               fi
             fi
 
+            if printf '%s\n' "$changed" | grep -qx 'compose.yaml'; then compose=true; fi
+
             # Redeployer seulement si une image change ou si le compose change :
             # sinon un commit de documentation redemarrerait toute la stack.
-            if [ "$apps" != '[]' ] || printf '%s\n' "$changed" | grep -qx 'compose.yaml'; then
+            if [ "$apps" != '[]' ] || [ "$compose" = true ]; then
               deploy=true
             else
               deploy=false
@@ -212,8 +221,9 @@ jobs:
 
           echo "apps=$apps"           >> "$GITHUB_OUTPUT"
           echo "deploy=$deploy"       >> "$GITHUB_OUTPUT"
+          echo "compose=$compose"     >> "$GITHUB_OUTPUT"
           echo "outillage=$outillage" >> "$GITHUB_OUTPUT"
-          echo "-> apps : $apps   deploy : $deploy   outillage : $outillage"
+          echo "-> apps : $apps   deploy : $deploy   compose : $compose   outillage : $outillage"
 
   # Une matrice vide fait echouer le job : d'ou le garde sur '[]'.
   test:
@@ -368,17 +378,62 @@ jobs:
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
+    # contents: write — ce job ECRIT sur main : il y enregistre la version de
+    # chaque image qu'il vient de publier. C'est la seule ecriture de toute la
+    # chaine, et elle ne porte que sur deux fichiers derives du build.
     permissions:
-      contents: read
+      contents: write
       packages: read
     steps:
+      # Historique complet : ce job peut avoir a se rebaser sur main avant de
+      # pousser, ce qu'un clone superficiel ne sait pas faire.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.detect.outputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # LE PAS QUI REND LE DEPLOIEMENT SELECTIF.
+      #
+      # Le tag d'image etait « :main » pour toutes les apps, et il est mutable :
+      # une image reconstruite ne changeait pas une ligne du compose. dockhand,
+      # qui ne redeploie que sur un diff, ne voyait donc jamais rien passer — on
+      # ne s'en sortait qu'avec « Force redeployment », c'est-a-dire en recreant
+      # les NEUF conteneurs de la stack pour livrer une seule app.
+      #
+      # Ici, chaque app construite recoit le commit qui l'a construite comme tag.
+      # Le compose porte alors une ligne image: differente pour la seule app
+      # livree : « docker compose up » recree ce service-la et laisse les autres
+      # conteneurs intacts. Le rayon de souffle d'une livraison tombe a l'app
+      # qu'on livre — et le depot dit desormais quelle version tourne en ligne.
+      - name: epingler la version des images construites
+        id: pin
+        if: needs.detect.outputs.apps != '[]'
+        env:
+          APPS: ${{ needs.detect.outputs.apps }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pins=()
+          for a in $(printf '%s' "$APPS" | tr -d '[]"' | tr ',' ' '); do
+            pins+=(--pin "$a=$SHA")
+          done
+          ./init.sh "${pins[@]}" >/dev/null
+          git --no-pager diff --stat
+          # Une app construite mais desactivee n'a pas de bloc dans le compose :
+          # sa version s'enregistre, mais il n'y a rien a redeployer. Distinguer
+          # les deux ici evite d'appeler le webhook pour rien — et d'echouer sur
+          # le « skipped » que dockhand renverrait alors a juste titre.
+          if git diff --quiet -- compose.yaml; then
+            echo "compose=false" >> "$GITHUB_OUTPUT"
+            echo "aucun service du compose ne change — rien a redeployer"
+          else
+            echo "compose=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # Garde-fou propre a la stack unique : « docker compose up » est atomique
       # pour la stack entiere. Une seule image absente du registre le fait
@@ -423,11 +478,56 @@ jobs:
           fi
           echo "${#images[@]} image(s) distincte(s) verifiee(s)"
 
-      # Le tag :main est mutable : une image reconstruite ne change pas une
-      # ligne du compose, donc l'auto-sync de dockhand ne voit aucun diff et ne
-      # redeploie rien. C'est cet appel, apres publication, qui declenche le
-      # deploiement — et il vient apres pour que le serveur tire bien la
-      # nouvelle image, pas celle d'avant.
+      # Les versions epinglees n'ont d'effet que committees : c'est le depot que
+      # dockhand relit, pas ce runner. On pousse APRES le controle ci-dessus et
+      # AVANT le webhook — dans cet ordre exactement. Apres, parce qu'un tag
+      # pointant vers une image absente resterait sinon sur main et ferait
+      # echouer tous les deploiements suivants ; avant, parce que dockhand clone
+      # le depot au moment ou on l'appelle.
+      #
+      # Le pousseur est le GITHUB_TOKEN : une poussee faite avec lui ne declenche
+      # aucun workflow, ce qui ferme la boucle « la CI committe, donc la CI
+      # repart ». Le « [skip ci] » du message est une seconde barriere, pour le
+      # jour ou quelqu'un remplacerait ce jeton par un jeton personnel — qui,
+      # lui, redeclencherait.
+      - name: enregistrer les versions deployees
+        if: steps.pin.outputs.compose != ''
+        env:
+          APPS: ${{ needs.detect.outputs.apps }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "versions inchangees — rien a enregistrer"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add versions.yml compose.yaml
+          liste=$(printf '%s' "$APPS" | tr -d '[]"' | tr ',' ' ')
+          git commit -q -m "deploiement : $liste sur ${SHA:0:7} [skip ci]" \
+                        -m "Version epinglee par la CI. Le compose ne change que pour ces apps ; les autres conteneurs de la stack ne sont pas recrees."
+          # Une poussee peut echouer parce qu'un humain a pousse entre-temps :
+          # on se rebase et on retente, sans jamais forcer.
+          for essai in 1 2 3 4; do
+            if git push origin "HEAD:main"; then exit 0; fi
+            echo "poussee refusee — tentative $essai"
+            sleep $(( 2 ** essai ))
+            git fetch origin main
+            git rebase FETCH_HEAD
+          done
+          echo "::error::impossible d'enregistrer les versions sur main — rien n'est deploye"
+          exit 1
+
+      # L'appel vient APRES la publication des images et APRES la poussee des
+      # versions : dockhand clone le depot lui-meme et tire les images qu'il y
+      # lit. Dans l'autre ordre, il deploierait l'etat d'avant.
+      #
+      # Il y a desormais un vrai diff a voir — la ligne image: de l'app livree —
+      # ce qui rend « Force redeployment » INUTILE, et meme nuisible : force,
+      # dockhand recree les neuf conteneurs de la stack ; sans force, il ne
+      # recree que les services dont le compose a bouge. Le reglage doit rester
+      # DECOCHE cote serveur, dans les Deploy options de la stack.
       #
       # L'URL est une URL de capacite : qui la connait declenche un
       # deploiement. Elle vit dans un secret du depot, jamais dans ce fichier.
@@ -435,7 +535,18 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
           WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
+          PIN_COMPOSE: ${{ steps.pin.outputs.compose }}
+          PUSH_COMPOSE: ${{ needs.detect.outputs.compose }}
         run: |
+          # Aucun service du compose ne change : il n'y a rien a redeployer, et
+          # appeler quand meme reveillerait la stack entiere pour rien. Le cas
+          # existe — une app construite mais encore desactivee, premier des deux
+          # commits d'un ajout.
+          if [ "$PIN_COMPOSE" != true ] && [ "$PUSH_COMPOSE" != true ]; then
+            echo "compose.yaml inchange — images publiees, aucun conteneur a recreer"
+            exit 0
+          fi
+
           if [ -z "$WEBHOOK" ]; then
             echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — images publiees, deploiement NON declenche"
             exit 0
@@ -484,13 +595,15 @@ jobs:
             exit 1
           fi
 
-          # dockhand ne redeploie que s'il voit un commit nouveau. Le tag :main
-          # etant mutable, une image reconstruite sans commit le fait sauter le
-          # deploiement, en repondant 200 : sans ce test, la CI serait verte et
-          # le serveur servirait toujours les images d'avant.
+          # dockhand ne redeploie que s'il voit un commit nouveau, et repond 200
+          # quand il saute : sans ce test, la CI serait verte et le serveur
+          # servirait toujours les images d'avant. On n'arrive ici qu'avec un
+          # compose.yaml qui a bel et bien change et ete pousse — un saut ne
+          # peut donc plus vouloir dire « rien a faire », il veut dire que
+          # dockhand n'a pas vu la poussee.
           if grep -q '"skipped":[[:space:]]*true' reponse.txt; then
-            echo "::error::dockhand a saute le deploiement (aucun commit nouveau vu)."
-            echo "::error::Active « Force redeployment » dans les Deploy options de la stack. « Re-pull images » n'est pas necessaire : pull_policy: always le couvre depuis le depot."
+            echo "::error::dockhand a saute le deploiement alors que compose.yaml a change sur main."
+            echo "::error::Il n'a pas vu la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com)."
             exit 1
           fi
           echo "deploiement declenche"
