@@ -273,10 +273,67 @@ regarde pas son ecran, ce sont les DEUX livrables qu'il faut retirer, le ressent
 comme la page. Livrer le ressenti seul reviendrait a demander un tap de plus a
 chaque enfant pour que personne ne le lise.
 
+## Anomalies — quatrieme passe, la mise en ligne du 2026-08-06
+
+Aucun code applicatif dans cette passe. La fusion de la PR 57 a declenche le
+deploiement, et c'est le deploiement qui a echoue — deux fois, pour deux raisons
+distinctes dont une seule est une panne.
+
+### 14. La fusion a declenche une fabrication qui n'a jamais recu de machine
+
+**Symptome** — la PR 57 fusionnee a 18:17 UTC, le run `build` de `main` est cree
+a 18:26:53 avec ses trois premiers jobs en `queued`. Aucun n'obtient de machine :
+`runner_id` reste a `0` et `runner_name` a la chaine vide pendant quinze minutes.
+A 18:41:55 GitHub les annule tous les trois, les jobs suivants — dont `deploy` —
+passent en `skipped`, et le run se conclut en `failure`. La version servie par
+https://marcq-handball.apps.billbob.ovh reste celle de la PR 56.
+
+**Cause** — panne GitHub Actions, ouverte a 15:22 UTC, soit **trois minutes apres
+que le meme commit a fait passer ses six jobs au vert sur la PR**. Le bulletin de
+18:46 UTC est explicite : « Workflow runs are still failing, and jobs may remain
+queued for an extended period before starting or may time out. Jobs using
+GitHub-hosted runners are particularly affected while capacity is constrained. »
+Rien dans le depot n'est en cause, et trois faits l'etablissent separement : le
+meme arbre est passe au vert sur la PR une heure plus tot ; aucun job n'a demarre,
+donc aucun script du depot n'a tourne ; aucun autre run ne tenait le groupe de
+concurrence `fabrique-refs/heads/main`.
+
+**Detecte par** — `production`
+
+**Action** — `rien` — une panne du forge n'a pas de parade dans le depot. Elle
+merite d'etre ecrite parce que la trace, elle, trompe : un run `failure` sur `main`
+juste apres une fusion se lit spontanement comme « la fusion a casse la CI », et
+c'est faux. Le signe qui tranche en dix secondes est `runner_name` vide.
+
+### 15. Le run relance est reste coince entre deux etats, et aucun bouton n'en sort
+
+**Symptome** — la relance demandee a 18:49:19 cree un run `queued` **sans aucun
+job** : `list_workflow_jobs` renvoie `total_count: 0`, et le compte y est toujours
+le lendemain matin, treize heures plus tard, alors que GitHub est repare et que
+tout le reste est `operational`. Les deux sorties sont fermees, et elles se
+contredisent : annuler repond `409 Cannot cancel a workflow re-run that has not
+yet queued`, relancer repond `403 This workflow is already running`. Le meme refus
+tombe sur le bouton de l'interface web.
+
+**Cause** — la relance a ete demandee **pendant** la panne. L'enregistrement du run
+a abouti, la creation de ses jobs non ; le run reste donc dans un etat que ni
+« pas encore en file » ni « en cours » ne decrit, et chacune des deux API refuse
+au nom de l'autre lecture. C'est une consequence de l'anomalie 14, pas un second
+incident.
+
+**Detecte par** — `production`
+
+**Action** — `comportement` — pendant une panne du forge, **ne pas relancer** :
+attendre le retablissement annonce. Une relance emise dans la fenetre de panne ne
+raccourcit rien et peut, comme ici, immobiliser le seul run capable de deployer —
+`deploy` exige `github.event_name == 'push'`, donc ni un `workflow_dispatch` ni
+aucun bouton ne remplace la fabrication issue de la fusion. Il ne reste alors qu'un
+nouveau commit sur `main`, ce que cette entree meme est venue fournir.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-06 à 15:13 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 07:39 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -284,22 +341,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 692 | 0,00 $ |
-| Écriture de cache | 2 749 692 | 13,44 $ |
-| Lecture de cache | 109 704 151 | 51,96 $ |
-| Sortie | 374 679 | 7,13 $ |
-| **Total** | **112 829 214** | **72,53 $ — 62,98 €** |
+| Entrée | 927 | 0,00 $ |
+| Écriture de cache | 3 171 928 | 16,06 $ |
+| Lecture de cache | 128 623 102 | 61,34 $ |
+| Sortie | 413 729 | 8,07 $ |
+| **Total** | **132 209 686** | **85,48 $ — 74,23 €** |
 
 **Ce qui coûte**
 
-- **371 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **490 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   54 704 jetons, écrits une fois par session puis relus à chaque
-  échange : 20 240 480 jetons de relecture, 18 % de tout ce qui a été relu.
+  échange : 26 750 256 jetons de relecture, 20 % de tout ce qui a été relu.
 - **Croissance** — 54 704 jetons relus au premier appel qui relise
-  quelque chose, 750 423 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 168 171 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 112829214 -->
+<!-- cout-total: 132209686 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 54704 0 374
 2 principal claude-opus-5 1047 54704 178
@@ -672,5 +729,124 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 369 principal claude-opus-4-7 3357 66628 1195
 370 principal claude-opus-4-7 1546 69985 216
 371 principal claude-opus-5 1158 750423 2260
+372 principal claude-opus-4-7 1618 71531 1291
+373 principal claude-opus-4-7 1327 73149 69
+374 principal claude-opus-5 6182 751581 1102
+375 principal claude-opus-5 1220 757763 2154
+376 principal claude-opus-5 2596 758983 128
+377 principal claude-opus-5 240 761579 683
+378 principal claude-opus-5 333 762502 213
+379 principal claude-opus-5 19154 762835 298
+380 principal claude-opus-5 359 781989 212
+381 principal claude-opus-5 68337 0 147
+382 principal claude-opus-5 2865 68337 132
+383 principal claude-opus-5 2761 71202 213
+384 principal claude-opus-5 1173 73963 401
+385 principal claude-opus-5 458 75136 49
+386 principal claude-opus-5 82067 0 145
+387 principal claude-opus-5 2775 82067 320
+388 principal claude-opus-5 712 84842 53
+389 principal claude-opus-5 128 85607 230
+390 principal claude-opus-5 741 85735 276
+391 principal claude-opus-5 886 86476 447
+392 principal claude-opus-5 958 87362 263
+393 principal claude-opus-5 432 88320 273
+394 principal claude-opus-5 3186 88752 236
+395 principal claude-opus-5 488 91938 404
+396 principal claude-opus-5 481 92426 120
+397 principal claude-opus-5 154 92907 74
+398 principal claude-opus-5 18 93135 416
+399 principal claude-opus-5 607 93153 158
+400 principal claude-opus-5 1228 93760 120
+401 principal claude-opus-5 1746 94988 231
+402 principal claude-opus-5 794 96734 470
+403 principal claude-opus-5 506 97528 349
+404 principal claude-opus-5 253 98383 224
+405 principal claude-opus-5 260 98636 269
+406 principal claude-opus-5 780 98896 251
+407 principal claude-opus-5 309 99676 262
+408 principal claude-opus-5 466 99985 211
+409 principal claude-opus-5 737 100451 138
+410 principal claude-opus-5 5484 101188 607
+411 principal claude-opus-5 1059 106672 146
+412 principal claude-opus-5 273 107877 153
+413 principal claude-opus-5 189 108150 140
+414 principal claude-opus-5 1178 108339 217
+415 principal claude-opus-5 273 109734 138
+416 principal claude-opus-5 5493 110007 225
+417 principal claude-opus-5 2555 115500 261
+418 principal claude-opus-5 771 118055 299
+419 principal claude-opus-5 347 118826 402
+420 principal claude-opus-5 480 119173 136
+421 principal claude-opus-5 647 119789 132
+422 principal claude-opus-5 459 120436 58
+423 principal claude-opus-5 693 120895 163
+424 principal claude-opus-5 1123 121588 236
+425 principal claude-opus-5 239 122711 57
+426 principal claude-opus-5 283 123007 179
+427 principal claude-opus-5 199 123290 100
+428 principal claude-opus-5 115 123489 140
+429 principal claude-opus-5 160 123604 276
+430 principal claude-opus-5 442 123764 208
+431 principal claude-opus-5 1965 124206 259
+432 principal claude-opus-5 770 126171 260
+433 principal claude-opus-5 399 126941 405
+434 principal claude-opus-5 579 127340 299
+435 principal claude-opus-5 283 128218 165
+436 principal claude-opus-5 256 128666 502
+437 principal claude-opus-5 627 128922 479
+438 principal claude-opus-5 555 129549 66
+439 principal claude-opus-5 12 130170 325
+440 principal claude-opus-5 340 130182 149
+441 principal claude-opus-5 1034 130522 270
+442 principal claude-opus-5 398 131556 326
+443 principal claude-opus-5 11 132280 305
+444 principal claude-opus-5 922 132291 215
+445 principal claude-opus-5 447 133213 133
+446 principal claude-opus-5 1234 133660 384
+447 principal claude-opus-5 1392 134894 541
+448 principal claude-opus-5 619 136286 212
+449 principal claude-opus-5 13 137117 239
+450 principal claude-opus-5 19 137369 1086
+451 principal claude-opus-5 2017 137388 366
+452 principal claude-opus-5 412 139405 112
+453 principal claude-opus-5 623 139817 359
+454 principal claude-opus-5 641 140440 385
+455 principal claude-opus-5 405 141081 1339
+456 principal claude-opus-5 257 142825 513
+457 principal claude-opus-5 649 143082 550
+458 principal claude-opus-5 628 143731 26
+459 principal claude-opus-5 257 144385 328
+460 principal claude-opus-5 460 144642 625
+461 principal claude-opus-5 1076 145102 54
+462 principal claude-opus-5 256 146232 328
+463 principal claude-opus-5 467 146488 190
+464 principal claude-opus-5 210 146955 550
+465 principal claude-opus-5 629 147165 40
+466 principal claude-opus-5 14 147834 349
+467 principal claude-opus-5 1264 147848 159
+468 principal claude-opus-5 151381 0 366
+469 principal claude-opus-5 765 151381 176
+470 principal claude-opus-5 687 152146 270
+471 principal claude-opus-5 801 152833 279
+472 principal claude-opus-5 366 153634 195
+473 principal claude-opus-5 267 154000 941
+474 principal claude-opus-5 1107 154267 944
+475 principal claude-opus-5 1024 155374 195
+476 principal claude-opus-5 309 156398 173
+477 principal claude-opus-5 21 156880 202
+478 principal claude-opus-5 289 156901 1345
+479 principal claude-opus-5 3036 157190 231
+480 principal claude-opus-5 303 160226 772
+481 principal claude-opus-5 1695 160529 108
+482 principal claude-opus-5 301 162224 130
+483 principal claude-opus-5 844 162525 162
+484 principal claude-opus-5 987 163369 93
+485 principal claude-opus-5 837 164356 287
+486 principal claude-opus-5 410 165193 130
+487 principal claude-opus-5 253 165603 1570
+488 principal claude-opus-5 1665 165856 90
+489 principal claude-opus-5 650 167521 97
+490 principal claude-opus-5 301 168171 96
 -->
 <!-- /cout -->
