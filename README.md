@@ -99,15 +99,6 @@ Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`,
 noms de service —, parce qu'un `app.yml` faux ne pourrait produire qu'un
 « compose désynchronisé » dont le vrai motif serait perdu.
 
-Il vérifie ensuite, **service par service** et non par recherche globale dans le
-fichier : le middleware conforme à l'`exposure` de chaque app, la règle
-`Host()`, `priority=100`, le port, la mémoire, le `container_name`, le
-`pull_policy`, le nommage de l'image, les journaux bornés, l'absence de `ports:`
-— et, sur chaque service non routé, le `traefik.enable=false` qui l'en retire.
-Puis, en croisé : l'unicité des noms de service, des hostnames et des
-`container_name`, la correspondance exacte entre `apps/*/app.yml` et les
-services du compose, la mémoire totale engagée.
-
 Il compare **ensuite** — deuxième section, pas la dernière — chaque **artefact
 généré** à ce qu'`./init.sh` écrirait aujourd'hui : si un `app.yml` a changé sans
 qu'`./init.sh` ait été relancé, le contrôle échoue. C'est le seul mécanisme
@@ -130,10 +121,18 @@ Compose préfixerait le nom du projet et une sauvegarde archiverait un volume vi
 en sortant en 0. S'il n'y a aucun volume, il n'y a aucun bloc, et c'est correct.
 
 Puis, en croisé : l'unicité des noms de service, des hostnames et des
-`container_name` — les trois sortes partagent un espace de noms plat —, la
-correspondance exacte entre `apps/*/app.yml` et les services du compose, la
-mémoire totale engagée, les liens morts entre documents, l'outillage de l'agent,
-et l'absence de secret évident dans les fichiers suivis.
+`container_name` — les trois sortes partagent un espace de noms plat — et la
+correspondance exacte entre `apps/*/app.yml` et les services du compose.
+
+Puis **chaque application**, hors du compose cette fois : le `Dockerfile`
+multi-étapes et son `USER` non root, l'absence de label `traefik.*`, la présence
+de l'outil qu'appelle le healthcheck, le `chown` du chemin de chaque volume, le
+`test.sh` exécutable, le `.dockerignore` et le `PRODUCT.md`.
+
+Puis la fabrique elle-même : la mémoire totale engagée, les liens morts entre
+documents, l'en-tête des fichiers de `memory/` et leur sommaire, la taille du
+contrat. Puis l'outillage de l'agent. Puis le journal — chaque entrée committée,
+son en-tête et ses deux champs à vocabulaire fermé.
 
 Puis les secrets, par un scan des **fichiers produits** — `compose.yaml`,
 `fabrique.yml`, `apps/*/app.yml` — et non des champs : une clé qui évoque un

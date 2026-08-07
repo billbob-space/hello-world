@@ -78,6 +78,32 @@ c'est ce qui rend la duplication coûteuse longtemps après avoir été écrite.
 **Action** — `contrat` — la procédure vit désormais dans un seul fichier ; le
 contrat, le README et le message de `--add` y renvoient au lieu de la recopier.
 
+### 4. Le README décrivait `--check` deux fois, et la première version était fausse
+
+**Symptome** — le § « Le contrôle avant de pousser » enchaînait deux
+descriptions du même programme. La seconde était juste. La première annonçait
+« il commence par les manifestes, **il vérifie ensuite service par service** » —
+en sautant la section des artefacts dérivés, que la seconde qualifie pourtant de
+« deuxième section, pas la dernière ». Un lecteur qui s'arrêtait à la première
+croyait que `--check` ne compare jamais le `compose.yaml` à ce qu'`init.sh`
+écrirait aujourd'hui, c'est-à-dire le seul contrôle qui prouve que le compose
+committé décrit les apps committées.
+
+Deux sections manquaient en outre aux deux versions : les contrôles par
+application — `Dockerfile`, `USER` non root, `chown` des volumes — et le journal.
+
+**Cause** — les deux passages ont été écrits à des moments différents, chacun de
+mémoire, et l'ordre réel des sections n'a été relu dans aucun des deux. Il est
+pourtant lisible en une commande : `./init.sh --check` imprime ses huit sections
+dans l'ordre où elles tournent.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — un document qui énumère les étapes d'un programme
+se rédige depuis la sortie du programme, jamais de mémoire. Aucun garde-fou
+plausible ne distingue deux paragraphes qui redisent la même chose d'un rappel
+volontaire ; c'est la relecture qui doit changer, pas l'outillage.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
