@@ -231,17 +231,20 @@ quatre raisons distinctes de non-usage, dont deux sont des défauts :
 
 **Detecte par** — `auteur`
 
-**Action** — `arbitrage` — le levier de l'amorce reste vrai et reste le plus
-gros, mais il ne se prend pas par ce geste-là. Ce qui est à trancher n'est donc
-pas un gain de jetons : c'est de garder ou non deux outils dont l'usage
-*contredirait* le contrat — `commit-commands`, dont le geste saute `pret.sh`, et
-`mattpocock-skills`, dont les déclencheurs doublent ceux de la méthode écrite.
-Les trois autres se gardent sans discuter.
+**Action** — `arbitrage` — **rendu le 7 août : on garde les treize.** Le levier de
+l'amorce reste vrai et reste le plus gros, mais il ne se prend pas par ce
+geste-là. Restait la seule question qui valait d'être posée — garder ou non deux
+outils dont l'usage *contredirait* le contrat, `commit-commands` dont le geste
+saute `pret.sh`, et `mattpocock-skills` dont les déclencheurs doublent ceux de la
+méthode écrite. Réponse : on les garde ; un outil disponible et non employé coûte
+deux lignes, un outil retiré dont on avait besoin coûte une session. Ce qui
+change est écrit dans `memory/outillage.md` : la raison de chacun, pour que
+l'inventaire ne soit pas refait une troisième fois.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 19:58 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 20:08 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -249,26 +252,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 7 319 | 0,00 $ |
-| Écriture de cache | 604 468 | 2,97 $ |
-| Lecture de cache | 41 464 459 | 19,96 $ |
-| Sortie | 171 336 | 3,76 $ |
-| **Total** | **42 247 582** | **26,69 $ — 23,18 €** |
+| Entrée | 7 330 | 0,00 $ |
+| Écriture de cache | 917 375 | 4,93 $ |
+| Lecture de cache | 43 230 507 | 20,84 $ |
+| Sortie | 176 472 | 3,89 $ |
+| **Total** | **44 331 684** | **29,66 $ — 25,76 €** |
 
 **Ce qui coûte**
 
-- **217 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **223 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   55 815 jetons, écrits une fois par session puis relus à chaque
-  échange : 12 056 040 jetons de relecture, 29 % de tout ce qui a été relu.
-- **Tours courts** — 67 des 217 tours (30 %) sortent
+  échange : 12 390 930 jetons de relecture, 28 % de tout ce qui a été relu.
+- **Tours courts** — 67 des 223 tours (30 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 8,56 $, soit 32 % de la facture.
+  une sortie de rien. Ils coûtent 8,56 $, soit 28 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 55 815 jetons relus au premier appel qui relise
-  quelque chose, 338 524 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 348 157 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 42247582 -->
+<!-- cout-total: 44331684 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 55815 0 500
 2 principal claude-opus-5 2371 55815 282
@@ -487,5 +490,11 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 215 principal claude-opus-5 646 332586 1171
 216 principal claude-opus-5 5292 333232 1337
 217 principal claude-opus-5 1386 338524 229
+218 principal claude-opus-5 4177 339910 493
+219 principal claude-opus-5 633 344087 1124
+220 principal claude-opus-5 304891 40942 1084
+221 principal claude-opus-5 1286 345833 989
+222 principal claude-opus-5 1038 347119 719
+223 principal claude-opus-5 882 348157 727
 -->
 <!-- /cout -->

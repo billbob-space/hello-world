@@ -63,7 +63,9 @@ Retirer les cinq plugins sans aucune trace d'usage ferait donc gagner ~2 % de
 l'amorce, quand l'amorce elle-même varie de 14 000 jetons d'une branche à
 l'autre. **Le levier est le plus gros de la liste et il ne se prend pas en
 élaguant les plugins inutilisés** : il faudrait renoncer à un serveur MCP dont on
-se sert, ou que les définitions d'outils se chargent à la demande.
+se sert, ou que les définitions d'outils se chargent à la demande. Arbitrage rendu
+le 7 août : **les treize plugins restent**, et `memory/outillage.md` porte la
+raison de chacun pour que l'inventaire ne soit pas refait.
 
 **2. Les tours courts — 112,83 $, 50 % de la facture.**
 877 tours sur 1 537 (57 %) sortent moins de 300 jetons : un appel d'outil nu.

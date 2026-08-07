@@ -1088,7 +1088,7 @@ git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
 | 2 — les garde-fous de source | **faite** | `tests/source.js` + 4 cas ; cinq emplacements convertis sur les sept prévus ; un emploi réel échoue, un commentaire ne fait plus rien ; 299 tests verts |
 | 3 — `scripts/jetons.sh` | **faite** | `test-jetons.sh`, 9 cas ; `test-cout.sh` inchangé, 11 verts ; `test-init.sh` gagne `avertit`, 23 verts |
 | 4 — tours courts et alerte | **faite** | `test-cout.sh`, 14 cas ; seuil abaissé à 50 000 → le cas du silence échoue, remis → vert |
-| 5 — l'amorce | **analysée, geste abandonné** | le retrait des cinq plugins sans trace vaut ~2 % de l'amorce, pas 15 % : anomalie 10 du journal |
+| 5 — l'amorce | **analysée, arbitrage rendu : on garde les treize** | le retrait des cinq plugins sans trace vaut ~2 % de l'amorce, pas 15 % : anomalie 10 du journal, raisons reportées dans `memory/outillage.md` |
 | 6 — l'`artisan` mesuré | **reportée** | les tâches 1 et 2 ont été menées à la main dans la session, il n'y a plus rien à mesurer dessus ; le protocole vaut pour le chantier suivant |
 
 **Trois défauts trouvés en exécutant, et aucun n'était dans le plan** : deux

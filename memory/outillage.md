@@ -21,6 +21,26 @@ outillage. Il se retouche à la main quand une app introduit un `stack` ou un
 | `context7` | Documentation **à jour** des bibliothèques — consulte-le plutôt que ta mémoire |
 | `github` | PR, Actions, GHCR |
 
+**Cinq de ces plugins n'ont jamais servi, et c'est réglé : on les garde.**
+Inventaire du 7 août 2026, dans l'entrée de journal
+`2026-08-07-claude-marcq-handball-review-jlo3pz`. Le retirer ne rendrait
+quasiment rien — un plugin de **hooks** ne coûte **rien** dans le contexte
+(`security-guidance` s'exécute à l'appel d'outil, pas à la lecture), un plugin de
+**commandes** ou d'**agents** une ligne, un plugin de **compétences** quelques
+centaines de jetons ; ce qui pèse dans le démarrage, ce sont les définitions
+d'outils des **serveurs MCP** — `github`, `playwright`, `context7` —, et les trois
+servent. Les cinq ensemble valent ~2 % du démarrage, quand celui-ci varie déjà de
+14 000 jetons d'une branche à l'autre. Ne refais pas l'inventaire : ce qu'il
+faut savoir de chacun est ci-dessous.
+
+| Non utilisé | Pourquoi, et ce qu'il faut en faire |
+|---|---|
+| `commit-commands` | Son `/commit` sauterait `pret.sh` — donc les tests, le journal et le relevé de coût — et son `/clean_gone` ne peut pas fonctionner, le harnais refusant la suppression de refs. **Ne l'emploie pas** ; la voie est `pret.sh` puis un message écrit à la main |
+| `mattpocock-skills` | Mêmes déclencheurs que `superpowers`. À déclencheur égal, **la méthode nommée par le contrat gagne** |
+| `code-simplifier` | C'est un agent, et aucun agent n'a jamais été appelé. Son silence est celui des agents en général, pas le sien |
+| `code-review` | La revue passe par `--check`, les quatre harnais de test et la relecture humaine avant fusion |
+| `security-guidance` | **Utilisé, mais silencieux** : il avertit à l'édition, sans laisser de trace. Ses signalements sont parfois de faux positifs — un test qui *interdit* `innerHTML` en déclenche un |
+
 S'y ajoutent, selon les `apps/*/app.yml` : **un serveur LSP par langage présent dans
 la fabrique** — les erreurs du compilateur après chaque édition, pour zéro contexte —
 et, dès qu'**une seule** app porte `ui: true`, `frontend-design`, `playwright` et
