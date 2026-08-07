@@ -9,6 +9,15 @@ périmé, en avertissement ; hook — `garde-branche.sh` refuse d’éditer sur 
 `garde-commit.sh` refuse un arbre sale ; test-cout.sh — le relevé rend un nombre
 qu'aucune relecture ne vérifie à l'œil, dix cas le tiennent
 
+## Le préfixe `claude/`, subi et non choisi
+
+Le harnais cloud assigne lui-même le nom de la branche et interdit de pousser
+ailleurs. `branche.sh` accepte donc ce préfixe pour **rejoindre** une branche
+existante — sans quoi une session cloud ne pourrait pas ouvrir son entrée de
+journal — et le refuse pour en **créer** une : personne ne le choisit. Une
+branche neuve prend `<app>/<sujet>` ou `fabrique/<sujet>`, dont le préfixe dit
+le rayon de souffle avant même qu'on ouvre le diff.
+
 ## La fin de vie d'une branche ne t'appartient pas
 
 **Une session cloud ouvre des branches et ne peut pas en fermer.** Le relais git du

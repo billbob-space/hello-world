@@ -40,28 +40,20 @@ segment de son image. Il doit être un label DNS valide.
 
 ## Ajouter une application
 
-Deux commits — **construire d'abord, brancher ensuite** :
+Deux commits — **construire d'abord, brancher ensuite** : le premier fait
+publier l'image par la CI, le second seulement fait entrer l'app dans le
+compose. C'est pourquoi une app naît `enabled: false` ; la raison est dans la
+section suivante.
 
 ```bash
 ./init.sh --add ma-nouvelle-app --stack go --exposure private
-# écrire apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
-./init.sh --check
-git add apps/ma-nouvelle-app compose.yaml .github .gitignore .claude go.work
-git commit                                     # commit 1 : la CI publie l'image
-
-./init.sh --app ma-nouvelle-app --enable       # une fois l'image publiée
-./init.sh --check
-git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit    # commit 2 : le déploiement
 ```
 
-Le commit 1 emporte **les artefacts régénérés** : `--add` réécrit `compose.yaml`,
-le workflow et `.gitignore` — plus `.claude/` si le langage ou `ui:` est nouveau,
-et `go.work` dès que le module Go existe. Ne committer que `apps/<nom>` fait
-échouer le job `contrat` sur « compose.yaml désynchronisé des manifestes ».
-Le commit 2 se limite à `app.yml` et `compose.yaml` : `--enable` ne touche rien
-d'autre.
-
-Une app naît `enabled: false`. La raison est dans la section suivante.
+La séquence complète, ce que le commit 1 doit emporter, et la liste de ce que
+`--add` réécrit — le workflow et `.claude/` n'en sont pas — vivent en un seul
+endroit : [`memory/ajouter-une-app.md`](memory/ajouter-une-app.md). Ce
+paragraphe en portait une copie, restée en arrière le jour où le workflow a
+cessé d'être généré.
 
 ## Une seule stack : ce que ça implique
 

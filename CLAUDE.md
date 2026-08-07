@@ -40,53 +40,43 @@ apps/<nom>/    une application. `--add` y écrit app.yml, .dockerignore, test.sh
                PRODUCT.md porte le PRD, prp/ les documents d'implémentation
                CLAUDE.md GÉNÉRÉ — la notice de l'app, chargée seulement quand
                on touche à ce répertoire : périmètre, URL, palier, volumes
-docs/          ce qui n'est propre à aucune app : specs et plans de fabrique.
-               Jamais un document d'app — `--check` le refuse par son nom
+docs/          ce qui n'est propre à aucune app : specs et plans de fabrique
 journal/       une entrée par branche : les anomalies rencontrées
 memory/        un fichier par sujet sorti du contrat : ce que `--check` tient déjà
 compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
                bloc volumes: si et seulement si un service en monte un
 fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, et shared_services
-init.sh        le générateur et le vérificateur ; scripts/ porte les quatre autres
-               métiers (branche.sh, pret.sh, cout.sh, fusionnees.sh), lib/ leur commun
+init.sh        le générateur et le vérificateur ; scripts/ les quatre autres
+               métiers, lib/ leur commun
 ```
 
-**Partagé** : la stack, la CI, le réseau, le domaine, `shared_services`,
-l'outillage Claude Code. **Propre à chaque app** : son code, son `Dockerfile`,
-son PRD, son URL, son palier d'exposition, ses volumes, ses services annexes,
-ses tests.
+**Partagé** : la stack, la CI, le réseau, le domaine, `shared_services`, l'outillage
+Claude Code. **Propre à chaque app** : son code, son `Dockerfile`, son PRD, son URL,
+son palier d'exposition, ses volumes, ses services annexes, ses tests.
 
 **Tout ce qui décrit une app vit dans son répertoire** : son PRD dans
 `apps/<nom>/PRODUCT.md` — un seul document, fiche produit puis exigences —, ses
 PRP dans `apps/<nom>/prp/`. Un répertoire qui ne porte que ces documents est
-légitime : c'est une app dont le code n'est pas encore écrit, et `--add` ne
-réécrit jamais un `PRODUCT.md` ni un `README.md` déjà présents, `--force`
-compris. Les compétences `superpowers` écrivent leurs specs et leurs plans sous
-`docs/`, ce qui est juste pour un sujet de fabrique et faux pour un sujet
-d'app : dans ce cas, déplace le fichier sous `apps/<nom>/` avant de committer —
-`--check` refuse un document de `docs/` dont le nom contient celui d'une app.
+légitime : c'est une app dont le code n'est pas encore écrit. Les compétences
+`superpowers` écrivent leurs specs sous `docs/` : déplace-les sous `apps/<nom>/`
+avant de committer, `--check` refuse un document de `docs/` nommé d'après une app.
 
 ## Démarrage
 
 ```bash
-./init.sh                          # régénère compose.yaml et go.work depuis les manifestes
-./init.sh --check                  # vérifie les manifestes, puis le dépôt service par service
-./init.sh --list                   # état des applications
-./init.sh --add <nom>              # échafaude apps/<nom>/
-./init.sh --dry-run                # montre ce qui changerait, sans rien écrire
-./scripts/fusionnees.sh            # quelles branches distantes peuvent être supprimées
-./scripts/cout.sh                  # relève les jetons consommés et leur coût, dans le journal
+./init.sh          # régénère les artefacts dérivés depuis les manifestes
+./init.sh --check  # vérifie les manifestes, puis le dépôt service par service
+./init.sh --help   # les autres options, et les quatre métiers de scripts/
 ```
 
-`--dry-run` n'écrit **rien**, pas même l'`app.yml` qu'un `--enable` modifierait :
-il affiche l'ancienne et la nouvelle valeur, puis le diff des artefacts.
-
-`init.sh` ne crée **ni** `Dockerfile` **ni** code applicatif : c'est ton travail,
-et le choix de la technologie t'appartient, app par app. Trois artefacts sont
-**toujours réécrits**, fonction directe des manifestes : `compose.yaml`,
-`go.work` et la notice `apps/<nom>/CLAUDE.md` de chaque app. Le reste — le workflow de CI, `.claude/` — est ordinaire, à éditer
-directement ; `--check` en vérifie l'existence et les propriétés qui comptent,
-pas l'égalité à un générateur.
+Trois artefacts sont **toujours réécrits**, fonction directe des manifestes :
+`compose.yaml`, `go.work` et la notice `apps/<nom>/CLAUDE.md` de chaque app — ne
+les édite jamais à la main, édite le manifeste. Le reste — workflow de CI,
+`.claude/` — est ordinaire : `--check` en vérifie les propriétés qui comptent,
+pas l'égalité à un générateur. `--dry-run` n'écrit **rien**, pas même l'`app.yml`
+qu'un `--enable` modifierait : il affiche l'ancienne et la nouvelle valeur, puis
+le diff des artefacts. `init.sh` ne crée **ni** `Dockerfile` **ni** code
+applicatif : le choix de la technologie t'appartient, app par app.
 
 ## `apps/<nom>/app.yml` — les valeurs que tu décides
 
@@ -97,29 +87,12 @@ sont toutes vérifiées : détail et pièges dans `memory/app-yml.md`.
 
 ## Ajouter une application
 
-Deux commits, dans cet ordre : **construire d'abord, brancher ensuite.**
-
-```bash
-./init.sh --add ma-nouvelle-app --stack go --exposure private
-# écris apps/ma-nouvelle-app/{Dockerfile,test.sh,PRODUCT.md,README.md,code}
-./init.sh --check
-git add apps/ma-nouvelle-app compose.yaml .gitignore go.work  # + .claude si édité
-git commit                                    # commit 1 : la CI publie l'image
-
-./init.sh --app ma-nouvelle-app --enable      # une fois l'image publiée
-./init.sh --check
-git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2 : le déploiement
-```
-
-**Le commit 1 emporte les artefacts régénérés, pas seulement `apps/<nom>`** : `--add`
-réécrit `compose.yaml`, `.gitignore` et, dès que le module Go existe, `go.work`.
-N'ajouter que `apps/<nom>` fait échouer le job `contrat` en CI sur « compose.yaml
-désynchronisé des manifestes », avant même la construction. S'il introduit un langage
-ou un `ui: true` nouveau, édite `.claude/settings.json` et `.claude/cloud-setup.sh` —
-`--check` avertit si un plugin manque. Le commit 2 ne touche que `app.yml` et `compose.yaml`.
-
-Le chemin en un seul commit fonctionne aussi, mais la séquence en deux fait arriver
-l'échec « l'image ne se construit pas » sur un commit qui **ne peut pas** casser les autres.
+**Construire d'abord, brancher ensuite** : un premier commit fait publier l'image
+par la CI, un second seulement fait entrer l'app dans le compose — c'est pourquoi
+elle naît `enabled: false`. Le commit 1 emporte **les artefacts régénérés**, pas
+seulement `apps/<nom>` : sinon le job `contrat` échoue en CI sur « compose.yaml
+désynchronisé », et la CI est rouge pour tout le monde. La séquence exacte, ce que
+`--add` réécrit et ce qu'il ne réécrit pas : `memory/ajouter-une-app.md`.
 
 ## Les trois sortes de services — une seule est routée
 
@@ -153,12 +126,10 @@ Le nom est validé avant la création : préfixe connu, sujet en minuscules. La 
 part de `origin/main`, jamais du HEAD courant — greffée sur une autre branche de
 travail, elle traînerait ses commits dans sa PR.
 
-**Une exception, subie et non choisie : `claude/<sujet>`.** Le harnais cloud assigne
-lui-même le nom de la branche et interdit de pousser ailleurs. Ce préfixe est donc
-accepté pour **rejoindre** une branche existante — sans quoi une session cloud ne
-pourrait pas ouvrir son entrée de journal — mais refusé pour en **créer** une. Il ne
-dit rien du périmètre : sur une telle branche, le rayon de souffle se lit dans le
-champ `Périmètre` de l'entrée de journal, et nulle part ailleurs. Renseigne-le tôt.
+**Une exception, subie et non choisie : `claude/<sujet>`**, que le harnais cloud
+assigne lui-même. Ce préfixe **ne dit rien du périmètre** : sur une telle branche,
+le rayon de souffle se lit dans le champ `Périmètre` de l'entrée de journal, et
+nulle part ailleurs. Renseigne-le tôt.
 
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
 
@@ -200,9 +171,8 @@ du garde-fou : `memory/produit.md`.
 
 Une seule stack, donc un seul `docker compose up`, atomique : une erreur dans le bloc
 d'une app fait échouer le déploiement de **toutes** les autres, y compris celles que
-tu n'as pas touchées. C'est la raison d'être des trois garde-fous décrits plus haut —
-`enabled`, l'inspection des images en CI, et le `--check` service par service — et la
-raison pour laquelle aucun ne se contourne.
+tu n'as pas touchées. D'où les trois garde-fous — `enabled`, l'inspection des images
+en CI, le `--check` service par service — et le fait qu'aucun ne se contourne.
 
 ## Ton outillage
 
@@ -216,9 +186,8 @@ il est public par construction.
 
 ## Les trois paliers d'exposition
 
-Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`, et
-appliqué par Traefik avant que la requête ne parvienne au conteneur. Le choix se fait
-app par app.
+Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
+appliqué par Traefik avant que la requête ne parvienne au conteneur.
 
 | `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
 |---|---|---|---|
@@ -226,14 +195,11 @@ app par app.
 | `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | Une app dont la surface ne touche que des API tierces ou du contenu non sensible, ou dont les données sont strictement cloisonnées par utilisateur |
 | `public` | `public` | **Tout le monde, sans authentification** | Une app destinée à des gens qui n'ont pas de compte, dont rien de sensible ne vit côté serveur |
 
-Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte Google, le
-second n'exige rien.
-
-Ce que `public` implique, `X-Forwarded-User` et le cloisonnement par
-utilisateur : `memory/exposition.md`.
-
-Si tu hésites entre deux paliers, prends le plus fermé : `private` se desserre en une
-ligne, l'inverse a déjà exposé les données.
+Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte Google,
+le second n'exige rien. Si tu hésites entre deux paliers, prends le plus fermé :
+`private` se desserre en une ligne, l'inverse a déjà exposé les données. Ce que
+`public` implique, `X-Forwarded-User` et le cloisonnement par utilisateur :
+`memory/exposition.md`.
 
 ## Règles impératives
 
@@ -275,6 +241,7 @@ l'essentiel ; le détail, les formes admises et les pièges y sont.
 | Champs de `app.yml` | `memory/app-yml.md` | avant de créer ou modifier un `app.yml` |
 | Trois sortes de services | `memory/services.md` | avant d'ajouter un service à une app ou à la fabrique |
 | Journal, garde-fous, agents | `memory/travail.md` | avant de remplir le journal ou de lancer un agent |
+| Ajouter une application | `memory/ajouter-une-app.md` | avant `--add`, et avant chacun de ses deux commits |
 | Le PRD suit l'app | `memory/produit.md` | avant de livrer un ajout que nul PRP ne prévoyait |
 | Outillage, plugins, LSP | `memory/outillage.md` | quand un plugin ou un LSP manque |
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |
