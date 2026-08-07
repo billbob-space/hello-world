@@ -236,9 +236,15 @@ L'app le reconnaît et l'accueille par son prénom. Aucune étape intermédiaire
 ouvrir le lien, c'est être dans le programme.
 
 Depuis les réglages, il peut **corriger son prénom** (faute de frappe) ou
-**changer d'enfant** (un frère, une sœur, un téléphone partagé) — deux gestes
-distincts : le premier garde la progression, le second repart à zéro et le dit
-clairement avant d'agir.
+**supprimer son profil** — un frère, une sœur, un téléphone partagé, ou un
+profil créé par erreur — : deux gestes distincts, le premier garde la
+progression, le second repart à zéro et le dit clairement avant d'agir. Le
+second **emporte aussi le nom au classement**, s'il y en a un (§ 16.6) ; il
+s'appelait « changer d'enfant » et ne le faisait pas.
+
+Un troisième geste apparaît pour qui a rejoint le classement : **quitter le
+classement**, qui retire le nom en laissant la progression sur le téléphone.
+C'est le geste doux ; supprimer son profil est le geste total.
 
 #### 7.3 Faire une séance
 
@@ -565,7 +571,7 @@ quatorzième.
 | Abandon après deux séances | L'app ne mesure plus rien | Zéro friction à l'entrée, récompense à chaque séance, aucun compte |
 | Un enfant gonfle son score | Classement faussé | Assumé : une équipe de gamins qui se connaissent, la triche se voit au vestiaire. Le classement est indicatif, pas un titre |
 | Perte du téléphone ou vidage du navigateur | Progression perdue | Assumé et **annoncé** : sans compte, il n'y a pas de sauvegarde. La page de réglages le dit. **Une seule exception, et elle se mérite** : celui qui a rejoint le classement retrouve ses séances sur un autre téléphone en ressaisissant son nom et son code — le serveur en tient la liste depuis qu'il l'a rejoint. Le prénom, les ressentis et tout ce qui précède l'inscription ne se récupèrent pas |
-| Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et **supprimable depuis n'importe quel téléphone** en le retapant avec son code (§ 16.6) — le porter n'est pas la condition pour le retirer |
+| Un pseudonyme injurieux ou identifiant | Contenu public indésirable | Le pseudonyme proposé par défaut n'est pas le prénom ; il reste modifiable par l'enfant, et supprimable |
 | Trafic automatisé sur l'URL publique | Bruit, charge | Aucune donnée sensible à atteindre ; c'est le principe même du § 5 |
 
 ### 15. Questions ouvertes
@@ -711,34 +717,46 @@ celui qu'on tient à bout de bras entre deux séries, reste clair. Si la lecture
 soleil pose problème sur le terrain, c'est l'écran du jour qu'il faut éclaircir,
 et lui seul.
 
-#### 16.6 Retirer un nom depuis un téléphone qui ne le porte pas — 7 août
+#### 16.6 « Supprimer mon profil » remplace « changer d'enfant » — 7 août
 
-Le bloc « Mon nom au classement », dans les réglages, **existe désormais
-toujours**. Quand ce téléphone porte un nom, rien ne change : il l'affiche et un
-seul tap le retire. Quand il n'en porte aucun, il demande **le nom et son code à
-4 chiffres**, puis retire la fiche — les deux seules valeurs que le serveur a
-jamais exigées.
+Le geste total des réglages porte désormais le nom de son **effet** et non de sa
+raison, et il emporte enfin tout ce que ce nom promet : le prénom, la
+progression, **et le nom au classement** quand ce téléphone en porte un. Le nom
+part du serveur d'abord ; le téléphone n'est effacé qu'ensuite, et pas du tout si
+le retrait échoue. Sans réseau, le geste refuse d'agir et le dit — pour un
+téléphone qui ne porte aucun nom, il n'a besoin de rien et fonctionne hors ligne.
 
-Signalé par un parent après mise en ligne, dans ses mots : *« j'ai déjà fait une
-boulette en allant voir depuis mon téléphone et en créant un compte pour Charlie
-que je n'arrive plus à supprimer pour qu'il me fasse lui-même de son tél »*.
+Le geste plus doux garde sa place au-dessus, sous un nom qui le distingue :
+**« Quitter le classement »** — le nom part, la progression reste.
 
-*Ce que le PRD disait* : § 14 promettait un pseudonyme « supprimable », et le
-§ 7.4 fait du code la clé qui commande la fiche. Les deux étaient vrais du
-**serveur**, qui accepte depuis toujours un retrait présenté avec le bon code,
-d'où qu'arrive la requête. C'est l'**écran** qui ajoutait une condition que le
-document n'énonce nulle part : ne proposer le geste qu'au téléphone porteur du
-nom. Un parent qui crée un nom depuis son propre téléphone, puis fait « changer
-d'enfant », laissait donc au classement un nom que **plus personne** ne pouvait
-retirer — y compris lui, qui en connaissait le code. C'est une correction : la
-ligne du § 14 est précisée, aucune décision n'est rouverte.
+Demandé de vive voix après un retour de parent : *« pour moi c'est le bouton
+changer d'enfant qui devrait s'appeler supprimer mon profil »*. Le retour
+d'origine était celui-ci : *« j'ai déjà fait une boulette en allant voir depuis
+mon téléphone et en créant un compte pour Charlie que je n'arrive plus à
+supprimer »*.
 
-*Ce qui n'a pas été fait, et pourquoi* : rien n'ouvre un nom dont le code est
-**perdu**. L'application est publique et ne sait qui est personne ; une porte de
-secours demanderait un mot de passe de coach, donc le premier secret d'un projet
-qui n'en a aucun. Sur trois semaines et 200 places, un nom orphelin sans code
-reste un incident isolé, qui se traite à la main sur le volume. Arbitré le
-7 août, à reprendre si le cas se présente deux fois.
+*Ce que le PRD disait* : § 7.2 nommait le geste « changer d'enfant » et le
+décrivait comme « repart à zéro ». Les deux étaient exacts au mot près et faux
+ensemble. Le bouton était nommé par la **raison** de s'en servir — un frère, une
+sœur, un téléphone partagé — si bien que personne cherchant à effacer un profil
+n'ouvrait ce bouton-là. Et « repart à zéro » ne valait que pour le téléphone : le
+nom restait au classement, alors que le geste effaçait le code, donc le seul
+moyen de l'en retirer. Le produit **fabriquait** ainsi l'impasse que son propre
+avertissement décrivait — *« plus personne ne pourra le supprimer »*. Une phrase
+qui prévient de l'impasse à celui qui va y entrer n'est pas un garde-fou : c'est
+la documentation du défaut. C'est une correction ; aucune décision n'est
+rouverte.
+
+*Ce qui n'est pas réparé* : un nom déjà orphelin — laissé par l'ancien geste,
+sur un téléphone qui a donc perdu son code — reste au classement, et rien dans
+l'application ne l'atteint. Le correctif empêche le cas de se reproduire, il ne
+défait pas les cas existants ; ceux-là se traitent à la main sur le volume.
+
+*Écarté* : un écran où l'on retape un nom et son code pour retirer une fiche que
+ce téléphone ne porte pas. Il couvrait les noms déjà orphelins, mais ajoutait un
+troisième geste de sortie à un produit dont le problème était précisément que
+ses deux gestes existants ne se distinguaient pas. Arbitré le 7 août en faveur
+du renommage.
 
 ---
 

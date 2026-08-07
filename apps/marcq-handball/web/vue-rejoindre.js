@@ -9,7 +9,7 @@
 // « grimper au classement », qui est du ressort du PRP 09 ; un ecran de
 // consentement qui s'anime demanderait d'attendre pour lire ce qu'il faut lire.
 
-import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer, supprimer, synchroniser } from './classement.js';
+import { EVT_CLASSEMENT, empreinte, envoiNecessaire, envoyer, retirer, synchroniser } from './classement.js';
 import { ecrireClassement, fusionnerFaits, lireClassement, lireFaits, lireRessentis } from './etat.js';
 import { empreinteRessentis, ressentisPourEnvoi } from './ressenti.js';
 import { dateEnToutesLettres } from './vue-jour.js';
@@ -203,8 +203,10 @@ export function messageErreur(statut, erreur) {
   return MESSAGES[erreur] ?? SANS_REPONSE;
 }
 
-// L'ecran affiche le message du serveur quand il y en a un.
-function phraseDe(resultat) {
+// L'ecran affiche le message du serveur quand il y en a un. Exportee parce que
+// vue-reglages.js retire lui aussi un nom du classement, et qu'un second calcul
+// de phrase la-bas divergerait de celui-ci le jour ou l'un des deux bouge.
+export function phraseDe(resultat) {
   return resultat.message ?? messageErreur(resultat.statut, resultat.erreur);
 }
 
@@ -216,24 +218,18 @@ function phraseDe(resultat) {
 // est publie est public.
 export const EXPLICATION_SUPPRESSION = 'Ton nom et ton score disparaissent du classement, pour tout le monde. Ta progression et tes séances cochées restent sur ton téléphone : tu ne perds rien de ce que tu as fait. Le nom redevient libre, et ce qui a déjà été vu par d’autres ne s’efface pas.';
 
-export const TITRE_BLOC_SUPPRESSION = 'Mon nom au classement';
-
-// Ce que dit le bloc quand ce telephone ne porte aucun nom. La phrase nomme les
-// deux situations reelles plutot que de decrire un mecanisme : un parent qui a
-// cree un nom depuis son propre telephone, et quiconque a fait « changer
-// d'enfant » depuis. Sans elle, l'ecran demande un nom et un code sans dire a
-// qui il s'adresse, et celui qui a le probleme ne se reconnait pas.
-export const EXPLICATION_SUPPRESSION_SANS_NOM = 'Ce téléphone ne connaît aucun nom au classement. Si tu en as créé un ailleurs — depuis un autre téléphone, ou avant d’avoir changé d’enfant —, tape-le ici avec son code à 4 chiffres pour le retirer.';
-
 export function phraseSuppression(pseudo) {
   return `Supprimer « ${pseudo} » du classement ?`;
 }
 
-// « Changer d'enfant » efface la cle locale mais ne touche pas au serveur : le
-// nom resterait au classement et plus personne n'en detiendrait le code.
-export function avertissementChangementEnfant(pseudo) {
-  return `Ton nom au classement (« ${pseudo} ») restera visible, et plus personne `
-    + 'ne pourra le supprimer. Supprime-le d’abord si tu ne veux pas le laisser.';
+// Le bloc porte le nom de ce qu'on QUITTE, et son bouton celui de ce qu'on
+// RETIRE. « Supprimer » etait le mot des deux gestes des reglages, et il ne
+// distinguait donc pas celui qui n'emporte que le nom de celui qui emporte le
+// telephone entier.
+export const TITRE_QUITTER_CLASSEMENT = 'Quitter le classement';
+
+export function texteBoutonQuitter(pseudo) {
+  return `Retirer « ${pseudo} » du classement`;
 }
 
 export const SANS_RESEAU_SUPPRESSION = 'Il faut du réseau pour supprimer ton nom.';
@@ -700,40 +696,30 @@ function etapeChoix(section, ctx) {
   champPseudo.focus();
 }
 
-// Le bloc de #/reglages. IL EXISTE TOUJOURS, et c'est la correction du 7 aout :
-// tant qu'il ne s'affichait que sur le telephone porteur du nom, un parent qui
-// avait cree un nom pour son enfant depuis son propre telephone puis fait
-// « changer d'enfant » laissait au classement un nom que PLUS PERSONNE ne
-// pouvait retirer. Le serveur, lui, l'a toujours accepte : un nom, son code, et
-// la fiche part, d'ou qu'arrive la requete. Il ne manquait que l'ecran.
+// Le bloc de #/reglages. Il n'existe que s'il y a quelque chose a retirer :
+// proposer de quitter un classement qu'on n'a pas rejoint serait une question
+// sans reponse.
 //
-// Deux chemins, parce que les deux situations ne demandent pas le meme geste :
-// le telephone qui porte le nom le connait deja et n'a qu'un tap a offrir ;
-// celui qui ne le porte pas doit le designer, donc le taper avec son code.
+// C'est le geste PARTIEL des deux : le nom part, la progression reste sur le
+// telephone. Le geste total — « supprimer mon profil », dans vue-reglages.js —
+// emporte les deux, et emprunte le meme `retirer` pour la moitie qui vit sur le
+// serveur.
 //
-// LA SUPPRESSION NE SE MET JAMAIS EN ATTENTE, dans les deux cas. Effacer
-// localement d'abord, en comptant sur une reprise, ferait perdre le code — donc
-// le seul moyen de retirer un nom qui, lui, resterait affiche. Hors ligne, rien
-// n'agit et l'ecran le dit.
+// LA SUPPRESSION NE SE MET JAMAIS EN ATTENTE. Effacer localement d'abord, en
+// comptant sur une reprise, ferait perdre le code — donc le seul moyen de
+// retirer un nom qui, lui, resterait affiche. Hors ligne, le bouton n'agit pas
+// et le dit.
 export function monterSuppression(hote, ctx) {
   const local = lireClassement();
+  if (local.pseudo === null) return null;
 
   const bloc = el('section', 'bloc-reglage bloc-danger');
-  bloc.append(el('h2', 'titre-bloc', TITRE_BLOC_SUPPRESSION));
+  bloc.append(
+    el('h2', 'titre-bloc', TITRE_QUITTER_CLASSEMENT),
+    el('p', 'avertissement', EXPLICATION_SUPPRESSION),
+  );
 
-  if (local.pseudo === null) suppressionParSaisie(bloc);
-  else suppressionDuNomConnu(bloc, local);
-
-  hote.append(bloc);
-  return null;
-}
-
-// Le chemin d'origine : ce telephone porte le nom, il en a le code, un tap
-// suffit. Rien n'y a change.
-function suppressionDuNomConnu(bloc, local) {
-  bloc.append(el('p', 'avertissement', EXPLICATION_SUPPRESSION));
-
-  const bouton = el('button', 'bouton bouton-danger', `Supprimer « ${local.pseudo} »`);
+  const bouton = el('button', 'bouton bouton-danger', texteBoutonQuitter(local.pseudo));
   bouton.type = 'button';
 
   const retour = el('p', 'retour');
@@ -772,107 +758,6 @@ function suppressionDuNomConnu(bloc, local) {
   });
 
   bloc.append(bouton, retour);
-}
-
-// Le chemin neuf : ce telephone ne porte aucun nom. On en designe un en le
-// tapant, avec son code — exactement les deux valeurs que le serveur exige, et
-// pas une de plus. Aucune liste n'est proposee et aucun nom n'est confirme comme
-// existant : la route est publique, et un ecran qui dirait « ce nom n'existe
-// pas » en ferait un oracle de disponibilite de pseudonymes.
-function suppressionParSaisie(bloc) {
-  bloc.append(
-    el('p', 'avertissement', EXPLICATION_SUPPRESSION_SANS_NOM),
-    el('p', 'aide', EXPLICATION_SUPPRESSION),
-  );
-
-  const formulaire = el('form', 'formulaire-suppression');
-  formulaire.noValidate = true;
-
-  const champPseudo = el('input', 'champ');
-  champPseudo.id = 'champ-pseudo-suppression';
-  champPseudo.type = 'text';
-  champPseudo.autocomplete = 'off';
-  champPseudo.maxLength = PSEUDO_MAX;
-  const etiquettePseudo = el('label', 'etiquette', 'Le nom à retirer');
-  etiquettePseudo.htmlFor = champPseudo.id;
-
-  const champCode = el('input', 'champ');
-  champCode.id = 'champ-code-suppression';
-  champCode.type = 'text';
-  champCode.inputMode = 'numeric';
-  champCode.pattern = '[0-9]{4}';
-  champCode.maxLength = 4;
-  champCode.autocomplete = 'off';
-  const etiquetteCode = el('label', 'etiquette', 'Son code à 4 chiffres');
-  etiquetteCode.htmlFor = champCode.id;
-
-  // Meme traitement des refus que l'ecran de consentement : le message sous le
-  // champ fautif, pas au bas du formulaire.
-  const erreurPseudo = messageDeChamp(champPseudo);
-  const erreurCode = messageDeChamp(champCode);
-
-  const valider = el('button', 'bouton bouton-danger', 'Supprimer ce nom');
-  valider.type = 'submit';
-
-  const retour = el('p', 'retour');
-  retour.setAttribute('role', 'status');
-
-  formulaire.append(
-    etiquettePseudo, champPseudo, erreurPseudo.noeud,
-    etiquetteCode, champCode, erreurCode.noeud,
-    valider, retour,
-  );
-
-  formulaire.addEventListener('submit', async (evt) => {
-    evt.preventDefault();
-    erreurPseudo.effacer();
-    erreurCode.effacer();
-    retour.textContent = '';
-
-    // Les deux saisies sont validees AVANT toute question et tout appel : une
-    // confirmation posee sur un code a trois chiffres demanderait d'assumer un
-    // geste qui ne peut pas aboutir.
-    const pseudo = validerPseudo(champPseudo.value);
-    if (pseudo.erreur !== null) {
-      erreurPseudo.poser(ERREURS_PSEUDO[pseudo.erreur]);
-      return;
-    }
-    if (pseudo.valeur !== champPseudo.value) champPseudo.value = pseudo.valeur;
-
-    const code = validerCode(champCode.value);
-    if (code.erreur !== null) {
-      erreurCode.poser(ERREURS_CODE[code.erreur]);
-      return;
-    }
-
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      retour.textContent = SANS_RESEAU_SUPPRESSION;
-      return;
-    }
-    if (typeof globalThis.confirm !== 'function') return;
-    if (!globalThis.confirm(phraseSuppression(pseudo.valeur))) return;
-
-    valider.disabled = true;
-    retour.textContent = 'Suppression…';
-    // `supprimer` et non `retirer` : il n'y a RIEN a effacer sur ce telephone —
-    // c'est la definition meme de ce chemin —, et `retirer` emettrait en plus un
-    // EVT_CLASSEMENT a instantane nul, qui viderait le podium deja affiche sur
-    // l'ecran de l'equipe. On retire un nom du serveur, on ne se deconnecte de
-    // rien.
-    const resultat = await supprimer({ pseudo: pseudo.valeur, code: code.valeur });
-    valider.disabled = false;
-
-    if (!resultat.ok) {
-      // Rien n'est vide : retaper quatre chiffres apres un refus est la friction
-      // qui fait abandonner (PRD §14).
-      retour.textContent = phraseDe(resultat);
-      return;
-    }
-    // Idempotent : un nom inconnu du serveur — jamais cree, ou deja retire — est
-    // un succes, pas une erreur. Le formulaire reste en place, car rien ne dit
-    // que c'etait le seul nom a retirer.
-    retour.textContent = resultat.suppression?.supprime ? RETIRE : DEJA_RETIRE;
-  });
-
-  bloc.append(formulaire);
+  hote.append(bloc);
+  return null;
 }

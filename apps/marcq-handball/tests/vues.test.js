@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { PHRASE_RASSURANTE } from '../web/vue-prenom.js';
 import * as domaine from '../web/domaine.js';
 import { dateEnToutesLettres, modeleJour } from '../web/vue-jour.js';
-import { AVERTISSEMENT_SAUVEGARDE, CONFIRMATION_CHANGEMENT } from '../web/vue-reglages.js';
+import { AVERTISSEMENT_SAUVEGARDE, CONFIRMATION_SUPPRESSION_PROFIL } from '../web/vue-reglages.js';
 import { ECRANS, LIENS, choisirEcran } from '../web/app.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
@@ -89,8 +89,8 @@ test('les phrases que le PRD fixe sont intactes', () => {
   assert.match(AVERTISSEMENT_SAUVEGARDE, /pas de compte, donc pas de sauvegarde/);
   assert.match(AVERTISSEMENT_SAUVEGARDE, /perdue/);
   // PRD §7.2 : « le second repart a zero et le dit clairement avant d'agir ».
-  assert.match(CONFIRMATION_CHANGEMENT, /efface le prénom et toute la progression/);
-  assert.match(CONFIRMATION_CHANGEMENT, /\?$/, 'une confirmation pose une question');
+  assert.match(CONFIRMATION_SUPPRESSION_PROFIL, /efface le prénom et toute la progression/);
+  assert.match(CONFIRMATION_SUPPRESSION_PROFIL, /\?$/, 'une confirmation pose une question');
 });
 
 test('les deux gestes des reglages sont distincts (PRD §7.2)', () => {
@@ -98,12 +98,12 @@ test('les deux gestes des reglages sont distincts (PRD §7.2)', () => {
   // Corriger le prenom n'appelle que `ecrirePrenom` : la progression vit sous
   // une autre cle et n'est meme pas lue.
   assert.ok(code.includes('ecrirePrenom('), 'le premier geste ecrit le prenom');
-  // Changer d'enfant efface tout, et jamais sans confirmation.
+  // Supprimer son profil efface tout, et jamais sans confirmation.
   assert.ok(code.includes('toutEffacer()'), 'le second geste efface tout');
-  // La question posee est construite au PRP 08 — elle gagne une phrase quand un
-  // nom au classement va se retrouver orphelin —, mais elle part toujours de
-  // CONFIRMATION_CHANGEMENT et elle passe toujours avant l'effacement.
-  assert.ok(code.includes('CONFIRMATION_CHANGEMENT'), 'la phrase du PRD est celle qui est posee');
+  // La question posee gagne une phrase quand un nom au classement part avec le
+  // reste, mais elle part toujours de CONFIRMATION_SUPPRESSION_PROFIL et elle
+  // passe toujours avant l'effacement.
+  assert.ok(code.includes('CONFIRMATION_SUPPRESSION_PROFIL'), 'la phrase du PRD est celle qui est posee');
   assert.ok(
     /confirm\(question\)/.test(code),
     'toutEffacer n est jamais atteint sans confirmation',
