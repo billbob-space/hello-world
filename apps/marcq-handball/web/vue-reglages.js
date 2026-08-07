@@ -275,7 +275,12 @@ function blocSupprimerProfil(ctx) {
     // laisse donc le code en place, et avec lui le moyen de recommencer.
     const resultat = await retirer({ pseudo: local.pseudo, code: local.code });
     bouton.disabled = false;
-    if (!resultat.ok) {
+    // `libere` : le serveur a refuse le code, donc ce nom n'appartient plus a ce
+    // telephone — il a ete supprime puis recree ailleurs. Il n'y avait rien a
+    // retirer pour nous, et refuser d'effacer le profil pour autant reviendrait
+    // a enfermer quelqu'un dehors : aucun autre ecran n'accepte un code quand un
+    // nom est enregistre, et la seule issue serait de vider le navigateur.
+    if (!resultat.ok && !resultat.libere) {
       retour.textContent = `${phraseDe(resultat)} ${PROFIL_RIEN_EFFACE}`;
       return;
     }

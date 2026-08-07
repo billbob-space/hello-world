@@ -6,120 +6,118 @@ Mode : `chaud`
 
 ## Anomalies
 
-### 1. Un bouton nommé par sa raison, et non par son effet, est introuvable
+### 1. Un téléphone dont le code est périmé n'a aucune sortie
 
-**Symptome** — un parent, après mise en ligne : *« j'ai déjà fait une boulette en
-allant voir depuis mon téléphone et en créant un compte pour Charlie que je
-n'arrive plus à supprimer pour qu'il me fasse lui-même de son tél »*.
+**Symptome** — signalé par un utilisateur : *« sur le premier compte impossible
+de supprimer ou de reauthentifier le compte avec le bon code. il semble bloqué.
+je ne veux pas supprimer mon cache car ceci me semble être un bug de gestion des
+comptes »*. L'écran répondait « Ce nom est déjà pris, ou le code ne correspond
+pas » à chaque geste.
 
-Le geste qu'il cherchait existait : « Changer d'enfant », dans les réglages. Il
-efface le prénom, la progression et la clé du classement. Personne ne va le
-chercher sous ce nom-là — il désigne une **situation** (un frère, une sœur, un
-téléphone partagé), pas une action. Un parent qui veut effacer un profil créé par
-erreur n'est dans aucune de ces trois situations, donc n'ouvre pas ce bouton.
+Un nom supprimé puis recréé prend un nouveau code. Le téléphone qui portait
+l'ancien garde un lien mort — et **les trois gestes de cet écran renvoient tous
+ce même code stocké** : récupérer sa progression, quitter le classement,
+supprimer son profil. Le seul écran où l'on saisit un code, lui, disparaît dès
+qu'un nom est enregistré. Aucune sortie, sauf vider le navigateur, donc perdre
+toute la progression — exactement ce que l'utilisateur refusait de faire, à
+raison.
 
-**Cause** — le nom vient du § 7.2 du PRD, qui décrivait le geste par son cas
-d'usage. Le PRD a raison de raisonner en parcours ; c'est l'**étiquette du
-bouton** qui n'avait pas à recopier le vocabulaire du parcours. Une étiquette
-répond à « qu'est-ce que ça fait ? », un parcours à « pourquoi je suis là ? », et
-les deux ne se rédigent pas pareil.
+**Cause** — chaque geste, pris seul, est défendable, et deux d'entre eux portent
+en commentaire l'argument qui les justifie. « La reprise ne redemande pas de
+code : un second formulaire serait une seconde occasion de se tromper. » « La
+suppression n'efface rien localement tant que le serveur n'a pas répondu 200 :
+effacer d'abord ferait perdre le code. » Les deux sont vrais. Ce qu'aucun ne
+voyait, c'est que **le code stocké peut cesser d'être valable**, et qu'alors les
+deux précautions se referment l'une sur l'autre.
 
-**Detecte par** — `utilisateur`
-
-**Action** — `rien` — réparé par le renommage. Aucun garde-fou ne juge un
-libellé, et l'inventer coûterait plus que le défaut.
-
-### 2. Le geste effaçait la clé qui commandait ce qu'il laissait en ligne
-
-**Symptome** — « Changer d'enfant » efface la clé locale du classement, donc le
-**code**, mais ne touche pas au serveur : le nom restait au classement, visible
-par tous, et plus personne — pas même celui qui l'avait créé — ne pouvait le
-retirer. Le produit fabriquait ainsi lui-même l'état dont le parent se plaignait.
-
-Le geste **l'annonçait** : *« Ton nom au classement restera visible, et plus
-personne ne pourra le supprimer. Supprime-le d'abord si tu ne veux pas le
-laisser. »* La phrase était exacte, et c'est ce qui l'a rendue rassurante : elle
-avait l'air d'un garde-fou. Une phrase qui décrit une impasse à celui qui va y
-entrer n'en est pas un — c'est la documentation du défaut, et elle a servi
-d'excuse à ne pas le corriger.
-
-**Cause** — le geste a été écrit quand rien du produit ne vivait sur le serveur.
-Le classement est arrivé au lot 2 et a ajouté une **seconde moitié** au profil ;
-les deux gestes destructeurs existants n'ont pas été rejugés à ce moment-là. Le
-tort n'est pas d'avoir oublié une ligne, c'est de n'avoir pas relu les gestes
-destructeurs quand la surface qu'ils détruisent a changé de nature.
+La règle qui manquait, et qui les concilie : *un refus du code dit que ce
+téléphone n'a **déjà** plus aucun droit sur ce nom.* Garder le lien ne protège
+plus rien — il n'y a plus rien à protéger. La précaution ne vaut que tant qu'il
+reste quelque chose à perdre.
 
 **Detecte par** — `utilisateur`
 
-**Action** — `comportement` — quand une app gagne un état côté serveur, relire
-ses gestes destructeurs existants fait partie du lot, au même titre que ses
-écrans de lecture. Rien à outiller : la question tient en une ligne — *ce bouton
-efface-t-il encore tout ce qu'il prétend effacer ?*
+**Action** — `comportement` — un état local qui **cite** un état distant peut
+devenir faux sans que rien ne bouge de ce côté-ci. Chaque fois qu'un écran
+conditionne un geste à une valeur stockée, se demander ce qui reste possible
+quand cette valeur a péri. Aucun garde-fou ne voit ça : il faudrait qu'il sache
+qu'une clé locale désigne une ressource distante.
 
-### 3. Un premier correctif livré, puis annulé — la solution ne visait pas la cause
+### 2. La correction de la veille avait supprimé la sortie de secours
 
-**Symptome** — le premier jet ajoutait un écran où l'on retape un nom et son code
-pour retirer une fiche que ce téléphone ne porte pas. Correct, testé, poussé,
-puis annulé sur demande : *« pour moi c'est le bouton changer d'enfant qui
-devrait s'appeler supprimer mon profil »*. Deux commits et onze tests jetés.
+**Symptome** — avant le renommage de la veille, « Changer d'enfant » effaçait le
+téléphone **sans rien demander au serveur**. C'était laid — le nom restait au
+classement, orphelin — mais c'était une issue : le téléphone repartait propre.
+En rendant le geste conditionnel à l'accord du serveur, la correction a fermé
+cette porte, un jour avant qu'un utilisateur ne vienne la réclamer.
 
-**L'annulation est arrivée trop tard** : la PR #71, ouverte sur cette branche
-avant le revirement, a été fusionnée dans `main` entre-temps. L'écran écarté est
-donc parti en production, et c'est la présente branche qui l'en retire — d'où un
-diff qui supprime du code que `main` n'a porté que quelques minutes. Le `git
-reset` local avait bien défait le travail dans le dépôt de travail ; il ne
-pouvait rien contre une PR déjà ouverte.
+**Cause** — la correction visait le cas « le serveur accepte » et le cas « le
+serveur est en panne ». Le cas « le serveur refuse pour toujours » n'a pas été
+distingué du second, alors qu'il appelle la décision inverse : la panne dit
+*réessaie*, le refus dit *ce n'est plus à toi*. Une seule branche d'échec là où
+il en fallait deux.
 
-**Cause** — le symptôme rapporté — *« je n'arrive plus à supprimer »* — a été lu
-comme *« il manque un chemin »*, alors qu'il disait *« le chemin existant ne se
-trouve pas et ne finit pas le travail »*. Ajouter un troisième geste de sortie à
-un produit dont le défaut était que ses deux gestes existants ne se distinguaient
-pas aggravait la cause en traitant l'effet.
-
-Le questionnement l'avait pourtant effleuré : la question posée listait « il ne
-trouve pas le bouton » parmi les cas possibles, et la réponse fut « je ne sais
-pas — couvre les trois ». Trois cas couverts par une seule solution, c'est le
-signe qu'aucun n'a été diagnostiqué. **Une hypothèse retenue par défaut n'est pas
-une hypothèse.** Il fallait relire les gestes existants avant d'en proposer un
-neuf — la relecture qui a produit le bon correctif a pris dix minutes, après
-coup.
+Plus général, et c'est la leçon : **rendre un geste plus correct le rend souvent
+plus fragile**, parce qu'un geste correct dépend de plus de choses. Ce qui a été
+retiré ici n'était pas une négligence, c'était une tolérance — et les tolérances
+ne se voient qu'une fois enlevées.
 
 **Detecte par** — `utilisateur`
 
-**Action** — `comportement` — devant une demande d'ajout née d'un usage réel,
-inventorier d'abord ce qui existe déjà pour la couvrir, et pourquoi ça n'a pas
-suffi. « Ajouter » est le réflexe le plus cher : il double la surface, et il
-laisse en place la chose qui n'allait pas.
+**Action** — `comportement` — en resserrant un geste destructeur, énumérer les
+échecs par ce qu'ils **autorisent ensuite**, pas par leur code HTTP : passager
+donc réessayable, ou définitif donc à assumer. Deux branches, jamais une.
 
-### 4. « Annulé » ne veut rien dire tant qu'une pull request est ouverte
+### 3. L'application fermait elle-même le compte qu'elle essayait d'atteindre
 
-**Symptome** — le travail écarté à l'anomalie 3 a été défait localement — `git
-reset --hard origin/main`, arbre propre, branche revenue à son point de départ —
-et il est quand même arrivé dans `main` : la PR #71, ouverte sur cette branche,
-a été fusionnée. Le conflit ne s'est manifesté qu'au moment de fusionner la PR
-suivante, sous la forme d'un `mergeable_state: dirty` que rien n'annonçait.
+**Symptome** — la synchronisation rejouait trois fois toute requête échouée, à
+5, 15 et 45 secondes. Sur un code refusé, cela fait **quatre refus par minute**,
+là où le serveur ferme un nom au cinquième par quart d'heure. Deux ouvertures de
+l'app fermaient donc le nom.
 
-Deux faits ont brouillé la lecture sur le moment : le `push --force-with-lease`
-a échoué en `stale info`, puis la branche a disparu du serveur — ce qui
-ressemblait exactement à une annulation réussie. Elle ne l'était pas : la PR,
-elle, tenait toujours ses commits.
+Et la fermeture porte sur le **nom**, pas sur l'appareil : le téléphone au code
+périmé consommait le quota anti-force-brute du compte, donc bloquait le
+propriétaire légitime sur son autre téléphone. Ni l'un ni l'autre ne pouvait
+faire le lien — le téléphone fautif ne montre rien, l'autre lit « trop d'essais »
+sans en avoir fait un seul.
 
-**Cause** — annuler a été traité comme une opération sur le dépôt local, alors
-que le travail avait déjà été **publié**. Un `reset` défait des commits ; il ne
-défait ni une PR, ni une fusion, ni un déploiement. La règle qui manquait tient
-en une ligne : *ce qui est publié ne s'annule que là où il est publié*.
+**Cause** — la reprise a été écrite pour la coupure réseau, et appliquée à tout
+échec. Un `!resultat.ok` ne distingue pas « le serveur n'a pas répondu » de « le
+serveur a répondu non ». Le premier se rejoue, le second jamais : le rejouer ne
+le fera pas passer, et ici il coûtait le compte d'un tiers.
 
-**Detecte par** — `auteur`
+**Detecte par** — `auteur` — trouvée en lisant le code pour l'anomalie 1, pas
+signalée : personne ne pouvait la voir depuis un écran.
 
-**Action** — `comportement` — avant d'annuler du travail poussé, regarder s'il
-existe une PR sur la branche, et la fermer explicitement. Et le dire à qui
-demande l'annulation : « annulé localement » et « retiré de la production » ne
-sont pas la même phrase, et seule la seconde répond à la demande.
+**Action** — `garde-fou` — une reprise automatique ne devrait jamais se poser
+sur un 4xx, dans aucune app de la fabrique. C'est une règle assez générale et
+assez peu coûteuse pour valoir une ligne du contrat, à côté de ce qui est déjà
+dit du rayon de souffle.
+
+### 4. Un diagnostic juste sur un mécanisme, faux sur le cas
+
+**Symptome** — la première hypothèse était la fermeture par trop d'essais :
+mécanisme réel, démontré par les tests du serveur, et qui explique bien « il
+semble bloqué ». Elle était fausse pour ce cas-ci — l'utilisateur voyait « ce
+nom est déjà pris », pas « trop d'essais ». Une question posée avant d'écrire la
+moindre ligne a tranché en un aller-retour.
+
+**Cause** — un mécanisme qui *pourrait* produire le symptôme n'est pas le
+mécanisme qui l'a produit. La tentation est forte quand on vient de le trouver
+dans le code, et qu'il est réel : la découverte fait office de preuve. Le
+message d'erreur exact, lui, était à une question de distance.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — demander le message affiché **avant** de raconter
+la cause. Il départage en un aller-retour ce que la lecture du code laisse
+ouvert, et il coûte moins qu'un correctif à jeter — leçon déjà payée le même
+jour, à l'anomalie 3 de l'entrée précédente.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 20:16 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 21:15 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -127,22 +125,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 220 | 0,00 $ |
-| Écriture de cache | 479 662 | 2,41 $ |
-| Lecture de cache | 16 554 657 | 7,76 $ |
-| Sortie | 88 205 | 1,81 $ |
-| **Total** | **17 122 744** | **11,97 $ — 10,40 €** |
+| Entrée | 448 | 0,00 $ |
+| Écriture de cache | 851 933 | 3,22 $ |
+| Lecture de cache | 46 744 800 | 21,59 $ |
+| Sortie | 185 994 | 3,38 $ |
+| **Total** | **47 783 175** | **28,19 $ — 24,48 €** |
 
 **Ce qui coûte**
 
-- **118 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **248 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   58 515 jetons, écrits une fois par session puis relus à chaque
-  échange : 6 846 255 jetons de relecture, 41 % de tout ce qui a été relu.
+  échange : 14 453 205 jetons de relecture, 30 % de tout ce qui a été relu.
+- **Tours courts** — 92 des 248 tours (37 %) sortent
+  moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
+  une sortie de rien. Ils coûtent 11,40 $, soit 40 % de la facture.
+  Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 58 515 jetons relus au premier appel qui relise
-  quelque chose, 236 930 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 369 152 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 17122744 -->
+<!-- cout-total: 47783175 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 58515 0 477
 2 principal claude-opus-5 4752 58515 149
@@ -262,5 +264,135 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 116 principal claude-opus-5 2089 234363 147
 117 principal claude-opus-5 478 236452 1233
 118 principal claude-opus-5 1270 236930 248
+119 principal claude-opus-4-7 17331 28262 449
+120 principal claude-opus-4-7 535 45593 126
+121 principal claude-opus-4-7 184 46128 74
+122 principal claude-opus-4-7 106 46312 93
+123 principal claude-opus-4-7 0 45593 281
+124 principal claude-opus-5 4305 238200 610
+125 principal claude-opus-4-7 471 45593 169
+126 principal claude-opus-4-7 22958 46064 218
+127 principal claude-opus-4-7 5922 46418 95
+128 principal claude-opus-4-7 17018 52340 125
+129 principal claude-opus-4-7 153 69358 89
+130 principal claude-opus-4-7 7888 69511 360
+131 principal claude-opus-4-7 388 77399 89
+132 principal claude-opus-5 11 243115 113
+133 principal claude-opus-5 458 243126 86
+134 principal claude-opus-4-7 14116 69022 4276
+135 principal claude-opus-5 480 243584 1242
+136 principal claude-opus-5 1886 244064 120
+137 principal claude-opus-5 2110 245950 137
+138 principal claude-opus-5 159 248060 281
+139 principal claude-opus-5 383 248219 186
+140 principal claude-opus-5 5868 248602 622
+141 principal claude-opus-5 1113 254470 257
+142 principal claude-opus-4-7 4658 83138 2804
+143 principal claude-opus-5 319 255583 262
+144 principal claude-opus-4-7 6151 77787 6247
+145 principal claude-opus-4-7 6581 83938 1085
+146 principal claude-opus-5 9 256164 182
+147 principal claude-opus-5 204 256173 132
+148 principal claude-opus-5 1758 256377 414
+149 principal claude-opus-5 895 258135 1135
+150 principal claude-opus-5 9242 259030 1245
+151 principal claude-opus-5 1319 268272 231
+152 principal claude-opus-5 265 269591 109
+153 principal claude-opus-5 436 269856 541
+154 principal claude-opus-5 586 270292 462
+155 principal claude-opus-5 531 270878 958
+156 principal claude-opus-5 1027 271409 153
+157 principal claude-opus-5 257 272436 597
+158 principal claude-opus-5 699 272693 104
+159 principal claude-opus-5 302 273392 262
+160 principal claude-opus-5 369 273694 78
+161 principal claude-opus-4-7 26355 28262 333
+162 principal claude-opus-4-7 383 54617 93
+163 principal claude-opus-5 2991 274063 845
+164 principal claude-opus-4-7 163 55000 74
+165 principal claude-opus-4-7 106 55163 93
+166 principal claude-opus-4-7 5922 55269 95
+167 principal claude-opus-4-7 17018 61191 133
+168 principal claude-opus-5 908 277054 410
+169 principal claude-opus-4-7 7932 78209 147
+170 principal claude-opus-5 13 278372 134
+171 principal claude-opus-4-7 6209 86141 9540
+172 principal claude-opus-5 136 278519 134
+173 principal claude-opus-5 242 278655 291
+174 principal claude-opus-5 12073 278897 242
+175 principal claude-opus-5 551 290970 137
+176 principal claude-opus-5 321 291521 93
+177 principal <synthetic> 0 0 0
+178 principal claude-opus-5 1587 291660 155
+179 principal claude-opus-5 772 293247 93
+180 principal claude-opus-5 129 294019 364
+181 principal claude-opus-5 110 294512 2870
+182 principal claude-opus-5 6523 294622 216
+183 principal claude-opus-5 9459 301145 362
+184 principal claude-opus-5 2671 310604 1837
+185 principal claude-opus-5 2068 313275 2161
+186 principal claude-opus-5 2938 315343 115
+187 principal claude-opus-5 917 318281 3328
+188 principal claude-opus-5 1602 318398 2487
+189 principal claude-opus-5 2741 320000 3063
+190 principal claude-opus-5 4056 322741 1806
+191 principal claude-opus-5 2077 326797 179
+192 principal claude-opus-5 1018 328874 1004
+193 principal claude-opus-5 1062 329892 96
+194 principal claude-opus-5 470 330954 506
+195 principal claude-opus-5 1795 331424 1905
+196 principal claude-opus-5 1987 333219 514
+197 principal claude-opus-5 688 335206 155
+198 principal claude-opus-5 179 335894 582
+199 principal claude-opus-5 685 336073 123
+200 principal claude-opus-4-7 26320 28262 276
+201 principal claude-opus-4-7 326 54582 90
+202 principal claude-opus-4-7 205 54908 83
+203 principal claude-opus-4-7 3137 55113 82
+204 principal claude-opus-4-7 973 58250 82
+205 principal claude-opus-4-7 10669 59223 159
+206 principal claude-opus-4-7 2302 69892 75
+207 principal claude-opus-4-7 126 72194 92
+208 principal claude-opus-4-7 122 72320 104
+209 principal claude-opus-4-7 2394 72442 81
+210 principal claude-opus-4-7 2925 74836 240
+211 principal claude-opus-4-7 6921 77761 155
+212 principal claude-opus-4-7 10300 84682 1637
+213 principal claude-opus-4-7 2013 94982 3254
+214 principal claude-opus-5 22 336881 1597
+215 principal claude-opus-4-7 3628 96995 449
+216 principal claude-opus-4-7 956 100623 1150
+217 principal claude-opus-5 1900 336903 1840
+218 principal claude-opus-5 3008 338803 131
+219 principal claude-opus-5 1404 341811 719
+220 principal claude-opus-5 996 343215 94
+221 principal claude-opus-5 1034 344211 1045
+222 principal claude-opus-5 1639 345245 5575
+223 principal claude-opus-5 5634 346884 128
+224 principal claude-opus-5 495 352518 767
+225 principal claude-opus-5 866 353013 102
+226 principal claude-opus-5 297 353879 422
+227 principal claude-opus-5 480 354176 256
+228 principal claude-opus-5 314 354656 536
+229 principal claude-opus-5 594 354970 531
+230 principal claude-opus-5 725 355564 569
+231 principal claude-opus-5 632 356289 637
+232 principal claude-opus-5 701 356921 402
+233 principal claude-opus-5 960 357622 511
+234 principal claude-opus-5 575 358582 502
+235 principal claude-opus-5 566 359157 274
+236 principal claude-opus-5 338 359723 577
+237 principal claude-opus-5 639 360061 125
+238 principal claude-opus-5 487 360700 111
+239 principal claude-opus-5 452 361187 655
+240 principal claude-opus-5 717 361639 116
+241 principal claude-opus-5 173 362356 565
+242 principal claude-opus-5 626 362529 118
+243 principal claude-opus-5 174 363155 626
+244 principal claude-opus-5 1204 363329 459
+245 principal claude-opus-5 519 364533 1346
+246 principal claude-opus-5 1406 365052 2625
+247 principal claude-opus-5 2694 366458 147
+248 principal claude-opus-5 375 369152 1858
 -->
 <!-- /cout -->
