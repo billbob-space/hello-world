@@ -350,6 +350,39 @@ Le bouton de remise à zéro est masqué par `visibility` et jamais par `hidden`
 `hidden` rétrécirait la ligne tant que le minuteur dort, et son apparition au
 premier tap décalerait le libellé sous le pouce qui vient d'appuyer.
 
+## Le lien vidéo d'un exercice
+
+Un enfant de treize ans qui lit « 15 dips sur une chaise » a besoin de **voir** le
+mouvement. Chaque exercice porte donc un lien `▶` — `web/video.js`, monté par
+`web/vue-seance.js`, dans la même colonne de droite que le minuteur.
+
+**Deux sources, et la première gagne :**
+
+1. **`ex.video` dans `programme.json`** — une adresse choisie et *vérifiée par un
+   adulte*. Le champ est **facultatif** et n'est rempli nulle part aujourd'hui ;
+   il existe pour qu'une réponse puisse être donnée sans toucher à une ligne de
+   code. Le lien annonce alors « Voir la vidéo : *mouvement* ».
+2. **à défaut, une recherche** sur le mouvement reconnu. Le lien annonce
+   « Chercher une vidéo qui montre : *mouvement* » — deux promesses différentes,
+   deux phrases différentes.
+
+Le repli est un choix assumé : **proposer une vidéo précise que personne n'a
+visionnée reviendrait à la mettre sous les yeux d'un enfant sur la foi de son
+titre.** Une recherche laisse ce dernier pas à l'humain qui regarde l'écran.
+
+`MOUVEMENTS` est une liste **ordonnée, du plus précis au plus général** : le
+premier motif qui correspond gagne. « squats sautés » passe donc avant
+« squats », et « gainage de chaque côté » avant « gainage » — montrer le
+mouvement voisin est pire que ne rien montrer, parce que l'enfant croit avoir
+compris. Deux tests tiennent cette liste : l'un vérifie qu'**aucun des 53
+exercices** ne reste sans lien — ajouter une séance sans ajouter son mouvement le
+fait échouer —, l'autre épingle vingt correspondances attendues.
+
+Le lien sort de l'application : `target="_blank"` et `rel="noopener noreferrer"`,
+la séance restant ouverte derrière avec ses cases et son minuteur en cours. Rien
+n'est **chargé** depuis un domaine tiers : pas d'`iframe`, pas de lecteur
+intégré — l'ossature §2 l'interdit, et un lien n'est pas un chargement.
+
 ## L'écran « Ma progression »
 
 Trois choses, dans cet ordre (PRD §7.5) : la **part** des exercices accomplis

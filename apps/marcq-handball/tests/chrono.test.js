@@ -157,11 +157,15 @@ test('le minuteur est HORS de l etiquette, sinon le demarrer cocherait l exercic
   const code = source('vue-seance.js');
   // L'etiquette couvre toute la ligne — c'est ce qui donne au PRP 04 sa zone de
   // tap pleine largeur. Un bouton pose dedans basculerait la case a chaque tap.
+  // Le minuteur vit desormais dans `.actions-exercice`, la colonne de droite
+  // qu'il partage avec le lien video. Ce qui compte n'a pas bouge : ce
+  // conteneur est pose SUR LA LIGNE, apres l'etiquette, et jamais dedans.
   assert.ok(
-    code.indexOf('item.append(etiquette)') < code.indexOf('monterChrono(item'),
-    'le minuteur rejoint la ligne, pas l etiquette',
+    code.indexOf('item.append(etiquette)') < code.indexOf('item.append(actions)'),
+    'la colonne d actions rejoint la ligne, pas l etiquette',
   );
-  assert.equal(/etiquette\.append\([^)]*monterChrono/.test(code), false);
+  assert.ok(code.indexOf('item.append(actions)') < code.indexOf('monterChrono(actions'));
+  assert.equal(/etiquette\.append\([^)]*(monterChrono|actions)/.test(code), false);
 
   // Un seul orchestre pour toute la seance, et le demontage de chaque minuteur
   // est conserve : sans lui, un battement tourne sur un ecran qui n'existe plus.

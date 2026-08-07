@@ -8,6 +8,7 @@
 import { etatSeance } from './domaine.js';
 import { cocher, decocher } from './etat.js';
 import { creerOrchestre, monterChrono } from './chrono.js';
+import { monterVideo } from './video.js';
 import { dateEnToutesLettres } from './vue-jour.js';
 
 // --- les libelles -----------------------------------------------------------
@@ -80,6 +81,9 @@ export function modeleSeance(ctx, dateISO) {
         // une duree prescrite, et lui seul. La recopier ici en « minuteur oui/
         // non » mettrait la meme regle a deux endroits.
         mesure: ex.mesure ?? null,
+        // L'adresse choisie par un adulte, quand il y en a une. Absente, c'est
+        // `video.js` qui retombe sur une recherche — cet ecran ne decide rien.
+        video: ex.video ?? null,
         fait: Object.prototype.hasOwnProperty.call(faits, ex.id),
       })),
     })),
@@ -245,7 +249,13 @@ export function monterSeance(hote, ctx) {
       // en page : un bouton place dedans ferait basculer la case a chaque tap —
       // l'etiquette couvre toute la ligne, c'est ce qui donne au PRP 04 sa zone
       // de tap pleine largeur. Demarrer un rebours cocherait donc l'exercice.
-      demontages.push(monterChrono(item, ex.mesure, { orchestre }));
+      // Le lien et le minuteur partagent la meme colonne de droite, et sont
+      // HORS de l'etiquette pour la meme raison : elle couvre toute la ligne, un
+      // tap dedans cocherait l'exercice au lieu d'ouvrir la video.
+      const actions = el('div', 'actions-exercice');
+      item.append(actions);
+      monterVideo(actions, ex);
+      demontages.push(monterChrono(actions, ex.mesure, { orchestre }));
       liste.append(item);
       lignes.set(ex.id, item);
     }

@@ -341,14 +341,31 @@ body {
   padding-inline-end: .6rem;
 }
 
-.chrono-groupe { display: flex; align-items: center; gap: .2rem; flex: 0 0 auto; }
+.actions-exercice { display: flex; align-items: center; gap: .15rem; flex: 0 0 auto; }
+.chrono-groupe { display: flex; align-items: center; gap: .2rem; }
+
+/* Le lien vers la demonstration. Un symbole et non un mot : la place a droite
+   d'une ligne est comptee, et « ▶ » se lit sans traduction. Le nom du mouvement
+   part dans le titre et dans l'etiquette accessible. */
+.video-exercice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  min-height: var(--marcq-tap);
+  color: var(--marcq-accent);
+  text-decoration: none;
+  font-size: .9rem;
+}
+.video-exercice:focus-visible { outline: 3px solid var(--marcq-accent); outline-offset: 2px; }
+.exercice.fait .video-exercice { opacity: .55; }
 
 /* Chiffres tabulaires : sans eux, « 0:39 » puis « 0:38 » font sauter le bouton
    a chaque seconde, et l'oeil suit le mouvement au lieu du nombre. */
 .chrono {
-  min-width: 4rem;
+  min-width: 3.8rem;
   min-height: var(--marcq-tap);
-  padding: 0 .4rem;
+  padding: 0 .35rem;
   border: 1px solid var(--marcq-trait);
   border-radius: 8px;
   background: transparent;
