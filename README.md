@@ -18,6 +18,9 @@ Le contrat que doit respecter chaque application est dans
 | [`hello-world`](apps/hello-world/) | `hello-world.apps.billbob.ovh` | `private` | rend visible l'état du déploiement |
 | [`cadran`](apps/cadran/) | `cadran.apps.billbob.ovh` | `private` | l'heure du serveur, sur un cadran à aiguilles |
 | [`ramure`](apps/ramure/) | `ramure.apps.billbob.ovh` | `private` | l'arbre de parenté musicale, qu'on parcourt de branche en branche |
+| [`ardoise`](apps/ardoise/) | `ardoise.apps.billbob.ovh` | `private` | la plus petite app qui exerce les quatre étages du contrat : interface, service, base, cache |
+| [`compteur`](apps/compteur/) | `compteur.apps.billbob.ovh` | `google` | le second passage de la validation de bout en bout, sur ce qu'`ardoise` seule n'exerçait pas |
+| [`marcq-handball`](apps/marcq-handball/) | `marcq-handball.apps.billbob.ovh` | `public` | le programme d'avant-reprise d'une équipe U15, qui se coche et se compare |
 
 ## Arborescence
 
@@ -30,8 +33,10 @@ fabrique.yml         org, dépôt, registre, domaine, réseau, plafonds, et
                      shared_services — les services partagés par plusieurs apps
 init.sh              le générateur et le vérificateur
 go.work              GÉNÉRÉ — les modules Go, pour gopls
-.github/workflows/   GÉNÉRÉ — construction par app, déploiement unique
-.claude/             GÉNÉRÉ — outillage de l'agent, union des langages
+.github/workflows/   ordinaire — construction par app, déploiement unique ;
+                     --check en vérifie deux propriétés, pas l'égalité à un modèle
+.claude/             outillage de l'agent — settings.json s'édite à la main,
+                     cloud-setup.sh est GÉNÉRÉ depuis les langages du dépôt
 ```
 
 Le nom du répertoire sous `apps/` **est** l'identité de l'application : son
@@ -99,15 +104,6 @@ Il commence par les **manifestes** — `volumes:`, `env:`, `needs:`, `command:`,
 noms de service —, parce qu'un `app.yml` faux ne pourrait produire qu'un
 « compose désynchronisé » dont le vrai motif serait perdu.
 
-Il vérifie ensuite, **service par service** et non par recherche globale dans le
-fichier : le middleware conforme à l'`exposure` de chaque app, la règle
-`Host()`, `priority=100`, le port, la mémoire, le `container_name`, le
-`pull_policy`, le nommage de l'image, les journaux bornés, l'absence de `ports:`
-— et, sur chaque service non routé, le `traefik.enable=false` qui l'en retire.
-Puis, en croisé : l'unicité des noms de service, des hostnames et des
-`container_name`, la correspondance exacte entre `apps/*/app.yml` et les
-services du compose, la mémoire totale engagée.
-
 Il compare **ensuite** — deuxième section, pas la dernière — chaque **artefact
 généré** à ce qu'`./init.sh` écrirait aujourd'hui : si un `app.yml` a changé sans
 qu'`./init.sh` ait été relancé, le contrôle échoue. C'est le seul mécanisme
@@ -130,10 +126,18 @@ Compose préfixerait le nom du projet et une sauvegarde archiverait un volume vi
 en sortant en 0. S'il n'y a aucun volume, il n'y a aucun bloc, et c'est correct.
 
 Puis, en croisé : l'unicité des noms de service, des hostnames et des
-`container_name` — les trois sortes partagent un espace de noms plat —, la
-correspondance exacte entre `apps/*/app.yml` et les services du compose, la
-mémoire totale engagée, les liens morts entre documents, l'outillage de l'agent,
-et l'absence de secret évident dans les fichiers suivis.
+`container_name` — les trois sortes partagent un espace de noms plat — et la
+correspondance exacte entre `apps/*/app.yml` et les services du compose.
+
+Puis **chaque application**, hors du compose cette fois : le `Dockerfile`
+multi-étapes et son `USER` non root, l'absence de label `traefik.*`, la présence
+de l'outil qu'appelle le healthcheck, le `chown` du chemin de chaque volume, le
+`test.sh` exécutable, le `.dockerignore` et le `PRODUCT.md`.
+
+Puis la fabrique elle-même : la mémoire totale engagée, les liens morts entre
+documents, l'en-tête des fichiers de `memory/` et leur sommaire, la taille du
+contrat. Puis l'outillage de l'agent. Puis le journal — chaque entrée committée,
+son en-tête et ses deux champs à vocabulaire fermé.
 
 Puis les secrets, par un scan des **fichiers produits** — `compose.yaml`,
 `fabrique.yml`, `apps/*/app.yml` — et non des champs : une clé qui évoque un
@@ -272,13 +276,16 @@ présent dans le PATH de toutes les sessions.
 
 ## Besoins d'infrastructure
 
-À ce jour, aucune application de la fabrique ne déclare de volume ni de service
-partagé — `shared_services` est vide dans `fabrique.yml` et le `compose.yaml`
-généré ne porte donc aucun bloc `volumes:`. C'est un **état**, pas une limite du
-contrat : une base de données, un cache, un volume persistant ou un service
-annexe se déclarent désormais dans les manifestes (`volumes:`, `services:`,
-`needs:` d'un `app.yml`, `shared_services` de `fabrique.yml`), `./init.sh` les
-génère et le déploiement les crée. Voir [`CLAUDE.md`](CLAUDE.md).
+Une base de données, un cache, un volume persistant ou un service annexe se
+déclarent dans les manifestes — `volumes:`, `services:`, `needs:` d'un `app.yml`,
+`shared_services` de `fabrique.yml` —, `./init.sh` les génère et le déploiement
+les crée. Rien de tout cela ne se demande à l'infrastructure. Voir
+[`CLAUDE.md`](CLAUDE.md).
+
+La stack en porte aujourd'hui : deux bases annexes (`ardoise-base`,
+`compteur-base`), un cache partagé (`redis`, un Valkey pour toutes les apps), et
+trois volumes nommés (`ardoise-donnees`, `compteur-donnees`,
+`marcq-handball-donnees`).
 
 Ce qui reste **hors de ce dépôt** est plus étroit, et ne se traite pas d'un seul
 geste — même règle que [`CLAUDE.md`](CLAUDE.md) :
@@ -322,14 +329,16 @@ paquets des dépôts autonomes de l'organisation.
 Le jeton, quelle que soit l'option, vit côté serveur : ni dans ce dépôt, ni dans
 une image, ni dans `.claude/settings.json`.
 
-### À vérifier avant d'ajouter la deuxième application
+### À vérifier à chaque nouvelle application
 
 - **DNS** : `*.apps.billbob.ovh` est-il un enregistrement joker ? Sinon chaque
   nouvelle application demande un enregistrement, et son URL renverra une erreur
   de résolution jusque-là.
 - **Certificats** : Let's Encrypt délivre un certificat par nom d'hôte.
 - **Mémoire** : `memory_budget` dans `fabrique.yml` est un plafond déclaratif,
-  pas une mesure de la RAM du serveur. Ajuste-le à la réalité de la machine.
+  pas une mesure de la RAM du serveur. **Il est dépassé aujourd'hui** — neuf
+  services pour 1216 Mo engagés contre 1024 déclarés, et `--check` l'avertit à
+  chaque passage. Ajuste-le à la réalité de la machine, ou réduis les `memory:`.
 - **Conteneur orphelin** : si la stack `dockhand` est recréée plutôt que mise à
   jour, l'ancien conteneur survit hors projet et bloque le nouveau
   (`container name already in use`) — la stack entière refuse alors de démarrer.

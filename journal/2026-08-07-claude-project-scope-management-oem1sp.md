@@ -78,10 +78,68 @@ c'est ce qui rend la duplication coûteuse longtemps après avoir été écrite.
 **Action** — `contrat` — la procédure vit désormais dans un seul fichier ; le
 contrat, le README et le message de `--add` y renvoient au lieu de la recopier.
 
+### 4. Le README décrivait `--check` deux fois, et la première version était fausse
+
+**Symptome** — le § « Le contrôle avant de pousser » enchaînait deux
+descriptions du même programme. La seconde était juste. La première annonçait
+« il commence par les manifestes, **il vérifie ensuite service par service** » —
+en sautant la section des artefacts dérivés, que la seconde qualifie pourtant de
+« deuxième section, pas la dernière ». Un lecteur qui s'arrêtait à la première
+croyait que `--check` ne compare jamais le `compose.yaml` à ce qu'`init.sh`
+écrirait aujourd'hui, c'est-à-dire le seul contrôle qui prouve que le compose
+committé décrit les apps committées.
+
+Deux sections manquaient en outre aux deux versions : les contrôles par
+application — `Dockerfile`, `USER` non root, `chown` des volumes — et le journal.
+
+**Cause** — les deux passages ont été écrits à des moments différents, chacun de
+mémoire, et l'ordre réel des sections n'a été relu dans aucun des deux. Il est
+pourtant lisible en une commande : `./init.sh --check` imprime ses huit sections
+dans l'ordre où elles tournent.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — un document qui énumère les étapes d'un programme
+se rédige depuis la sortie du programme, jamais de mémoire. Aucun garde-fou
+plausible ne distingue deux paragraphes qui redisent la même chose d'un rappel
+volontaire ; c'est la relecture qui doit changer, pas l'outillage.
+
+### 5. Quatre affirmations du README étaient périmées, dont deux au même endroit
+
+**Symptome** — en corrigeant le doublon, relu le reste du fichier. Quatre
+affirmations fausses :
+
+- le tableau des applications en listait **trois** ; il y en a six actives ;
+- « aucune application ne déclare de volume ni de service partagé,
+  `shared_services` est vide » — il y a trois volumes nommés, deux bases annexes
+  et un cache Valkey partagé ;
+- l'arborescence annonçait `.github/workflows/` et `.claude/` **GÉNÉRÉS** ;
+  c'est la faute déjà corrigée hier dans le message de `--add`, restée dans un
+  troisième document que la correction d'hier n'avait pas atteint ;
+- « à vérifier avant d'ajouter la **deuxième** application », alors que la
+  septième est en cours.
+
+**Cause** — un `README` n'a pas de garde-fou parce qu'aucune de ses phrases n'est
+dérivable d'un manifeste : `--check` sait comparer `compose.yaml` à ce
+qu'`init.sh` écrirait, il ne sait pas comparer une prose à un état. Le fichier
+vieillit donc à la vitesse de la fabrique, sans que rien ne le signale, et une
+phrase écrite juste devient fausse sans être touchée.
+
+Le troisième point est le plus instructif : la correction d'hier a cherché les
+copies de la procédure d'ajout et les a toutes trouvées — deux — sans penser que
+la même *affirmation* vivait ailleurs, dans un tableau qui ne parle pas d'ajouter
+une app. Chercher les copies d'un paragraphe ne trouve pas les copies d'un fait.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — relire le `README` en entier quand on y touche, et
+vérifier ses affirmations chiffrées contre la sortie des scripts plutôt que
+contre le souvenir qu'on en a.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 17:06 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 17:25 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -89,22 +147,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 200 | 0,00 $ |
-| Écriture de cache | 361 788 | 2,04 $ |
-| Lecture de cache | 14 159 698 | 6,85 $ |
-| Sortie | 79 433 | 1,83 $ |
-| **Total** | **14 601 119** | **10,72 $ — 9,31 €** |
+| Entrée | 271 | 0,00 $ |
+| Écriture de cache | 583 071 | 3,43 $ |
+| Lecture de cache | 22 746 574 | 11,14 $ |
+| Sortie | 98 925 | 2,31 $ |
+| **Total** | **23 428 841** | **16,89 $ — 14,66 €** |
 
 **Ce qui coûte**
 
-- **107 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **145 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   55 854 jetons, écrits une fois par session puis relus à chaque
-  échange : 5 920 524 jetons de relecture, 41 % de tout ce qui a été relu.
+  échange : 8 042 976 jetons de relecture, 35 % de tout ce qui a été relu.
 - **Croissance** — 55 854 jetons relus au premier appel qui relise
-  quelque chose, 207 280 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 247 865 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 14601119 -->
+<!-- cout-total: 23428841 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 55854 0 757
 2 principal claude-opus-5 3802 55854 553
@@ -213,5 +271,43 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 105 principal claude-opus-5 345 206641 94
 106 principal claude-opus-5 294 206986 1184
 107 principal claude-opus-5 1233 207280 157
+108 principal claude-opus-5 4390 208513 111
+109 principal claude-opus-5 250 212903 625
+110 principal claude-opus-5 8 213778 253
+111 principal claude-opus-5 1043 213786 1263
+112 principal claude-opus-5 1778 214829 178
+113 principal claude-opus-5 2169 216607 137
+114 principal claude-opus-5 541 218776 449
+115 principal claude-opus-5 512 219317 340
+116 principal claude-opus-5 181652 38224 179
+117 principal claude-opus-5 215 219876 238
+118 principal claude-opus-5 16 220329 221
+119 principal claude-opus-5 362 220345 104
+120 principal claude-opus-5 2157 220707 496
+121 principal claude-opus-5 549 222864 495
+122 principal claude-opus-5 1837 223413 988
+123 principal claude-opus-5 4992 225250 1182
+124 principal claude-opus-5 1589 230242 727
+125 principal claude-opus-5 1050 231831 600
+126 principal claude-opus-5 645 232881 563
+127 principal claude-opus-5 608 233526 104
+128 principal claude-opus-5 1594 234134 798
+129 principal claude-opus-5 843 235728 109
+130 principal claude-opus-5 123 236571 1393
+131 principal claude-opus-5 1462 236694 91
+132 principal claude-opus-5 266 238156 878
+133 principal claude-opus-5 910 238422 913
+134 principal claude-opus-5 2077 239332 564
+135 principal claude-opus-5 866 241409 387
+136 principal claude-opus-5 512 242275 723
+137 principal claude-opus-5 768 242787 306
+138 principal claude-opus-5 351 243555 104
+139 principal claude-opus-5 456 243906 626
+140 principal claude-opus-5 671 244362 101
+141 principal claude-opus-5 431 245033 919
+142 principal claude-opus-5 964 245464 129
+143 principal claude-opus-5 330 246428 908
+144 principal claude-opus-5 1107 246758 1126
+145 principal claude-opus-5 1189 247865 164
 -->
 <!-- /cout -->
