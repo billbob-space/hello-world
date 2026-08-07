@@ -239,6 +239,42 @@ $(requete req_1 "$BRANCHE" 0 claude-opus-5 10 5000 0 5)
 $(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 5000 5)
 FIN
 
+# tait <nom> <motif> — l'inverse de porte. Un avertissement qui se declenche
+# toujours ne veut plus rien dire : le cas qui prouve qu'il SAIT se taire vaut
+# celui qui prouve qu'il sait parler.
+tait() {
+  local nom="$1" motif="$2" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue"; return 0; }
+  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+    echec "$nom" "la sortie porte « $motif », qu'elle ne devrait pas"
+  else
+    reussi "$nom"
+  fi
+}
+
+printf '\n-- les leviers\n'
+
+# Deux tours sur trois sortent moins de 300 jetons : ce sont des appels d'outil
+# nus, qui paient tout le contexte relu pour une sortie de rien.
+porte "les tours courts sont comptes" "2 des 3" <<FIN
+$(requete c_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 2000)
+$(requete c_2 "$BRANCHE" 0 claude-opus-5 0 0 50000 150)
+$(requete c_3 "$BRANCHE" 0 claude-opus-5 0 0 60000 100)
+FIN
+
+porte "l alerte de contexte se declenche au-dela du seuil" "coupe la session" <<FIN
+$(requete a_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete a_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
+FIN
+
+tait "l alerte de contexte se tait en deca du seuil" "coupe la session" <<FIN
+$(requete b_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete b_2 "$BRANCHE" 0 claude-opus-5 0 0 100000 500)
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

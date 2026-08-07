@@ -39,6 +39,11 @@ BASE=$(fab base_branch main)
 
 COUT_TAUX_JOURS=90         # au-dela, le taux de change est signale comme vieux
 
+# Au-dela de ce contexte, chaque tour coute plus de 0,15 $ AVANT d'avoir rien
+# fait. Le seuil n'est pas une limite technique : c'est le point ou couper la
+# session, ou confier la suite a l'artisan, rapporte plus que ca ne coute.
+COUT_CONTEXTE_ALERTE=300000
+
 COUT_DEBUT='<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->'
 COUT_FIN='<!-- /cout -->'
 # Le bloc s'ECRIT avec COUT_DEBUT, mais il se RECONNAIT sur ce prefixe. Les
@@ -158,6 +163,15 @@ cout_releve() {
       if (side) { se[m] += v_e; sce[m] += v_ce; scl[m] += v_cl; ss[m] += v_s; ech_side++ }
 
       ech++
+      # Un tour qui ne rend qu un appel d outil paie tout le contexte relu pour
+      # une sortie de rien. Les grouper est le seul gain sans contrepartie : deux
+      # appels independants dans le meme tour coutent une relecture au lieu de
+      # deux, et ne changent rien a ce qui est lu.
+      if (v_s < 300 && (m in prix_e)) {
+        courts++
+        courts_d += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
+                   + v_s * prix_s[m]) / 1000000
+      }
       det_side[ech] = side; det_m[ech] = m
       det_ce[ech] = v_ce; det_cl[ech] = v_cl; det_s[ech] = v_s
 
@@ -197,6 +211,7 @@ cout_releve() {
       printf "PRELUDE %d %d\n", prelude, relu
       printf "COURBE %d %d\n", premier_cl, dernier_cl
       printf "SIDE %d %.6f\n", j_side, d_side
+      printf "COURTS %d %.6f\n", courts, courts_d
       printf "POSTE entree %d %.6f\n", j_e, d_e
       printf "POSTE ecriture %d %.6f\n", j_ce, d_ce
       printf "POSTE lecture %d %.6f\n", j_cl, d_cl
@@ -240,10 +255,24 @@ cout_ecrit() {  # cout_ecrit <entree> <bloc> — remplace le bloc existant, ou l
 # et refuser un commit pour un chiffre serait plus couteux que le chiffre.
 # Mais il se repete a chaque etape, parce qu'une branche fusionnee sans releve
 # a perdu le sien pour de bon.
+# L'alerte de contexte, ou rien. Elle sort dans les DEUX modes : par cout_rappel,
+# donc par pret.sh avant chaque commit — le seul moment ou l'on peut encore couper
+# la session — et a la fin du releve normal, ce qui la rend observable par
+# test-cout.sh, dont le harnais lance --dry-run. « champ » n'existe pas encore
+# ici, d'ou la lecture directe du releve par awk.
+cout_alerte() {  # cout_alerte <releve>
+  local dernier
+  dernier=$(printf '%s\n' "$1" | awk '$1 == "COURBE" { print $3 }')
+  [ -n "$dernier" ] && [ "$dernier" -gt "$COUT_CONTEXTE_ALERTE" ] 2>/dev/null || return 0
+  warn "contexte de $(jetons_nb "$dernier") jetons — chaque tour le paie en entier ; coupe la session, ou confie la suite a l'artisan"
+}
+
 cout_rappel() {
-  local entree="$1" d ecrit actuel
+  local entree="$1" d ecrit actuel releve
   d=$(cout_dir); [ -n "$d" ] || return 0
-  actuel=$(cout_releve "$d" "$(branche_courante)" "$BASE" | awk '$1 == "TOTAL" { print $2 }')
+  releve=$(cout_releve "$d" "$(branche_courante)" "$BASE")
+  cout_alerte "$releve"
+  actuel=$(printf '%s\n' "$releve" | awk '$1 == "TOTAL" { print $2 }')
   [ -n "$actuel" ] && [ "$actuel" -gt 0 ] 2>/dev/null || return 0
   ecrit=$(cout_total_ecrit "$entree")
   if [ -z "$ecrit" ]; then
@@ -281,6 +310,7 @@ n_autres=$(champ AUTRES 1);      autres_j=$(champ AUTRES 2)
 prelude=$(champ PRELUDE 1);      prelude_relu=$(champ PRELUDE 2)
 cl_premier=$(champ COURBE 1);    cl_dernier=$(champ COURBE 2)
 side_j=$(champ SIDE 1);          side_d=$(champ SIDE 2)
+courts=$(champ COURTS 1);        courts_d=$(champ COURTS 2)
 taux=$(fab taux_usd_eur "")
 taux_date=$(fab taux_date "")
 
@@ -327,6 +357,9 @@ lecture_j=$(printf '%s\n' "$releve" | awk '$1 == "POSTE" && $2 == "lecture" { pr
 part() {  # part <numerateur> <denominateur> — « 80 % », ou vide si indecidable
   awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { if (b + 0 > 0) printf "%d %%", 100 * a / b }'
 }
+# Le meme calcul sur des MONTANTS : « 0 » et « 0,00 » ne sont pas comparables en
+# shell, et « part » recevrait des flottants la ou elle attend des entiers.
+part_d() { awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { if (b + 0 > 0) printf "%d %%", 100 * a / b }'; }
 if [ "${ech_side:-0}" -gt 0 ] 2>/dev/null; then
   side_txt="dont $ech_side par des sous-agents — $(jetons_nb "$side_j") jetons, $(cout_montant "$side_d" "")"
 else
@@ -364,6 +397,10 @@ $lignes| **Total** | **$(jetons_nb "$tot_j")** | **$(cout_montant "$tot_d" "$tau
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   $(jetons_nb "$prelude") jetons, écrits une fois par session puis relus à chaque
   échange : $(jetons_nb "$prelude_relu") jetons de relecture, $(part "$prelude_relu" "$lecture_j") de tout ce qui a été relu.
+- **Tours courts** — $(jetons_nb "$courts") des $(jetons_nb "$echanges") tours ($(part "$courts" "$echanges")) sortent
+  moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
+  une sortie de rien. Ils coûtent $(cout_montant "$courts_d" ""), soit $(part_d "$courts_d" "$tot_d") de la facture.
+  Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — $(jetons_nb "$cl_premier") jetons relus au premier appel qui relise
   quelque chose, $(jetons_nb "$cl_dernier") au dernier : une session longue se paie à chaque tour.$autres_txt
 
@@ -377,6 +414,7 @@ BLOC
 
 printf '%s\n' "$bloc"
 echo
+cout_alerte "$releve"
 
 [ "$DRYRUN" = 1 ] && { ok "--dry-run : rien ecrit"; exit 0; }
 
