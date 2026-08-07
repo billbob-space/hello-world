@@ -9,8 +9,6 @@
 
 import { calendrier, etatSeance, progression, totauxAccomplis } from './domaine.js';
 import { dateEnToutesLettres } from './vue-jour.js';
-import { monterActionClassement } from './vue-rejoindre.js';
-import { monterEquipe } from './vue-equipe.js';
 
 // --- le langage d'ado -------------------------------------------------------
 
@@ -305,20 +303,17 @@ export function monterPerso(hote, ctx) {
     blocCalendrier(m.calendrier),
   );
 
-  // « L'equipe » vient APRES le calendrier : le PRD §7.5 met la comparaison au
-  // second niveau, jamais avant. Le PRP 09 posera podium, position et jauge
-  // dans ce meme conteneur, AU-DESSUS de l'appel ci-dessous. Cet ecran ne parle
-  // toujours a personne : c'est vue-rejoindre.js qui appelle le reseau.
-  const equipe = el('section', 'bloc-equipe');
-  section.append(equipe);
-  // Podium, position et jauge AU-DESSUS du bloc d'action : le PRD §7.5 met la
-  // comparaison au second niveau, et a l'interieur du bloc c'est la jauge — la
-  // seule mesure ou personne n'est dernier — qu'on lit en refermant.
-  const demonterEquipe = monterEquipe(equipe, ctx);
-  const demonterAction = monterActionClassement(equipe, ctx);
-
+  // « L'equipe » VIVAIT ICI, sous le calendrier, et n'y vit plus : elle a son
+  // onglet et son ecran, `#/equipe`. Le placement d'origine suivait le PRD §7.5
+  // — la comparaison au second niveau de lecture — mais le second niveau d'un
+  // DOCUMENT n'est pas le bas d'un ecran : podium, position et bouton pour
+  // rejoindre se trouvaient derriere un calendrier de dix-neuf jours a
+  // derouler, donc nulle part. Un onglet respecte la meme regle sans la payer :
+  // il ne devance personne, il se choisit.
+  //
+  // Cet ecran ne parle donc plus a personne du tout, et tests/perso.test.js le
+  // verifie en cherchant dans cette source l'appel reseau du navigateur — dont
+  // le nom ne peut pas s'ecrire ici sans faire tomber le test qui le cherche.
   hote.append(section);
-  // Les deux ecouteurs vivent sur `document`, que le routeur ne vide pas : sans
-  // ce demontage, quitter #/perso puis y revenir en empilerait un par visite.
-  return () => { demonterEquipe(); demonterAction(); };
+  return () => {};
 }

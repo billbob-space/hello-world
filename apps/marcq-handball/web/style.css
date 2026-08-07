@@ -242,6 +242,15 @@ body {
 /* La hauteur est reservee : sans elle, le retour ferait sauter le bouton. */
 .retour { margin: 0; min-height: 1.5rem; color: var(--marcq-accent); font-size: .95rem; }
 
+/* Le message d'un champ, sous le champ. Aucune hauteur reservee : il n'existe
+   que quand il a quelque chose a dire, et le formulaire ne doit pas garder un
+   trou a sa place. */
+.erreur-champ { margin: -.35rem 0 0; color: var(--marcq-danger); font-size: .95rem; }
+/* La bordure survit a un message pousse hors de l'ecran par le clavier : c'est
+   le seul signal qui reste quand le telephone mange la moitie de la page. */
+.champ-en-erreur { border-color: var(--marcq-danger); }
+.champ-en-erreur:focus-visible { outline-color: var(--marcq-danger); }
+
 .panne { max-width: 34rem; margin: 2rem auto; padding: 0 1.1rem; color: var(--marcq-danger); }
 
 .nav-app {
@@ -393,6 +402,9 @@ body {
    divergerait. */
 
 .ecran-perso { gap: 1.4rem; }
+/* L'ecran de l'equipe ne porte qu'un titre et un bloc : le meme rythme vertical
+   que « Ma progression » suffit, et rien d'autre ne lui est propre. */
+.ecran-classement { gap: 1.4rem; }
 
 /* Les deux sections qui suivent la part : leurs elements sont espaces par le
    `gap` de `.ecran-perso`, elles n'ajoutent donc aucune marge propre. Declarees

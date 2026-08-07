@@ -192,12 +192,12 @@ test('l ecran perso ne parle a personne et ne compare a personne', () => {
   // Le controle porte sur la source entiere, commentaires compris — c'est ce qui
   // le rend trivial a executer et impossible a contourner par megarde.
   const code = source('vue-perso.js');
-  // 'classement' et 'podium' ont quitte cette liste au PRP 08 : monterPerso
-  // pose desormais la <section class="bloc-equipe"> et y appelle
-  // monterActionClassement. L'ecran continue de ne parler a personne — c'est
-  // vue-rejoindre.js, puis vue-equipe.js au PRP 09, qui appellent le reseau —
-  // et c'est exactement ce que 'fetch(' verifie.
-  for (const interdit of ['fetch(']) {
+  // 'classement' et 'podium' avaient quitte cette liste au PRP 08, quand cet
+  // ecran portait encore la <section class="bloc-equipe"> ; ils y reviennent
+  // depuis que l'equipe a son propre ecran et son propre onglet. Le controle est
+  // donc redevenu ce qu'il etait au PRP 05, et il est plus fort qu'alors : cet
+  // ecran ne compare plus rien du tout.
+  for (const interdit of ['fetch(', 'monterEquipe', 'monterActionClassement']) {
     assert.equal(code.includes(interdit), false, `« ${interdit} » n appartient pas a cet ecran`);
   }
 });

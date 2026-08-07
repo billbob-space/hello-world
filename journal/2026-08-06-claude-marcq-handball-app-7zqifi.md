@@ -444,10 +444,75 @@ l'etat ABIME : ici, un `localStorage` portant un nom et zero case cochee. La
 question a se poser avant de livrer tient en une phrase — *par ou celui qui a le
 probleme atteint-il ce que je viens d'ecrire ?*
 
+### 19. Un refus affiche, mais hors du regard, vaut un refus muet
+
+**Symptome** — « il a ajoute un espace et un emoji dans le nom, rien ne se
+passe ». Reproduit dans un navigateur : il se passe quelque chose. L'ecran
+affiche « Lettres, chiffres, espace, tiret ou apostrophe seulement. », le champ
+reprend le focus, aucune erreur de console. Le message est bien la, et l'enfant
+ne le voit pas.
+
+**Cause** — deux defauts qui se composent. Le message vivait au BAS du
+formulaire, apres le champ du pseudonyme, un bouton « Proposer un autre nom », le
+champ du code et son explication de trois lignes : sur un telephone dont le
+clavier mange la moitie de la hauteur, il tombe hors de la fenetre au moment
+precis ou `champPseudo.focus()` ramene le champ en haut. Et le refus n'ouvrait
+sur RIEN — il enonce une regle et rend la main, a charge pour un enfant de
+deviner lequel de ses caracteres derange.
+
+**Ce qui manquait pour le voir** — les tests de ce depot lisent des sources et des
+fonctions pures ; ils prouvaient que la phrase existe, jamais qu'elle se voit. Le
+parcours navigateur, lui, la trouvait « visible » au sens du DOM — `isVisible()`
+rend vrai pour un noeud pousse hors de la fenetre. La question utile n'est pas
+« le message est-il affiche ? » mais « est-il DANS LE REGARD, clavier ouvert ? ».
+
+**Consequence tenue** — chaque champ a son message, sous lui, avec quatre
+signaux : `role="alert"`, `aria-describedby`, `aria-invalid` et une bordure rouge
+— la seule qui survive a un message pousse hors de l'ecran. Et le refus propose :
+`nettoyerPseudo` retire ce qui ne passe pas, remplace par une espace pour ne pas
+souder deux mots, et pose le reste DANS LE CHAMP. Un second appui l'envoie ; rien
+n'est corrige en silence.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `garde-fou` — un ecran qui refuse doit etre verifie sur ce que
+l'enfant VOIT, pas sur ce que le DOM contient : hauteur de fenetre reduite au
+clavier, et position du message dans cette fenetre. Et une regle de conception,
+plus large que ce defaut : un message d'erreur qui n'ouvre sur aucune action est
+une impasse, pas une information.
+
+### 20. « L'equipe » etait au bas d'un calendrier de dix-neuf jours
+
+**Symptome** — demande de l'utilisateur, et non un defaut constate : sortir le
+classement de « Ma progression » pour lui donner son onglet.
+
+**Cause** — le placement d'origine suivait le PRD §7.5, qui met la comparaison au
+« second niveau de lecture ». La lecture faite etait « en second dans l'ecran ».
+Mais le second niveau d'un DOCUMENT n'est pas le bas d'un ECRAN : podium,
+position et bouton pour rejoindre se trouvaient sous une grille de dix-neuf jours
+a derouler, c'est-a-dire nulle part. Un onglet respecte la meme regle sans la
+payer — il ne devance personne, il se choisit.
+
+**Consequence tenue** — un ecran `#/equipe` et son onglet ; « Ma progression » ne
+monte plus rien du classement, et un test l'interdit desormais des deux cotes. La
+distinction qui compte est ecrite dans le test des onglets : **un onglet mene a ce
+qu'on regarde, jamais a ce qu'on decide** — le consentement, lui, reste derriere
+un bouton, « au moment ou il y a un vrai choix a faire » (PRD §7.4).
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — deux defauts d'affichage sont nes de ce
+deplacement, et aucun n'etait visible sans navigateur : le titre « L'equipe »
+affiche DEUX FOIS — l'ecran posait le sien et le bloc ecrivait deja le sien —, et
+le retour vers `#/perso` apres inscription, qui deposait l'enfant sur un ecran ne
+parlant plus de ce qu'il venait de faire. Deplacer un bloc, ce n'est pas le
+couper-coller : c'est verifier ce que son nouveau contenant dit deja, et ou
+menent les chemins qui en sortent.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 10:42 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 11:20 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -455,22 +520,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 494 | 0,00 $ |
-| Écriture de cache | 961 710 | 6,01 $ |
-| Lecture de cache | 45 782 647 | 22,89 $ |
-| Sortie | 15 712 | 0,39 $ |
-| **Total** | **46 760 563** | **29,30 $ — 25,44 €** |
+| Entrée | 677 | 0,00 $ |
+| Écriture de cache | 1 404 659 | 8,29 $ |
+| Lecture de cache | 72 953 308 | 35,94 $ |
+| Sortie | 71 745 | 1,46 $ |
+| **Total** | **74 430 389** | **45,69 $ — 39,68 €** |
 
 **Ce qui coûte**
 
-- **248 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **346 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 337 jetons, écrits une fois par session puis relus à chaque
-  échange : 16 879 239 jetons de relecture, 36 % de tout ce qui a été relu.
+  échange : 23 576 265 jetons de relecture, 32 % de tout ce qui a été relu.
 - **Croissance** — 68 337 jetons relus au premier appel qui relise
-  quelque chose, 301 491 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 391 292 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 46760563 -->
+<!-- cout-total: 74430389 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68337 0 0
 2 principal claude-opus-5 2865 68337 0
@@ -720,5 +785,103 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 246 principal claude-opus-5 618 300138 680
 247 principal claude-opus-5 735 300756 1131
 248 principal claude-opus-5 1202 301491 168
+249 principal claude-opus-5 4339 302693 1057
+250 principal claude-opus-5 1214 307032 126
+251 principal claude-opus-4-7 6789 28262 175
+252 principal claude-opus-4-7 263 35051 123
+253 principal claude-opus-4-7 182 35314 85
+254 principal claude-opus-4-7 119 35496 95
+255 principal claude-opus-4-7 0 35051 128
+256 principal claude-opus-4-7 216 35051 123
+257 principal claude-opus-4-7 13791 35615 164
+258 principal claude-opus-4-7 180 35267 132
+259 principal claude-opus-4-7 239 35447 95
+260 principal claude-opus-4-7 9839 49406 220
+261 principal claude-opus-4-7 13791 35686 95
+262 principal claude-opus-4-7 393 59245 133
+263 principal claude-opus-5 244 308246 1391
+264 principal claude-opus-4-7 9770 49477 192
+265 principal claude-opus-4-7 2236 59638 245
+266 principal claude-opus-4-7 287 59247 89
+267 principal claude-opus-5 1906 308490 97
+268 principal claude-opus-4-7 7888 59534 163
+269 principal claude-opus-5 107 310396 341
+270 principal claude-opus-4-7 1811 61874 924
+271 principal claude-opus-5 1467 310503 322
+272 principal claude-opus-4-7 2273 67422 2001
+273 principal claude-opus-5 1128 311970 524
+274 principal claude-opus-4-7 1454 63685 2311
+275 principal claude-opus-4-7 2935 65139 1205
+276 principal claude-opus-4-7 1241 68074 69
+277 principal claude-opus-4-7 2705 69695 4447
+278 principal claude-opus-5 276559 38227 98
+279 principal claude-opus-5 474 314786 369
+280 principal claude-opus-5 448 315260 36
+281 principal claude-opus-5 269 315744 211
+282 principal claude-opus-5 661 316013 771
+283 principal claude-opus-5 61 317445 1846
+284 principal claude-opus-5 1877 317506 1082
+285 principal claude-opus-5 1175 319383 158
+286 principal claude-opus-5 690 320558 436
+287 principal claude-opus-5 594 321248 558
+288 principal claude-opus-5 1195 321842 2816
+289 principal claude-opus-5 2905 323037 155
+290 principal claude-opus-5 888 325942 1054
+291 principal claude-opus-5 1813 326830 1243
+292 principal claude-opus-5 1307 328643 354
+293 principal claude-opus-5 2046 329950 1403
+294 principal claude-opus-5 1841 331996 422
+295 principal claude-opus-5 4457 333837 122
+296 principal claude-opus-5 902 338294 116
+297 principal claude-opus-5 314 339196 1034
+298 principal claude-opus-5 1098 339510 466
+299 principal claude-opus-5 523 340608 107
+300 principal claude-opus-5 208 341131 121
+301 principal claude-opus-5 143 341339 322
+302 principal claude-opus-5 876 341482 760
+303 principal claude-opus-5 2168 342358 1070
+304 principal claude-opus-5 1750 344526 678
+305 principal claude-opus-5 742 346276 164
+306 principal claude-opus-5 369 347018 421
+307 principal claude-opus-5 571 347387 141
+308 principal claude-opus-5 1493 347958 155
+309 principal claude-opus-5 803 349451 925
+310 principal claude-opus-5 1323 350254 969
+311 principal claude-opus-5 1401 351577 384
+312 principal claude-opus-5 448 352978 651
+313 principal claude-opus-5 718 353426 98
+314 principal claude-opus-5 146 354144 108
+315 principal claude-opus-5 540 354290 206
+316 principal claude-opus-5 304 354830 908
+317 principal claude-opus-5 969 355134 331
+318 principal claude-opus-5 4283 356103 123
+319 principal claude-opus-5 138 360386 140
+320 principal claude-opus-5 922 360524 344
+321 principal claude-opus-5 1420 361446 941
+322 principal claude-opus-5 1003 362866 543
+323 principal claude-opus-5 604 363869 285
+324 principal claude-opus-5 346 364473 331
+325 principal claude-opus-5 392 364819 690
+326 principal claude-opus-5 751 365211 134
+327 principal claude-opus-5 172 365962 122
+328 principal claude-opus-5 293 366134 214
+329 principal claude-opus-5 253 366427 357
+330 principal claude-opus-5 792 366680 121
+331 principal claude-opus-5 143 367472 471
+332 principal claude-opus-5 532 367615 268
+333 principal claude-opus-5 325 368147 2448
+334 principal claude-opus-5 6418 368472 1400
+335 principal claude-opus-5 1738 374890 851
+336 principal claude-opus-5 943 376628 253
+337 principal claude-opus-5 314 377571 498
+338 principal claude-opus-5 559 377885 115
+339 principal claude-opus-5 540 378444 625
+340 principal claude-opus-5 4743 378984 383
+341 principal claude-opus-5 405 383727 332
+342 principal claude-opus-5 665 384132 256
+343 principal claude-opus-5 1035 384797 658
+344 principal claude-opus-5 4621 385832 833
+345 principal claude-opus-5 839 390453 1813
+346 principal claude-opus-5 1884 391292 143
 -->
 <!-- /cout -->

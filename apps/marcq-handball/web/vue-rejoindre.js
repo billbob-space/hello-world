@@ -43,6 +43,18 @@ export const EXPLICATION_CODE = 'Ce code empêche quelqu’un d’autre de modif
 
 export const TEXTE_REJOINDRE = 'Apparaître au classement';
 
+// Le titre de l'ecran qui porte l'onglet, et l'onglet lui-meme. Le PRD §7.5
+// appelle ce bloc « L'equipe » et non « le classement » : on y lit un podium,
+// une position ET une jauge de groupe, la seule mesure ou personne n'est
+// dernier. Nommer l'onglet « Classement » promettrait un tableau complet, que
+// le §9 refuse d'afficher.
+export const TITRE_ECRAN_CLASSEMENT = 'L’équipe';
+
+// L'ecran vers lequel on revient apres avoir rejoint ou refuse. C'est celui qui
+// porte le bouton menant ici, et il n'a qu'une definition : deux copies
+// divergeraient le jour ou la route change.
+export const RETOUR_CLASSEMENT = '#/equipe';
+
 // --- le pseudonyme ---------------------------------------------------------
 
 // Aucun de ces mots n'est un nom de personne, aucun ne renvoie au club ni a la
@@ -106,14 +118,54 @@ export function validerCode(saisie) {
   return MOTIF_CODE.test(valeur) ? { valeur, erreur: null } : { valeur, erreur: 'longueur' };
 }
 
-const ERREURS_PSEUDO = {
+export const ERREURS_PSEUDO = {
   vide: 'Il faut un nom, même court.',
   'trop-court': 'Il faut au moins deux caractères.',
   'trop-long': 'Seize caractères au maximum.',
-  caracteres: 'Lettres, chiffres, espace, tiret ou apostrophe seulement.',
+  caracteres: 'Les emojis et les caractères spéciaux ne passent pas ici.',
 };
 
-const ERREURS_CODE = { longueur: 'Le code doit faire exactement quatre chiffres.' };
+export const ERREURS_CODE = { longueur: 'Le code doit faire exactement quatre chiffres.' };
+
+// --- refuser en dernier recours --------------------------------------------
+
+// LE MEILLEUR MESSAGE D'ERREUR EST CELUI QU'ON N'AFFICHE PAS. Un emoji dans un
+// pseudonyme n'est pas une faute a corriger, c'est une envie que le serveur ne
+// sait pas stocker ; renvoyer l'enfant a son clavier pour qu'il devine LEQUEL de
+// ses caracteres derange est une impasse, et c'est celle qui a ete constatee.
+//
+// On enleve donc ce qui ne passe pas et on PROPOSE le reste. L'enfant garde la
+// main : la proposition arrive dans le champ, il la valide, la modifie ou la
+// remplace. Rien n'est envoye sans son second geste — un nom public ne se
+// corrige pas dans son dos.
+//
+// Le jeu conserve est exactement celui de MOTIF_PSEUDO, donc celui du serveur :
+// lettres, chiffres, espace, tiret, apostrophe droite, tiret bas.
+const CARACTERES_REFUSES = /[^\p{L}\p{N} '\-_]/gu;
+
+export function nettoyerPseudo(saisie) {
+  const brut = String(saisie ?? '');
+  const garde = [...brut
+    .replace(/’/g, "'")
+    .normalize('NFC')
+    // Un ESPACE et non rien : ce qui est retire separait souvent deux mots, et
+    // « Tom.le.chevre » doit rendre « Tom le chevre », pas « Tomlechevre ». Les
+    // espaces surnumeraires tombent a la ligne suivante.
+    .replace(CARACTERES_REFUSES, ' ')
+    .replace(/ +/g, ' ')
+    .trim()].slice(0, PSEUDO_MAX).join('').trimEnd();
+
+  return { valeur: garde, aRetire: garde !== validerPseudo(brut).valeur };
+}
+
+// Ce que l'ecran dit quand il a nettoye. Le nom propose est cite : sans lui, la
+// phrase demande de comparer deux etats du champ de memoire.
+export function phraseNettoyage(propose) {
+  return `Les emojis et les caractères spéciaux ne passent pas. On garde « ${propose} » ?`;
+}
+
+// Et quand il ne reste rien : « Tom » ecrit en emojis n'a pas de repli.
+export const RIEN_A_GARDER = 'Il ne reste rien à garder. Écris un nom en lettres ou en chiffres.';
 
 // --- ce que l ecran dit d un echec -----------------------------------------
 
@@ -259,6 +311,52 @@ function el(balise, classe, texte) {
   return noeud;
 }
 
+// Le message d'erreur d'UN champ : il vit sous lui, il le marque, et il part
+// des que l'enfant retouche sa saisie.
+//
+// Quatre choses ensemble, parce qu'aucune ne suffit seule. `role="alert"` le
+// fait annoncer par un lecteur d'ecran — `role="status"` ne le ferait pas, et
+// c'est bien une alerte. `aria-describedby` le rattache au champ, donc au
+// clavier. `aria-invalid` et la classe donnent la bordure rouge, seul signal
+// qui survit a un message pousse hors de l'ecran par le clavier du telephone.
+// Et le champ prend le focus : c'est ce qui l'AMENE dans la fenetre, avec son
+// message juste dessous.
+function messageDeChamp(champ) {
+  const noeud = el('p', 'erreur-champ');
+  noeud.id = `${champ.id}-erreur`;
+  noeud.setAttribute('role', 'alert');
+  noeud.hidden = true;
+
+  function effacer() {
+    if (noeud.hidden) return;
+    noeud.hidden = true;
+    noeud.textContent = '';
+    champ.removeAttribute('aria-invalid');
+    champ.removeAttribute('aria-describedby');
+    champ.classList.remove('champ-en-erreur');
+  }
+
+  // Retoucher, c'est repondre : le message a fait son travail et n'a plus a
+  // rester sous un champ dont le contenu a change.
+  champ.addEventListener('input', effacer);
+
+  return {
+    noeud,
+    effacer,
+    poser(texte) {
+      noeud.textContent = texte;
+      noeud.hidden = false;
+      champ.setAttribute('aria-invalid', 'true');
+      champ.setAttribute('aria-describedby', noeud.id);
+      champ.classList.add('champ-en-erreur');
+      champ.focus();
+      // Le champ est dans la fenetre grace au focus ; on tire le message avec
+      // lui. `nearest` ne bouge rien s'il y est deja — pas de saut inutile.
+      if (typeof noeud.scrollIntoView === 'function') noeud.scrollIntoView({ block: 'nearest' });
+    },
+  };
+}
+
 // Entoure un fragment d'un <strong> sans composer de HTML : le texte est
 // decoupe et rassemble en noeuds, jamais concatene dans innerHTML.
 function avecFort(phrase, fragment) {
@@ -305,7 +403,11 @@ function etapeConsentement(section, ctx) {
 
   const refuser = el('button', 'bouton', CONSENTEMENT.refuser);
   refuser.type = 'button';
-  refuser.addEventListener('click', () => ctx.aller('#/perso'));
+  // On revient D'OU L'ON VIENT : l'ecran de l'equipe, qui porte le bouton qui
+  // mene ici. Renvoyer vers « Ma progression » — ce que faisait ce fichier quand
+  // le bloc y vivait — deposerait l'enfant sur un ecran qui ne parle pas de ce
+  // qu'il vient de refuser.
+  refuser.addEventListener('click', () => ctx.aller(RETOUR_CLASSEMENT));
 
   actions.append(continuer, refuser);
   section.append(actions);
@@ -482,25 +584,48 @@ function etapeChoix(section, ctx) {
   const retour = el('p', 'retour');
   retour.setAttribute('role', 'status');
 
+  // UN MESSAGE D'ERREUR SE LIT LA OU LE REGARD EST DEJA : sous le champ fautif,
+  // et pas au bas du formulaire. Le rapport qui a motive ce bloc disait « rien
+  // ne se passe » alors que la phrase s'affichait bel et bien — a un champ, un
+  // bouton et une explication de distance, derriere le clavier du telephone.
+  const erreurPseudo = messageDeChamp(champPseudo);
+  const erreurCode = messageDeChamp(champCode);
+
   formulaire.append(
-    etiquettePseudo, champPseudo, autre,
-    etiquetteCode, champCode, el('p', 'aide', EXPLICATION_CODE),
+    etiquettePseudo, champPseudo, erreurPseudo.noeud, autre,
+    etiquetteCode, champCode, erreurCode.noeud, el('p', 'aide', EXPLICATION_CODE),
     valider, retour,
   );
 
   formulaire.addEventListener('submit', async (evt) => {
     evt.preventDefault();
+    erreurPseudo.effacer();
+    erreurCode.effacer();
+    retour.textContent = '';
 
     const pseudo = validerPseudo(champPseudo.value);
     if (pseudo.erreur !== null) {
-      retour.textContent = ERREURS_PSEUDO[pseudo.erreur];
-      champPseudo.focus();
+      // On ne refuse qu'apres avoir essaye de sauver la saisie. Le nettoyage est
+      // PROPOSE, jamais applique en silence : le nom est public, il ne se
+      // corrige pas dans le dos de celui qui le porte. Il arrive donc dans le
+      // champ, et c'est un second appui qui l'envoie.
+      const propre = nettoyerPseudo(champPseudo.value);
+      if (propre.aRetire && validerPseudo(propre.valeur).erreur === null) {
+        champPseudo.value = propre.valeur;
+        erreurPseudo.poser(phraseNettoyage(propre.valeur));
+        return;
+      }
+      erreurPseudo.poser(propre.aRetire && propre.valeur === '' ? RIEN_A_GARDER : ERREURS_PSEUDO[pseudo.erreur]);
       return;
     }
+    // Une saisie valide mais non normalisee — apostrophe de clavier, espaces
+    // doubles — part sous sa forme normalisee, et le champ la montre : sans
+    // cela, l'enfant lit au podium un nom qu'il n'a pas tape.
+    if (pseudo.valeur !== champPseudo.value) champPseudo.value = pseudo.valeur;
+
     const code = validerCode(champCode.value);
     if (code.erreur !== null) {
-      retour.textContent = ERREURS_CODE[code.erreur];
-      champCode.focus();
+      erreurCode.poser(ERREURS_CODE[code.erreur]);
       return;
     }
 
@@ -559,7 +684,7 @@ function etapeChoix(section, ctx) {
     // participant de plus. On ne l'attend pas : l'ecran suivant se met a jour
     // sur EVT_CLASSEMENT.
     synchroniser(ctx);
-    ctx.aller('#/perso');
+    ctx.aller(RETOUR_CLASSEMENT);
   });
 
   section.append(formulaire);
