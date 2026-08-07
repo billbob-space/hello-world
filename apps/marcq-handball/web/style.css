@@ -807,6 +807,10 @@ body {
 .action-classement .bouton { width: 100%; }
 .nom-classement { margin: 0; font-weight: 600; }
 
+/* Le geste de reprise se groupe avec sa phrase d'aide : sans elle, « Récupérer
+   ma progression » se lit comme un bouton de secours qu'on n'ose pas toucher. */
+.action-recuperer { display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; }
+
 /* La ligne d'etat tient le « et le dit » du PRD §11 : elle est lisible, jamais
    alarmante. Seul l'echec prend la couleur de danger — pas l'absence de reseau,
    qui est une situation ordinaire dans un gymnase. */

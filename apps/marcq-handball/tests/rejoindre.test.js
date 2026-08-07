@@ -341,3 +341,62 @@ test('rejoindre depuis un second telephone recupere, et n efface pas', () => {
     'l empreinte ne se calcule plus sur ce qui a ete envoye',
   );
 });
+
+test('un telephone qui a deja un nom peut encore reprendre sa progression', () => {
+  // LE DEFAUT QUE CE TEST INTERDIT. L'ecran de saisie n'est atteignable que tant
+  // qu'aucun nom n'est enregistre : passe l'inscription, le bouton qui y mene
+  // disparait. La reprise n'avait donc de porte que pour celui qui n'en avait
+  // pas besoin — et aucune pour celui qui venait de perdre sa progression, qui
+  // a justement un nom enregistre. Livrer la reprise sans ce second geste
+  // revenait a ne pas la livrer.
+  assert.equal(rejoindre.TEXTE_RECUPERER, 'Récupérer ma progression');
+  assert.equal(rejoindre.AIDE_RECUPERER, 'Si tu as coché des séances sur un autre téléphone.');
+
+  const code = source('vue-rejoindre.js');
+  // Le geste vit dans la branche « un nom est connu », celle-la meme ou le
+  // bouton d inscription n'existe plus. On lit l'APPEL, pas la constante : les
+  // deux declarations sont en tete de fichier, leur ordre n'apprend rien.
+  const pose = code.indexOf('bloc.append(boutonRecuperer(');
+  assert.ok(pose !== -1, 'le geste est pose dans l ecran');
+  assert.ok(
+    code.indexOf("el('p', 'nom-classement'") < pose && pose < code.indexOf("'Gérer ce nom'"),
+    'le bouton de reprise accompagne le nom deja enregistre',
+  );
+  // Et JAMAIS dans l'autre branche : sans nom stocke, il n'y a ni code a
+  // renvoyer ni fiche a reprendre — c'est l'inscription qu'il faut.
+  assert.ok(code.indexOf('TEXTE_REJOINDRE)') < code.indexOf("el('p', 'nom-classement'"));
+  // Il ne redemande ni nom ni code : il renvoie ceux qui sont deja la. Un
+  // second formulaire serait une seconde occasion de se tromper de code, donc
+  // de se voir refuser sa propre fiche.
+  assert.equal(
+    /pseudo:\s*local\.pseudo,\s*code:\s*local\.code/.test(code), true,
+    'la reprise repart du nom et du code stockes',
+  );
+  // Deux envois de reprise dans ce fichier, et deux seulement : l'inscription
+  // et ce geste. Aucun autre chemin ne doit en poser un.
+  assert.equal((code.match(/reprise:\s*true/g) ?? []).length, 2);
+});
+
+test('la reprise a vide ne remonte pas l ecran, celle qui rapporte le fait', () => {
+  // L'anomalie 7 du journal, deja payee une fois : remonter l'ecran emporte le
+  // bloc qui porte la reponse. Ici la regle se dedouble, et c'est voulu — quand
+  // des seances reviennent, la progression retrouvee EST le message, et elle ne
+  // s'affiche qu'en remontant.
+  assert.equal(rejoindre.RECUPERATION_A_JOUR, 'Rien de plus à récupérer : cet appareil est à jour.');
+
+  const code = source('vue-rejoindre.js');
+  const remonte = code.indexOf('ctx.rafraichir()');
+  const aJour = code.indexOf('RECUPERATION_A_JOUR;');
+  assert.ok(remonte !== -1 && aJour !== -1);
+  assert.ok(remonte < aJour, 'on remonte AVANT de sortir, et seulement si quelque chose est revenu');
+  assert.match(code, /Object\.keys\(apres\)\.length > avant/, 'la decision se prend sur un compte, pas sur un statut');
+});
+
+test('hors ligne, la reprise n agit pas et le dit', () => {
+  assert.equal(rejoindre.SANS_RESEAU_RECUPERATION, 'Il faut du réseau pour récupérer ta progression.');
+  const code = source('vue-rejoindre.js');
+  assert.ok(
+    code.indexOf('SANS_RESEAU_RECUPERATION') < code.indexOf('reprise: true'),
+    'le garde hors ligne passe avant le premier appel reseau du fichier',
+  );
+});
