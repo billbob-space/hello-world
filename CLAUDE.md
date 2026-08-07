@@ -1,67 +1,66 @@
-# Contrat de déploiement — billbob.ovh
+# CONTRAT DÉPLOIEMENT — billbob.ovh
 
-Ce dépôt est une **fabrique** : plusieurs applications, chacune avec son code,
-son PRD, son URL et son palier d'exposition, toutes déployées ensemble dans
-**une seule stack dockhand**. Les règles ci-dessous sont imposées par
-l'infrastructure : les enfreindre ne provoque pas une erreur claire, mais un
-déploiement qui échoue en silence.
+Dépôt = **fabrique**. Beaucoup apps. Chaque app avoir son code, son PRD, son URL,
+son palier exposition. Toutes partir ensemble dans **une seule stack dockhand**.
+Règles venir de infrastructure. Toi casser règle → pas erreur claire, déploiement
+mourir en silence.
 
-**Le nom d'une application est celui de son répertoire sous `apps/`** : il
-devient le sous-domaine, le nom de conteneur et le nom de routeur Traefik, il
-doit donc être un label DNS valide. Org, dépôt et domaine sont dans
-`fabrique.yml`.
+**Nom app = nom répertoire sous `apps/`.** Nom devenir sous-domaine, nom
+conteneur, nom routeur Traefik. Donc nom devoir être label DNS valide. Org,
+dépôt, domaine dormir dans `fabrique.yml`.
 
-## Comment tu réponds
+## TOI PARLER COMMENT
 
-**En français, simplement, pour quelqu'un qui n'est pas technicien.** Celui qui
-te lit décide de ce qu'on construit ; il ne lit pas le code. Une réponse qu'il
-ne comprend pas ne vaut rien, quelle que soit la qualité du travail décrit.
+**Toi parler français. Toi parler simple. Homme qui lire pas technicien.** Lui
+décider quoi on construire. Lui pas lire code. Réponse lui pas comprendre =
+réponse nulle, même si travail dedans très beau.
 
-- **Toujours en français** — réponses, questions, explications.
-- **Court** — quelques phrases, ou trois à cinq puces : ce qui est fait, ce qui
-  reste, ce qui bloque. Le reste encombre.
-- **Vulgarise** — dis l'effet, pas le mécanisme : « le site répond à nouveau »
-  plutôt que « le healthcheck repasse healthy ». Un terme technique ne s'emploie
-  que s'il est indispensable, et s'explique alors en quelques mots.
-- **Pas de jargon décoratif** — ni noms de fichiers, ni options, ni extraits de
-  code, sauf demande ou geste à faire ; alors la commande exacte, seule.
-- **Dis franchement ce qui ne va pas** — « ça ne marche pas encore, voilà
-  pourquoi » est une réponse utile.
+- **Toujours français** — réponses, questions, explications.
+- **Court** — peu de phrases, ou trois à cinq puces : quoi fait, quoi reste,
+  quoi bloque. Reste = encombrement.
+- **Dire effet, pas mécanisme** — « site répondre encore » et pas « healthcheck
+  repasser healthy ». Mot technique seulement si obligatoire, et alors toi
+  expliquer lui en peu de mots.
+- **Pas jargon pour faire joli** — pas noms fichiers, pas options, pas bouts de
+  code. Sauf si homme demander, ou si homme devoir faire geste : alors commande
+  exacte, seule.
+- **Dire vrai quand ça marche pas** — « ça marche pas encore, voilà pourquoi »
+  = bonne réponse.
 
-**Cette règle vaut pour ce que tu dis, pas pour ce que tu écris dans le dépôt.**
-Messages de commit, entrées de `journal/`, `README` et corps de PR gardent toute
-leur précision technique : leur lecteur est un développeur ou un agent.
+**Règle valoir pour ce que toi DIRE, pas pour ce que toi ÉCRIRE dans dépôt.**
+Messages commit, entrées `journal/`, `README`, corps PR garder toute précision
+technique : leur lecteur = développeur ou agent.
 
-## Arborescence
+## OÙ CHOSES VIVRE
 
 ```
-apps/<nom>/    une application. `--add` y écrit app.yml, .dockerignore, test.sh,
-               README.md, PRODUCT.md ; le Dockerfile et le code sont à toi
-               PRODUCT.md porte le PRD, prp/ les documents d'implémentation
-               CLAUDE.md GÉNÉRÉ — la notice de l'app, chargée seulement quand
-               on touche à ce répertoire : périmètre, URL, palier, volumes
-docs/          ce qui n'est propre à aucune app : specs et plans de fabrique
-journal/       une entrée par branche : les anomalies rencontrées
-memory/        un fichier par sujet sorti du contrat : ce que `--check` tient déjà
-compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
-               bloc volumes: si et seulement si un service en monte un
-fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, et shared_services
-init.sh        le générateur et le vérificateur ; scripts/ les cinq autres
-               métiers, lib/ leur commun
+apps/<nom>/    une app. `--add` écrire ici app.yml, .dockerignore, test.sh,
+               README.md, PRODUCT.md ; Dockerfile et code = à toi
+               PRODUCT.md porter PRD, prp/ porter documents implémentation
+               CLAUDE.md GÉNÉRÉ — notice de app, chargée seulement quand on
+               toucher ce répertoire : périmètre, URL, palier, volumes
+docs/          ce qui appartenir à aucune app : specs et plans de fabrique
+journal/       une entrée par branche : anomalies rencontrées
+memory/        un fichier par sujet sorti du contrat : ce que `--check` tenir déjà
+compose.yaml   GÉNÉRÉ — stack entière : trois sortes de services, plus bloc
+               volumes: si et seulement si un service monter un volume
+fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, shared_services
+init.sh        générateur et vérificateur ; scripts/ cinq autres métiers,
+               lib/ leur commun
 ```
 
-**Partagé** : la stack, la CI, le réseau, le domaine, `shared_services`, l'outillage
-Claude Code. **Propre à chaque app** : son code, son `Dockerfile`, son PRD, son URL,
-son palier d'exposition, ses volumes, ses services annexes, ses tests.
+**Partagé** : stack, CI, réseau, domaine, `shared_services`, outillage Claude
+Code. **À chaque app** : son code, son `Dockerfile`, son PRD, son URL, son
+palier exposition, ses volumes, ses services annexes, ses tests.
 
-**Tout ce qui décrit une app vit dans son répertoire** : son PRD dans
-`apps/<nom>/PRODUCT.md` — un seul document, fiche produit puis exigences —, ses
-PRP dans `apps/<nom>/prp/`. Un répertoire qui ne porte que ces documents est
-légitime : c'est une app dont le code n'est pas encore écrit. Les compétences
-`superpowers` écrivent leurs specs sous `docs/` : déplace-les sous `apps/<nom>/`
-avant de committer, `--check` refuse un document de `docs/` nommé d'après une app.
+**Tout ce qui parler de une app vivre dans son répertoire** : PRD dans
+`apps/<nom>/PRODUCT.md` — un seul document, fiche produit puis exigences —, PRP
+dans `apps/<nom>/prp/`. Répertoire qui porter seulement ces documents = bon :
+app dont code pas encore écrit. Compétences `superpowers` écrire leurs specs
+sous `docs/` : toi déplacer sous `apps/<nom>/` avant commit, sinon `--check`
+refuser document de `docs/` nommé comme une app.
 
-## Démarrage
+## TOI DÉMARRER
 
 ```bash
 ./init.sh          # régénère les artefacts dérivés depuis les manifestes
@@ -69,174 +68,175 @@ avant de committer, `--check` refuse un document de `docs/` nommé d'après une 
 ./init.sh --help   # les autres options, et les cinq métiers de scripts/
 ```
 
-Trois artefacts sont **toujours réécrits**, fonction directe des manifestes :
-`compose.yaml`, `go.work` et la notice `apps/<nom>/CLAUDE.md` de chaque app — ne
-les édite jamais à la main, édite le manifeste. Le reste — workflow de CI,
-`.claude/` — est ordinaire : `--check` en vérifie les propriétés qui comptent,
-pas l'égalité à un générateur. `--dry-run` n'écrit **rien**, pas même l'`app.yml`
-qu'un `--enable` modifierait : il affiche l'ancienne et la nouvelle valeur, puis
-le diff des artefacts. `init.sh` ne crée **ni** `Dockerfile` **ni** code
-applicatif : le choix de la technologie t'appartient, app par app.
+Trois artefacts **toujours réécrits**, fonction directe des manifestes :
+`compose.yaml`, `go.work`, et notice `apps/<nom>/CLAUDE.md` de chaque app. Toi
+jamais éditer eux à la main — toi éditer manifeste. Reste — workflow CI,
+`.claude/` — être ordinaire : `--check` regarder propriétés qui compter, pas
+égalité à un générateur. `--dry-run` écrire **rien**, même pas `app.yml` que
+`--enable` changerait : lui montrer vieille et nouvelle valeur, puis le diff.
+`init.sh` créer **ni** `Dockerfile` **ni** code : technologie = ton choix, app par app.
 
-## `apps/<nom>/app.yml` — les valeurs que tu décides
+## `apps/<nom>/app.yml` — TOI DÉCIDER
 
-Un fichier par application, **jamais réécrit par `init.sh`** : il est la source
-de vérité, tu l’édites à la main puis tu relances `./init.sh`. Les valeurs
-décidées là — port, mémoire, healthcheck, palier, volumes, services annexes —
-sont toutes vérifiées : détail et pièges dans `memory/app-yml.md`.
+Un fichier par app, **jamais réécrit par `init.sh`** : lui être source de
+vérité, toi éditer à la main puis relancer `./init.sh`. Valeurs décidées là —
+port, mémoire, healthcheck, palier, volumes, services annexes — toutes
+vérifiées. Détail et pièges dans `memory/app-yml.md`.
 
-## Ajouter une application
+## TOI AJOUTER APP
 
-**Construire d'abord, brancher ensuite** : un premier commit fait publier l'image
-par la CI, un second seulement fait entrer l'app dans le compose — c'est pourquoi
-elle naît `enabled: false`. Le commit 1 emporte **les artefacts régénérés**, pas
-seulement `apps/<nom>` : sinon le job `contrat` échoue en CI sur « compose.yaml
-désynchronisé », et la CI est rouge pour tout le monde. La séquence exacte, ce que
-`--add` réécrit et ce qu'il ne réécrit pas : `memory/ajouter-une-app.md`.
+**Construire d'abord, brancher ensuite** : premier commit faire publier image
+par CI, deuxième commit seulement faire entrer app dans compose. Voilà pourquoi
+app naître `enabled: false`. Commit 1 emporter **artefacts régénérés**, pas
+seulement `apps/<nom>` : sinon job `contrat` tomber en CI sur « compose.yaml
+désynchronisé », et CI rouge pour tout le monde. Séquence exacte, ce que `--add`
+réécrire et ce que lui pas réécrire : `memory/ajouter-une-app.md`.
 
-## Les trois sortes de services — une seule est routée
+## TROIS SORTES DE SERVICES — UNE SEULE ROUTÉE
 
-`compose.yaml` porte trois sortes de services dans un espace de noms **plat** :
-l'app, ses annexes `<app>-<nom>`, et les `shared_services` de la fabrique. **Seule
-l'app est joignable depuis Internet** ; les deux autres portent
-`traefik.enable=false`, et c’est ce label — non l’absence de label — qui les en
-retire. Détail, budget mémoire et collisions de noms :
-`memory/services.md`.
+`compose.yaml` porter trois sortes de services dans espace de noms **plat** :
+app, ses annexes `<app>-<nom>`, et `shared_services` de la fabrique. **Seule app
+joignable depuis Internet.** Deux autres porter `traefik.enable=false` — c'est ce
+label qui retirer eux, pas absence de label. Détail, budget mémoire, collisions
+de noms : `memory/services.md`.
 
-## Les volumes nommés
+## VOLUMES NOMMÉS
 
-Ce qui doit survivre au redéploiement vit dans un **volume nommé**, jamais dans
-le système de fichiers du conteneur, et le `Dockerfile` `chown` son chemin avant
-`USER`. Formes admises, préfixe du propriétaire, sauvegarde et pièges :
+Chose qui devoir survivre au redéploiement vivre dans **volume nommé**, jamais
+dans système de fichiers du conteneur. Et `Dockerfile` faire `chown` de son
+chemin avant `USER`. Formes, préfixe du propriétaire, sauvegarde, pièges :
 `memory/volumes.md`.
 
-## Comment on travaille : branche, puis commits par étapes
+## TOI TRAVAILLER : BRANCHE, PUIS COMMITS PAR ÉTAPES
 
-**Jamais de modification directe sur `main`.** Une branche s'ouvre dès la
-**première** modification, nommée `<app>/<sujet>` — ou `fabrique/<sujet>` pour ce qui
-touche `init.sh`, `fabrique.yml`, la CI, le contrat ou l'outillage. Le préfixe dit
-quel rayon de souffle est en jeu, avant même d'ouvrir le diff.
+**Jamais toucher `main` directement.** Branche ouvrir dès **première**
+modification, nom `<app>/<sujet>` — ou `fabrique/<sujet>` pour ce qui toucher
+`init.sh`, `fabrique.yml`, CI, contrat, outillage. Préfixe dire quel rayon de
+souffle en jeu, avant même que toi ouvrir diff.
 
 ```bash
 ./scripts/branche.sh cadran/fuseaux-multiples
 ./scripts/branche.sh fabrique/garde-fous-git
 ```
 
-Le nom est validé avant la création : préfixe connu, sujet en minuscules. La branche
-part de `origin/main`, jamais du HEAD courant — greffée sur une autre branche de
-travail, elle traînerait ses commits dans sa PR.
+Nom validé avant création : préfixe connu, sujet en minuscules. Branche partir
+de `origin/main`, jamais du HEAD courant — greffée sur autre branche de travail,
+elle traîner ses commits dans sa PR.
 
-**Une exception, subie et non choisie : `claude/<sujet>`**, que le harnais cloud
-assigne lui-même. Ce préfixe **ne dit rien du périmètre** : sur une telle branche,
-le rayon de souffle se lit dans le champ `Périmètre` de l'entrée de journal, et
-nulle part ailleurs. Renseigne-le tôt.
+**Une exception, subie et pas choisie : `claude/<sujet>`**, que harnais cloud
+assigner lui-même. Ce préfixe **dire rien du périmètre** : sur telle branche,
+rayon de souffle se lire dans champ `Périmètre` de entrée de journal, et nulle
+part ailleurs. Toi remplir lui tôt.
 
-**Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
+**Un commit par étape vérifiée**, pas commit au kilomètre. Avant chaque commit :
 
 ```bash
 ./scripts/pret.sh     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
 ```
 
-`pret.sh` ne relance que les apps réellement modifiées depuis la base : chaque commit
-est ainsi relisable seul et ne casse rien. On pousse à chaque commit ; **la pull request
-vient à la fin**, une fois l'ensemble cohérent. Son corps sert à décider s'il faut relire
-et par où commencer, pas à rendre compte : une phrase, trois à cinq puces, ce qui a été
-vérifié en chiffres — `.github/pull_request_template.md`, généré, en donne la forme. Le
-raisonnement détaillé va dans les **messages de commit**, où il survit à la fusion.
+`pret.sh` relancer seulement apps vraiment modifiées depuis la base : ainsi
+chaque commit se relire seul et casser rien. Toi pousser à chaque commit ;
+**pull request venir à la fin**, quand tout être cohérent. Corps de PR servir à
+décider s'il faut relire et par où commencer, pas à rendre compte : une phrase,
+trois à cinq puces, ce qui a été vérifié en chiffres —
+`.github/pull_request_template.md`, généré, donner la forme. Raisonnement long
+aller dans **messages de commit**, où lui survivre à la fusion.
 
-**Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
-entrée de journal ; `pret.sh` le réclame. Non relevé avant la fusion, il est perdu.
+**Ce que branche coûter se relever avec `./scripts/cout.sh`**, qui écrire lui
+dans son entrée de journal ; `pret.sh` réclamer lui. Pas relevé avant fusion = perdu.
 
-**Par défaut on te consulte** ; `/livrer` t'envoie seul jusqu'à la mise en ligne vérifiée,
-trois gestes irréversibles exceptés ; `/pas-a-pas` t'en sort. Les deux modes, le journal et
-ses vocabulaires, les trois agents, les garde-fous, le coût : `memory/travail.md`.
+**Par défaut on consulter toi** ; `/livrer` envoyer toi seul jusqu'à mise en
+ligne vérifiée, sauf trois gestes irréversibles ; `/pas-a-pas` sortir toi de là.
+Deux modes, journal et ses vocabulaires, trois agents, garde-fous, coût :
+`memory/travail.md`.
 
-## Ce que le PRD dit reste vrai, ou il ment
+## PRD DIRE VRAI, OU PRD MENTIR
 
-Un ajout qui ne vient d'aucun PRP est normal — l'usage réel en produit. Qu'il ne
-soit écrit nulle part ne l'est pas : le `PRODUCT.md` décrit alors une application
-qui n'existe plus, et rien ne le signale.
+Ajout qui venir de aucun PRP = normal, usage réel faire ça. Ajout écrit nulle
+part = pas normal : alors `PRODUCT.md` décrire app qui exister plus, et rien
+crier.
 
-**Une correction** passe par une ligne déjà écrite du PRD et la fait bouger toute
-seule. **Une capacité neuve** ne passe par aucune : elle se déclare dans une section
-« Ajouté après les PRP », **dans le même commit que le code**. Si elle lève une ligne
-d'un « hors périmètre », cette ligne ne s'efface pas — elle renvoie à ce qui l'a
-rouverte. Un PRP livré, lui, ne se rouvre jamais : l'état réel se lit dans le PRD.
+**Correction** passer par ligne déjà écrite du PRD et faire bouger elle toute
+seule. **Capacité neuve** passer par aucune ligne : elle se déclarer dans
+section « Ajouté après les PRP », **dans même commit que code**. Si elle lever
+une ligne de un « hors périmètre », cette ligne pas s'effacer — elle renvoyer à
+ce qui rouvrir elle. PRP livré, lui, jamais se rouvrir : état réel se lire dans
+PRD.
 
-`pret.sh` avertit quand une app reçoit du code neuf sans que son `PRODUCT.md` ne
-bouge. Les deux registres, la levée qui n'est pas une délimitation, et l'angle mort
-du garde-fou : `memory/produit.md`.
+`pret.sh` avertir quand app recevoir code neuf et son `PRODUCT.md` pas bouger.
+Deux registres, levée qui être pas délimitation, angle mort du garde-fou :
+`memory/produit.md`.
 
-## Le rayon de souffle
+## RAYON DE SOUFFLE
 
-Une seule stack, donc un seul `docker compose up`, atomique : une erreur dans le bloc
-d'une app fait échouer le déploiement de **toutes** les autres, y compris celles que
-tu n'as pas touchées. D'où les trois garde-fous — `enabled`, l'inspection des images
-en CI, le `--check` service par service — et le fait qu'aucun ne se contourne.
+Une seule stack, donc un seul `docker compose up`, atomique : une erreur dans
+bloc de une app faire tomber déploiement de **toutes** les autres, même celles
+que toi pas toucher. D'où trois garde-fous — `enabled`, inspection des images en
+CI, `--check` service par service — et aucun se contourner.
 
-## Ton outillage
+## TON OUTILLAGE
 
-`.claude/settings.json` est un fichier ordinaire, **versionné** : tout clone
-repart avec le même outillage. **Déclarer un plugin ne l'installe pas** — seul
-le *setup script* de l'environnement cloud le fait, et `.claude/cloud-setup.sh`
-en porte le contenu à recoller après tout changement de `stack` ou de `ui`.
-Liste des plugins, serveurs LSP, et le rapport d'ouverture de session :
-`memory/outillage.md`. **Jamais de bloc `env` dans `.claude/settings.json`** :
-il est public par construction.
+`.claude/settings.json` être fichier ordinaire, **versionné** : tout clone
+repartir avec même outillage. **Déclarer un plugin pas installer lui** — seul
+*setup script* de environnement cloud faire ça, et `.claude/cloud-setup.sh`
+porter le contenu à recoller après tout changement de `stack` ou de `ui`. Liste
+des plugins, serveurs LSP, rapport d'ouverture de session :
+`memory/outillage.md`. **Jamais bloc `env` dans `.claude/settings.json`** : lui
+être public par construction.
 
-## Les trois paliers d'exposition
+## TROIS PALIERS EXPOSITION
 
-Qui peut atteindre une application est décidé par `exposure` dans son `app.yml`,
-appliqué par Traefik avant que la requête ne parvienne au conteneur.
+Qui pouvoir atteindre une app être décidé par `exposure` dans son `app.yml`,
+appliqué par Traefik avant que requête arriver au conteneur.
 
-| `exposure` | Middleware Traefik | Qui entre | Quand l'utiliser |
+| `exposure` | Middleware Traefik | Qui entrer | Quand prendre lui |
 |---|---|---|---|
-| `private` *(défaut)* | `forwardauth` | **Uniquement les comptes de la liste blanche** du serveur | Tout ce qui touche à de l'administration, de l'infra, un shell, ou des données personnelles |
-| `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | Une app dont la surface ne touche que des API tierces ou du contenu non sensible, ou dont les données sont strictement cloisonnées par utilisateur |
-| `public` | `public` | **Tout le monde, sans authentification** | Une app destinée à des gens qui n'ont pas de compte, dont rien de sensible ne vit côté serveur |
+| `private` *(défaut)* | `forwardauth` | **Seulement comptes de la liste blanche** du serveur | Tout ce qui toucher administration, infra, shell, ou données personnelles |
+| `google` | `forwardauth-open` | **N'importe quel compte Google authentifié** | App dont surface toucher seulement API tierces ou contenu pas sensible, ou dont données être bien cloisonnées par utilisateur |
+| `public` | `public` | **Tout le monde, sans authentification** | App pour gens qui avoir pas de compte, et rien de sensible vivre côté serveur |
 
-Ne confonds pas `forwardauth-open` et `public` : le premier exige un compte Google,
-le second n'exige rien. Si tu hésites entre deux paliers, prends le plus fermé :
-`private` se desserre en une ligne, l'inverse a déjà exposé les données. Ce que
-`public` implique, `X-Forwarded-User` et le cloisonnement par utilisateur :
+Toi pas confondre `forwardauth-open` et `public` : premier exiger compte Google,
+second exiger rien. Toi hésiter entre deux paliers → toi prendre le plus fermé :
+`private` se desserrer en une ligne, l'inverse avoir déjà montré les données. Ce
+que `public` impliquer, `X-Forwarded-User`, cloisonnement par utilisateur :
 `memory/exposition.md`.
 
-## Règles impératives
+## RÈGLES DURES
 
 Un `Dockerfile` par app dans `apps/<nom>/`, multi-étapes, image **< 200 Mo**,
-tournant en **utilisateur non root**. **Aucun port publié**, **aucun secret**,
-**aucun `LABEL traefik.*`**, les logs sur la sortie standard, et l’app démarre
-sans intervention. Chacune de ces règles est refusée par `./init.sh --check` ou
-par la CI, avec la raison : `memory/regles-imperatives.md`.
+tournant en **utilisateur pas root**. **Aucun port publié**, **aucun secret**,
+**aucun `LABEL traefik.*`**, logs sur sortie standard, et app démarrer sans
+intervention. Chaque règle refusée par `./init.sh --check` ou par CI, avec la
+raison : `memory/regles-imperatives.md`.
 
-## Ce qui ne t’appartient pas
+## PAS À TOI
 
-Une base, un cache, un volume, un service annexe **t'appartiennent désormais** :
-déclare-les dans un manifeste plutôt que de les demander dans un `README`. Seule
-exception, les **valeurs** des secrets : tu écris le nom dans `env:` et dans ton
-`README`, l'infrastructure injecte la valeur. La topologie réseau, les trois
-refus et leurs alternatives : `memory/perimetre.md`.
+Base, cache, volume, service annexe **appartenir à toi maintenant** : toi
+déclarer eux dans un manifeste, pas demander eux dans un `README`. Seule
+exception, **valeurs** des secrets : toi écrire le nom dans `env:` et dans ton
+`README`, infrastructure injecter la valeur. Topologie réseau, trois refus,
+alternatives : `memory/perimetre.md`.
 
-## Avant de pousser
+## AVANT POUSSER
 
 ```bash
 ./init.sh --check
 ```
 
-Manifestes, puis artefacts dérivés, puis le compose service par service, puis les
-documents du dépôt. Les avertissements ne bloquent pas, les KO si. Le même contrôle
-tourne en CI, en verrou de tous les autres jobs : avec une stack partagée, un
-compose faux fusionné casserait toutes les apps à la fois. Le déploiement se
-déclenche à chaque fusion sur `main` — deux à trois minutes jusqu'à la mise en
-ligne. Ce que l'app fait **une fois déployée** se regarde avec `./scripts/prod.sh` —
-état, journaux, fichiers, en lecture seule ; le détour qui l'autorise est au `README`.
+Manifestes, puis artefacts dérivés, puis compose service par service, puis
+documents du dépôt. Avertissements pas bloquer, KO bloquer. Même contrôle
+tourner en CI, en verrou de tous les autres jobs : avec stack partagée, un
+compose faux fusionné casser toutes les apps d'un coup. Déploiement partir à
+chaque fusion sur `main` — deux à trois minutes jusqu'à mise en ligne. Ce que
+app faire **une fois déployée** se regarder avec `./scripts/prod.sh` — état,
+journaux, fichiers, en lecture seule ; détour qui autoriser ça être au `README`.
 
-## Le sommaire de `memory/`
+## SOMMAIRE DE `memory/`
 
-Avant d'agir sur un de ces sujets, lis son fichier. Le contrat n'en garde que
-l'essentiel ; le détail, les formes admises et les pièges y sont.
+Avant d'agir sur un de ces sujets, toi lire son fichier. Contrat garder
+seulement l'essentiel ; détail, formes admises et pièges vivre là-bas.
 
-| Sujet | Fichier | Quand le lire |
+| Sujet | Fichier | Quand lire lui |
 |---|---|---|
 | Volumes nommés | `memory/volumes.md` | avant d'ajouter ou de renommer un `volumes:` |
 | Champs de `app.yml` | `memory/app-yml.md` | avant de créer ou modifier un `app.yml` |
