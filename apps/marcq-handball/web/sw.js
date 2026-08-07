@@ -18,6 +18,10 @@ const NOM_CACHE = `marcq-${VERSION}`;
 const COQUE = [
   '/',
   '/style.css',
+  // La police du titrage. Hors du cache, une ouverture sans reseau retomberait
+  // sur la pile systeme : lisible, mais ce nest plus la meme application. Pas
+  // dapostrophe dans ce bloc : la liste est relue au motif des quotes simples.
+  '/anton.woff2',
   '/programme.json',
   '/app.js',
   '/etat.js',

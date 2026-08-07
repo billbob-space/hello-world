@@ -692,3 +692,34 @@ Trois règles s'appliquent, et ce sont des critères d'acceptation (PRD §10) :
 - `prefers-reduced-motion: reduce` supprime tout mouvement et l'application
   reste entièrement utilisable : les compteurs affichent leur valeur, le panneau
   s'affiche sans confettis, et il se ferme des trois mêmes façons.
+
+## Le thème visuel
+
+`web/style.css` porte un thème unique, décrit en tête de fichier et nommé
+« résine ». Trois règles s'y tiennent, et une modification qui les enfreint fera
+diverger l'application sans qu'aucun test ne s'en aperçoive :
+
+- **Une couleur, un sens.** L'orange `--marcq-resine` ne désigne que ce qui est à
+  faire maintenant ; le vert `--marcq-valide` que ce qui est accompli ; le bleu
+  nuit `--marcq-nuit` est l'encre et le fond des deux bandeaux. Rien d'autre
+  n'est coloré. `--marcq-danger` est réservé aux gestes destructifs.
+- **L'orange ne porte jamais de texte blanc** : le contraste tomberait à 3:1. Ce
+  qui s'écrit dessus est `--marcq-sur-resine`, l'encre de nuit — 5,7:1. Pour de
+  l'orange en petit corps sur fond clair, `--marcq-resine-encre`.
+- **Le trait plein est la ligne des 6 m, le pointillé celle des 9 m.** Plein :
+  atteint (un exercice fait, une séance faite). Pointillé : hors d'atteinte
+  aujourd'hui (une séance à venir, un jour à venir, un avis de bilan anticipé).
+
+Trois familles, trois registres : `--marcq-titre` (Anton) pour les titres, les
+grands nombres et les onglets ; `--marcq-texte` (pile système) pour tout ce qui
+se lit comme une phrase ; `--marcq-tableau` (chasse fixe) pour les minuteurs, les
+dates de sur-titre et les données — c'est le registre « tableau d'affichage ».
+
+**La police est servie par l'application** : `web/anton.woff2`, sous-ensemble
+latin de 18 Ko, sous SIL Open Font License 1.1 — le texte de la licence est dans
+`web/anton-OFL.txt` et doit rester livré avec le fichier. Elle est déclarée dans
+`COQUE` (`web/sw.js`), préchargée par `web/index.html`, et `main.go` enregistre
+le type MIME `font/woff2` : Alpine n'embarque aucune table `/etc/mime.types` et
+celle que Go compile en dur ne connaît pas woff2, si bien que le préchargement
+serait rejeté sans ces deux lignes. Aucune ressource n'est chargée hors de
+l'origine, et `tests/coque.test.js` le vérifie.

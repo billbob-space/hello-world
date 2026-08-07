@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -44,6 +45,19 @@ var version = "dev"
 // laisser dans le fichier source garde web/sw.js executable tel quel par un
 // navigateur et lisible par node --test, sans etage de construction.
 const jetonVersion = "__VERSION__"
+
+// Alpine n'embarque aucune table /etc/mime.types, et celle que Go compile en dur
+// ne connait pas woff2 : la police d'affichage partirait en
+// application/octet-stream. Les navigateurs la chargeraient quand meme depuis
+// @font-face, mais le prechargement declare dans index.html serait rejete, et le
+// titre du jour s'afficherait deux fois — une fois dans la police du telephone,
+// une fois dans la sienne. Deux lignes ici valent mieux qu'un fichier a poser
+// dans l'image.
+func init() {
+	if err := mime.AddExtensionType(".woff2", "font/woff2"); err != nil {
+		log.Printf("type woff2 non declare, la police sera servie en octet-stream : %v", err)
+	}
+}
 
 func main() {
 	log.SetFlags(0) // l'infra horodate les logs ; on ecrit sur la sortie standard

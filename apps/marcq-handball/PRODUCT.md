@@ -38,6 +38,9 @@ compare.
   son absence n'empêche jamais de s'entraîner.
 - Mobile d'abord : zones de tap larges, contraste lisible en plein soleil,
   aucune interaction dépendant du survol, `prefers-reduced-motion` respecté.
+- Une identité visuelle propre, tirée du terrain de handball et de rien d'autre :
+  trois couleurs à un sens chacune, les deux lignes du terrain comme grammaire,
+  une police d'affichage servie par l'app. Le détail au § 16.5.
 - Hors périmètre, décidé et non oublié : édition du programme depuis l'app,
   messagerie, notifications, saisie du nombre réellement effectué, historique
   multi-saisons. Le minuteur d'exercice et les liens vidéo en sortaient ; ils
@@ -648,6 +651,49 @@ pour que la liste soit complète, pas parce qu'ils demandent un arbitrage.
 | Rejoindre depuis un second téléphone **récupère** au lieu d'écraser | Signalé après mise en ligne : une progression effacée | § 14 corrigé — l'exception à « rien n'est sauvegardé » |
 | Un geste « Récupérer ma progression » sous le nom déjà enregistré | Le correctif précédent n'avait de porte que pour qui n'en avait pas besoin | Inchangé |
 | Le refus d'un pseudonyme s'affiche sous le champ fautif | Signalé après mise en ligne : « rien ne se passe » | Inchangé |
+
+#### 16.5 Une identité visuelle, et laquelle — 7 août
+
+L'application avait l'apparence de sa fonction : bleu institutionnel, polices du
+système, cartes blanches. Correcte, et interchangeable avec n'importe quel
+formulaire administratif. Demandé de vive voix : *« une amélioration graphique,
+le thème doit être affirmé sport handball pour des ados »*.
+
+Ce qui existe maintenant — un thème nommé **« résine »**, tiré du terrain et de
+rien d'autre :
+
+- **Trois couleurs, une fonction chacune**, jamais deux sens pour la même.
+  L'orange de la résine dit *ce qui est à faire maintenant* — la séance du jour,
+  le bouton, le minuteur qui tourne, la case d'aujourd'hui. Le vert dit *ce qui
+  est accompli* — coche, séance faite, barre remplie. Le bleu nuit est l'encre.
+- **Deux traits, et ils disent quelque chose de vrai.** Le trait plein est la
+  ligne des 6 m : ce qui est atteint. Le pointillé est celle des 9 m : ce qui ne
+  l'est pas encore — une séance à venir, un jour à venir, un repos. Le verrou des
+  séances futures utilisait déjà un cadre pointillé ; c'est devenu une règle au
+  lieu d'un hasard.
+- **Une police d'affichage servie par l'application**, jamais appelée chez un
+  tiers : 18 Ko de latin, sous licence libre, dans le cache hors ligne. Elle
+  porte les titres, les grands nombres et les onglets. Ce n'est pas de la
+  décoration : « Autre sport + Renforcement » tient sur une ligne là où la police
+  du téléphone en demandait trois, et les quatre onglets tiennent enfin sur une
+  seule ligne chacun à 320 px.
+- **L'écran du jour est une surface de but** — le but, l'arc des 6 m, celui des
+  9 m — et il occupe l'écran entier jusqu'à la barre d'onglets.
+
+*Ce que le PRD disait* : § 10 veut que l'app soit « plaisante à ouvrir », sans
+mascotte, sans badge à collectionner, sans vocabulaire de coach américain. Ces
+trois interdits sont tenus — il n'y a ni personnage, ni collection, ni
+récompense inventée. Le § 11 demande un contraste suffisant en plein soleil : le
+blanc sur bleu nuit de l'écran du jour est le contraste le plus élevé de
+l'application.
+
+*Ce qui est arbitré ici, et n'était écrit nulle part* : **un écran sombre reflète
+la lumière du jour** — un contraste élevé ne compense pas entièrement la
+réverbération sur la vitre. Le partage est donc délibéré : le bandeau sombre est
+sur l'écran qu'on **ouvre**, d'un coup d'œil et d'un tap ; l'écran de séance,
+celui qu'on tient à bout de bras entre deux séries, reste clair. Si la lecture au
+soleil pose problème sur le terrain, c'est l'écran du jour qu'il faut éclaircir,
+et lui seul.
 
 ---
 
