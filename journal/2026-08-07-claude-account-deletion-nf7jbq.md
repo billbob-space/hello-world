@@ -63,6 +63,13 @@ pour retirer une fiche que ce téléphone ne porte pas. Correct, testé, poussé
 puis annulé sur demande : *« pour moi c'est le bouton changer d'enfant qui
 devrait s'appeler supprimer mon profil »*. Deux commits et onze tests jetés.
 
+**L'annulation est arrivée trop tard** : la PR #71, ouverte sur cette branche
+avant le revirement, a été fusionnée dans `main` entre-temps. L'écran écarté est
+donc parti en production, et c'est la présente branche qui l'en retire — d'où un
+diff qui supprime du code que `main` n'a porté que quelques minutes. Le `git
+reset` local avait bien défait le travail dans le dépôt de travail ; il ne
+pouvait rien contre une PR déjà ouverte.
+
 **Cause** — le symptôme rapporté — *« je n'arrive plus à supprimer »* — a été lu
 comme *« il manque un chemin »*, alors qu'il disait *« le chemin existant ne se
 trouve pas et ne finit pas le travail »*. Ajouter un troisième geste de sortie à
@@ -83,6 +90,31 @@ coup.
 inventorier d'abord ce qui existe déjà pour la couvrir, et pourquoi ça n'a pas
 suffi. « Ajouter » est le réflexe le plus cher : il double la surface, et il
 laisse en place la chose qui n'allait pas.
+
+### 4. « Annulé » ne veut rien dire tant qu'une pull request est ouverte
+
+**Symptome** — le travail écarté à l'anomalie 3 a été défait localement — `git
+reset --hard origin/main`, arbre propre, branche revenue à son point de départ —
+et il est quand même arrivé dans `main` : la PR #71, ouverte sur cette branche,
+a été fusionnée. Le conflit ne s'est manifesté qu'au moment de fusionner la PR
+suivante, sous la forme d'un `mergeable_state: dirty` que rien n'annonçait.
+
+Deux faits ont brouillé la lecture sur le moment : le `push --force-with-lease`
+a échoué en `stale info`, puis la branche a disparu du serveur — ce qui
+ressemblait exactement à une annulation réussie. Elle ne l'était pas : la PR,
+elle, tenait toujours ses commits.
+
+**Cause** — annuler a été traité comme une opération sur le dépôt local, alors
+que le travail avait déjà été **publié**. Un `reset` défait des commits ; il ne
+défait ni une PR, ni une fusion, ni un déploiement. La règle qui manquait tient
+en une ligne : *ce qui est publié ne s'annule que là où il est publié*.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — avant d'annuler du travail poussé, regarder s'il
+existe une PR sur la branche, et la fermer explicitement. Et le dire à qui
+demande l'annulation : « annulé localement » et « retiré de la production » ne
+sont pas la même phrase, et seule la seconde répond à la demande.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
