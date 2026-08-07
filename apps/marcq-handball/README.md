@@ -578,6 +578,8 @@ dénominateur vient de `participants`, jamais d'un nombre écrit en dur (PRD §4
 
 ## Le ressenti de fin de séance
 
+`web/ressenti.js` porte les trois émojis et leur envoi.
+
 Trois émojis — 🙂 Facile, 😐 Correct, 🥵 Dur — **dans** le panneau qui célèbre la
 fin d'une séance, entre les compteurs et le bouton. Jamais un second panneau :
 deux fenêtres modales ouvertes sur le même événement, c'est un écran inerte et un
@@ -603,6 +605,8 @@ changer est de décocher puis recocher la dernière case, ce qui rouvre le panne
 C'est cohérent avec ce qu'il mesure — une humeur datée, pas une déclaration.
 
 ## La vue coach — et pourquoi elle n'a pas de mot de passe
+
+`web/vue-coach.js` monte cet écran.
 
 Le lien à envoyer au coach : **https://marcq-handball.apps.billbob.ovh/#/coach**.
 Il n'est listé nulle part dans la navigation de l'application.
@@ -637,6 +641,8 @@ les enfants qui ont rejoint le classement. Un coach qui lirait « 4 facile /
 dit, ce README aussi.
 
 ## Le bilan, après le 21 août
+
+`web/vue-bilan.js` monte cet écran.
 
 Le 22 août au matin, ouvrir le lien ne montre plus un programme terminé : il
 montre ce que l'enfant a fait pendant trois semaines. **La bascule se produit
