@@ -46,6 +46,11 @@ committer des fichiers intacts en croyant les avoir régénérés :
 Le commit 2 ne touche que `app.yml` et `compose.yaml` : `--enable` ne touche
 rien d'autre.
 
+**`--add` ne réécrit jamais un `PRODUCT.md` ni un `README.md` déjà présents,
+`--force` compris.** C'est ce qui rend légitime un `apps/<nom>/` qui ne porte
+que ses documents — une app dont le code n'est pas encore écrit — et ce qui
+permet de relancer `--add` sur une app existante sans perdre son PRD.
+
 ## Pourquoi une app naît `enabled: false`
 
 Une image absente du registre fait échouer `docker compose up` **pour la stack
