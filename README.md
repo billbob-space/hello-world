@@ -169,18 +169,48 @@ Ce même contrôle tourne en CI, en verrou de tous les autres jobs.
 3. **`test`** — une matrice, `apps/<nom>/test.sh` par application.
 4. **`build`** — une matrice, contexte `apps/<nom>`, publication sur GHCR sous
    `ghcr.io/<org>/<dépôt>/<app>`, cache séparé par app.
-5. **`deploy`** — le garde-fou d'images, puis **un seul** appel de webhook.
+5. **`deploy`** — l'épinglage des versions livrées, le garde-fou d'images, la
+   poussée de `versions.yml` sur `main`, puis **un seul** appel de webhook.
 
 Sur une *pull request*, tout tourne sauf la publication et le déploiement :
 le Dockerfile est validé sans que le tag `:main` bouge.
 
+### Le déploiement ne redémarre que ce qui a changé
+
+Chaque application est déployée sur le **commit qui l'a construite**, et non sur
+un tag `:main` commun. Ce commit est écrit par la CI dans `versions.yml` :
+
+```yaml
+cadran: 4f21c8e9a1b3...      # la version qui tourne en ligne
+marcq-handball: 9c82467...
+```
+
+`init.sh` le reporte dans `compose.yaml`. Livrer une application ne fait donc
+bouger qu'**une** ligne `image:` de tout le fichier : `docker compose up` recrée
+ce service-là et laisse les autres conteneurs intacts. Le rayon de souffle d'une
+livraison tombe à l'application livrée — avant, les neuf conteneurs de la stack
+redémarraient pour une correction d'une ligne dans une seule app.
+
+Trois conséquences :
+
+- **Le dépôt dit quelle version tourne**, application par application, ce qu'aucun
+  tag mutable ne permettait de savoir.
+- **Revenir en arrière** ne reconstruit rien : on remet le commit précédent dans
+  `versions.yml`, on lance `./init.sh`, on pousse. L'image est déjà sur GHCR.
+- **`Force redeployment` doit rester DÉCOCHÉ** côté `dockhand` — voir ci-dessous.
+
+Une application absente de `versions.yml` retombe sur `:main`, le tag mutable :
+c'est le cas d'une app dont aucune image n'a encore été publiée, et `--check` le
+signale en avertissement. Le fichier est **écrit par la CI**, jamais à la main —
+sauf pour un retour en arrière, où l'on change une ligne et relance `./init.sh`.
+
 ### Le webhook
 
-Le tag `:main` est **mutable** : une image reconstruite ne change pas une ligne
-du `compose.yaml`. L'auto-sync de `dockhand`, qui ne redéploie que s'il voit un
-diff dans le répertoire de la stack, ne verrait donc jamais rien passer. C'est
-le dernier pas du workflow qui déclenche le déploiement, en appelant le webhook
-de la stack **après** la publication des images — l'ordre importe.
+Un tag épinglé change bien le `compose.yaml`, donc `dockhand` a désormais un vrai
+diff à voir. C'est pourtant toujours le dernier pas du workflow qui déclenche le
+déploiement, en appelant le webhook de la stack **après** la publication des
+images et **après** la poussée de `versions.yml` — l'ordre importe : `dockhand`
+clone le dépôt lui-même et tire les images qu'il y lit.
 
 L'URL de ce webhook est une *URL de capacité* : qui la connaît peut déclencher
 un déploiement. Elle n'est donc pas dans ce dépôt, mais dans un secret :
@@ -206,7 +236,7 @@ sa documentation recommande pour une CI générique :
 Le corps envoyé est `{}` : `dockhand` ne le lit pas, il relit le dépôt lui-même.
 Seule la signature compte.
 
-### Le piège : `Force redeployment` est obligatoire
+### Le réglage `Force redeployment`, et pourquoi il doit être décoché
 
 `dockhand` ne redéploie **que s'il voit un changement** dans le dépôt, et ce
 qu'il regarde est plus étroit que sa documentation ne le laisse croire. Constaté
@@ -217,15 +247,23 @@ par l'expérience sur ce dépôt :
 | `2ec90f4` | code applicatif | `No changes detected, skipping redeploy` |
 | `cb7035b` | `compose.yaml` | déploiement exécuté |
 
-Le tag `:main` étant mutable, `compose.yaml` ne change pas d'un commit applicatif
-à l'autre. **Sans `Force redeployment`, aucune modification de code n'est jamais
-déployée** — l'image est construite et publiée, le webhook répond `200`, et le
-serveur continue de servir la version précédente.
+Tant que toutes les apps portaient le tag mutable `:main`, `compose.yaml` ne
+changeait pas d'un commit applicatif à l'autre : **sans `Force redeployment`,
+aucune modification de code n'était jamais déployée**. Le réglage était donc
+obligatoire — et il a un coût, celui qui a motivé les versions épinglées : forcer
+un déploiement, c'est recréer **tous** les conteneurs de la stack.
 
-Le réglage se trouve dans les *Deploy options* de la stack. Le workflow traite
-le `skipped` comme un échec. `Re-pull images`, en revanche, n'est **pas**
-nécessaire : le `pull_policy: always` du `compose.yaml` couvre le même besoin, et
-le fait depuis le dépôt plutôt que depuis une case cochée sur le serveur.
+Depuis, chaque livraison change une ligne du `compose.yaml`. `dockhand` voit donc
+le diff de lui-même, et le réglage n'a plus lieu d'être :
+
+> Dans les *Deploy options* de la stack, **`Force redeployment` doit être
+> décoché**. Coché, il continue de fonctionner, mais redémarre toute la stack à
+> chaque livraison — le défaut qu'on vient de corriger.
+
+`Re-pull images` n'est toujours **pas** nécessaire : le `pull_policy: always` du
+`compose.yaml` couvre le même besoin, et le fait depuis le dépôt plutôt que depuis
+une case cochée sur le serveur. Le workflow traite toujours un `skipped` comme un
+échec — il ne peut désormais plus vouloir dire « rien à faire ».
 
 La stack `dockhand` elle-même ne change pas avec la fabrique : même dépôt, même
 `composePath: compose.yaml`, mêmes secrets. Seul son contenu grandit.
