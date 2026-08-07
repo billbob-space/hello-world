@@ -31,6 +31,13 @@ et rien ne le signale.
 ./scripts/fusionnees.sh    # dit quoi supprimer, ne supprime rien
 ```
 
+**GitHub, lui, en ferme à la fusion** — et le harnais réassigne le même nom
+`claude/` au sujet suivant. La référence de suivi locale survit alors à une
+branche distante disparue : `git` annonce « ahead by 1 commit », puis refuse le
+`push` avec `stale info`, mot qui évoque un conflit là où il n'y a qu'une
+référence périmée. **Élague avant de pousser sur un nom déjà fusionné** —
+`git remote prune origin`, puis un `push` ordinaire.
+
 Le critère est l'**équivalence de patch**, pas l'appartenance à l'ascendance de
 `main` : cette dernière se trompe dans les deux sens — elle classe « non fusionnée »
 une branche écrasée en un commit, et ne dit rien d'une branche dont la PR est
