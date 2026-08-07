@@ -79,10 +79,37 @@ structure ne coûtait pas plus cher, elle disait juste moins.
 données qui n'a qu'une façon d'enchaîner ses éléments **choisit** à la place de
 celui qui la remplit, sans jamais le lui dire.
 
+### 4. `prod.sh` a annoncé une app tombée pendant que la stack redémarrait
+
+**Symptome** — premier contrôle après la fusion : `ramure absent de l hote`, en
+rouge, sur une app que ce travail n'a pas touchée. Le réflexe qu'il déclenche —
+une panne collatérale, le rayon de souffle qui vient de mordre — est le bon
+réflexe et il était infondé : trente secondes plus tard, `ramure` était
+`running (healthy)`, et ses journaux montraient un démarrage propre pendant le
+contrôle même.
+
+**Cause** — `docker compose up` recrée les conteneurs les uns après les autres.
+Entre le retrait de l'ancien et le démarrage du nouveau, un service **n'existe
+pas**, et `prod.sh` — qui décrit fidèlement l'instant où on l'interroge — le
+rapporte comme absent. Ce n'était pas une lecture fausse mais une lecture
+**prise trop tôt** : un état transitoire lu comme un état. Le même contrôle
+affichait par ailleurs des conteneurs « Up 7 minutes » alors que l'en-tête
+`X-App-Version` du site rendait déjà le commit de fusion — deux instants
+différents dans une même sortie, ce qui aurait dû suffire à ne pas conclure.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — le vrai témoin d'un déploiement n'est pas l'état des
+conteneurs, c'est la **version servie** : `X-App-Version` est comparable au
+commit fusionné, sans ambiguïté ni fenêtre de course. `prod.sh` gagnerait à
+attendre la fin du redéploiement avant de conclure, ou à dire qu'il lit un
+instant. En attendant : après une fusion, vérifier la version servie d'abord, et
+ne lire l'état des services qu'ensuite.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 23:16 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 23:25 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -90,26 +117,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 71 | 0,00 $ |
-| Écriture de cache | 150 762 | 0,94 $ |
-| Lecture de cache | 3 951 319 | 1,98 $ |
-| Sortie | 41 973 | 1,05 $ |
-| **Total** | **4 144 125** | **3,97 $ — 3,45 €** |
+| Entrée | 346 | 0,00 $ |
+| Écriture de cache | 269 757 | 1,20 $ |
+| Lecture de cache | 9 348 170 | 4,52 $ |
+| Sortie | 57 937 | 1,35 $ |
+| **Total** | **9 676 210** | **7,07 $ — 6,14 €** |
 
 **Ce qui coûte**
 
-- **38 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **75 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   59 176 jetons, écrits une fois par session puis relus à chaque
-  échange : 2 189 512 jetons de relecture, 55 % de tout ce qui a été relu.
-- **Tours courts** — 13 des 38 tours (34 %) sortent
+  échange : 4 379 024 jetons de relecture, 46 % de tout ce qui a été relu.
+- **Tours courts** — 32 des 75 tours (42 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 1,00 $, soit 25 % de la facture.
+  une sortie de rien. Ils coûtent 2,81 $, soit 39 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 59 176 jetons relus au premier appel qui relise
-  quelque chose, 149 965 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 190 975 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 4144125 -->
+<!-- cout-total: 9676210 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 59176 0 361
 2 principal claude-opus-5 1218 59176 206
@@ -149,5 +176,42 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 36 principal claude-opus-5 10562 136354 2981
 37 principal claude-opus-5 3049 146916 105
 38 principal claude-opus-5 797 149965 99
+39 principal claude-opus-5 4265 150762 98
+40 principal claude-opus-5 371 155027 1620
+41 principal claude-opus-5 1800 155398 121
+42 principal claude-opus-5 344 157198 94
+43 principal claude-opus-4-7 15189 28262 250
+44 principal claude-opus-5 451 157542 86
+45 principal claude-opus-4-7 433 43451 238
+46 principal claude-opus-4-7 23654 28262 316
+47 principal claude-opus-4-7 649 51916 290
+48 principal claude-opus-5 480 157993 1122
+49 principal claude-opus-4-7 13015 43884 885
+50 principal claude-opus-5 1637 158473 118
+51 principal claude-opus-5 2109 160110 137
+52 principal claude-opus-5 408 162219 525
+53 principal claude-opus-4-7 1582 56899 1905
+54 principal claude-opus-5 587 162627 603
+55 principal claude-opus-5 3098 163214 289
+56 principal claude-opus-5 4490 166312 540
+57 principal claude-opus-5 748 170802 159
+58 principal claude-opus-5 738 171550 137
+59 principal claude-opus-5 917 172288 193
+60 principal claude-opus-5 306 173205 22
+61 principal claude-opus-5 340 173533 137
+62 principal claude-opus-5 1099 173873 175
+63 principal claude-opus-5 784 174972 137
+64 principal claude-opus-4-7 23144 52565 13
+65 principal claude-opus-5 194 175756 117
+66 principal claude-opus-5 638 175950 28
+67 principal claude-opus-5 334 176615 93
+68 principal claude-opus-5 397 176949 523
+69 principal claude-opus-5 1062 177346 784
+70 principal claude-opus-5 1114 178408 730
+71 principal claude-opus-5 885 179522 448
+72 principal claude-opus-5 616 180407 228
+73 principal claude-opus-5 540 181023 1558
+74 principal claude-opus-5 9412 181563 1095
+75 principal claude-opus-5 1165 190975 150
 -->
 <!-- /cout -->
