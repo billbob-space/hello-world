@@ -202,27 +202,35 @@ plafond monte, soit le contrat se dote d'une section d'annonces courtes dont la
 compression est assumée, soit on accepte que `--check` avertisse. Aucun agent ne
 devrait trancher seul un réglage qui décide de ce que tous les suivants liront.
 
-### 9. `--check` dit `present` d'une commande qui n'est pas encore invocable
+### 9. Avoir écrit dans `memory/` un comportement déduit, jamais observé
 
-**Symptôme** — `.claude/commands/livrer.md` écrit, `./init.sh --check` répond
-`.claude/commands/livrer.md present` en vert. La commande n'est pourtant pas
-disponible dans la session qui vient de l'écrire : le registre des commandes est
-lu au démarrage, comme celui des agents et celui des plugins — `memory/travail.md`
-le disait déjà pour les agents, `memory/outillage.md` pour les plugins.
+**Symptôme** — les deux commandes écrites, j'ai ajouté à `memory/travail.md` :
+« une commande écrite en cours de session n'existe qu'à la suivante », et je l'ai
+répétée dans le corps de la pull request, sous « Avant de fusionner ». Quelques
+minutes plus tard le harnais a listé `/livrer` et `/pas-a-pas` comme disponibles,
+dans la session même qui venait de les écrire. La phrase était fausse au moment
+où je l'écrivais, et elle était déjà committée.
 
-**Cause** — le contrôle vérifie ce qu'il peut vérifier, l'existence du fichier,
-et le nomme `present`, ce qui s'entend comme « disponible ». Les deux notions
-coïncident pour un hook — lancé par chemin à chaque appel — et divergent pour
-tout ce qui passe par un registre chargé une fois. Le mot juste n'existe pas dans
-la sortie d'un contrôle de présence : c'est la doc qui doit porter la nuance.
+**Cause** — un raisonnement par symétrie, non vérifié : `memory/travail.md` dit
+que le registre des **agents** est lu au démarrage, `memory/outillage.md` dit la
+même chose des **plugins**. Les commandes leur ressemblent — même répertoire
+`.claude/`, même genre de fichier — donc j'ai conclu au lieu de regarder. Le
+comportement réel est l'inverse : le registre des commandes est relu en cours de
+session. Trois registres voisins, trois comportements à vérifier séparément.
+
+Ce qui rend l'erreur coûteuse n'est pas la déduction, c'est **l'endroit où je
+l'ai écrite**. `memory/` est lu par les sessions suivantes comme un fait établi ;
+rien dans le fichier ne distingue ce qui a été observé de ce qui a été supposé.
+Une déduction plausible y devient indiscernable d'une mesure, et se propage.
 
 **Detecte par** — `auteur`
 
-**Action** — `contrat` — `memory/travail.md` porte désormais la phrase pour les
-commandes, à côté de celle qui existait pour les agents. Le troisième cas du même
-piège en trois fichiers différents : il vaudrait mieux une phrase unique quelque
-part que trois rappels dispersés, mais aucun des trois fichiers n'est le bon
-endroit pour les deux autres.
+**Action** — `comportement` — n'écris dans `memory/` que ce que tu as vu, et
+quand tu ne peux pas voir, écris que tu n'as pas vu. Le format des fichiers
+`memory/` n'a pas de champ pour ça — chaque phrase s'y lit comme une affirmation
+— donc la retenue est le seul garde-fou disponible. La phrase corrigée dit
+maintenant le contraire, et dit aussi pourquoi les trois registres ne se
+déduisent pas l'un de l'autre.
 
 ### 10. `git` annonce « ahead by 1 commit » d'une branche distante qui n'existe plus
 

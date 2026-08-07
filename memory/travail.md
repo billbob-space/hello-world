@@ -208,10 +208,11 @@ Fichiers ordinaires dans `.claude/commands/`, dont `--check` vérifie la présen
 Le nom de la commande **est** celui du fichier, d'où `pas-a-pas` sans accents :
 un caractère accentué dans un nom de commande n'est garanti nulle part.
 
-**`present` en vert ne veut pas dire invocable** : `--check` regarde le disque, et
-le registre des commandes se lit au démarrage de la session — même piège que les
-agents et les plugins. Une commande écrite en cours de session n'existe qu'à la
-suivante, et le contrôle vert au moment même le fait oublier.
+**Une commande écrite est invocable tout de suite** — vérifié : le registre des
+commandes est relu en cours de session, contrairement à celui des agents et à
+celui des plugins, qui ne le sont qu'au démarrage. Les trois registres se
+ressemblent et ne se comportent pas pareil ; ne déduis le comportement d'aucun
+des trois de celui d'un autre.
 
 `/livrer` s'invoque à n'importe quel moment — avec un sujet, ou sans, auquel cas
 il reprend le travail en cours. C'est ce qui le rend utilisable aux deux moments
