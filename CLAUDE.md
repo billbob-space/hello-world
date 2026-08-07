@@ -180,6 +180,22 @@ entrée de journal ; `pret.sh` le réclame. Non relevé avant la fusion, il est 
 Les vocabulaires fermés du journal, les deux agents, les deux garde-fous, le relevé
 de coût et la fin de vie d’une branche : `memory/travail.md`.
 
+## Ce que le PRD dit reste vrai, ou il ment
+
+Un ajout qui ne vient d'aucun PRP est normal — l'usage réel en produit. Qu'il ne
+soit écrit nulle part ne l'est pas : le `PRODUCT.md` décrit alors une application
+qui n'existe plus, et rien ne le signale.
+
+**Une correction** passe par une ligne déjà écrite du PRD et la fait bouger toute
+seule. **Une capacité neuve** ne passe par aucune : elle se déclare dans une section
+« Ajouté après les PRP », **dans le même commit que le code**. Si elle lève une ligne
+d'un « hors périmètre », cette ligne ne s'efface pas — elle renvoie à ce qui l'a
+rouverte. Un PRP livré, lui, ne se rouvre jamais : l'état réel se lit dans le PRD.
+
+`pret.sh` avertit quand une app reçoit du code neuf sans que son `PRODUCT.md` ne
+bouge. Les deux registres, la levée qui n'est pas une délimitation, et l'angle mort
+du garde-fou : `memory/produit.md`.
+
 ## Le rayon de souffle
 
 Une seule stack, donc un seul `docker compose up`, atomique : une erreur dans le bloc
@@ -259,6 +275,7 @@ l'essentiel ; le détail, les formes admises et les pièges y sont.
 | Champs de `app.yml` | `memory/app-yml.md` | avant de créer ou modifier un `app.yml` |
 | Trois sortes de services | `memory/services.md` | avant d'ajouter un service à une app ou à la fabrique |
 | Journal, garde-fous, agents | `memory/travail.md` | avant de remplir le journal ou de lancer un agent |
+| Le PRD suit l'app | `memory/produit.md` | avant de livrer un ajout que nul PRP ne prévoyait |
 | Outillage, plugins, LSP | `memory/outillage.md` | quand un plugin ou un LSP manque |
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |
 | Règles impératives, détail | `memory/regles-imperatives.md` | avant d'écrire un `Dockerfile` ou un `test.sh` |

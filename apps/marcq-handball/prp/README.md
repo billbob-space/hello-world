@@ -99,6 +99,13 @@ jamais cet en-tête. Rien n'est à desserrer.
 | **Lot 2** — PRP 07 à 10 | livré : le classement côté serveur et son volume, l'écran pour le rejoindre, le podium et la position, le ressenti et la page du coach |
 | **Lot 3** — PRP 11 | livré : le bilan du 22 août |
 
+**Livrés ne veut pas dire à jour.** Sept changements sont arrivés après, le
+7 août, sans passer par un PRP — trois d'entre eux déplacent le périmètre. Ces
+onze documents décrivent donc le travail *planifié*, pas l'état de
+l'application : celui-ci se lit dans le PRD, dont le § 16 tient la liste des
+ajouts postérieurs. Un PRP livré ne se rouvre pas pour les y ajouter ; il est le
+compte rendu d'une intention, à sa date.
+
 **Deux verrous restent ouverts, et aucun n'est technique.**
 
 - **Le coach regardera-t-il son écran ?** (PRD §15.3) Le PRP 10 est le seul dont

@@ -39,8 +39,9 @@ compare.
 - Mobile d'abord : zones de tap larges, contraste lisible en plein soleil,
   aucune interaction dépendant du survol, `prefers-reduced-motion` respecté.
 - Hors périmètre, décidé et non oublié : édition du programme depuis l'app,
-  chronomètre, vidéos, messagerie, notifications, saisie du nombre réellement
-  effectué, historique multi-saisons.
+  messagerie, notifications, saisie du nombre réellement effectué, historique
+  multi-saisons. Le minuteur d'exercice et les liens vidéo en sortaient ; ils
+  ont été rouverts après la livraison, et le § 16 dit à quelles conditions.
 
 ## Product Principles
 
@@ -200,12 +201,16 @@ première semaine :
 #### Hors périmètre — décidé, pas oublié
 
 - Édition du programme par le coach depuis l'application.
-- Chronomètre, minuteur de série, décompte de repos.
-- Photos, vidéos de démonstration des mouvements.
 - Messagerie, commentaires, réactions entre enfants.
 - Notifications push, rappels par e-mail ou SMS.
 - Saisie du nombre réellement effectué (voir § 13).
 - Historique multi-saisons, comptes durables.
+
+Deux exclusions ont été levées après la livraison des onze PRP — le minuteur
+d'exercice et les liens vidéo de démonstration. Elles ne sont pas retirées de
+ce paragraphe par oubli : elles y étaient pour des raisons qui tenaient, et ce
+qui a changé est écrit au § 16. Une exclusion qui disparaît sans laisser
+d'adresse est une décision perdue.
 
 ### 7. Parcours
 
@@ -284,7 +289,11 @@ position et la progression du groupe.
 
 #### 7.5 Regarder les stats
 
-Deux niveaux, dans cet ordre :
+Deux niveaux, **et depuis le 7 août deux écrans** : « Ma progression » et
+« L'équipe » ont chacun leur onglet. Le second niveau d'un document n'est pas
+le bas d'un écran — la comparaison placée sous un calendrier de dix-neuf jours
+n'était atteignable qu'en déroulant, donc nulle part (§ 16.2). Un onglet
+respecte le même ordre sans le payer : il ne devance personne, il se choisit.
 
 **Ma progression** — ce qui se lit sans se comparer à personne :
 - part du programme accompli à ce jour ;
@@ -528,6 +537,11 @@ avant que la précision ne serve à quelque chose.
 
 **Le chronomètre de séance.** Écarté : personne ne garde l'app ouverte pendant
 vingt minutes de footing, et une durée fausse est pire qu'une durée absente.
+**Toujours vrai**, et c'est ce qui borne le minuteur livré depuis (§ 16.1) : il
+compte un **exercice** et non une séance, il n'enregistre rien, et aucune durée
+qu'il affiche ne part vers le serveur ni ne compte dans le classement. Ce qui
+était refusé, c'est de **mesurer** la séance ; ce qui a été ajouté, c'est de
+**tenir** un gainage de 45 secondes sans compter dans sa tête.
 
 **Le classement sur le volume cumulé.** Écarté comme redondant avec la
 régularité (§ 9).
@@ -560,6 +574,80 @@ quatorzième.
 3. **Le coach est-il au courant ?** Le lot 2 lui destine un écran. Savoir s'il
    compte le regarder décide s'il vaut le travail, et si le ressenti mérite
    d'exister.
+
+### 16. Ajouté après les PRP
+
+Les onze PRP livrés le 7 août ne sont pas le dernier état de l'application :
+sept changements ont suivi dans la journée, tous nés de l'usage réel et aucun
+prévu par un PRP. Cette section les tient, et elle est la contrepartie des
+§ 6 et § 13 : sans elle, le seul endroit du dépôt où ces changements existent
+est l'historique des commits, que personne ne relit pour savoir ce que
+l'application fait aujourd'hui.
+
+Trois d'entre eux ont **déplacé le périmètre** — ils ont rendu faux ce que ce
+document affirmait. Ce sont les § 16.1 à § 16.3. Les quatre autres ont livré ce
+que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4.
+
+#### 16.1 Le minuteur d'exercice — 7 août
+
+Chaque exercice porte un minuteur : **compte à rebours** quand le programme
+prescrit une durée, **chronomètre qui monte** sinon. Le mode est décidé par le
+programme, jamais par l'enfant : un rebours sur « 15 pompes » inventerait une
+limite que le coach n'a pas donnée.
+
+*Ce que le PRD disait* : le chronomètre était hors périmètre (§ 6), et le § 13
+argumentait le refus. **Cet argument tient toujours** — il portait sur la mesure
+de la *séance*. Le minuteur livré compte un geste, n'enregistre rien, et
+n'envoie rien au serveur ; il ne rouvre donc pas la décision de § 13, il en
+délimite le bord.
+
+*Corrigé le lendemain* : la durée se lit dans le **libellé** de l'exercice et
+non dans sa mesure — « 45 s de chaise contre un mur » n'a pas de mesure
+exploitable, la mesure sert les totaux et le libellé sert l'enfant. Sept
+exercices affichaient une durée fausse, en général celle de la séance entière.
+
+#### 16.2 « L'équipe » derrière son onglet — 7 août
+
+Le podium, la position et le bouton pour rejoindre ont quitté le bas de « Ma
+progression » pour un onglet à eux (`#/equipe`).
+
+*Ce que le PRD disait* : § 7.5, « deux niveaux dans cet ordre ». L'ordre est
+respecté ; c'est sa traduction en un seul écran qui était fausse. Le § 7.5 est
+corrigé, avec la règle qui a tranché : **un onglet mène à ce qu'on regarde,
+jamais à ce qu'on décide** — le consentement au classement reste derrière un
+bouton, au moment où il y a un vrai choix à faire.
+
+#### 16.3 Les liens vidéo — 7 août
+
+Chaque exercice porte un lien qui montre le mouvement. Deux sources, et la
+première gagne : une adresse **vérifiée par un adulte**, facultative, posée dans
+le fichier de programme ; à défaut, une **recherche** sur le mouvement reconnu.
+Les deux phrases diffèrent parce que les deux promesses diffèrent — « Voir la
+vidéo » contre « Chercher une vidéo qui montre ». Proposer une vidéo précise que
+personne n'a visionnée reviendrait à la mettre sous les yeux d'un enfant sur la
+foi de son titre. Rien n'est chargé depuis un domaine tiers : un lien qui s'ouvre
+ailleurs, pas un lecteur intégré.
+
+*Ce que le PRD disait* : « photos, vidéos de démonstration » étaient hors
+périmètre (§ 6), sans argument développé — contrairement au chronomètre. C'est
+la seule des trois où l'exclusion est **levée** et non délimitée.
+
+*Ce qui manque* : aucune trace de la demande dans le dépôt — ni PRP, ni entrée
+de journal, ni ligne de PRD avant celle-ci. Le champ vidéo du fichier de
+programme n'est renseigné nulle part à ce jour ; tous les liens sont donc des
+recherches.
+
+#### 16.4 Ce qui n'a pas déplacé le périmètre
+
+Quatre changements de la même journée relèvent de la correction. Ils sont ici
+pour que la liste soit complète, pas parce qu'ils demandent un arbitrage.
+
+| Changement | Ce qui l'a déclenché | PRD |
+|---|---|---|
+| Le dénominateur du classement inclut celui qui regarde | Relecture : rang et total venaient de deux instants différents | § 9 et § 7.5 corrigés |
+| Rejoindre depuis un second téléphone **récupère** au lieu d'écraser | Signalé après mise en ligne : une progression effacée | § 14 corrigé — l'exception à « rien n'est sauvegardé » |
+| Un geste « Récupérer ma progression » sous le nom déjà enregistré | Le correctif précédent n'avait de porte que pour qui n'en avait pas besoin | Inchangé |
+| Le refus d'un pseudonyme s'affiche sous le champ fautif | Signalé après mise en ligne : « rien ne se passe » | Inchangé |
 
 ---
 
