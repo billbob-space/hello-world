@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chargerProgramme, totauxAccomplis } from '../web/domaine.js';
 import * as rec from '../web/recompenses.js';
+import { sansCommentaires, interdits } from './source.js';
 
 const lire = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 const css = lire('style.css');
@@ -252,9 +253,13 @@ test('le ton reste celui d une equipe U15 (PRD §10)', () => {
 });
 
 test('le module ne compose pas de HTML et n ouvre aucun dialogue systeme', () => {
-  for (const interdit of ['innerHTML', 'confirm(', 'alert(', 'prompt(']) {
-    assert.equal(source.includes(interdit), false, `${interdit} : le texte passe par textContent`);
-  }
+  // Contrairement a l assertion de vocabulaire ci-dessus, celle-ci surveille du
+  // CODE : un commentaire qui nomme innerHTML pour dire qu on ne s en sert pas
+  // ne doit pas la faire tomber. C est arrive trois fois dans cette app.
+  assert.deepEqual(
+    interdits(sansCommentaires(source), ['innerHTML', 'confirm(', 'alert(', 'prompt(']), [],
+    'le texte passe par textContent, et aucun dialogue systeme ne s ouvre',
+  );
 });
 
 test('l app branche les recompenses et les emporte hors ligne', () => {

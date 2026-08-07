@@ -11,6 +11,7 @@ import { chargerProgramme } from '../web/domaine.js';
 import { MOTIF_SEANCE } from '../web/vue-seance.js';
 import { choisirEcran } from '../web/app.js';
 import * as vue from '../web/vue-perso.js';
+import { sansCommentaires, interdits } from './source.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 const prog = chargerProgramme(JSON.parse(source('programme.json')));
@@ -163,7 +164,10 @@ test('la legende ne montre que les etats presents ce jour-la', () => {
 test('le montage ne compose jamais de HTML a partir du programme', () => {
   // programme.json est une donnee editable a la main : un libelle contenant un
   // chevron casserait la page, ou pire.
-  assert.equal(source('vue-perso.js').includes('innerHTML'), false, 'le texte passe par textContent');
+  assert.deepEqual(
+    interdits(sansCommentaires(source('vue-perso.js')), ['innerHTML']), [],
+    'le texte passe par textContent',
+  );
 });
 
 test('toute classe posee par l ecran existe dans style.css', () => {

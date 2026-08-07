@@ -106,6 +106,34 @@ personne ne le voie comme le sien.
 plafond de `fabrique.yml` est à relever, soit elle ne les porte pas et une app
 est à désactiver. Un avertissement qui dure trois jours cesse d'être lu.
 
+### 6. Deux garde-fous lisent les commentaires exprès, et le plan voulait les en priver
+
+**Symptôme** — la tâche 2 du plan listait sept emplacements à faire passer par
+le nouveau `tests/source.js`, qui retire les commentaires. Deux d'entre eux —
+`classement.test.js:101` (la sous-chaîne `prenom` dans la couche réseau) et
+`recompenses.test.js:250` (le vocabulaire « bravo », « champion », « badge »)
+— portent chacun un commentaire disant l'inverse : « le test lit AUSSI les
+commentaires : un mot entré par la porte du commentaire finit dans une chaîne à
+la retouche suivante ».
+
+**Cause** — deux familles de garde-fous se ressemblent trait pour trait. L'un
+surveille une **propriété du code** — pas de `innerHTML`, pas de `confirm(` — et
+un commentaire qui la nomme est un faux positif. L'autre surveille un
+**vocabulaire** — un mot qui n'a rien à faire dans cette app, où qu'il soit — et
+le commentaire est alors une cible, pas un faux positif. Le plan a été écrit en
+lisant les lignes d'assertion, pas les commentaires au-dessus.
+
+**Conséquence tenue** — cinq emplacements convertis, deux laissés tels quels, et
+la raison écrite dans `recompenses.test.js` à côté des deux voisins, qui sont
+maintenant de familles différentes dans le même fichier.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — avant de convertir un garde-fou, lire le
+commentaire qui le précède : dans ce dépôt, il dit souvent pourquoi la forme
+naïve a été écartée. Un plan écrit sur les seules lignes de code aurait retiré
+deux surveillances en croyant les réparer.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 

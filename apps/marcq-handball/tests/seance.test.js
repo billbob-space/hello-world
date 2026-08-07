@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { chargerProgramme } from '../web/domaine.js';
 import * as vue from '../web/vue-seance.js';
 import { modeleJour } from '../web/vue-jour.js';
+import { sansCommentaires, interdits } from './source.js';
 
 const prog = chargerProgramme(JSON.parse(
   readFileSync(new URL('../web/programme.json', import.meta.url), 'utf8'),
@@ -203,19 +204,19 @@ test('la vue accroche le PRP 06 par deux evenements nommes', () => {
 });
 
 test('aucun dialogue ne s interpose entre le tap et le decochage (PRD §7.3)', () => {
-  for (const interdit of ['confirm(', 'alert(', 'prompt(']) {
-    assert.equal(
-      source.includes(interdit),
-      false,
-      `${interdit} : l erreur de tap doit couter un tap, pas un dialogue`,
-    );
-  }
+  assert.deepEqual(
+    interdits(sansCommentaires(source), ['confirm(', 'alert(', 'prompt(']), [],
+    'l erreur de tap doit couter un tap, pas un dialogue',
+  );
 });
 
 test('la vue ne compose jamais de HTML a partir du programme', () => {
   // programme.json est une donnee editable a la main : un libelle contenant un
   // chevron casserait la page, ou pire.
-  assert.equal(source.includes('innerHTML'), false, 'le texte passe par textContent');
+  assert.deepEqual(
+    interdits(sansCommentaires(source), ['innerHTML']), [],
+    'le texte passe par textContent',
+  );
 });
 
 test('le lien de l ecran du jour correspond a la route de la seance', () => {

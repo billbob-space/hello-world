@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as domaine from '../web/domaine.js';
+import { sansCommentaires, interdits } from './source.js';
 
 // Le programme est lu comme un fichier, pas importe : la syntaxe
 // `import ... with { type: 'json' }` n'est pas stable d'une version de Node a
@@ -60,10 +61,13 @@ test('les 53 identifiants sont uniques et suivent le format s<n>-<c|r><n>', () =
 });
 
 test('domaine.js est pur : ni dependance, ni navigateur, ni horloge', () => {
-  const source = readFileSync(new URL('../web/domaine.js', import.meta.url), 'utf8');
-  for (const interdit of ['document', 'window', 'localStorage', 'new Date', 'Date.now', 'fetch(']) {
-    assert.equal(source.includes(interdit), false, `domaine.js ne doit pas contenir ${interdit}`);
-  }
+  const source = sansCommentaires(
+    readFileSync(new URL('../web/domaine.js', import.meta.url), 'utf8'),
+  );
+  assert.deepEqual(
+    interdits(source, ['document', 'window', 'localStorage', 'new Date', 'Date.now', 'fetch(']), [],
+    'domaine.js reste pur : ni dependance, ni navigateur, ni horloge',
+  );
   assert.equal(/^\s*import\s/m.test(source), false, 'domaine.js n importe rien');
 });
 

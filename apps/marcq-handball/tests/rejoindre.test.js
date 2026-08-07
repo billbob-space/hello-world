@@ -6,6 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as rejoindre from '../web/vue-rejoindre.js';
+import { sansCommentaires, interdits } from './source.js';
 
 const source = (nom) => readFileSync(new URL(`../web/${nom}`, import.meta.url), 'utf8');
 
@@ -481,14 +482,16 @@ test('l equipe a son onglet, et le consentement n en a toujours pas', () => {
   assert.equal(rejoindre.RETOUR_CLASSEMENT, '#/equipe');
   // On revient d ou l on vient : le bouton qui mene au consentement est sur cet
   // ecran-la, et nulle part ailleurs.
-  assert.equal(source('vue-rejoindre.js').includes("ctx.aller('#/perso')"), false);
+  assert.deepEqual(
+    interdits(sansCommentaires(source('vue-rejoindre.js')), ["ctx.aller('#/perso')"]), [],
+  );
 
-  const app = source('app.js');
+  const app = sansCommentaires(source('app.js'));
   assert.match(app, /#\/equipe/);
   // « L'equipe » et non « Classement » : on y lit un podium, une position ET une
   // jauge de groupe — la seule mesure ou personne n'est dernier. « Classement »
   // promettrait le tableau complet que le PRD §9 refuse d'afficher.
-  assert.equal(app.includes("texte: 'Classement'"), false);
+  assert.deepEqual(interdits(app, ["texte: 'Classement'"]), []);
 
   const ecran = source('vue-classement.js');
   // L'ecran est un CONTENANT : il ne calcule rien et n'appelle personne.
