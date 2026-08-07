@@ -81,7 +81,7 @@ contrat, le README et le message de `--add` y renvoient au lieu de la recopier.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 16:35 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 17:06 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -89,22 +89,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 117 | 0,00 $ |
-| Écriture de cache | 182 691 | 0,96 $ |
-| Lecture de cache | 6 780 962 | 3,22 $ |
-| Sortie | 53 004 | 1,20 $ |
-| **Total** | **7 016 774** | **5,38 $ — 4,67 €** |
+| Entrée | 200 | 0,00 $ |
+| Écriture de cache | 361 788 | 2,04 $ |
+| Lecture de cache | 14 159 698 | 6,85 $ |
+| Sortie | 79 433 | 1,83 $ |
+| **Total** | **14 601 119** | **10,72 $ — 9,31 €** |
 
 **Ce qui coûte**
 
-- **64 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **107 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   55 854 jetons, écrits une fois par session puis relus à chaque
-  échange : 3 518 802 jetons de relecture, 51 % de tout ce qui a été relu.
+  échange : 5 920 524 jetons de relecture, 41 % de tout ce qui a été relu.
 - **Croissance** — 55 854 jetons relus au premier appel qui relise
-  quelque chose, 153 305 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 207 280 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 7016774 -->
+<!-- cout-total: 14601119 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 55854 0 757
 2 principal claude-opus-5 3802 55854 553
@@ -170,5 +170,48 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 62 principal claude-opus-5 447 152364 157
 63 principal claude-opus-5 494 152811 1688
 64 principal claude-opus-5 1807 153305 96
+65 principal claude-opus-5 2652 155112 164
+66 principal claude-opus-5 283 157764 185
+67 principal claude-opus-5 332 158047 877
+68 principal claude-opus-5 124086 38224 511
+69 principal claude-opus-5 4286 162310 197
+70 principal claude-opus-5 7436 166596 2803
+71 principal claude-opus-5 3290 174032 242
+72 principal claude-opus-5 1888 177322 987
+73 principal claude-opus-5 1564 179210 349
+74 principal claude-opus-5 1515 180774 1592
+75 principal claude-opus-5 3033 182289 1728
+76 principal claude-opus-5 1780 185322 942
+77 principal claude-opus-5 1122 187102 267
+78 principal claude-opus-5 316 188224 912
+79 principal claude-opus-5 957 188540 106
+80 principal claude-opus-5 718 189497 685
+81 principal claude-opus-5 731 190215 114
+82 principal claude-opus-5 323 190946 732
+83 principal claude-opus-5 919 191269 786
+84 principal claude-opus-5 855 192188 91
+85 principal claude-opus-5 291 193043 1082
+86 principal claude-opus-4-7 3765 28262 184
+87 principal claude-opus-4-7 234 32027 98
+88 principal claude-opus-4-7 204 32261 122
+89 principal claude-opus-4-7 1338 32465 789
+90 principal claude-opus-5 1263 193334 2778
+91 principal claude-opus-5 2827 194597 652
+92 principal claude-opus-5 702 197424 491
+93 principal claude-opus-5 546 198126 480
+94 principal claude-opus-5 530 198672 559
+95 principal claude-opus-5 608 199202 106
+96 principal claude-opus-5 1083 199810 265
+97 principal claude-opus-5 315 200893 425
+98 principal claude-opus-5 475 201208 418
+99 principal claude-opus-5 598 201683 105
+100 principal claude-opus-5 749 202281 1348
+101 principal claude-opus-5 1398 203030 134
+102 principal claude-opus-5 487 204428 138
+103 principal claude-opus-5 270 204915 221
+104 principal claude-opus-5 1456 205185 329
+105 principal claude-opus-5 345 206641 94
+106 principal claude-opus-5 294 206986 1184
+107 principal claude-opus-5 1233 207280 157
 -->
 <!-- /cout -->
