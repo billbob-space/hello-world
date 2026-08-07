@@ -46,7 +46,7 @@ memory/        un fichier par sujet sorti du contrat : ce que `--check` tient d�
 compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
                bloc volumes: si et seulement si un service en monte un
 fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, et shared_services
-init.sh        le générateur et le vérificateur ; scripts/ les quatre autres
+init.sh        le générateur et le vérificateur ; scripts/ les cinq autres
                métiers, lib/ leur commun
 ```
 
@@ -66,7 +66,7 @@ avant de committer, `--check` refuse un document de `docs/` nommé d'après une 
 ```bash
 ./init.sh          # régénère les artefacts dérivés depuis les manifestes
 ./init.sh --check  # vérifie les manifestes, puis le dépôt service par service
-./init.sh --help   # les autres options, et les quatre métiers de scripts/
+./init.sh --help   # les autres options, et les cinq métiers de scripts/
 ```
 
 Trois artefacts sont **toujours réécrits**, fonction directe des manifestes :
@@ -228,7 +228,8 @@ documents du dépôt. Les avertissements ne bloquent pas, les KO si. Le même co
 tourne en CI, en verrou de tous les autres jobs : avec une stack partagée, un
 compose faux fusionné casserait toutes les apps à la fois. Le déploiement se
 déclenche à chaque fusion sur `main` — deux à trois minutes jusqu'à la mise en
-ligne.
+ligne. Ce que l'app fait **une fois déployée** se regarde avec `./scripts/prod.sh` —
+état, journaux, fichiers, en lecture seule ; le détour qui l'autorise est au `README`.
 
 ## Le sommaire de `memory/`
 

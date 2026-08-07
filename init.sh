@@ -9,12 +9,13 @@
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
 #
-# Quatre autres metiers vivent dans leur propre script, chacun son sujet :
+# Cinq autres metiers vivent dans leur propre script, chacun son sujet :
 #
 #   ./scripts/branche.sh <app>/<sujet>   cree la branche de travail, et son entree de journal
 #   ./scripts/pret.sh                    l'etape en cours est-elle committable ?
 #   ./scripts/cout.sh                    releve les jetons consommes et leur cout, dans le journal
 #   ./scripts/fusionnees.sh              quelles branches distantes peuvent partir
+#   ./scripts/prod.sh                    l'etat, les journaux et les fichiers de la production
 #
 # Options — elles ne valent que pour l'app ciblee par --add ou --app :
 #
