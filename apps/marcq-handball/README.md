@@ -368,15 +368,34 @@ Quatre décisions valent d'être connues avant de toucher à ce fichier :
   téléphone est souvent posé à terre pendant un gainage, et la poche étouffe la
   vibration comme le vacarme d'un gymnase couvre le bip.
 
-### La sonnerie, et pourquoi elle n'est pas un fichier
+### La sonnerie : deux synthétisées, une enregistrée
 
-`web/sonnerie.js` synthétise le son à la volée avec l'oscillateur du navigateur.
-**Aucun fichier audio** : rien à télécharger, rien à mettre dans la coque hors
-ligne, rien à charger depuis un autre domaine — l'ossature §2 l'interdit — et
-l'image ne grossit pas d'un octet. Quatre choix : *Bip*, *Cloche*, *Sifflet*, et
+`web/sonnerie.js` porte quatre choix : *Bip*, *Cloche*, *Sifflet*, et
 *Silencieux* — une vraie option, une séance se faisant aussi dans un salon à côté
 de quelqu'un qui dort. Aucune ne dépasse une seconde et demie ; au-delà, ce n'est
 plus un signal, c'est une alarme qu'on cherche à faire taire.
+
+**Le bip et la cloche sont synthétisés à la volée** par l'oscillateur du
+navigateur : rien à télécharger, et l'image ne grossit pas d'un octet. Le bip est
+deux notes qui *montent* — deux notes identiques disent « attention », deux notes
+qui montent disent « c'est fini ». La cloche est cinq partiels frappés **au même
+instant**, aux rapports inharmoniques d'une cloche réelle (1, 2, 2.76, 5.40,
+8.93) : c'est leur désaccord qui fait entendre du métal, et jouer les mêmes
+partiels l'un après l'autre ferait une gamme.
+
+**Le sifflet, lui, est un enregistrement** — `web/sifflet.wav`, 25 Ko, un coup
+d'arbitre pris dans un gymnase, du domaine public
+([CC0, SpliceSound](https://freesound.org/people/SpliceSound/sounds/218318/), via
+Wikimedia Commons ; ramené à un seul coup, mono, 24 kHz). Il a remplacé trois
+sinusoïdes à 2100 Hz qui ne ressemblaient pas à un sifflet : ce qui fait le
+sifflet est le battement de la bille et le souffle, qu'aucun empilement
+d'oscillateurs simples ne reproduit. Le fichier est en **même origine**, servi
+par l'app elle-même — l'ossature §2 interdit le domaine tiers, pas le fichier
+livré — et il est dans la coque hors ligne de `sw.js`. Le second coup n'est pas
+dans le fichier : c'est le même, rejoué 0,6 s plus tard, deux coups enregistrés
+pesant le double pour le même son. **Repli** si le fichier ne se décode pas ou
+n'a pas encore été mis en cache : les trois bips d'avant. Un sifflet approximatif
+vaut mieux qu'un minuteur muet à zéro.
 
 **Le son ne part qu'après un geste, et c'est la seule vraie difficulté.** Un
 navigateur de téléphone refuse de jouer quoi que ce soit tant que rien n'a été
@@ -384,7 +403,10 @@ touché, et il ne rend pas d'erreur : il se tait. Or le zéro d'un rebours n'est
 pas un geste. C'est donc le **tap qui démarre le minuteur** qui réveille l'audio
 — `preparer()` n'existe que pour cela — ce qui donne toute la durée du rebours
 d'avance. Un test lit la source pour vérifier que ce réveil vit bien dans le
-gestionnaire du bouton, et avant que l'état ne bascule.
+gestionnaire du bouton, et avant que l'état ne bascule. **C'est ce même geste qui
+va chercher le fichier du sifflet** : le zéro est trop tard pour découvrir qu'il
+manque, et le décodage étant une promesse, la sonnerie part au tour de boucle
+suivant plutôt que d'imposer un `jouer` asynchrone à tout le monde.
 
 Le choix vit sous `marcq.v1.sonnerie` et se règle dans **Réglages**, juste après
 le prénom. **Choisir, c'est entendre** : cocher une sonnerie la joue aussitôt —

@@ -24,6 +24,10 @@ const COQUE = [
   // est relue au motif des quotes simples.
   '/anton.woff2',
   '/mhb.webp',
+  // Le coup de sifflet du minuteur (25 Ko). Hors du cache, une seance menee
+  // sans reseau retomberait sur le repli synthetise : le minuteur sonnerait,
+  // mais pas comme au gymnase.
+  '/sifflet.wav',
   '/programme.json',
   '/app.js',
   '/etat.js',

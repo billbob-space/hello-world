@@ -593,7 +593,7 @@ quatorzième.
 ### 16. Ajouté après les PRP
 
 Les onze PRP livrés le 6 août ne sont pas le dernier état de l'application :
-huit changements ont suivi le 7 août, tous nés de l'usage réel et aucun
+onze changements ont suivi le 7 août, tous nés de l'usage réel et aucun
 prévu par un PRP. Cette section les tient, et elle est la contrepartie des
 § 6 et § 13 : sans elle, le seul endroit du dépôt où ces changements existent
 est l'historique des commits, que personne ne relit pour savoir ce que
@@ -601,11 +601,12 @@ l'application fait aujourd'hui.
 
 Trois d'entre eux ont **déplacé le périmètre** — ils ont rendu faux ce que ce
 document affirmait. Ce sont les § 16.1 à § 16.3. Quatre autres ont livré ce
-que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4. Le
-huitième est le thème visuel du club (§ 16.5) : il ne lève aucune exclusion —
-les trois interdits du § 10 tiennent — mais il arbitre deux choses que ce
-document ne disait nulle part, une couleur par fonction et le partage entre
-écran sombre et écran clair.
+que le PRD promettait déjà, ou réparé ce qui ne le tenait pas : § 16.4. Les
+quatre derniers n'ont levé aucune exclusion — les trois interdits du § 10
+tiennent — mais chacun arbitre quelque chose que ce document ne disait nulle
+part : le thème visuel du club (§ 16.5), le nom du geste total des réglages
+(§ 16.6), le sort d'un code périmé (§ 16.7) et ce qu'on entend à zéro
+(§ 16.8).
 
 #### 16.1 Le minuteur d'exercice — 7 août
 
@@ -809,6 +810,36 @@ cinq secondes, que son téléphone tenait un code qui n'était plus le bon. Éca
 pour l'instant : le § 7.4 tient le code pour un jeton qui ne protège rien, mais
 un adolescent y met souvent celui de son téléphone, et l'afficher à l'écran le
 donne à qui regarde par-dessus l'épaule. À rouvrir si le cas se represente.
+
+#### 16.8 Le sifflet est un vrai sifflet — 7 août
+
+La sonnerie *Sifflet* du minuteur (§ 16.1) était trois notes pures à 2100 Hz.
+Signalé de vive voix : *« le sifflet ne ressemble absolument pas à un
+sifflet »*. C'est exact, et ce n'est pas un réglage à corriger : ce qui fait
+entendre un sifflet est le battement de la bille et le souffle, qu'aucun
+empilement d'oscillateurs simples ne reproduit. **La sonnerie *Sifflet* est
+désormais un enregistrement** — un coup d'arbitre pris dans un gymnase, du
+domaine public (CC0), 25 Ko livrés avec l'application.
+
+*Ce que cela change* : jusqu'ici l'application ne contenait **aucun fichier
+audio**, et c'était une règle tenue par un test. Elle ne l'est plus. Ce qui la
+motivait tient toujours et n'est pas entamé : rien n'est chargé depuis un
+domaine tiers — le fichier est servi par l'app elle-même, comme le blason et la
+police —, il est dans la coque hors ligne, et 25 Ko sur une image de 14 Mo ne se
+mesurent pas. Ce qui reste vrai : **le bip et la cloche sont toujours
+synthétisés**, et le sifflet retombe sur ses anciennes notes si le fichier ne se
+décode pas. Un sifflet approximatif vaut mieux qu'un minuteur muet à zéro.
+
+*Les deux autres sonneries ont été retravaillées dans le même geste*, sans
+fichier : le bip **monte** au lieu de répéter la même note — deux notes
+identiques disent « attention », deux notes qui montent disent « c'est fini » —
+et la cloche frappe cinq partiels inharmoniques au même instant au lieu d'une
+seule sinusoïde tenue, qui était un bip long et non une cloche.
+
+*Aucune exclusion levée* : le § 10 ne parle pas de son, et le § 16.1 ne promet
+rien sur le timbre. Ce qui est arbitré ici — et que le PRD ne disait nulle part
+— est qu'**un son livré avec l'application est acceptable, un son chargé
+ailleurs ne l'est pas**.
 
 ---
 
