@@ -8,7 +8,7 @@ network: apps_net           # reseau Docker existant cote serveur
 entrypoint: websecure
 cert_resolver: letsencrypt
 security_headers: security-headers@file
-memory_budget: 1024m   # plafond de la somme des mem_limit
+memory_budget: 2048m   # plafond de la somme des mem_limit
 image_max_mb: 200
 log_max_size: 10m     # cap des journaux json-file, par service
 log_max_file: 3

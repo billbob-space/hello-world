@@ -102,9 +102,12 @@ personne ne le voie comme le sien.
 
 **Detecte par** — `auteur`
 
-**Action** — `arbitrage` — soit la RAM du serveur porte les 1216 Mo et le
-plafond de `fabrique.yml` est à relever, soit elle ne les porte pas et une app
-est à désactiver. Un avertissement qui dure trois jours cesse d'être lu.
+**Action** — `arbitrage` — **rendu le 7 août : le plafond passe à 2048 Mo.** Le
+serveur est en production, sa RAM porte les 1216 Mo engagés, et c'est le plafond
+qui était périmé — pas l'engagement. `--check` dit maintenant « 1216 Mo /
+2048 Mo » au lieu d'avertir. Le contrôle garde tout son sens : il refuse toujours
+qu'une app entre sans qu'on regarde ce qu'elle coûte, avec 832 Mo de marge au
+lieu d'un dépassement permanent que plus personne ne lisait.
 
 ### 6. Deux garde-fous lisent les commentaires exprès, et le plan voulait les en priver
 
@@ -244,7 +247,7 @@ l'inventaire ne soit pas refait une troisième fois.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 20:08 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 20:18 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -252,26 +255,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 7 330 | 0,00 $ |
-| Écriture de cache | 917 375 | 4,93 $ |
-| Lecture de cache | 43 230 507 | 20,84 $ |
-| Sortie | 176 472 | 3,89 $ |
-| **Total** | **44 331 684** | **29,66 $ — 25,76 €** |
+| Entrée | 7 366 | 0,00 $ |
+| Écriture de cache | 935 830 | 5,05 $ |
+| Lecture de cache | 50 101 375 | 24,27 $ |
+| Sortie | 186 248 | 4,13 $ |
+| **Total** | **51 230 819** | **33,46 $ — 29,05 €** |
 
 **Ce qui coûte**
 
-- **223 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **242 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   55 815 jetons, écrits une fois par session puis relus à chaque
-  échange : 12 390 930 jetons de relecture, 28 % de tout ce qui a été relu.
-- **Tours courts** — 67 des 223 tours (30 %) sortent
+  échange : 13 451 415 jetons de relecture, 26 % de tout ce qui a été relu.
+- **Tours courts** — 74 des 242 tours (30 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 8,56 $, soit 28 % de la facture.
+  une sortie de rien. Ils coûtent 9,89 $, soit 29 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 55 815 jetons relus au premier appel qui relise
-  quelque chose, 348 157 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 367 696 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 44331684 -->
+<!-- cout-total: 51230819 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 55815 0 500
 2 principal claude-opus-5 2371 55815 282
@@ -496,5 +499,24 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 221 principal claude-opus-5 1286 345833 989
 222 principal claude-opus-5 1038 347119 719
 223 principal claude-opus-5 882 348157 727
+224 principal claude-opus-5 4673 349039 539
+225 principal claude-opus-5 43 354251 1601
+226 principal claude-opus-5 3040 354294 799
+227 principal claude-opus-5 2538 357334 472
+228 principal claude-opus-5 662 359872 265
+229 principal claude-opus-5 324 360534 613
+230 principal claude-opus-5 668 360858 153
+231 principal claude-opus-5 556 361526 349
+232 principal claude-opus-5 411 362082 336
+233 principal claude-opus-5 398 362493 645
+234 principal claude-opus-5 706 362891 118
+235 principal claude-opus-5 389 363597 104
+236 principal claude-opus-5 755 363986 985
+237 principal claude-opus-5 1107 364741 202
+238 principal claude-opus-5 381 365848 141
+239 principal claude-opus-5 214 366229 695
+240 principal claude-opus-5 711 366443 470
+241 principal claude-opus-5 542 367154 139
+242 principal claude-opus-5 337 367696 1150
 -->
 <!-- /cout -->

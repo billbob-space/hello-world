@@ -78,7 +78,7 @@ pure. **04 est le goulot du lot 1** : trois PRP en dépendent.
 | Verrou | PRD | Qui tranche | Bloque |
 |---|---|---|---|
 | ~~Volume persistant pour les scores~~ | §12.1 | — | **Levé le 2026-08-06** : le volume appartient à l'app et se déclare dans `app.yml`, `init.sh` sait le monter. Rien à attendre |
-| Page 3 sur 3 de la note du coach | §12.3 | le coach | **02**, avant le 17 août |
+| ~~Page 3 sur 3 de la note du coach~~ | §12.3 | — | **Clos le 2026-08-07** : il n'y a pas de programme après le 17 août. La capture n'était pas incomplète, le programme s'arrête là |
 | Le coach regardera-t-il son écran ? | §15.3 | le coach | **10** en entier |
 
 **Le verrou §12.2 du PRD n'en est pas un.** Le PRD affirme que `./init.sh
@@ -106,17 +106,19 @@ l'application : celui-ci se lit dans le PRD, dont le § 16 tient la liste des
 ajouts postérieurs. Un PRP livré ne se rouvre pas pour les y ajouter ; il est le
 compte rendu d'une intention, à sa date.
 
-**Deux verrous restent ouverts, et aucun n'est technique.**
+**Un seul verrou reste ouvert, et il n'est pas technique.**
 
 - **Le coach regardera-t-il son écran ?** (PRD §15.3) Le PRP 10 est le seul dont
   la réponse pouvait être « on ne le fait pas ». Il a été livré parce que la
   moitié serveur l'était déjà depuis le PRP 07 et que le coût restant était
   faible ; si la réponse est non, ce sont les deux livrables — le ressenti et la
   page — qu'il faut retirer ensemble.
-- **La page 3 sur 3 de la note du coach** (PRD §12.3), avant le 17 août. Rien
-  dans le code n'en dépend : `programme.json` gagne des séances, tous les
-  dénominateurs suivent, et les identifiants déjà cochés restent valides. Seuls
-  les sept totaux attendus des tests se recalculent.
+
+**Le second s'est refermé sans que rien ne soit livré.** La page 3 sur 3 de la
+note du coach (PRD §12.3) n'existe pas : le 7 août, il a été tranché qu'il n'y
+aurait **pas de programme après le 17 août**. Le PRP 02 n'attendait donc rien, et
+les sept séances qu'il a saisies sont le programme entier. C'est le seul verrou
+de ce projet dont la réponse ait été « la question ne se posait pas ».
 
 **L'arbitrage du PRP 09 est reporté dans le PRD** — §7.5 et §9 portent désormais
 *« le dénominateur inclut celui qui regarde »* : le dénominateur affiché à un

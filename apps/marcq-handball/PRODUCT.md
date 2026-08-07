@@ -516,10 +516,13 @@ n'en dépend pas.
    constitue un tel état. Le lot 2 ne peut pas être livré sans que cette règle
    soit desserrée — délibérément, et en connaissance de ce qu'elle protège.
 
-3. **La page 3 sur 3 de la note du coach manque.** La capture reçue s'arrête
-   après le lundi 17 août. Le programme documenté ici couvre sept séances ; si
-   la troisième page en ajoute, le fichier de données doit être complété avant
-   le 17.
+3. ~~**La page 3 sur 3 de la note du coach manque.**~~ — *tranché le 7 août :
+   **il n'y aura pas de programme après le 17 août**.* La capture reçue
+   s'arrêtait après le lundi 17 ; elle s'arrêtait là parce que le programme
+   s'arrête là. Les sept séances, les 53 exercices cochables et les dix-neuf
+   jours du § 8 sont donc **définitifs**, et le § 9 avec eux. Rien n'est à
+   compléter, et `web/programme.json` ne bougera plus. Le bilan du 22 août
+   (§ 6, lot 3) reste la fin prévue.
 
 ### 13. Décisions écartées
 
@@ -570,7 +573,9 @@ quatorzième.
 
 ### 15. Questions ouvertes
 
-1. **Page 3 sur 3 du programme** — à récupérer auprès du coach (§ 12.3).
+1. ~~**Page 3 sur 3 du programme**~~ — *tranché le 7 août : il n'y a pas de
+   programme après le 17 août, et la capture n'était donc pas incomplète.* Le
+   § 12.3 est clos.
 2. ~~**Effectif réel de l'équipe**~~ — *tranché : le produit n'en dépend pas.*
    Les cibles du § 4 sont exprimées en proportion, les rangs comptent les
    participants et non l'effectif (§ 9), et aucun écran n'affiche de total

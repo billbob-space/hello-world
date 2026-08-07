@@ -1,9 +1,14 @@
 // Les documents de l'app affirment des nombres — 53 exercices, 24 rebours,
 // 19 jours. Ils sont TOUS calculables depuis web/programme.json, qui est la
-// source. Ce fichier compare les deux, et il existe pour un rendez-vous connu :
-// la page 3 sur 3 de la note du coach (PRD §12.3) ajoutera des seances, et sans
-// ce test les neuf phrases ci-dessous resteraient a leur ancienne valeur sans
-// que rien ne le signale.
+// source. Ce fichier compare les deux.
+//
+// IL A ETE ECRIT POUR UN RENDEZ-VOUS QUI N'AURA PAS LIEU : la page 3 sur 3 de la
+// note du coach devait ajouter des seances avant le 17 aout, et le 7 aout il a
+// ete tranche qu'il n'y aurait pas de programme apres cette date (PRD §12.3,
+// clos). Ces cinq nombres sont donc definitifs. Le test reste, et il change de
+// role : il ne guette plus une echeance, il empeche une retouche distraite du
+// fichier de donnees de laisser neuf phrases derriere elle. C'est moins
+// spectaculaire, et ca ne coute rien.
 //
 // UN MOTIF PAR AFFIRMATION, avec son contexte : chercher « 24 » dans le README
 // attrape aussi « ~24 minutes de gainage » et « 24 caracteres au plus ». Le
