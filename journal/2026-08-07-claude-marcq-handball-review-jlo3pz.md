@@ -134,6 +134,69 @@ commentaire qui le précède : dans ce dépôt, il dit souvent pourquoi la forme
 naïve a été écartée. Un plan écrit sur les seules lignes de code aurait retiré
 deux surveillances en croyant les réparer.
 
+### 7. Une phrase du journal qui cite un marqueur ouvrait le bloc qu'elle décrit
+
+**Symptôme** — première exécution de `scripts/jetons.sh` sur le vrai journal :
+trois « modèles » sortent de nulle part, dont `en` et `l'anomalie`. Les totaux
+étaient faux, et rien dans la sortie ne le disait.
+
+**Cause** — le motif `/<!-- cout-detail/` n'était pas ancré. L'anomalie 3 de
+cette même entrée *parle* du marqueur — « le détail par tour
+(`<!-- cout-detail -->`) n'existe que dans les cinq dernières » — et cette
+phrase ouvrait donc le bloc, faisant lire trois cents lignes de prose comme des
+tours. Toute ligne de six mots devenait un échange.
+
+**Conséquence tenue** — les deux motifs sont ancrés en début de ligne, et le bac
+de `test-jetons.sh` porte désormais une entrée qui cite le marqueur en prose,
+suivie d'une ligne de six champs. Le cas est le seul du harnais dont le nom dit
+ce qu'il empêche plutôt que ce qu'il mesure.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — troisième occurrence du même défaut dans la même
+journée, après les commentaires des garde-fous de l'app et le comptage ci-dessous :
+un motif non ancré cherche une sous-chaîne là où il croit désigner une ligne.
+La question à se poser en l'écrivant reste « qu'est-ce qu'il attrape d'AUTRE »,
+et la réponse est de plus en plus souvent « un document qui parle de lui-même ».
+
+### 8. Le compte des anomalies du bilan était faux, par le même défaut
+
+**Symptôme** — la distribution des champs du journal, écrite dans
+`docs/2026-08-07-bilan-jetons-et-journal.md`, ne tombait pas juste : les valeurs
+additionnées donnaient 139 pour 145 anomalies, et le vocabulaire fermé recevait
+des valeurs impossibles — `--check`, `--help`, `main`, `claude`, `grep`.
+
+**Cause** — le compte se faisait par « le premier mot entre accents graves de la
+ligne », alors que dix lignes portent un autre terme en tête de leur explication
+(« **Action** — `garde-fou` — `pret.sh` avertit déjà… »). `--check`, lui, compte
+par un motif ancré qui exige le vocabulaire : `^\*\*Action\*\* — ` suivi de la
+liste fermée. Les deux mesures ne pouvaient pas coïncider.
+
+**Consequence tenue** — le bilan porte les comptes du motif ancré, ils
+additionnent exactement 145, et la note qui dit pourquoi est à côté.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — quand un contrôle du dépôt compte déjà quelque
+chose, lire son motif avant d'en écrire un second. Le mien était plus court, plus
+lisible, et faux.
+
+### 9. Le bac à sable ne voit que ce que git suit
+
+**Symptôme** — après avoir sorti trois fonctions de `cout.sh` vers
+`lib/jetons.sh`, `./test-cout.sh` passe de onze verts à onze rouges, avec
+« cout.sh a echoue » et rien d'autre. Le script marchait pourtant à la main.
+
+**Cause** — les trois bacs à sable du dépôt se peuplent par `git ls-files`. Un
+fichier neuf non indexé n'existe donc pas pour les tests, et le script qui le
+source échoue dans le bac seulement.
+
+**Detecte par** — `test`
+
+**Action** — `comportement` — `git add` avant de lancer un harnais qui monte un
+bac, et pas seulement avant de committer. Le message d'erreur ne le dira jamais :
+il rapporte l'échec du script, pas l'absence du fichier.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 

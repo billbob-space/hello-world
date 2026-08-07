@@ -8,12 +8,21 @@ constats valent pour la prochaine.
 
 ### Ce qu'on sait, et ce qu'on ne sait pas
 
-Treize entrées de journal sur vingt-trois portent un relevé de coût, pour
-**1 158 712 160 jetons** cumulés, soit de l'ordre de **780 $** au mix observé.
-Mais seules **cinq** portent le détail par tour (`<!-- cout-detail -->`, ajouté
-après coup) : tout ce qui suit se calcule sur ces cinq branches — 1 454 tours,
-349 631 483 jetons, **234,46 $**. Les huit autres ne rendent qu'un total, et
-rien ne les reconstitue : le conteneur qui portait la conversation a disparu.
+**Tous les chiffres de cette section se refont par `./scripts/jetons.sh`.** Ils
+datent du 7 août et bougeront à chaque branche ; c'est la commande qui fait
+foi, pas eux.
+
+Quatorze entrées de journal sur vingt-quatre portent un relevé de coût, pour
+**1 171 053 726 jetons** cumulés. Mais seules **six** portent le détail par tour
+(`<!-- cout-detail -->`, ajouté après coup) : tout ce qui suit se calcule sur ces
+six branches — 1 537 tours, 361 972 689 jetons, **227,63 $**. Les huit autres ne
+rendent qu'un total, et rien ne les reconstitue : le conteneur qui portait la
+conversation a disparu. `./init.sh --check` les compte et le dit.
+
+Une nuance qui explique un écart de 7 $ avec la première version de ce bilan :
+les tours passés sur un modèle absent de `fabrique.yml` sont comptés en jetons
+et **pas en argent** — c'est la règle du contrat, et `jetons.sh` la suit là où
+le calcul à la main les avait facturés au tarif du voisin.
 
 **Première leçon, et elle ne concerne pas les jetons** : une mesure d'outillage
 s'écrit dans sa forme définitive dès le premier relevé, ou les premières
@@ -21,31 +30,31 @@ branches restent muettes pour toujours.
 
 ### Où part l'argent
 
-| Poste | Jetons | Coût | Part |
-|---|---:|---:|---:|
-| Écriture de cache | 6 861 173 | 42,88 $ | 18,3 % |
-| **Lecture de cache** | **341 945 943** | **170,97 $** | **72,9 %** |
-| Sortie | 824 367 | 20,61 $ | 8,8 % |
+| Poste | Coût | Part |
+|---|---:|---:|
+| Écriture de cache | 38,26 $ | 17 % |
+| **Lecture de cache** | **170,62 $** | **75 %** |
+| Sortie | 18,76 $ | 8 % |
 
-**97,8 % des jetons facturés sont du contexte relu.** Écrire moins ne change
-rien — la sortie entière pèse 8,8 %. Le seul levier est le nombre de tours
+**97 % des jetons facturés sont du contexte relu.** Écrire moins ne change
+rien — la sortie entière pèse 8 %. Le seul levier est le nombre de tours
 multiplié par la taille du contexte à chaque tour.
 
 ### Les quatre leviers, du plus sûr au plus discutable
 
-**1. L'amorce, relue à chaque tour — 43,89 $, 19 % de la facture.**
+**1. L'amorce, relue à chaque tour — 46,04 $, 20 % de la facture.**
 Contrat, outillage et définitions d'outils pèsent 55 000 à 68 000 jetons selon
-la branche, écrits une fois par session puis relus à chaque échange : 87 787 784
-jetons de relecture pure. Le contrat n'y est presque pour rien — `CLAUDE.md`
+la branche, écrits une fois par session puis relus à chaque échange — près de
+cent millions de jetons de relecture pure. Le contrat n'y est presque pour rien — `CLAUDE.md`
 fait 13,8 ko, soit ~4 000 jetons, 7 % de l'amorce. **Le reste est de
 l'outillage** : treize plugins déclarés dans `.claude/settings.json`, plus les
 connecteurs du compte, chacun payant ses définitions d'outils à chaque tour de
 chaque session. Une branche qui touche une app Go n'a besoin ni de Canva ni de
 Gmail. C'est le levier le mieux compris et le moins exploité.
 
-**2. Les tours courts — 120,35 $, 51 % de la facture.**
-856 tours sur 1 454 (59 %) sortent moins de 300 jetons : un appel d'outil nu.
-Ils coûtent la moitié de tout, dont **94,75 $ de pure relecture de contexte**.
+**2. Les tours courts — 112,83 $, 50 % de la facture.**
+877 tours sur 1 537 (57 %) sortent moins de 300 jetons : un appel d'outil nu.
+Ils coûtent la moitié de tout, presque uniquement en relecture de contexte.
 Un `ls` dans une session de 400 000 jetons coûte 0,20 $, quel que soit ce qu'il
 affiche. **Grouper les appels d'outils indépendants dans un même tour** divise
 directement ce poste ; c'est la seule optimisation qui ne coûte rien en qualité.
@@ -54,13 +63,13 @@ directement ce poste ; c'est la seule optimisation qui ne coûte rien en qualit�
 Les deux branches de `marcq-handball` ont atteint 566 161 et 652 382 jetons de
 contexte, pour 568 et 454 tours. Le coût d'une session croît comme le carré de
 sa longueur : chaque tour paie tout ce qui précède. Simulation en tranches de
-120 tours : 234,46 $ → 159,30 $, soit **75 $ économisés**. Le chiffre est
+120 tours : environ un tiers de la facture, soit **75 $ économisés**. Le chiffre est
 optimiste — il ne compte pas la relecture des fichiers qu'une session neuve doit
 refaire — mais l'ordre de grandeur tient, et il dit qu'une session très longue
 se paie deux fois.
 
 **4. Les sous-agents — jamais utilisés.**
-**0 tour de sous-agent sur 1 454.** La fabrique définit pourtant trois agents
+**0 tour de sous-agent sur 1 537.** La fabrique définit pourtant trois agents
 (`analyste`, `artisan`, `greffier`) dont c'est précisément la raison d'être :
 l'`artisan` lit et écrit dans le contexte *de l'agent*, pas dans celui de la
 session, et ne rend qu'un résumé. Un chantier de 60 tours mené par l'artisan
@@ -69,17 +78,23 @@ son inconvénient — la mémoire du travail reste dans la session principale.
 
 ### Ce qu'il ne faut pas faire
 
-Raccourcir les réponses, les messages de commit ou les documents : 8,8 % de la
+Raccourcir les réponses, les messages de commit ou les documents : 8 % de la
 facture, et c'est le poste qui porte toute la valeur qui survit à la session.
 
 ## 2. Le journal
 
-139 anomalies sur 23 entrées. Distribution des actions : `comportement` 36,
-`garde-fou` 34, `rien` 29, `contrat` 23, `arbitrage` 11, `outillage` 6.
-Distribution des détections : `auteur` 76, `utilisateur` 25, `test` 17,
-`relecture` 12, `production` 3, `compilateur` 1.
+148 anomalies sur 24 entrées, au 7 août — `./init.sh --check` en donne le
+compte à jour. Distribution des actions : `comportement` 42, `garde-fou` 35,
+`rien` 29, `contrat` 23, `arbitrage` 12, `outillage` 7. Distribution des
+détections : `auteur` 81, `utilisateur` 25, `test` 18, `relecture` 17,
+`production` 3, `compilateur` 2, `CI` 2.
 
-**Le compilateur n'attrape rien et l'utilisateur attrape 25 fois.** C'est le
+*Ces comptes se refont par le motif ancré que `--check` utilise —
+``^\*\*Action\*\* — `<vocabulaire>` `` — et jamais par « le premier mot entre
+accents graves de la ligne » : dix lignes portent un autre terme en tête de leur
+explication, et le filet large les compte comme des valeurs.*
+
+**Le compilateur n'attrape que deux fois, l'utilisateur vingt-cinq.** C'est le
 signe d'un projet dont l'essentiel du risque est dans le produit et la
 documentation, pas dans le typage.
 
@@ -126,8 +141,8 @@ texte du § 7.4 du PRD, jamais pour ses nombres.
 
 ### Ce qui se transporte à la prochaine app
 
-1. **Grouper les appels d'outils** — 51 % de la facture est dans des tours qui
-   ne produisent rien d'autre qu'un appel.
+1. **Grouper les appels d'outils** — la moitié de la facture est dans des tours
+   qui ne produisent rien d'autre qu'un appel.
 2. **Confier un chantier à l'`artisan`** plutôt que de le mener dans la session
    principale, et mesurer l'écart : c'est le seul levier non testé.
 3. **N'activer que l'outillage utile à l'app** ; l'amorce est relue à chaque

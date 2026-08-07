@@ -32,16 +32,11 @@ git rev-parse --show-toplevel >/dev/null 2>&1 || {
 cd "$(git rev-parse --show-toplevel)"
 
 . lib/socle.sh
+. lib/jetons.sh
 . lib/journal.sh
 
 BASE=$(fab base_branch main)
 
-# Deux multiplicateurs suffisent a passer des jetons a l'argent une fois le prix
-# d'entree connu. Ils valent pour toute l'API, quel que soit le modele, et
-# vivent donc ici plutot que dans fabrique.yml, ou seuls les tarifs par modele
-# et le taux de change ont leur place.
-COUT_CACHE_ECRITURE=1.25   # ecrire dans le cache coute 1,25x le prix d'entree
-COUT_CACHE_LECTURE=0.10    # y lire coute 0,1x
 COUT_TAUX_JOURS=90         # au-dela, le taux de change est signale comme vieux
 
 COUT_DEBUT='<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->'
@@ -59,17 +54,6 @@ cout_dir() {  # le repertoire des conversations de CE depot, ou vide
   [ -d "$d" ] || return 0
   ls "$d"/*.jsonl >/dev/null 2>&1 || return 0
   printf '%s' "$d"
-}
-
-cout_tarifs() {  # « modele:entree:sortie » separes par « ; », depuis fabrique.yml
-  local t n i sep=""
-  t=$(ymaps fabrique.yml tarifs)
-  n=$(map_count "$t")
-  for ((i = 0; i < n; i++)); do
-    printf '%s%s:%s:%s' "$sep" \
-      "$(map_one "$t" "$i" modele)" "$(map_one "$t" "$i" entree)" "$(map_one "$t" "$i" sortie)"
-    sep=";"
-  done
 }
 
 # cout_releve <repertoire> <branche> <base> — lit toutes les conversations et
@@ -109,8 +93,8 @@ cout_tarifs() {  # « modele:entree:sortie » separes par « ; », depuis fabriq
 # les exclure amputerait le releve de son propre debut. Toute AUTRE branche
 # nommee est ecartee, et dite.
 cout_releve() {
-  awk -v TARIFS="$(cout_tarifs)" \
-      -v MULT_E="$COUT_CACHE_ECRITURE" -v MULT_L="$COUT_CACHE_LECTURE" \
+  awk -v TARIFS="$(jetons_tarifs)" \
+      -v MULT_E="$JETONS_CACHE_ECRITURE" -v MULT_L="$JETONS_CACHE_LECTURE" \
       -v BRANCHE="$2" -v BASE="$3" '
     BEGIN {
       n = split(TARIFS, lignes, ";")
@@ -225,10 +209,6 @@ cout_releve() {
   ' "$1"/*.jsonl
 }
 
-cout_nb() {  # 7557412 -> « 7 557 412 »
-  printf '%s' "$1" | sed -e :a -e 's/\(.*[0-9]\)\([0-9]\{3\}\)/\1 \2/;ta'
-}
-
 cout_montant() {  # cout_montant <dollars> <taux|vide> — « 11,44 $ — 9,93 € »
   awk -v d="$1" -v t="$2" 'BEGIN {
     s = sprintf("%.2f $", d)
@@ -236,8 +216,6 @@ cout_montant() {  # cout_montant <dollars> <taux|vide> — « 11,44 $ — 9,93 �
     gsub(/\./, ",", s); print s
   }'
 }
-
-virgule() { printf '%s' "${1//./,}"; }  # 1.25 -> « 1,25 »
 
 cout_total_ecrit() {  # le total en jetons deja consigne dans <entree>, ou vide
   grep -o 'cout-total: [0-9]*' "$1" 2>/dev/null | head -1 | tr -dc '0-9' || true
@@ -271,7 +249,7 @@ cout_rappel() {
   if [ -z "$ecrit" ]; then
     warn "cout : non releve — ./scripts/cout.sh l'ecrit dans l'entree (le chiffre disparait avec le conteneur)"
   elif [ "$((ecrit * 10))" -lt "$((actuel * 9))" ]; then
-    warn "cout : releve a $(cout_nb "$ecrit") jetons, la conversation en compte $(cout_nb "$actuel") — relance ./scripts/cout.sh"
+    warn "cout : releve a $(jetons_nb "$ecrit") jetons, la conversation en compte $(jetons_nb "$actuel") — relance ./scripts/cout.sh"
   fi
 }
 
@@ -323,7 +301,7 @@ ajoute() {  # ajoute <etiquette> <cle du releve>
   local j d
   j=$(printf '%s\n' "$releve" | awk -v k="$2" '$1 == "POSTE" && $2 == k { print $3 }')
   d=$(printf '%s\n' "$releve" | awk -v k="$2" '$1 == "POSTE" && $2 == k { print $4 }')
-  lignes="$lignes| $1 | $(cout_nb "$j") | $(cout_montant "$d" "") |
+  lignes="$lignes| $1 | $(jetons_nb "$j") | $(cout_montant "$d" "") |
 "
 }
 ajoute "Entrée" entree
@@ -350,14 +328,14 @@ part() {  # part <numerateur> <denominateur> — « 80 % », ou vide si indecida
   awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { if (b + 0 > 0) printf "%d %%", 100 * a / b }'
 }
 if [ "${ech_side:-0}" -gt 0 ] 2>/dev/null; then
-  side_txt="dont $ech_side par des sous-agents — $(cout_nb "$side_j") jetons, $(cout_montant "$side_d" "")"
+  side_txt="dont $ech_side par des sous-agents — $(jetons_nb "$side_j") jetons, $(cout_montant "$side_d" "")"
 else
   side_txt="aucun par des sous-agents"
 fi
 autres_txt=""
 [ "${n_autres:-0}" -gt 0 ] 2>/dev/null && autres_txt="
 - **Écarté** — $n_autres autre(s) branche(s) travaillée(s) dans ce conteneur,
-  $(cout_nb "$autres_j") jetons, qui ne sont pas ceux de celle-ci."
+  $(jetons_nb "$autres_j") jetons, qui ne sont pas ceux de celle-ci."
 
 # Le detail survit a la branche, et c'est tout son interet : le fichier de
 # conversation meurt avec le conteneur, et sans lui plus rien n'est refaisable —
@@ -373,21 +351,21 @@ $COUT_DEBUT
 Relevé le $(date -u '+%Y-%m-%d à %H:%M UTC'), sur $sessions session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 ${modeles:-aucun}. Tarifs de \`fabrique.yml\`, en dollars par million de jetons ;
-écriture de cache à $(virgule "$COUT_CACHE_ECRITURE")x le prix d'entrée, lecture à $(virgule "$COUT_CACHE_LECTURE")x.$([ -n "$taux" ] && printf ' Taux
+écriture de cache à $(virgule "$JETONS_CACHE_ECRITURE")x le prix d'entrée, lecture à $(virgule "$JETONS_CACHE_LECTURE")x.$([ -n "$taux" ] && printf ' Taux
 1 $ = %s € au %s.' "$(virgule "$taux")" "$taux_date")
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-$lignes| **Total** | **$(cout_nb "$tot_j")** | **$(cout_montant "$tot_d" "$taux")** |
+$lignes| **Total** | **$(jetons_nb "$tot_j")** | **$(cout_montant "$tot_d" "$taux")** |
 
 **Ce qui coûte**
 
 - **$echanges appel(s) au modèle** — un par réponse, outils compris —, $side_txt.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
-  $(cout_nb "$prelude") jetons, écrits une fois par session puis relus à chaque
-  échange : $(cout_nb "$prelude_relu") jetons de relecture, $(part "$prelude_relu" "$lecture_j") de tout ce qui a été relu.
-- **Croissance** — $(cout_nb "$cl_premier") jetons relus au premier appel qui relise
-  quelque chose, $(cout_nb "$cl_dernier") au dernier : une session longue se paie à chaque tour.$autres_txt
+  $(jetons_nb "$prelude") jetons, écrits une fois par session puis relus à chaque
+  échange : $(jetons_nb "$prelude_relu") jetons de relecture, $(part "$prelude_relu" "$lecture_j") de tout ce qui a été relu.
+- **Croissance** — $(jetons_nb "$cl_premier") jetons relus au premier appel qui relise
+  quelque chose, $(jetons_nb "$cl_dernier") au dernier : une session longue se paie à chaque tour.$autres_txt
 
 <!-- cout-total: $tot_j -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
