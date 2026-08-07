@@ -273,7 +273,7 @@ test('phraseIgnores dit le decalage sans s excuser, au singulier comme au plurie
 
 test('les deux phrases de sortie nomment le pseudonyme entre guillemets francais', () => {
   assert.equal(rejoindre.phraseSuppression('Renard-14'), 'Supprimer « Renard-14 » du classement ?');
-  assert.match(rejoindre.avertissementChangementEnfant('Renard-14'), /« Renard-14 »/);
+  assert.equal(rejoindre.texteBoutonQuitter('Renard-14'), 'Retirer « Renard-14 » du classement');
 });
 
 test('ce que la suppression promet, et ce qu elle ne promet pas', () => {
@@ -288,10 +288,16 @@ test('ce que la suppression promet, et ce qu elle ne promet pas', () => {
   assert.match(texte, /ne s’efface pas/);
 });
 
-test('changer d enfant previent qu il laisserait un nom orphelin', () => {
-  const phrase = rejoindre.avertissementChangementEnfant('Renard-14');
-  assert.match(phrase, /plus personne\s+ne pourra le supprimer/);
-  assert.match(phrase, /Supprime-le d’abord/, 'le geste de sortie est nomme, pas seulement le risque');
+test('le bloc nomme ce qu on quitte, le bouton ce qu on retire', () => {
+  // « Supprimer » etait le mot des DEUX gestes de sortie des reglages, et il ne
+  // distinguait donc pas celui qui n'emporte que le nom de celui qui emporte le
+  // telephone entier. Ce qui a remplace l'ancien avertissement « plus personne
+  // ne pourra le supprimer » se teste dans tests/profil.test.js : le cas qu'il
+  // decrivait n'existe plus.
+  assert.equal(rejoindre.TITRE_QUITTER_CLASSEMENT, 'Quitter le classement');
+  const code = source('vue-rejoindre.js');
+  assert.ok(code.includes('texteBoutonQuitter(local.pseudo)'), 'le bouton nomme la fiche');
+  assert.equal(code.includes('avertissementChangementEnfant'), false);
 });
 
 test('hors ligne, la suppression n agit pas et le dit', () => {

@@ -203,8 +203,10 @@ export function messageErreur(statut, erreur) {
   return MESSAGES[erreur] ?? SANS_REPONSE;
 }
 
-// L'ecran affiche le message du serveur quand il y en a un.
-function phraseDe(resultat) {
+// L'ecran affiche le message du serveur quand il y en a un. Exportee parce que
+// vue-reglages.js retire lui aussi un nom du classement, et qu'un second calcul
+// de phrase la-bas divergerait de celui-ci le jour ou l'un des deux bouge.
+export function phraseDe(resultat) {
   return resultat.message ?? messageErreur(resultat.statut, resultat.erreur);
 }
 
@@ -220,11 +222,14 @@ export function phraseSuppression(pseudo) {
   return `Supprimer « ${pseudo} » du classement ?`;
 }
 
-// « Changer d'enfant » efface la cle locale mais ne touche pas au serveur : le
-// nom resterait au classement et plus personne n'en detiendrait le code.
-export function avertissementChangementEnfant(pseudo) {
-  return `Ton nom au classement (« ${pseudo} ») restera visible, et plus personne `
-    + 'ne pourra le supprimer. Supprime-le d’abord si tu ne veux pas le laisser.';
+// Le bloc porte le nom de ce qu'on QUITTE, et son bouton celui de ce qu'on
+// RETIRE. « Supprimer » etait le mot des deux gestes des reglages, et il ne
+// distinguait donc pas celui qui n'emporte que le nom de celui qui emporte le
+// telephone entier.
+export const TITRE_QUITTER_CLASSEMENT = 'Quitter le classement';
+
+export function texteBoutonQuitter(pseudo) {
+  return `Retirer « ${pseudo} » du classement`;
 }
 
 export const SANS_RESEAU_SUPPRESSION = 'Il faut du réseau pour supprimer ton nom.';
@@ -692,7 +697,13 @@ function etapeChoix(section, ctx) {
 }
 
 // Le bloc de #/reglages. Il n'existe que s'il y a quelque chose a retirer :
-// proposer de supprimer un nom qu'on n'a pas serait une question sans reponse.
+// proposer de quitter un classement qu'on n'a pas rejoint serait une question
+// sans reponse.
+//
+// C'est le geste PARTIEL des deux : le nom part, la progression reste sur le
+// telephone. Le geste total — « supprimer mon profil », dans vue-reglages.js —
+// emporte les deux, et emprunte le meme `retirer` pour la moitie qui vit sur le
+// serveur.
 //
 // LA SUPPRESSION NE SE MET JAMAIS EN ATTENTE. Effacer localement d'abord, en
 // comptant sur une reprise, ferait perdre le code — donc le seul moyen de
@@ -704,11 +715,11 @@ export function monterSuppression(hote, ctx) {
 
   const bloc = el('section', 'bloc-reglage bloc-danger');
   bloc.append(
-    el('h2', 'titre-bloc', 'Mon nom au classement'),
+    el('h2', 'titre-bloc', TITRE_QUITTER_CLASSEMENT),
     el('p', 'avertissement', EXPLICATION_SUPPRESSION),
   );
 
-  const bouton = el('button', 'bouton bouton-danger', `Supprimer « ${local.pseudo} »`);
+  const bouton = el('button', 'bouton bouton-danger', texteBoutonQuitter(local.pseudo));
   bouton.type = 'button';
 
   const retour = el('p', 'retour');

@@ -236,9 +236,15 @@ L'app le reconnaît et l'accueille par son prénom. Aucune étape intermédiaire
 ouvrir le lien, c'est être dans le programme.
 
 Depuis les réglages, il peut **corriger son prénom** (faute de frappe) ou
-**changer d'enfant** (un frère, une sœur, un téléphone partagé) — deux gestes
-distincts : le premier garde la progression, le second repart à zéro et le dit
-clairement avant d'agir.
+**supprimer son profil** — un frère, une sœur, un téléphone partagé, ou un
+profil créé par erreur — : deux gestes distincts, le premier garde la
+progression, le second repart à zéro et le dit clairement avant d'agir. Le
+second **emporte aussi le nom au classement**, s'il y en a un (§ 16.6) ; il
+s'appelait « changer d'enfant » et ne le faisait pas.
+
+Un troisième geste apparaît pour qui a rejoint le classement : **quitter le
+classement**, qui retire le nom en laissant la progression sur le téléphone.
+C'est le geste doux ; supprimer son profil est le geste total.
 
 #### 7.3 Faire une séance
 
@@ -710,6 +716,47 @@ sur l'écran qu'on **ouvre**, d'un coup d'œil et d'un tap ; l'écran de séance
 celui qu'on tient à bout de bras entre deux séries, reste clair. Si la lecture au
 soleil pose problème sur le terrain, c'est l'écran du jour qu'il faut éclaircir,
 et lui seul.
+
+#### 16.6 « Supprimer mon profil » remplace « changer d'enfant » — 7 août
+
+Le geste total des réglages porte désormais le nom de son **effet** et non de sa
+raison, et il emporte enfin tout ce que ce nom promet : le prénom, la
+progression, **et le nom au classement** quand ce téléphone en porte un. Le nom
+part du serveur d'abord ; le téléphone n'est effacé qu'ensuite, et pas du tout si
+le retrait échoue. Sans réseau, le geste refuse d'agir et le dit — pour un
+téléphone qui ne porte aucun nom, il n'a besoin de rien et fonctionne hors ligne.
+
+Le geste plus doux garde sa place au-dessus, sous un nom qui le distingue :
+**« Quitter le classement »** — le nom part, la progression reste.
+
+Demandé de vive voix après un retour de parent : *« pour moi c'est le bouton
+changer d'enfant qui devrait s'appeler supprimer mon profil »*. Le retour
+d'origine était celui-ci : *« j'ai déjà fait une boulette en allant voir depuis
+mon téléphone et en créant un compte pour Charlie que je n'arrive plus à
+supprimer »*.
+
+*Ce que le PRD disait* : § 7.2 nommait le geste « changer d'enfant » et le
+décrivait comme « repart à zéro ». Les deux étaient exacts au mot près et faux
+ensemble. Le bouton était nommé par la **raison** de s'en servir — un frère, une
+sœur, un téléphone partagé — si bien que personne cherchant à effacer un profil
+n'ouvrait ce bouton-là. Et « repart à zéro » ne valait que pour le téléphone : le
+nom restait au classement, alors que le geste effaçait le code, donc le seul
+moyen de l'en retirer. Le produit **fabriquait** ainsi l'impasse que son propre
+avertissement décrivait — *« plus personne ne pourra le supprimer »*. Une phrase
+qui prévient de l'impasse à celui qui va y entrer n'est pas un garde-fou : c'est
+la documentation du défaut. C'est une correction ; aucune décision n'est
+rouverte.
+
+*Ce qui n'est pas réparé* : un nom déjà orphelin — laissé par l'ancien geste,
+sur un téléphone qui a donc perdu son code — reste au classement, et rien dans
+l'application ne l'atteint. Le correctif empêche le cas de se reproduire, il ne
+défait pas les cas existants ; ceux-là se traitent à la main sur le volume.
+
+*Écarté* : un écran où l'on retape un nom et son code pour retirer une fiche que
+ce téléphone ne porte pas. Il couvrait les noms déjà orphelins, mais ajoutait un
+troisième geste de sortie à un produit dont le problème était précisément que
+ses deux gestes existants ne se distinguaient pas. Arbitré le 7 août en faveur
+du renommage.
 
 ---
 
