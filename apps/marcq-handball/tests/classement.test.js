@@ -349,10 +349,13 @@ test('debrancher coupe les declencheurs', async () => {
 
 // --- la sortie -------------------------------------------------------------
 
-test('la suppression n efface rien localement tant que le serveur n a pas repondu 200', async () => {
+test('la suppression n efface rien localement tant que l echec peut etre passager', async () => {
+  // Le 403, lui, EFFACE — un code refuse dit que ce nom n'est deja plus a ce
+  // telephone, et garder le lien ne ferait que l'enfermer. C'est le sujet
+  // entier de tests/code-perime.test.js.
   for (const echec of [
     reponse(503, { erreur: 'classement-indisponible', message: 'Indisponible.' }),
-    reponse(403, { erreur: 'code-refuse', message: 'Ce nom est déjà pris, ou le code ne correspond pas.' }),
+    reponse(429, { erreur: 'trop-d-essais', message: 'Trop d’essais sur ce nom.' }),
   ]) {
     poserMagasin(fauxMagasin());
     etat.toutEffacer();

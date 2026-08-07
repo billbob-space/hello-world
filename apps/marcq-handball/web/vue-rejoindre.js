@@ -233,6 +233,15 @@ export function texteBoutonQuitter(pseudo) {
 }
 
 export const SANS_RESEAU_SUPPRESSION = 'Il faut du réseau pour supprimer ton nom.';
+
+// Ce que l'ecran dit quand le serveur refuse le code stocke. La phrase nomme la
+// cause — un nom supprime puis recree ailleurs — parce que sans elle « ton code
+// ne correspond pas » sur un code qu'on n'a jamais tape soi-meme est
+// incomprehensible, et se lit comme une panne de l'application.
+export const NOM_ETRANGER = 'Ce nom ne répond plus à ton code : il a dû être supprimé puis recréé depuis. Ce téléphone ne le suit plus. Tu peux le reprendre avec son nouveau code, ou en choisir un autre.';
+
+// Le chemin de sortie, propose uniquement apres un refus du code stocke.
+export const REPRENDRE_AVEC_UN_CODE = 'Reprendre ce nom avec son code';
 export const RETIRE = 'Ton nom a été retiré du classement.';
 export const DEJA_RETIRE = 'Ce nom n’était plus au classement. C’est réglé.';
 
@@ -448,6 +457,13 @@ function boutonRecuperer(local, ctx) {
   const retour = el('p', 'retour');
   retour.setAttribute('role', 'status');
 
+  const groupe = el('div', 'action-recuperer');
+  groupe.append(bouton, el('p', 'aide', AIDE_RECUPERER), retour);
+
+  // Le chemin de sortie n'est pose qu'une fois, quoi qu'il arrive ensuite : un
+  // second appui ne doit pas empiler deux liens identiques.
+  let sortie = null;
+
   bouton.addEventListener('click', async () => {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       retour.textContent = SANS_RESEAU_RECUPERATION;
@@ -465,6 +481,17 @@ function boutonRecuperer(local, ctx) {
 
     if (!resultat.ok) {
       retour.textContent = phraseDe(resultat);
+      // CE GESTE NE REDEMANDE JAMAIS DE CODE : il renvoie celui qui est deja
+      // la, et c'est voulu — un second formulaire serait une seconde occasion
+      // de se tromper. Mais quand le serveur vient de REFUSER ce code, la
+      // precaution devient le mur : plus aucun ecran n'accepte d'en saisir un
+      // autre, et le telephone n'a plus de sortie. On ouvre alors le chemin,
+      // et seulement alors.
+      if (resultat.erreur === 'code-refuse' && sortie === null) {
+        sortie = el('a', 'bouton-lien', REPRENDRE_AVEC_UN_CODE);
+        sortie.href = '#/rejoindre';
+        groupe.append(sortie);
+      }
       return;
     }
 
@@ -494,8 +521,6 @@ function boutonRecuperer(local, ctx) {
     retour.textContent = RECUPERATION_A_JOUR;
   });
 
-  const groupe = el('div', 'action-recuperer');
-  groupe.append(bouton, el('p', 'aide', AIDE_RECUPERER), retour);
   return groupe;
 }
 
@@ -738,12 +763,19 @@ export function monterSuppression(hote, ctx) {
     const resultat = await retirer({ pseudo: local.pseudo, code: local.code });
     bouton.disabled = false;
 
-    if (!resultat.ok) {
-      // Rien n'est efface localement : 403, 429, 409, 503 et statut 0 laissent
-      // la fiche et le code en place. Le 403 de la suppression ne se raconte
-      // pas differemment de celui de l'envoi — la phrase du serveur est vraie,
-      // et inviter a verifier le code suffit.
+    if (!resultat.ok && !resultat.libere) {
+      // 429, 409, 503 et statut 0 laissent la fiche et le code en place : la
+      // fiche est peut-etre encore la notre, et le code peut etre le bon.
       retour.textContent = phraseDe(resultat);
+      return;
+    }
+    if (resultat.libere) {
+      // Le serveur a refuse le code, donc ce nom n'est plus a ce telephone —
+      // et `retirer` vient de lacher le lien. Le geste a abouti : il n'y a
+      // plus rien au classement qui se rattache ici. On le raconte pour ce que
+      // c'est, et le bouton part comme sur un succes.
+      retour.textContent = NOM_ETRANGER;
+      bouton.remove();
       return;
     }
     // Le PRP 07 rappelle qu'un enfant qui appuie deux fois, ou dont le reseau a

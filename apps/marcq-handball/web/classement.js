@@ -180,15 +180,32 @@ export async function supprimer({ pseudo, code }, options = {}) {
 // vient de partir. `false` : le serveur ne connait pas ce nom — dans les deux
 // cas il n'y a plus rien au classement a quoi ce telephone se rattache, et
 // garder la cle ne servirait qu'a proposer un second geste sans effet.
+// UN REFUS DE CODE LIBERE LE TELEPHONE, et c'est la seule exception a l'ordre
+// ci-dessus. Un 403 dit que ce telephone n'a DEJA plus aucun droit sur ce nom —
+// une fiche supprimee puis recreee a pris un nouveau code, et l'ancien ne
+// commande plus rien. Garder le lien local ne protege alors plus rien : il n'y
+// a plus rien a proteger, et il ne reste qu'un telephone enferme. Les trois
+// gestes de sortie renvoient tous ce meme code stocke, et l'ecran ou l'on en
+// saisit un autre disparait des qu'un nom est enregistre ; sans cette ligne, la
+// seule issue est de vider le navigateur, donc de perdre toute la progression.
+// Signale par un utilisateur, apres l'avoir vecu.
+//
+// Une panne ou une penalite d'essais, elles, ne liberent rien : la fiche est
+// peut-etre encore la notre, et le code peut etre le bon.
+const refusDefinitifDuCode = (resultat) => resultat.erreur === 'code-refuse';
+
 export async function retirer({ pseudo, code }, options = {}) {
   const effacer = options.effacer ?? effacerClassement;
   const resultat = await supprimer({ pseudo, code }, options);
-  if (!resultat.ok) return resultat;
+  if (!resultat.ok && !refusDefinitifDuCode(resultat)) return resultat;
 
   effacer();
   // Le bloc du PRP 09 doit cesser de montrer un rang qui n'existe plus.
   emettre(documentCourant(options), { instantane: null, moi: null, statut: resultat.statut });
-  return resultat;
+  // `libere` dit a l'ecran que le lien local est parti — ce qu'un `ok` faux ne
+  // dit pas. C'est ce qui lui permet de raconter un echec qui a quand meme
+  // abouti, plutot que de proposer une seconde fois un geste sans objet.
+  return { ...resultat, libere: true };
 }
 
 // --- ce que synchroniser decide -------------------------------------------
@@ -289,6 +306,21 @@ export async function synchroniser(ctx, options = {}) {
 
 // --- le debit et la reprise ------------------------------------------------
 
+// CE QUI MERITE D'ETRE REJOUE, ET RIEN D'AUTRE. Statut 0 : pas de reseau, delai
+// depasse, requete avortee. 5xx : le serveur a flanche. Les deux passeront tout
+// seuls.
+//
+// Un 4xx, jamais : le rejouer ne le fera pas passer, et pour `code-refuse` il
+// coute cher. Le serveur ferme un nom apres cinq codes refuses par quart
+// d'heure ; trois reprises font QUATRE refus en une minute, donc deux
+// ouvertures de l'app suffisent a le fermer. Et la fermeture porte sur le NOM,
+// pas sur l'appareil : un telephone au code perime bloquait ainsi le
+// proprietaire legitime du compte, sur son autre telephone, sans que ni l'un ni
+// l'autre ne puisse le soupconner.
+export function estTransitoire(resultat) {
+  return resultat.statut === 0 || resultat.statut >= 500;
+}
+
 // Le debit vit ici et pas dans synchroniser : un geste explicite « Actualiser »
 // (PRP 09) doit pouvoir appeler synchroniser sans passer par l'intervalle, une
 // main etant son propre garde-fou.
@@ -330,7 +362,7 @@ export function brancherSynchronisation(ctx, options = {}) {
     dernierDepart = maintenant().getTime();
     try {
       const resultat = await synchroniser(ctx, options);
-      if (!resultat.ok && !debranche && essai < REPRISES_MS.length) {
+      if (!resultat.ok && estTransitoire(resultat) && !debranche && essai < REPRISES_MS.length) {
         reprise = minuterie.poser(() => {
           reprise = null;
           lancer(essai + 1);

@@ -732,8 +732,9 @@ Le geste total des réglages porte désormais le nom de son **effet** et non de 
 raison, et il emporte enfin tout ce que ce nom promet : le prénom, la
 progression, **et le nom au classement** quand ce téléphone en porte un. Le nom
 part du serveur d'abord ; le téléphone n'est effacé qu'ensuite, et pas du tout si
-le retrait échoue. Sans réseau, le geste refuse d'agir et le dit — pour un
-téléphone qui ne porte aucun nom, il n'a besoin de rien et fonctionne hors ligne.
+le retrait échoue — **sauf sur un refus du code**, cas où le geste aboutit quand
+même (§ 16.7). Sans réseau, le geste refuse d'agir et le dit — pour un téléphone
+qui ne porte aucun nom, il n'a besoin de rien et fonctionne hors ligne.
 
 Le geste plus doux garde sa place au-dessus, sous un nom qui le distingue :
 **« Quitter le classement »** — le nom part, la progression reste.
@@ -766,6 +767,48 @@ ce téléphone ne porte pas. Il couvrait les noms déjà orphelins, mais ajoutai
 troisième geste de sortie à un produit dont le problème était précisément que
 ses deux gestes existants ne se distinguaient pas. Arbitré le 7 août en faveur
 du renommage.
+
+#### 16.7 Un code périmé n'enferme plus le téléphone — 7 août
+
+Un nom supprimé puis recréé prend un **nouveau code**. Le téléphone qui portait
+l'ancien garde alors un lien mort, et le serveur refuse tout ce qu'il envoie.
+Trois corrections, toutes nées de ce seul cas.
+
+- **Un refus du code libère le téléphone.** Un tel refus dit que cet appareil
+  n'a *déjà* plus aucun droit sur ce nom : garder le lien ne protège plus rien,
+  il ne fait qu'enfermer. « Quitter le classement » et « Supprimer mon profil »
+  aboutissent donc, en le disant. Une panne de réseau ou une pénalité d'essais,
+  elles, ne libèrent rien : la fiche est peut-être encore la nôtre.
+- **« Récupérer ma progression » ouvre alors le chemin vers l'écran de saisie.**
+  Ce geste ne redemande jamais de code — un second formulaire serait une seconde
+  occasion de se tromper —, mais quand le code stocké vient d'être refusé, cette
+  précaution devient le mur.
+- **L'application ne rejoue plus un refus définitif.** Elle réessayait trois
+  fois, à 5, 15 et 45 secondes : quatre codes refusés par minute, là où le
+  serveur ferme un nom au cinquième par quart d'heure. Deux ouvertures de l'app
+  suffisaient donc à fermer le nom — et la fermeture porte sur le **nom**, pas
+  sur l'appareil : un téléphone au code périmé bloquait le propriétaire légitime
+  du compte, sur son autre téléphone, sans que ni l'un ni l'autre ne puisse le
+  soupçonner. Seules une panne et une coupure réseau se rejouent désormais.
+
+Signalé par un utilisateur, qui a refusé de vider son navigateur pour ne pas
+perdre sa progression : *« il semble bloqué. je ne veux pas supprimer mon cache
+car ceci me semble être un bug de gestion des comptes »*. C'en était un.
+
+*Ce que le PRD disait* : § 14 promet un pseudonyme « supprimable », et le
+§ 16.6, la veille de cette ligne, affirmait que le téléphone n'est « pas effacé
+du tout si le retrait échoue ». La règle était bonne pour une panne et fausse
+pour un refus de code — et c'est ce § 16.6 qui avait fermé la dernière issue :
+avant lui, le geste effaçait le téléphone sans rien demander au serveur. La
+sortie de secours a donc été supprimée par la correction précédente, un jour
+avant d'être réclamée. C'est une correction ; aucune décision n'est rouverte.
+
+*Ce qui n'est pas fait* : aucun écran ne montre le code que le téléphone garde.
+L'afficher aurait rendu ce diagnostic immédiat — l'utilisateur aurait vu, en
+cinq secondes, que son téléphone tenait un code qui n'était plus le bon. Écarté
+pour l'instant : le § 7.4 tient le code pour un jeton qui ne protège rien, mais
+un adolescent y met souvent celui de son téléphone, et l'afficher à l'écran le
+donne à qui regarde par-dessus l'épaule. À rouvrir si le cas se represente.
 
 ---
 
