@@ -50,10 +50,57 @@ d'une équipe motivée, celui-là même que cette branche traite.
 marche, plafond global), et laquelle est la bonne dépend de ce qu'on accepte de
 publier sur une page ouverte. Ce n'est pas une question de code.
 
+### 3. Le rang d'avant la livraison survivait dans le téléphone
+
+**Symptome** — Une heure après la mise en ligne, sur son propre téléphone : le
+podium annonçait « 1er : Alexandre, Snake — 100 % » et la ligne juste dessous
+« Tu es 2e sur 2 ». Le même écran, deux places différentes pour le même enfant.
+
+**Cause** — L'écran lit deux corps de durées de vie distinctes : le tableau du
+jour, relu à chaque relevé, et la réponse au dernier envoi de ce téléphone, qui
+n'est réécrite qu'à l'envoi suivant. Le rang venait du second. Ce téléphone avait
+envoyé **avant** la livraison : sa réponse portait le rang de l'ancienne règle,
+et rien ne la périmait — un enfant qui ne coche plus rien l'aurait gardée
+jusqu'au soir.
+
+Le raisonnement fautif est le mien, et il est en une phrase : j'ai changé la
+règle sans chercher **où son ancien verdict était déjà stocké**. Le client gardait
+ce chiffre parce que lui seul ne pouvait pas le recalculer — l'heure de coche,
+qui départageait, n'a jamais transité. Cette raison est morte avec la règle : la
+place se déduit désormais entièrement du tableau public. La dépendance, elle, est
+restée.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — aucun garde-fou du dépôt ne voit une donnée écrite
+la veille dans un navigateur. Ce qui se change est la façon de travailler : quand
+une règle de calcul bouge, chercher d'abord qui en a stocké le résultat, et si
+le nouveau calcul rend ce stockage inutile.
+
+### 4. Un inscrit se comptait lui-même parmi ceux à battre
+
+**Symptome** — Trouvée en rejouant l'anomalie 3 dans un navigateur, avant tout
+correctif : un téléphone inscrit dont la progression locale était vide lisait
+« Tu es **3e sur 2** ». Un rang plus grand que son dénominateur, ce que le PRD §9
+interdit explicitement.
+
+**Cause** — Le chemin de secours comparait mes cases à **toutes** les lignes du
+tableau, la mienne comprise. Tant que le rang venait du serveur, ce chemin ne
+servait presque jamais et le défaut dormait ; en faisant du tableau la source du
+rang, je l'ai mis sur le chemin principal. Le correctif retire ma ligne — repérée
+au score de mon dernier envoi — avant de compter, et le dénominateur ne peut plus
+être inférieur au rang.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — réparée, et deux tests la tiennent. La leçon utile est
+ailleurs : rejouer le cas réel dans un navigateur a trouvé en trente secondes ce
+que trente-six tests de fonction pure ne cherchaient pas.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 23:10 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 23:28 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -61,26 +108,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 304 | 0,00 $ |
-| Écriture de cache | 376 184 | 1,59 $ |
-| Lecture de cache | 27 416 898 | 13,16 $ |
-| Sortie | 97 135 | 2,13 $ |
-| **Total** | **27 890 521** | **16,89 $ — 14,67 €** |
+| Entrée | 515 | 0,00 $ |
+| Écriture de cache | 757 123 | 3,64 $ |
+| Lecture de cache | 60 655 651 | 29,70 $ |
+| Sortie | 144 779 | 3,20 $ |
+| **Total** | **61 558 068** | **36,53 $ — 31,73 €** |
 
 **Ce qui coûte**
 
-- **164 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **276 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   58 928 jetons, écrits une fois par session puis relus à chaque
-  échange : 9 605 264 jetons de relecture, 35 % de tout ce qui a été relu.
-- **Tours courts** — 60 des 164 tours (36 %) sortent
+  échange : 16 205 200 jetons de relecture, 26 % de tout ce qui a été relu.
+- **Tours courts** — 144 des 276 tours (52 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 6,98 $, soit 41 % de la facture.
+  une sortie de rien. Ils coûtent 20,65 $, soit 56 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 58 928 jetons relus au premier appel qui relise
-  quelque chose, 256 248 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 365 824 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 27890521 -->
+<!-- cout-total: 61558068 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 58928 0 253
 2 principal claude-opus-5 1304 58928 329
@@ -246,5 +293,117 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 162 principal claude-opus-5 329 255292 267
 163 principal claude-opus-5 627 255621 108
 164 principal claude-opus-5 292 256248 657
+165 principal claude-opus-5 760 256540 298
+166 principal claude-opus-4-7 6596 28262 303
+167 principal claude-opus-4-7 489 34858 231
+168 principal claude-opus-5 516 257300 334
+169 principal claude-opus-5 217421 40940 406
+170 principal claude-opus-5 1187 258361 124
+171 principal claude-opus-5 2767 259548 1239
+172 principal claude-opus-5 1754 262315 137
+173 principal claude-opus-5 406 264069 170
+174 principal claude-opus-4-7 43140 35347 2985
+175 principal claude-opus-5 3083 264475 165
+176 principal claude-opus-5 192 267558 269
+177 principal claude-opus-5 386 267750 207
+178 principal claude-opus-4-7 3549 78487 1376
+179 principal claude-opus-5 828 268136 169
+180 principal claude-opus-5 286 268964 134
+181 principal claude-opus-5 380 269250 110
+182 principal claude-opus-5 144 269630 137
+183 principal claude-opus-5 758 269774 211
+184 principal claude-opus-5 330 270532 155
+185 principal claude-opus-5 776 270862 111
+186 principal claude-opus-5 146 271638 164
+187 principal claude-opus-5 241 271784 291
+188 principal claude-opus-5 912 272025 140
+189 principal claude-opus-5 3048 272937 231
+190 principal claude-opus-5 245 275985 103
+191 principal claude-opus-5 297 276230 248
+192 principal claude-opus-5 734 276527 160
+193 principal claude-opus-5 1714 277261 208
+194 principal claude-opus-5 1788 278975 242
+195 principal claude-opus-5 1022 280763 775
+196 principal claude-opus-5 1788 281785 137
+197 principal claude-opus-5 1047 283573 200
+198 principal claude-opus-5 245 284620 214
+199 principal claude-opus-5 6304 284865 303
+200 principal claude-opus-5 1426 291169 137
+201 principal claude-opus-5 917 292595 350
+202 principal claude-opus-5 2122 293512 197
+203 principal claude-opus-5 1159 295634 155
+204 principal claude-opus-5 577 296793 295
+205 principal claude-opus-5 1440 297370 387
+206 principal claude-opus-5 601 298810 312
+207 principal claude-opus-5 5643 299411 620
+208 principal claude-opus-5 638 305054 187
+209 principal claude-opus-5 306 305692 154
+210 principal claude-opus-5 189 305998 146
+211 principal claude-opus-5 498 306187 58
+212 principal claude-opus-5 309 306685 140
+213 principal claude-opus-5 174 306994 108
+214 principal claude-opus-5 227 307168 154
+215 principal claude-opus-5 284 307395 253
+216 principal claude-opus-5 288 307679 202
+217 principal claude-opus-5 3539 307967 227
+218 principal claude-opus-5 608 311506 124
+219 principal claude-opus-5 289 312114 100
+220 principal claude-opus-5 225 312403 133
+221 principal claude-opus-5 252 312628 137
+222 principal claude-opus-5 172 312880 111
+223 principal claude-opus-5 146 313052 184
+224 principal claude-opus-5 236 313198 222
+225 principal claude-opus-5 350 313434 131
+226 principal claude-opus-5 250 313784 156
+227 principal claude-opus-5 321 314034 184
+228 principal claude-opus-5 203 314355 166
+229 principal claude-opus-5 172 314558 141
+230 principal claude-opus-5 650 314730 197
+231 principal claude-opus-5 243 315380 140
+232 principal claude-opus-5 175 315623 111
+233 principal claude-opus-5 146 315798 160
+234 principal claude-opus-5 206 315944 141
+235 principal claude-opus-5 269 316150 177
+236 principal claude-opus-5 428 316419 142
+237 principal claude-opus-5 176 316847 160
+238 principal claude-opus-5 206 317023 111
+239 principal claude-opus-5 146 317229 113
+240 principal claude-opus-5 463 317375 225
+241 principal claude-opus-5 1869 317838 184
+242 principal claude-opus-5 204 319707 229
+243 principal claude-opus-5 587 319911 170
+244 principal claude-opus-5 429 320498 390
+245 principal claude-opus-5 625 320927 938
+246 principal claude-opus-5 1532 321552 159
+247 principal claude-opus-5 286 323084 59
+248 principal claude-opus-5 278 323370 495
+249 principal claude-opus-5 1820 324143 3235
+250 principal claude-opus-5 4500 325963 3833
+251 principal claude-opus-5 4025 330463 3085
+252 principal claude-opus-5 3146 334488 138
+253 principal claude-opus-5 148 337634 572
+254 principal claude-opus-5 634 337782 140
+255 principal claude-opus-5 183 338416 805
+256 principal claude-opus-5 899 338599 516
+257 principal claude-opus-5 526 339498 266
+258 principal claude-opus-5 426 340024 173
+259 principal claude-opus-5 291 340450 5038
+260 principal claude-opus-5 5230 340741 124
+261 principal claude-opus-5 145 345971 1000
+262 principal claude-opus-5 1062 346116 116
+263 principal claude-opus-5 138 347178 100
+264 principal claude-opus-5 454 347316 267
+265 principal claude-opus-5 429 347770 167
+266 principal claude-opus-5 285 348199 726
+267 principal claude-opus-5 1931 348484 162
+268 principal claude-opus-5 316 350415 176
+269 principal claude-opus-5 237 350731 233
+270 principal claude-opus-5 245 350968 169
+271 principal claude-opus-5 200 351213 896
+272 principal claude-opus-5 1017 351413 1131
+273 principal claude-opus-5 1245 352430 130
+274 principal claude-opus-5 11784 353675 209
+275 principal claude-opus-5 365 365459 1259
+276 principal claude-opus-5 1500 365824 119
 -->
 <!-- /cout -->

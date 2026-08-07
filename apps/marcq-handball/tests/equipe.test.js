@@ -131,12 +131,56 @@ test('sans classement, il n y a pas de position', () => {
   assert.equal(equipe.positionDe({ instantane: vide, moi: null, cochees: 5, inscrit: false }), null);
 });
 
-test('le rang tranche par le serveur est repris tel quel, ex aequo compris', () => {
-  // Le rang et le nombre d'ex aequo viennent du serveur : le client ne calcule
-  // pas un rang qu'il n'a pas tranche (ossature §2).
+test('la place se lit dans le tableau du jour, pas dans la reponse au dernier envoi', () => {
+  // Le tableau est rafraichi a chaque relevé ; `moi` ne l'est qu'a l'envoi
+  // suivant. Les deux s'accordent ici, et c'est le tableau qui tranche.
   const moi = { pseudo: 'Tom', jour: '2026-08-07', rang: 3, exAequo: 1, participants: 9, cochees: 19 };
   const p = equipe.positionDe({ instantane: NEUF, moi, cochees: 19, inscrit: true });
   assert.deepEqual(p, { rang: 3, ordinal: '3e', exAequo: 1, participants: 9, inscrit: true });
+});
+
+test('un rang perime par la reponse au dernier envoi ne contredit plus le podium', () => {
+  // VU EN PRODUCTION le 8 aout, une heure apres la livraison des ex aequo : le
+  // podium annonçait « 1er : Alexandre, Snake » et la ligne juste dessous
+  // « Tu es 2e sur 2 ». Le telephone avait envoye AVANT la livraison, sa
+  // reponse portait le rang de l'ancienne regle, et rien ne la perimait — un
+  // enfant qui ne coche plus rien l'aurait gardee jusqu'au soir.
+  const deux = {
+    jour: '2026-08-08',
+    programmees: 22,
+    participants: 2,
+    classement: [
+      { rang: 1, cochees: 22, part: 1, pseudo: 'Alexandre' },
+      { rang: 1, cochees: 22, part: 1, pseudo: 'Snake' },
+    ],
+    groupe: { cochees: 44, programmees: 44, part: 1 },
+  };
+  const perime = { pseudo: 'Alexandre', jour: '2026-08-08', rang: 2, participants: 2 };
+  const p = equipe.positionDe({ instantane: deux, moi: perime, cochees: 22, inscrit: true });
+  assert.equal(equipe.phrasePosition(p), 'Tu es 1er sur 2, avec 1 autre.');
+});
+
+test('un inscrit ne se compte jamais lui-meme, meme quand son telephone a pris du retard', () => {
+  // Trouve en rejouant le cas du dessus dans un navigateur. Ce telephone est
+  // inscrit avec 22 cases envoyees — sa ligne est au tableau — mais sa
+  // progression locale est vide : navigateur efface, ou second telephone qui
+  // n'a pas encore repris sa progression. Sans retirer MA ligne du tableau, je
+  // me compte moi-meme comme quelqu'un a battre et je lis « 3e sur 2 ».
+  const deux = {
+    jour: '2026-08-08',
+    programmees: 22,
+    participants: 2,
+    classement: [
+      { rang: 1, cochees: 22, part: 1, pseudo: 'Alexandre' },
+      { rang: 1, cochees: 22, part: 1, pseudo: 'Snake' },
+    ],
+    groupe: { cochees: 44, programmees: 44, part: 1 },
+  };
+  const moi = { pseudo: 'Alexandre', jour: '2026-08-08', rang: 1, exAequo: 1, participants: 2, cochees: 22 };
+  const p = equipe.positionDe({ instantane: deux, moi, cochees: 0, inscrit: true });
+  assert.equal(equipe.phrasePosition(p), 'Tu es 2e sur 2.');
+  // Et le rang reste atteignable : jamais « 3e sur 2 » (PRD §9).
+  assert.ok(p.rang <= p.participants, `${p.rang} sur ${p.participants}`);
 });
 
 test('un rang du serveur d un AUTRE jour n est pas repris', () => {

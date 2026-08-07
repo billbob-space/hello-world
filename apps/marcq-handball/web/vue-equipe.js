@@ -4,10 +4,12 @@
 // trois marches ; la position, qui n'en nomme aucune ; la jauge collective, la
 // seule mesure ou personne n'est dernier — et c'est elle qu'on lit en refermant.
 //
-// Ce fichier ne calcule JAMAIS un rang que le serveur a tranche. La seule
-// exception est la position de quelqu'un que le serveur ne connait pas, et elle
-// est nommee comme telle. Un rang calcule par le client serait un rang declare
-// par le client (ossature §2).
+// Ce fichier LIT le rang dans le tableau du serveur — il ne l'invente pas et
+// n'en garde pas un vieux. Depuis que les ex aequo partagent leur place, la
+// regle du §9 tient entiere dans ce tableau : le rang est le nombre d'enfants
+// strictement devant, plus un. Aucun departage cache ne subsiste, donc lire
+// n'est plus declarer (ossature §2). Le seul chiffre repris tel quel du serveur
+// l'est quand ce tableau n'est PAS comparable, et il est nomme comme tel.
 
 import { creerBarre } from './barre.js';
 import { EVT_CLASSEMENT, synchroniser } from './classement.js';
@@ -84,44 +86,63 @@ export function positionDe({ instantane, moi, cochees, inscrit }) {
   if (instantane == null || !(instantane.participants > 0)) return null;
   const lignes = instantane.classement ?? [];
 
-  // Le rang vient du serveur quand le serveur l'a rendu — avec le nombre de
-  // ceux qui le partagent, que le client ne recalcule pas.
-  if (moi != null && moi.jour === instantane.jour && typeof moi.rang === 'number') {
-    // Le denominateur vient de LA MEME REPONSE que le rang, pas de l'instantane.
-    // Les deux corps peuvent dater de deux instants differents — l'inscription
-    // ecrit `moi` avant que le releve suivant n'ait rafraichi `instantane` — et
-    // melanger leurs nombres produit « 4e sur 3 », qu'aucun test de fonction
-    // pure ne voit et que le premier enfant qui rejoint lit tout de suite.
-    const participants = typeof moi.participants === 'number'
-      ? Math.max(moi.participants, instantane.participants)
-      : instantane.participants;
+  // `moi` est la reponse au DERNIER ENVOI de ce telephone. Elle ne se rafraichit
+  // qu'a l'envoi suivant, la ou l'instantane est relu en permanence : elle sert
+  // donc au denominateur, jamais au rang. Voir le bloc du rang ci-dessous.
+  const memeJour = moi != null && moi.jour === instantane.jour;
+  const participantsMoi = memeJour && typeof moi.participants === 'number' ? moi.participants : 0;
+
+  // Un compte incomparable — deux programmes differents, voir modeleEquipe — ne
+  // se compare a rien. Le rang du dernier envoi est alors le seul chiffre
+  // disponible : perimable, mais tranche par le serveur sur SON programme.
+  if (typeof cochees !== 'number') {
+    if (!memeJour || typeof moi.rang !== 'number') return null;
     return {
       rang: moi.rang,
       ordinal: rangOrdinal(moi.rang),
       // Un corps ancien — servi par un cache — n'a pas le champ : zero ex aequo
       // est alors la lecture prudente, la phrase se tait plutot que d'inventer.
       exAequo: typeof moi.exAequo === 'number' ? moi.exAequo : 0,
-      participants,
+      participants: Math.max(participantsMoi, instantane.participants),
       inscrit: true,
     };
   }
 
-  // Un compte incomparable est pire qu'un rang absent : voir modeleEquipe.
-  if (typeof cochees !== 'number') return null;
+  // LE RANG SE LIT DANS LE TABLEAU DU JOUR. Depuis que les ex aequo partagent
+  // leur place, la regle du §9 est entiere dans ce tableau : le rang est le
+  // nombre d'enfants STRICTEMENT devant, plus un. Rien n'est cache, donc rien
+  // n'est declare — ce n'est pas un rang invente par le client, c'est la lecture
+  // d'une regle publique sur une donnee publique.
+  //
+  // Tant que l'heure departageait, seul le serveur pouvait trancher et ce fichier
+  // reprenait son verdict. Le garder aurait coute cher : le 8 aout, une heure
+  // apres la livraison des ex aequo, un telephone qui n'avait plus rien envoye
+  // affichait « Tu es 2e sur 2 » sous un podium qui le disait 1er.
+  // On se compare aux AUTRES, donc ma ligne sort du tableau d'abord. Elle y
+  // figure au score que le serveur connait de moi — celui de mon dernier envoi
+  // —, qui n'est pas forcement celui que je viens de cocher. Sans ce retrait, un
+  // telephone dont la progression locale a pris de l'avance ou du retard sur ce
+  // qu'il a envoye se compte lui-meme comme quelqu'un a battre, et lit
+  // « 3e sur 2 ».
+  const autres = inscrit ? sansMaLigne(lignes, monScoreConnu(moi, memeJour, cochees)) : lignes;
 
-  // Le rang compte les enfants STRICTEMENT devant, dans les deux cas : a
-  // egalite personne n'est devant (PRD §9). Ne change que le comptage des ex
-  // aequo — inscrit, ma propre ligne est dans le tableau et ne se compte pas
-  // deux fois.
-  const devant = lignes.filter((l) => (l.cochees ?? 0) > cochees).length;
-  const egaux = lignes.filter((l) => (l.cochees ?? 0) === cochees).length;
+  const devant = autres.filter((l) => (l.cochees ?? 0) > cochees).length;
+  const rang = devant + 1;
+  const exAequo = autres.filter((l) => (l.cochees ?? 0) === cochees).length;
 
   if (inscrit) {
+    // Le denominateur vient du plus recent des trois nombres. Juste apres une
+    // inscription, `moi` compte le nouveau participant que l'instantane ne
+    // connait pas encore, et melanger leurs nombres donnerait « 4e sur 3 » —
+    // qu'aucun test de fonction pure ne voit et que le premier enfant qui
+    // rejoint lit tout de suite. Le rang y entre pour la meme raison : etre 4e
+    // suppose au moins quatre participants, et le PRD §9 promet un rang
+    // toujours atteignable.
     return {
-      rang: devant + 1,
-      ordinal: rangOrdinal(devant + 1),
-      exAequo: Math.max(0, egaux - 1),
-      participants: instantane.participants,
+      rang,
+      ordinal: rangOrdinal(rang),
+      exAequo,
+      participants: Math.max(participantsMoi, instantane.participants, rang),
       inscrit: true,
     };
   }
@@ -136,12 +157,27 @@ export function positionDe({ instantane, moi, cochees, inscrit }) {
   // denominateur ne bouge pas quand on rejoint, donc rejoindre n'est jamais
   // presente comme un moyen de mieux se classer.
   return {
-    rang: devant + 1,
-    ordinal: rangOrdinal(devant + 1),
-    exAequo: egaux,
+    rang,
+    ordinal: rangOrdinal(rang),
+    exAequo,
     participants: instantane.participants + 1,
     inscrit: false,
   };
+}
+
+// Le score sous lequel MA ligne figure au tableau : celui de mon dernier envoi
+// quand il porte sur le meme jour, sinon, faute de mieux, celui que je compte
+// ici. Les deux coincident sauf entre une coche et l'envoi qui la porte.
+function monScoreConnu(moi, memeJour, cochees) {
+  return memeJour && typeof moi.cochees === 'number' ? moi.cochees : cochees;
+}
+
+// Retire UNE ligne au score donne. Une seule : mes ex aequo restent des ex
+// aequo. Aucune si le tableau n'en porte pas — il est alors anterieur a mon
+// inscription, et il n'y a rien a retirer.
+function sansMaLigne(lignes, score) {
+  const i = lignes.findIndex((l) => (l.cochees ?? 0) === score);
+  return i === -1 ? lignes : [...lignes.slice(0, i), ...lignes.slice(i + 1)];
 }
 
 // « Tu es 4e sur 12, avec 1 autre. » La mention n'apparait que s'il y a
