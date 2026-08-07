@@ -111,11 +111,10 @@ jamais cet en-tête. Rien n'est à desserrer.
   dénominateurs suivent, et les identifiants déjà cochés restent valides. Seuls
   les sept totaux attendus des tests se recalculent.
 
-**Un arbitrage à reporter dans le PRD**, sans effet sur le code : le PRP 09 a
-tranché que le dénominateur affiché à un non-participant vaut `participants + 1`
-— *« le dénominateur inclut celui qui regarde »*. L'exemple chiffré du §7.5 dit
-encore « 3e sur 9 » ; sans cette phrase, le prochain lecteur prendra l'écran pour
-un défaut.
+**L'arbitrage du PRP 09 est reporté dans le PRD** — §7.5 et §9 portent désormais
+*« le dénominateur inclut celui qui regarde »* : le dénominateur affiché à un
+non-participant vaut `participants + 1`. Sans cette phrase, le prochain lecteur
+aurait pris l'écran pour un défaut, le §7.5 disant « 3e sur 9 » sans la préciser.
 
 ## Ce que les PRP ont appris sur eux-mêmes
 
