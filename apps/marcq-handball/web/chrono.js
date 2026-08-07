@@ -18,6 +18,12 @@
 // compte, et rien ne serait plus deroutant qu'un rebours qui reprend a 12 s
 // deux jours plus tard.
 
+import { creerSonneur } from './sonnerie.js';
+// La SEULE lecture du telephone faite ici, et c'est une preference, pas une
+// progression : quelle sonnerie l'enfant a choisie. Le minuteur lui-meme
+// n'ecrit rien et ne garde rien.
+import { lireSonnerie } from './etat.js';
+
 // LA DUREE ECRITE DANS LE LIBELLE GAGNE SUR LA MESURE, et c'est la lecon d'un
 // defaut signale : « 45 s de chaise contre un mur » porte `unite: autre,
 // valeur: 0` — le programme ne compte cet exercice dans aucun total — et
@@ -163,6 +169,10 @@ export function figerChrono(etat, t) {
 
 // --- le montage -------------------------------------------------------------
 
+// Un seul sonneur pour toute l'application : un contexte audio par exercice en
+// ouvrirait cinquante-trois.
+const sonneur = creerSonneur({ lire: () => lireSonnerie() ?? undefined });
+
 function el(balise, classe, texte) {
   const noeud = document.createElement(balise);
   if (classe) noeud.className = classe;
@@ -203,6 +213,11 @@ export function monterChrono(hote, ex, options = {}) {
   // regarde son ecran. L'API n'existe pas partout, d'ou le garde.
   const vibrer = options.vibrer
     ?? (() => { if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(200); });
+  // Le son ET la pulsation, jamais l'un a la place de l'autre : le telephone est
+  // souvent pose a terre pendant un gainage, et la poche etouffe la vibration
+  // comme le vacarme d'un gymnase couvre le bip. Le silence reste une vraie
+  // option — c'est la sonnerie « Silencieux » des reglages.
+  const sonner = options.sonner ?? (() => sonneur.jouer());
 
   let etat = creerChrono(secondes);
   let battement = null;
@@ -250,6 +265,7 @@ export function monterChrono(hote, ex, options = {}) {
     if (vu.fini && !etaitFini) {
       etaitFini = true;
       vibrer();
+      sonner();
       orchestre.rendreLaMain(moi);
     }
     if (!vu.fini) etaitFini = false;
@@ -265,6 +281,11 @@ export function monterChrono(hote, ex, options = {}) {
   };
 
   bouton.addEventListener('click', () => {
+    // LE SEUL GESTE QUI PRECEDE LE ZERO, et donc le seul endroit ou reveiller
+    // l'audio. Un navigateur de telephone refuse de jouer quoi que ce soit tant
+    // que rien n'a ete touche, et il ne rend pas d'erreur : il se tait. Preparer
+    // au demarrage donne quarante-cinq secondes d'avance sur la sonnerie.
+    if (options.sonner === undefined) sonneur.preparer();
     etat = basculerChrono(etat, maintenant());
     if (lireChrono(etat, maintenant()).actif) orchestre.prendreLaMain(moi);
     else orchestre.rendreLaMain(moi);

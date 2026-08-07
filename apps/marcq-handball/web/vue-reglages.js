@@ -4,7 +4,8 @@
 // zero. Les deux ne se ressemblent pas a l'ecran, et c'est le sujet de ce
 // fichier : un formulaire ordinaire d'un cote, une zone a part de l'autre.
 
-import { ecrirePrenom, lireClassement, lireFaits, toutEffacer } from './etat.js';
+import { ecrirePrenom, ecrireSonnerie, lireClassement, lireFaits, lireSonnerie, toutEffacer } from './etat.js';
+import { creerSonneur, SONNERIE_PAR_DEFAUT, SONNERIES } from './sonnerie.js';
 import { avertissementChangementEnfant, monterSuppression } from './vue-rejoindre.js';
 
 // PRD §14, ligne « Perte du telephone ou vidage du navigateur » : le risque est
@@ -19,6 +20,10 @@ export const CONFIRMATION_CHANGEMENT =
   'Changer d’enfant efface le prénom et toute la progression enregistrée sur ce '
   + 'téléphone. C’est définitif. Continuer ?';
 
+// Le sonneur de cet ecran est le sien : il n'a pas a partager le contexte audio
+// du minuteur, qui vit sur un autre ecran et peut ne jamais avoir ete ouvert.
+const sonneurDesReglages = creerSonneur();
+
 export function monterReglages(hote, ctx) {
   const section = document.createElement('section');
   section.className = 'ecran ecran-reglages';
@@ -27,13 +32,79 @@ export function monterReglages(hote, ctx) {
   titre.className = 'titre-ecran';
   titre.textContent = 'Réglages';
 
-  section.append(titre, blocPrenom(ctx), blocSauvegarde());
+  section.append(titre, blocPrenom(ctx), blocSonnerie(), blocSauvegarde());
   // Le bloc du classement n'existe que s'il y a un nom a retirer. Il vient AVANT
   // « changer d'enfant » : c'est le geste destructeur le plus doux des deux, et
   // celui que l'avertissement du second recommande de faire d'abord.
   monterSuppression(section, ctx);
   section.append(blocChangerEnfant(ctx));
   hote.append(section);
+}
+
+// Le seul REGLAGE de l'application — les autres blocs sont des gestes. Il vient
+// juste apres le prenom : c'est le seul des quatre qu'on vient chercher pour le
+// plaisir, et il n'a pas a se meriter en passant devant deux avertissements.
+//
+// CHOISIR, C'EST ENTENDRE. Le tap qui coche une sonnerie la joue aussitot : sans
+// cela il faudrait revenir a une seance, lancer un rebours et attendre son zero
+// pour savoir ce qu'on vient de choisir. Il se trouve que c'est aussi le geste
+// qui reveille l'audio du navigateur, mais ce n'est pas la raison — la raison
+// est qu'un son se choisit a l'oreille.
+function blocSonnerie() {
+  const bloc = document.createElement('section');
+  bloc.className = 'bloc-reglage';
+
+  const titre = document.createElement('h2');
+  titre.className = 'titre-bloc';
+  titre.textContent = 'La sonnerie du minuteur';
+
+  const aide = document.createElement('p');
+  aide.className = 'aide';
+  aide.textContent = 'Ce qu’on entend quand un compte à rebours arrive à zéro. Le téléphone vibre dans tous les cas.';
+
+  bloc.append(titre, aide);
+
+  const groupe = document.createElement('div');
+  groupe.className = 'choix-sonnerie';
+  groupe.setAttribute('role', 'radiogroup');
+  groupe.setAttribute('aria-label', 'La sonnerie du minuteur');
+
+  const choisie = lireSonnerie() ?? SONNERIE_PAR_DEFAUT;
+
+  for (const s of SONNERIES) {
+    const etiquette = document.createElement('label');
+    etiquette.className = 'ligne-sonnerie';
+
+    const bouton = document.createElement('input');
+    bouton.type = 'radio';
+    bouton.name = 'sonnerie';
+    bouton.value = s.cle;
+    bouton.className = 'case-sonnerie';
+    bouton.checked = s.cle === choisie;
+
+    const texte = document.createElement('span');
+    texte.className = 'texte-sonnerie';
+    const nom = document.createElement('span');
+    nom.className = 'nom-sonnerie';
+    nom.textContent = s.nom;
+    const detail = document.createElement('span');
+    detail.className = 'aide';
+    detail.textContent = s.description;
+    texte.append(nom, detail);
+
+    etiquette.append(bouton, texte);
+    groupe.append(etiquette);
+  }
+
+  groupe.addEventListener('change', (e) => {
+    const bouton = e.target;
+    if (!(bouton instanceof HTMLInputElement) || bouton.name !== 'sonnerie') return;
+    ecrireSonnerie(bouton.value);
+    sonneurDesReglages.jouer(bouton.value);
+  });
+
+  bloc.append(groupe);
+  return bloc;
 }
 
 // Geste 1 : corriger son prenom. La progression n'est pas touchee — le prenom et

@@ -10,6 +10,7 @@ export const CLE_PRENOM = 'marcq.v1.prenom';
 export const CLE_FAITS = 'marcq.v1.faits';
 export const CLE_CLASSEMENT = 'marcq.v1.classement';
 export const CLE_RESSENTI = 'marcq.v1.ressenti';
+export const CLE_SONNERIE = 'marcq.v1.sonnerie';
 export const PREFIXE_CLES = 'marcq.';
 
 const PRENOM_MAX = 24;
@@ -179,6 +180,25 @@ export function decocher(id) {
   delete faits[id];
   ecrireFaits(faits);
   return faits;
+}
+
+// --- la sonnerie ----------------------------------------------------------
+
+// La seule preference de l'application. Une CHAINE et non un objet : le jour ou
+// un second reglage apparait, il prendra sa propre cle plutot que de faire
+// migrer celle-ci — l'ossature §6 tient a des cles independantes, chacune
+// lisible seule et illisible sans consequence.
+//
+// La validation vit chez `sonnerie.js`, qui connait la liste ; ici on ne fait
+// que lire et ecrire une chaine.
+export function lireSonnerie() {
+  const brut = lireCle(CLE_SONNERIE);
+  return typeof brut === 'string' && brut !== '' ? brut : null;
+}
+
+export function ecrireSonnerie(cle) {
+  if (typeof cle !== 'string' || cle === '') return false;
+  return ecrireCle(CLE_SONNERIE, cle);
 }
 
 // --- le classement --------------------------------------------------------

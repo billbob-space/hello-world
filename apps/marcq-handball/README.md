@@ -355,9 +355,36 @@ Quatre décisions valent d'être connues avant de toucher à ce fichier :
   passe à chacun : en démarrer un fige celui qui tournait. Deux comptes à rebours
   concurrents sur un téléphone tenu à bout de bras ne se lisent pas.
 - **Aucune persistance, aucun réseau.** Un rebours qui reprendrait à 12 s deux
-  jours plus tard serait plus déroutant qu'utile. À zéro : une pulsation
-  (`navigator.vibrate`) et jamais un son — l'app s'ouvre au gymnase. Il ne coche
-  rien tout seul : cocher reste le geste de l'enfant (PRD §7.3).
+  jours plus tard serait plus déroutant qu'utile. Il ne coche rien tout seul :
+  cocher reste le geste de l'enfant (PRD §7.3). Le minuteur ne lit du téléphone
+  qu'**une** chose, et c'est une préférence : la sonnerie choisie.
+- **À zéro, il sonne ET il vibre** — jamais l'un à la place de l'autre : le
+  téléphone est souvent posé à terre pendant un gainage, et la poche étouffe la
+  vibration comme le vacarme d'un gymnase couvre le bip.
+
+### La sonnerie, et pourquoi elle n'est pas un fichier
+
+`web/sonnerie.js` synthétise le son à la volée avec l'oscillateur du navigateur.
+**Aucun fichier audio** : rien à télécharger, rien à mettre dans la coque hors
+ligne, rien à charger depuis un autre domaine — l'ossature §2 l'interdit — et
+l'image ne grossit pas d'un octet. Quatre choix : *Bip*, *Cloche*, *Sifflet*, et
+*Silencieux* — une vraie option, une séance se faisant aussi dans un salon à côté
+de quelqu'un qui dort. Aucune ne dépasse une seconde et demie ; au-delà, ce n'est
+plus un signal, c'est une alarme qu'on cherche à faire taire.
+
+**Le son ne part qu'après un geste, et c'est la seule vraie difficulté.** Un
+navigateur de téléphone refuse de jouer quoi que ce soit tant que rien n'a été
+touché, et il ne rend pas d'erreur : il se tait. Or le zéro d'un rebours n'est
+pas un geste. C'est donc le **tap qui démarre le minuteur** qui réveille l'audio
+— `preparer()` n'existe que pour cela — ce qui donne toute la durée du rebours
+d'avance. Un test lit la source pour vérifier que ce réveil vit bien dans le
+gestionnaire du bouton, et avant que l'état ne bascule.
+
+Le choix vit sous `marcq.v1.sonnerie` et se règle dans **Réglages**, juste après
+le prénom. **Choisir, c'est entendre** : cocher une sonnerie la joue aussitôt —
+sans quoi il faudrait revenir à une séance, lancer un rebours et attendre son
+zéro pour savoir ce qu'on vient de choisir. Une clé inconnue — écrite par une
+version future, ou à la main — retombe sur *Bip* : le minuteur sonne quand même.
 
 Le bouton de remise à zéro est masqué par `visibility` et jamais par `hidden` :
 `hidden` rétrécirait la ligne tant que le minuteur dort, et son apparition au
