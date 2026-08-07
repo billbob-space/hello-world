@@ -255,7 +255,7 @@ export function monterSeance(hote, ctx) {
       const actions = el('div', 'actions-exercice');
       item.append(actions);
       monterVideo(actions, ex);
-      demontages.push(monterChrono(actions, ex.mesure, { orchestre }));
+      demontages.push(monterChrono(actions, ex, { orchestre }));
       liste.append(item);
       lignes.set(ex.id, item);
     }

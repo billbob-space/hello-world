@@ -18,9 +18,59 @@
 // compte, et rien ne serait plus deroutant qu'un rebours qui reprend a 12 s
 // deux jours plus tard.
 
-// La duree prescrite d'un exercice, en secondes, ou null s'il n'en a pas.
-// Les deux seules unites de temps du programme (`web/programme.json`) : le
-// gainage se mesure en secondes, la course en minutes.
+// LA DUREE ECRITE DANS LE LIBELLE GAGNE SUR LA MESURE, et c'est la lecon d'un
+// defaut signale : « 45 s de chaise contre un mur » porte `unite: autre,
+// valeur: 0` — le programme ne compte cet exercice dans aucun total — et
+// recevait donc un chronometre qui monte, alors que son libelle prescrit
+// quarante-cinq secondes en toutes lettres.
+//
+// La mesure sert les TOTAUX (le volume accompli, le classement) ; le libelle
+// sert l'ENFANT. Quand les deux different, c'est le second qui a raison, parce
+// que c'est celui qu'il lit :
+//
+//   « 30 s de gainage de chaque cote »  mesure 60 s — les deux cotes ensemble —
+//                                       mais on tient 30 s, puis on change ;
+//   « 6 × 2 minutes rapides »           mesure 17 min de seance, mais on lance
+//                                       un rebours de 2 minutes, six fois ;
+//   « 2 series de 8 × (30 s rapides… )» mesure 19 min, mais l'intervalle est 30 s.
+//
+// On prend la PREMIERE duree ecrite : c'est l'effort, jamais la recuperation
+// qui le suit ni le total qui l'englobe.
+//
+// Le motif exige une unite de temps explicite — `s`, `sec`, `min`, `mn`,
+// `minute(s)` — et rien d'autre ne compte : ni le metre de « 6 × 100 m », ni
+// celui de « 30-30 m a 80 % ».
+//
+// LA FIN DE L'UNITE SE GARDE AVEC UN LOOKAHEAD UNICODE, jamais avec `\b`. En
+// JavaScript, `\b` ignore les accents : « 2 series » se lit alors « 2 s » suivi
+// d'une frontiere de mot devant le « é », et « 2 series de 8 × (30 s rapides) »
+// prescrivait deux secondes. Constate a l'essai, et invisible autrement.
+const DUREE_ECRITE = /(\d+)(?:\s*[àa]\s*\d+)?\s*(?:(min|mn|minutes?)(?:\s+(\d{1,2})(?![\p{L}\p{N}]))?|(s|sec|secondes?))(?![\p{L}\p{N}])/iu;
+
+export function dureeEcrite(libelle) {
+  const trouve = DUREE_ECRITE.exec(String(libelle ?? ''));
+  if (trouve === null) return null;
+  // Le nombre retenu d'une FOURCHETTE est le premier : « 30 a 40 minutes » vaut
+  // trente. Un rebours est une cible a atteindre, et la borne haute d'une
+  // fourchette en ferait une cible qu'on rate de justesse en ayant fait ce
+  // qu'on demandait.
+  const [, nombre, , appoint, secondes] = trouve;
+  const valeur = Number(nombre);
+  if (!Number.isFinite(valeur) || valeur <= 0) return null;
+  if (secondes !== undefined) return Math.round(valeur);
+  // « 1 min 30 » : l'appoint se lit en secondes, comme sur un chronometre.
+  return Math.round(valeur * 60 + (appoint === undefined ? 0 : Number(appoint)));
+}
+
+// La duree d'un exercice, en secondes, ou null s'il n'en a pas : ce que le
+// libelle ecrit d'abord, ce que la mesure prescrit ensuite.
+export function secondesDe(ex) {
+  return dureeEcrite(ex?.libelle) ?? secondesPrescrites(ex?.mesure);
+}
+
+// La duree prescrite par la MESURE, en secondes, ou null. Les deux seules
+// unites de temps du programme (`web/programme.json`) : le gainage se mesure en
+// secondes, la course en minutes.
 export function secondesPrescrites(mesure) {
   if (mesure === null || typeof mesure !== 'object') return null;
   const valeur = Number(mesure.valeur);
@@ -142,8 +192,8 @@ export const TEXTE_FINI = 'Terminé';
 
 // Monte le minuteur d'UN exercice et rend son demontage. `options` n'existe que
 // pour les tests : horloge, battement et vibration s'injectent.
-export function monterChrono(hote, mesure, options = {}) {
-  const secondes = secondesPrescrites(mesure);
+export function monterChrono(hote, ex, options = {}) {
+  const secondes = secondesDe(ex);
   const orchestre = options.orchestre ?? creerOrchestre();
   const maintenant = options.maintenant ?? (() => Date.now());
   const poser = options.poser ?? ((rappel, ms) => setInterval(rappel, ms));

@@ -509,10 +509,45 @@ parlant plus de ce qu'il venait de faire. Deplacer un bloc, ce n'est pas le
 couper-coller : c'est verifier ce que son nouveau contenant dit deja, et ou
 menent les chemins qui en sortent.
 
+### 21. Le minuteur lisait la mesure, l'enfant lisait le libelle
+
+**Symptome** — rapporte par l'utilisateur : « certains exercices ne sont pas
+timer correctement, exemple 45 s de chaise contre un mur ». L'exercice recevait
+un chronometre qui monte, alors que son libelle prescrit quarante-cinq secondes
+en toutes lettres.
+
+**Cause** — `secondesPrescrites` ne lisait que `mesure`, et « 45 s de chaise
+contre un mur » porte `unite: autre, valeur: 0` : le programme ne le compte dans
+aucun total, ce qui est juste pour les totaux et faux pour le minuteur. Les deux
+champs ne servent pas la meme chose — LA MESURE SERT LES TOTAUX, LE LIBELLE SERT
+L'ENFANT — et rien ne le disait.
+
+**Ce que la correction a fait apparaitre** — sept exercices, pas un. Le libelle
+corrige la mesure sur « 30 s de gainage de chaque cote » (mesure 60, les deux
+cotes ensemble ; on en tient 30 puis on change), sur « 6 × 2 minutes rapides »
+(mesure 17 min de seance ; l'effort est de 2 minutes, six fois), sur « 2 series
+de 8 × (30 s rapides) » (mesure 19 min ; l'intervalle est 30 s). Le defaut
+signale en cachait six autres, tous du meme genre : un minuteur qui donne la
+duree de la SEANCE la ou l'enfant attend celle du GESTE.
+
+**Un second defaut, trouve en corrigeant le premier** — le motif de duree se
+fermait sur `\b`, et `\b` ignore les accents en JavaScript : « 2 series de
+8 × (30 s rapides) » se lisait « 2 s » — deux secondes — parce que le « s » de
+« series » est suivi d'un « é » que `\b` traite en frontiere. Il faut un
+lookahead Unicode. Vu a l'essai, invisible autrement.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `contrat` — deux champs qui decrivent la meme chose pour deux
+usages differents doivent dire lequel fait foi POUR QUOI, a l'endroit ou ils sont
+definis. Ici : la mesure alimente les totaux et le classement, le libelle
+alimente ce que l'enfant lit et donc ce que l'ecran fait. Le second gagne des
+qu'il est explicite.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 15:28 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 15:48 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -520,22 +555,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 883 | 0,00 $ |
-| Écriture de cache | 3 415 395 | 19,49 $ |
-| Lecture de cache | 103 244 552 | 49,68 $ |
-| Sortie | 150 336 | 2,65 $ |
-| **Total** | **106 811 166** | **71,82 $ — 62,37 €** |
+| Entrée | 972 | 0,00 $ |
+| Écriture de cache | 3 550 142 | 19,67 $ |
+| Lecture de cache | 116 205 112 | 55,52 $ |
+| Sortie | 183 947 | 3,11 $ |
+| **Total** | **119 940 173** | **78,30 $ — 68,00 €** |
 
 **Ce qui coûte**
 
-- **463 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **514 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 337 jetons, écrits une fois par session puis relus à chaque
-  échange : 31 571 694 jetons de relecture, 30 % de tout ce qui a été relu.
+  échange : 35 056 881 jetons de relecture, 30 % de tout ce qui a été relu.
 - **Croissance** — 68 337 jetons relus au premier appel qui relise
-  quelque chose, 496 244 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 524 396 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 106811166 -->
+<!-- cout-total: 119940173 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68337 0 0
 2 principal claude-opus-5 2865 68337 0
@@ -1000,5 +1035,56 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 461 principal claude-opus-5 735 493900 1263
 462 principal claude-opus-5 1609 494635 106
 463 principal claude-opus-5 424 496244 1146
+464 principal claude-opus-5 1310 496668 1166
+465 principal claude-opus-5 1370 497978 149
+466 principal claude-opus-4-7 38930 0 130
+467 principal claude-opus-4-7 180 38930 125
+468 principal claude-opus-4-7 285 39110 88
+469 principal claude-opus-4-7 0 38930 119
+470 principal claude-opus-4-7 200 38930 88
+471 principal claude-opus-4-7 3039 39130 264
+472 principal claude-opus-4-7 3039 39395 555
+473 principal claude-opus-4-7 1238 42434 92
+474 principal claude-opus-5 271 499348 1544
+475 principal claude-opus-4-7 7059 42169 416
+476 principal claude-opus-4-7 6887 43672 509
+477 principal claude-opus-5 2432 499619 134
+478 principal claude-opus-4-7 2250 50559 178
+479 principal claude-opus-5 250 502051 189
+480 principal claude-opus-4-7 384 52809 417
+481 principal claude-opus-5 1248 502301 294
+482 principal claude-opus-4-7 2053 49228 1139
+483 principal claude-opus-4-7 1899 51281 176
+484 principal claude-opus-5 727 503549 60
+485 principal claude-opus-4-7 260 53180 321
+486 principal claude-opus-4-7 348 53440 134
+487 principal claude-opus-4-7 2356 53193 1156
+488 principal claude-opus-4-7 2073 53788 1302
+489 principal claude-opus-4-7 1466 55861 111
+490 principal claude-opus-4-7 1215 57327 1135
+491 principal claude-opus-4-7 1151 58542 934
+492 principal claude-opus-4-7 970 59693 69
+493 principal claude-opus-4-7 2793 55549 4004
+494 principal claude-opus-4-7 4472 58342 1168
+495 principal claude-opus-4-7 10918 28262 197
+496 principal claude-opus-4-7 278 39180 88
+497 principal claude-opus-4-7 3039 39458 92
+498 principal claude-opus-4-7 6887 42497 89
+499 principal claude-opus-5 345 504336 137
+500 principal claude-opus-5 1097 504681 193
+501 principal claude-opus-5 254 505778 365
+502 principal claude-opus-5 724 506032 41
+503 principal claude-opus-5 782 506756 63
+504 principal claude-opus-5 265 507601 147
+505 principal claude-opus-5 1206 507866 176
+506 principal claude-opus-5 897 509072 47
+507 principal claude-opus-5 788 509969 42
+508 principal claude-opus-5 35 510799 2081
+509 principal claude-opus-5 3234 510834 3050
+510 principal claude-opus-5 4376 514068 2826
+511 principal claude-opus-5 3112 518444 362
+512 principal claude-opus-5 413 521556 2405
+513 principal claude-opus-5 2427 521969 1059
+514 principal claude-opus-5 1515 524396 1985
 -->
 <!-- /cout -->
