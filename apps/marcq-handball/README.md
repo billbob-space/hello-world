@@ -321,10 +321,23 @@ Chaque exercice porte un minuteur, à droite de sa ligne — `web/chrono.js`, mo
 par `web/vue-seance.js`.
 
 **C'est le programme qui décide du mode, jamais l'enfant.** Un exercice dont la
-durée est prescrite reçoit un **compte à rebours** : les deux seules unités de
-temps de `programme.json` sont `gainage_s` (secondes) et `min_course` (minutes),
-soit 23 des 53 cases. Les 30 autres, comptées en répétitions, reçoivent un
-**chronomètre** qui monte. Un rebours sur « 15 pompes » inventerait une limite
+durée est prescrite reçoit un **compte à rebours** — 24 des 53 cases ; les 29
+autres, comptées en répétitions, reçoivent un **chronomètre** qui monte.
+
+**La durée écrite dans le libellé gagne sur la mesure**, et c'est la leçon d'un
+défaut signalé : « 45 s de chaise contre un mur » porte `unite: autre,
+valeur: 0` — le programme ne le compte dans aucun total — et recevait donc un
+chronomètre, alors que son libellé prescrit quarante-cinq secondes en toutes
+lettres. **La mesure sert les totaux, le libellé sert l'enfant** ; quand les deux
+diffèrent, c'est le second qui a raison, parce que c'est celui qu'il lit. On
+retient la **première** durée écrite — l'effort, jamais la récupération qui le
+suit ni le total qui l'englobe — et le **plancher** d'une fourchette. Sept
+exercices sont dans ce cas, nommés un par un dans `tests/chrono.test.js`.
+
+Le motif exige une unité explicite (`s`, `sec`, `min`, `mn`, `minute(s)`) et
+garde sa fin avec un **lookahead Unicode, jamais `\b`** : en JavaScript, `\b`
+ignore les accents, « 2 séries » se lisait donc « 2 s » et prescrivait deux
+secondes. Ni le mètre de « 6 × 100 m » ni celui de « 30-30 m à 80 % » ne compte. Un rebours sur « 15 pompes » inventerait une limite
 que le coach n'a pas donnée ; un chronomètre sur un gainage de 45 s demanderait à
 l'enfant de surveiller un nombre au lieu de tenir sa position.
 

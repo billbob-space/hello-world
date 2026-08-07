@@ -29,23 +29,67 @@ test('c est le PROGRAMME qui decide du mode, pas l enfant', () => {
   }
 });
 
-test('le programme reel donne un rebours a ses vingt-trois exercices chronometres', () => {
+test('la duree ECRITE dans le libelle gagne sur la mesure', () => {
+  // Le defaut signale : « 45 s de chaise contre un mur » porte
+  // `unite: autre, valeur: 0` — le programme ne le compte dans aucun total — et
+  // recevait donc un chronometre qui monte, alors que son libelle prescrit
+  // quarante-cinq secondes en toutes lettres.
+  const chaise = { libelle: '45 s de chaise contre un mur', mesure: { unite: 'autre', valeur: 0 } };
+  assert.equal(chrono.secondesPrescrites(chaise.mesure), null, 'la mesure ne prescrit rien');
+  assert.equal(chrono.secondesDe(chaise), 45, 'le libelle, lui, prescrit 45 s');
+
+  // La mesure sert les TOTAUX, le libelle sert l'ENFANT. Quand les deux
+  // different, c'est le second qui a raison, parce que c'est celui qu'il lit.
+  assert.equal(chrono.dureeEcrite('30 s de gainage de chaque côté'), 30, 'on tient 30 s, puis on change de côté');
+  assert.equal(chrono.dureeEcrite('6 × 2 minutes rapides, récupération 1 minute'), 120, 'l effort, pas la recuperation');
+  assert.equal(chrono.dureeEcrite('2 séries de 8 × (30 s rapides à fond / 30 s lentes)'), 30, 'l intervalle, pas la seance');
+  assert.equal(chrono.dureeEcrite('1 min de gainage'), 60);
+  assert.equal(chrono.dureeEcrite('1 min 30 entre les tours'), 90, 'l appoint se lit en secondes');
+  // Une fourchette rend son PLANCHER : un rebours est une cible a atteindre, et
+  // la borne haute en ferait une cible qu'on rate en ayant fait ce qu'on demandait.
+  assert.equal(chrono.dureeEcrite("30 à 40 minutes d'un autre sport"), 1800);
+});
+
+test('ce qui n est pas une duree n en devient pas une', () => {
+  // LE PIEGE DES ACCENTS, constate a l'essai. En JavaScript, `\b` ignore les
+  // accents : « 2 séries » se lit alors « 2 s » suivi d'une frontiere de mot
+  // devant le « é ». Le motif garde donc la fin de son unite avec un lookahead
+  // Unicode, et ce test est la seule chose qui empeche ce retour en arriere.
+  assert.equal(chrono.dureeEcrite('2 séries de 8 répétitions'), null);
+  assert.equal(chrono.dureeEcrite('15 squats'), null, '« 15 s » n est pas dans « 15 squats »');
+  assert.equal(chrono.dureeEcrite('20 abdos'), null);
+  assert.equal(chrono.dureeEcrite('15 secondes'), 15, 'le mot entier compte, lui');
+  // Le metre n'est pas une minute.
+  assert.equal(chrono.dureeEcrite('6 × 100 m à 80 %, récupération en marchant'), null);
+  assert.equal(chrono.dureeEcrite('10 min de 30-30 m à 80 %'), 600, 'la premiere duree, et le metre ignore');
+  for (const rien of [null, undefined, '', '0 min', '0 s', 'quinze minutes']) {
+    assert.equal(chrono.dureeEcrite(rien), null, JSON.stringify(rien));
+  }
+});
+
+test('le programme reel donne un rebours a vingt-quatre de ses exercices', () => {
   let rebours = 0;
   let repetitions = 0;
+  const ecrases = [];
   for (const seance of programme.seances) {
     for (const bloc of seance.blocs) {
       for (const ex of bloc.exercices) {
-        if (chrono.secondesPrescrites(ex.mesure) === null) repetitions++;
-        else rebours++;
+        const vu = chrono.secondesDe(ex);
+        if (vu === null) repetitions++; else rebours++;
+        if (vu !== chrono.secondesPrescrites(ex.mesure)) ecrases.push(ex.id);
       }
     }
   }
-  // 9 gainages + 14 courses, comptes depuis programme.json et non recopies :
-  // ajouter la troisieme page du coach (PRD §12.3) fera bouger ces nombres, et
-  // ce test dira lesquels.
-  assert.equal(rebours, 23);
-  assert.equal(repetitions, 30);
+  // Comptes depuis programme.json et non recopies : ajouter la troisieme page
+  // du coach (PRD §12.3) fera bouger ces nombres, et ce test dira lesquels.
+  assert.equal(rebours, 24);
+  assert.equal(repetitions, 29);
   assert.equal(rebours + repetitions, 53, 'les 53 cases du programme');
+
+  // Les SEPT exercices dont le libelle corrige la mesure, nommes un par un : ce
+  // sont eux que le defaut signale a fait apparaitre, et les relire est le seul
+  // moyen de voir qu'aucun ne prend une duree absurde.
+  assert.deepEqual(ecrases, ['s1-r5', 's2-c2', 's3-c1', 's3-r4', 's5-c2', 's6-r6', 's7-c2']);
 });
 
 test('un temps s ecrit comme sur une horloge', () => {
