@@ -4,7 +4,8 @@ Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branc
 coûté, de lancer l'`analyste`, le `greffier` ou l'`artisan`, ou de conclure qu'une
 branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie, présence des trois agents ; pret.sh — relevé de coût manquant ou
+fermés par anomalie, présence des trois agents et des deux commandes de mode ;
+pret.sh — relevé de coût manquant ou
 périmé, en avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
 `garde-commit.sh` refuse un arbre sale ; test-cout.sh — le relevé rend un nombre
 qu'aucune relecture ne vérifie à l'œil, dix cas le tiennent
@@ -188,6 +189,62 @@ Quatre limites, toutes dites par la commande elle-même :
 - au-delà de quatre-vingt-dix jours, le taux de change est signalé comme vieux ;
 - c'est un **prix d'API, pas une facture** : sous abonnement, rien n'est refacturé
   à ce tarif. Le montant se lit comme une valeur de consommation.
+
+## Les deux modes de développement
+
+```
+/livrer [sujet]    # autonome : jusqu'à la mise en ligne vérifiée, sans question
+/pas-a-pas         # normal : l'agent consulte et rend la main à chaque étape
+```
+
+Fichiers ordinaires dans `.claude/commands/`, dont `--check` vérifie la présence.
+Le nom de la commande **est** celui du fichier, d'où `pas-a-pas` sans accents :
+un caractère accentué dans un nom de commande n'est garanti nulle part.
+
+**`present` en vert ne veut pas dire invocable** : `--check` regarde le disque, et
+le registre des commandes se lit au démarrage de la session — même piège que les
+agents et les plugins. Une commande écrite en cours de session n'existe qu'à la
+suivante, et le contrôle vert au moment même le fait oublier.
+
+`/livrer` s'invoque à n'importe quel moment — avec un sujet, ou sans, auquel cas
+il reprend le travail en cours. C'est ce qui le rend utilisable aux deux moments
+où on le veut : au départ d'une demande, ou au milieu d'un échange qui traîne.
+
+**Le point d'arrivée est le site qui répond**, pas la pull request ouverte ni la
+fusion. Une PR verte dit que les tests passent, une fusion dit que le workflow
+est parti ; ni l'un ni l'autre ne dit que l'app tourne. Or le déploiement est
+atomique : rendre la main à la fusion, c'est partir juste avant le seul moment où
+l'on peut casser les applications qu'on n'a pas touchées. La CI rouge et le
+déploiement raté sont donc dans le mode, pas des motifs d'en sortir : on répare,
+on repousse, on recommence.
+
+**Le mode ne retire aucun garde-fou, il retire les questions.** Même chemin
+qu'en mode normal — branche dédiée, journal à chaud, `pret.sh` avant chaque
+commit, `--check` avant de pousser, `cout.sh` avant la fin. Un mode autonome qui
+se donnerait des raccourcis serait un second chemin à maintenir, et le seul que
+personne ne relirait jamais.
+
+**Trois arrêts, et rien d'autre** — ouvrir une app plus largement (`exposure`
+desserrée), effacer des données (volume supprimé, renommé ou écrasé), toucher à
+ce qui est partagé alors que ce n'était pas la demande. Le troisième porte sa
+condition avec lui : si le sujet **est** la fabrique, ce n'est pas un
+débordement, c'est le travail — l'arrêt vise le dommage collatéral. Partout
+ailleurs l'agent tranche, et **écrit son choix dans l'entrée de journal** ; ce
+qui demandait vraiment une décision humaine y devient une anomalie
+`Action: arbitrage`. C'est ce qui rend une session autonome relisable après coup,
+et c'est la seule contrepartie exigée en échange du silence.
+
+**Deux limites, dites plutôt que masquées.** Le mode ne survit pas à la session :
+une session cloud est éphémère, et un mode autonome qui survivrait déciderait un
+jour à votre place sans qu'on l'ait rouvert. Et il ne désactive pas les demandes
+d'autorisation du harnais — elles viennent du mode de permission de la session,
+qu'aucun fichier du dépôt n'atteint. `/livrer` le signale à l'utilisateur quand
+il en rencontre une ; zéro interruption réelle demande une session lancée en mode
+« ne pas demander ».
+
+Rien ne vérifie automatiquement que l'agent a bien obéi, et c'est délibéré : le
+journal et le diff le disent déjà, et un contrôle de l'autonomie devrait décider
+ce qu'est une question légitime — il ne saurait pas.
 
 ## Les trois agents
 

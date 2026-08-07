@@ -2503,6 +2503,7 @@ check_outillage() {
   done
   for f in .claude/agents/analyste.md .claude/agents/greffier.md \
            .claude/agents/artisan.md \
+           .claude/commands/livrer.md .claude/commands/pas-a-pas.md \
            .github/pull_request_template.md; do
     [ -f "$f" ] && ok "$f present" || bad "$f absent"
   done

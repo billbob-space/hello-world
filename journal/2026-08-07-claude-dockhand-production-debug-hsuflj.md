@@ -169,6 +169,61 @@ vérifier que tout job cité dans le `needs` d'un job en `always()` est aussi
 nommé dans son `if`. C'est un contrôle purement textuel, et le seul endroit du
 dépôt où une dépendance peut être déclarée puis ignorée sans erreur.
 
+---
+
+*La PR #76 a été fusionnée ; le harnais a réassigné le même nom pour un troisième
+sujet — le mode de développement autonome. La branche est repartie de `main`,
+l'entrée continue ici.*
+
+### 8. Le contrat était de nouveau au plafond, et l'arbitrage 4 est resté ouvert
+
+**Symptôme** — annoncer les deux commandes dans `CLAUDE.md` demandait trois
+lignes. Le fichier en faisait 250 sur un plafond de 250. Il a fallu recomprimer
+un paragraphe déjà écrit — celui de `pret.sh` et de la pull request — pour
+libérer la place, puis raccourcir l'énumération qui renvoie à
+`memory/travail.md`. Le sujet ajouté tient ; deux passages relus l'ont payé.
+
+**Cause** — l'anomalie 4 de cette même entrée a signalé le problème et l'a laissé
+en `arbitrage` : le plafond empêche bien le contrat d'enfler, mais il ne dit pas
+où va ce qui déborde, et `memory/` exige une contrepartie — `Tenu par:` — qu'un
+sujet purement documentaire ne peut pas honorer. Ici la contrepartie existait
+(`--check` vérifie la présence des deux fichiers), donc `memory/travail.md` a
+pu accueillir le détail. Mais le contrat doit tout de même *annoncer* le sujet,
+et cette annonce n'a pas de place à elle : elle se prend sur la prose voisine.
+
+Le coût est invisible dans le diff, et c'est ce qui le rend durable : on y voit
+des reformulations, pas une perte. Rien ne compte combien de paragraphes ont été
+resserrés pour faire entrer un sujet de plus.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — deuxième occurrence du même arbitrage. Soit le
+plafond monte, soit le contrat se dote d'une section d'annonces courtes dont la
+compression est assumée, soit on accepte que `--check` avertisse. Aucun agent ne
+devrait trancher seul un réglage qui décide de ce que tous les suivants liront.
+
+### 9. `--check` dit `present` d'une commande qui n'est pas encore invocable
+
+**Symptôme** — `.claude/commands/livrer.md` écrit, `./init.sh --check` répond
+`.claude/commands/livrer.md present` en vert. La commande n'est pourtant pas
+disponible dans la session qui vient de l'écrire : le registre des commandes est
+lu au démarrage, comme celui des agents et celui des plugins — `memory/travail.md`
+le disait déjà pour les agents, `memory/outillage.md` pour les plugins.
+
+**Cause** — le contrôle vérifie ce qu'il peut vérifier, l'existence du fichier,
+et le nomme `present`, ce qui s'entend comme « disponible ». Les deux notions
+coïncident pour un hook — lancé par chemin à chaque appel — et divergent pour
+tout ce qui passe par un registre chargé une fois. Le mot juste n'existe pas dans
+la sortie d'un contrôle de présence : c'est la doc qui doit porter la nuance.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — `memory/travail.md` porte désormais la phrase pour les
+commandes, à côté de celle qui existait pour les agents. Le troisième cas du même
+piège en trois fichiers différents : il vaudrait mieux une phrase unique quelque
+part que trois rappels dispersés, mais aucun des trois fichiers n'est le bon
+endroit pour les deux autres.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
