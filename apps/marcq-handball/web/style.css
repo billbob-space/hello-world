@@ -1045,6 +1045,11 @@ body {
 
 .formulaire-rejoindre { display: flex; flex-direction: column; gap: .7rem; }
 
+/* Le formulaire qui retire un nom que ce telephone ne porte pas. Meme colonne
+   que les deux autres : c'est un formulaire ordinaire, et le danger se lit sur
+   son bouton et sur le bloc qui l'entoure, pas sur sa mise en page. */
+.formulaire-suppression { display: flex; flex-direction: column; gap: .7rem; }
+
 /* Une action secondaire qui ne se dispute pas la place avec le bouton
    principal, mais qui garde une zone de tap pleine. */
 .bouton-lien {
