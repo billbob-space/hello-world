@@ -45,12 +45,25 @@ multiplié par la taille du contexte à chaque tour.
 **1. L'amorce, relue à chaque tour — 46,04 $, 20 % de la facture.**
 Contrat, outillage et définitions d'outils pèsent 55 000 à 68 000 jetons selon
 la branche, écrits une fois par session puis relus à chaque échange — près de
-cent millions de jetons de relecture pure. Le contrat n'y est presque pour rien — `CLAUDE.md`
-fait 13,8 ko, soit ~4 000 jetons, 7 % de l'amorce. **Le reste est de
-l'outillage** : treize plugins déclarés dans `.claude/settings.json`, plus les
-connecteurs du compte, chacun payant ses définitions d'outils à chaque tour de
-chaque session. Une branche qui touche une app Go n'a besoin ni de Canva ni de
-Gmail. C'est le levier le mieux compris et le moins exploité.
+cent millions de jetons de relecture pure. Le contrat n'y est presque pour rien —
+`CLAUDE.md` fait 13,8 ko, soit ~4 000 jetons, 7 % de l'amorce.
+
+**Le reste est de l'outillage, mais pas celui qu'on croit.** L'inventaire du
+7 août (anomalie 10 de l'entrée du jour) a mesuré ce que pèse chaque sorte de
+plugin, et l'écart est d'un facteur cent :
+
+| Sorte | Ce que ça coûte dans l'amorce |
+|---|---|
+| Serveur MCP (`github`, `playwright`, `context7`) | ses définitions d'outils, en milliers de jetons — **et les trois sont utilisés** |
+| Plugin de compétences (`superpowers`, `mattpocock-skills`) | une description par compétence, quelques centaines de jetons |
+| Plugin de commandes ou d'agents (`code-review`, `commit-commands`, `code-simplifier`) | une ligne chacun |
+| Plugin de hooks (`security-guidance`) | **rien** — il s'exécute à l'appel d'outil, pas à la lecture |
+
+Retirer les cinq plugins sans aucune trace d'usage ferait donc gagner ~2 % de
+l'amorce, quand l'amorce elle-même varie de 14 000 jetons d'une branche à
+l'autre. **Le levier est le plus gros de la liste et il ne se prend pas en
+élaguant les plugins inutilisés** : il faudrait renoncer à un serveur MCP dont on
+se sert, ou que les définitions d'outils se chargent à la demande.
 
 **2. Les tours courts — 112,83 $, 50 % de la facture.**
 877 tours sur 1 537 (57 %) sortent moins de 300 jetons : un appel d'outil nu.
@@ -83,10 +96,10 @@ facture, et c'est le poste qui porte toute la valeur qui survit à la session.
 
 ## 2. Le journal
 
-148 anomalies sur 24 entrées, au 7 août — `./init.sh --check` en donne le
+149 anomalies sur 24 entrées, au 7 août — `./init.sh --check` en donne le
 compte à jour. Distribution des actions : `comportement` 42, `garde-fou` 35,
-`rien` 29, `contrat` 23, `arbitrage` 12, `outillage` 7. Distribution des
-détections : `auteur` 81, `utilisateur` 25, `test` 18, `relecture` 17,
+`rien` 29, `contrat` 23, `arbitrage` 13, `outillage` 7. Distribution des
+détections : `auteur` 82, `utilisateur` 25, `test` 18, `relecture` 17,
 `production` 3, `compilateur` 2, `CI` 2.
 
 *Ces comptes se refont par le motif ancré que `--check` utilise —
@@ -145,8 +158,10 @@ texte du § 7.4 du PRD, jamais pour ses nombres.
    qui ne produisent rien d'autre qu'un appel.
 2. **Confier un chantier à l'`artisan`** plutôt que de le mener dans la session
    principale, et mesurer l'écart : c'est le seul levier non testé.
-3. **N'activer que l'outillage utile à l'app** ; l'amorce est relue à chaque
-   tour, pas une fois.
+3. **Ne pas compter sur l'élagage des plugins** pour réduire l'amorce : elle est
+   faite de définitions d'outils, et les outils qui pèsent sont ceux qui servent.
+   Un plugin se retire parce que son usage contredirait le contrat, pas pour
+   quelques centaines de jetons.
 4. **Exécuter un PRP avant de le figer** — la famille A n'a jamais été outillée.
 5. **Prouver qu'un garde-fou de source attrape encore quelque chose** — sinon il
    ne garde plus rien, et sans bruit.

@@ -197,6 +197,47 @@ source échoue dans le bac seulement.
 bac, et pas seulement avant de committer. Le message d'erreur ne le dira jamais :
 il rapporte l'échec du script, pas l'absence du fichier.
 
+### 10. Les plugins inutilisés ne pèsent pas ce que le bilan leur reprochait
+
+**Symptôme** — la tâche 5 du plan promettait 20 % de la facture en élaguant
+l'outillage, avec un critère de réussite à 15 % de baisse de l'amorce. Inventaire
+fait : cinq plugins sur treize n'ont laissé aucune trace — `mattpocock-skills`,
+`code-review`, `code-simplifier`, `commit-commands`, `security-guidance`. Leur
+retrait ferait gagner de l'ordre de **1 000 jetons sur 55 815**, soit 2 %. Le
+critère est inatteignable par ce geste, et il n'a jamais été atteignable.
+
+**Cause** — l'amorce a été traitée comme un bloc alors qu'elle est faite de
+choses de poids très différents. Un plugin de **hooks** — `security-guidance` —
+ne coûte **rien** dans le contexte : il s'exécute à l'appel d'outil, pas à la
+lecture. Un plugin de **commandes** ou d'**agents** — `code-review`,
+`code-simplifier`, `commit-commands` — ajoute une ligne de description chacun.
+Seul un plugin de **compétences** pèse un peu, et `mattpocock-skills` est le seul
+des cinq dans ce cas. Ce qui remplit l'amorce, ce sont les **définitions d'outils
+des serveurs MCP** — `github`, `playwright`, `context7` — et ils sont tous les
+trois utilisés. Mesure à l'appui : l'amorce varie de 54 713 à 68 337 jetons d'une
+branche à l'autre du même dépôt, soit un écart quatorze fois supérieur à tout ce
+que ces cinq plugins pèsent ensemble.
+
+**Ce que l'inventaire a trouvé, et qui vaut mieux que le gain de jetons** —
+quatre raisons distinctes de non-usage, dont deux sont des défauts :
+
+| Plugin | Pourquoi il ne sert pas |
+|---|---|
+| `commit-commands` | **Remplacé par le contrat.** `pret.sh` puis un message écrit à la main ; un `/commit` générique court-circuiterait les tests, le journal et le relevé de coût. Et `/clean_gone` ne peut pas fonctionner : le harnais refuse la suppression de refs, d'où `fusionnees.sh` |
+| `mattpocock-skills` | **Redondant.** Mêmes déclencheurs que `superpowers` — TDD, revue, débogage, modélisation. À déclencheur égal, c'est celui que le contrat nomme qui gagne, donc toujours l'autre |
+| `code-simplifier` | **Ce n'est pas un choix** : c'est un agent, et zéro tour d'agent a été exécuté sur 1 537. Son inutilisation est l'anomalie 4, pas une anomalie de plus |
+| `code-review` | **Sans place dans le flux.** Ici la revue passe par `--check`, les quatre harnais de test et la relecture humaine avant fusion |
+| `security-guidance` | **Utilisé, mais silencieux.** Il a réagi pendant cette branche — un faux positif sur un test qui interdit `innerHTML`. Ne laisse pas de trace au journal, et ne coûte rien |
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — le levier de l'amorce reste vrai et reste le plus
+gros, mais il ne se prend pas par ce geste-là. Ce qui est à trancher n'est donc
+pas un gain de jetons : c'est de garder ou non deux outils dont l'usage
+*contredirait* le contrat — `commit-commands`, dont le geste saute `pret.sh`, et
+`mattpocock-skills`, dont les déclencheurs doublent ceux de la méthode écrite.
+Les trois autres se gardent sans discuter.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 

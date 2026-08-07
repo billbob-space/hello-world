@@ -1077,3 +1077,23 @@ git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
 - **Il ne tranche pas le plafond mémoire** (1216 Mo engagés contre 1024
   déclarés). Aucun test ne remplace un arbitrage humain : relever le plafond ou
   désactiver une app se décide devant la RAM du serveur.
+
+---
+
+## Ce qui a été exécuté, le 7 août
+
+| Tâche | État | Preuve |
+|---|---|---|
+| 1 — les chiffres des documents | **faite** | `apps/marcq-handball/tests/documents.test.js`, 4 tests ; 51 écrit à la place de 53 fait échouer ; 295 tests verts |
+| 2 — les garde-fous de source | **faite** | `tests/source.js` + 4 cas ; cinq emplacements convertis sur les sept prévus ; un emploi réel échoue, un commentaire ne fait plus rien ; 299 tests verts |
+| 3 — `scripts/jetons.sh` | **faite** | `test-jetons.sh`, 9 cas ; `test-cout.sh` inchangé, 11 verts ; `test-init.sh` gagne `avertit`, 23 verts |
+| 4 — tours courts et alerte | **faite** | `test-cout.sh`, 14 cas ; seuil abaissé à 50 000 → le cas du silence échoue, remis → vert |
+| 5 — l'amorce | **analysée, geste abandonné** | le retrait des cinq plugins sans trace vaut ~2 % de l'amorce, pas 15 % : anomalie 10 du journal |
+| 6 — l'`artisan` mesuré | **reportée** | les tâches 1 et 2 ont été menées à la main dans la session, il n'y a plus rien à mesurer dessus ; le protocole vaut pour le chantier suivant |
+
+**Trois défauts trouvés en exécutant, et aucun n'était dans le plan** : deux
+garde-fous lisent les commentaires exprès (anomalie 6), une phrase du journal qui
+cite un marqueur ouvrait le bloc qu'elle décrit (anomalie 7), et le comptage des
+anomalies du bilan se faisait par un motif plus court que celui de `--check`, donc
+faux (anomalie 8). Les trois sont de la même famille B — un motif qui attrape
+autre chose que sa cible —, celle que ce plan prétendait traiter.
