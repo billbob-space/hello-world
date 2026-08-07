@@ -319,6 +319,79 @@ function etapeConsentement(section, ctx) {
 // Il ecoute EVT_CLASSEMENT et se redessine : sans cet ecouteur, la ligne d'etat
 // resterait sur ce qu'elle disait a l'ouverture de l'ecran, et le premier
 // releve reussi ne se verrait pas.
+// LA REPRISE A BESOIN D'UNE PORTE, ET L'ECRAN DE SAISIE N'EN EST PAS UNE.
+// L'ecran ou l'on tape un nom et un code n'est atteignable que tant qu'aucun nom
+// n'est enregistre ici — passe l'inscription, le bouton qui y mene disparait,
+// par construction. Un telephone qui a deja rejoint ne pouvait donc plus rien
+// reprendre, et c'est exactement la situation de celui qui a perdu sa
+// progression : il a saisi son nom, il l'a toujours. Ce geste-ci renvoie donc la
+// demande de reprise avec le nom et le code DEJA stockes, sans rien redemander.
+//
+// Il ne s'affiche que sous un nom connu, et il ne peut rien detruire : une
+// reprise n'enleve jamais rien, ni ici ni sur le serveur.
+export const TEXTE_RECUPERER = 'Récupérer ma progression';
+export const AIDE_RECUPERER = 'Si tu as coché des séances sur un autre téléphone.';
+export const RECUPERATION_A_JOUR = 'Rien de plus à récupérer : cet appareil est à jour.';
+export const SANS_RESEAU_RECUPERATION = 'Il faut du réseau pour récupérer ta progression.';
+
+function boutonRecuperer(local, ctx) {
+  const bouton = el('button', 'bouton-lien', TEXTE_RECUPERER);
+  bouton.type = 'button';
+
+  const retour = el('p', 'retour');
+  retour.setAttribute('role', 'status');
+
+  bouton.addEventListener('click', async () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      retour.textContent = SANS_RESEAU_RECUPERATION;
+      return;
+    }
+    bouton.disabled = true;
+    retour.textContent = 'Récupération…';
+
+    const avant = Object.keys(lireFaits()).length;
+    const ressentis = ressentisPourEnvoi(ctx.prog, lireRessentis());
+    const resultat = await envoyer({
+      pseudo: local.pseudo, code: local.code, faits: lireFaits(), ressentis, reprise: true,
+    });
+    bouton.disabled = false;
+
+    if (!resultat.ok) {
+      retour.textContent = phraseDe(resultat);
+      return;
+    }
+
+    const apres = fusionnerFaits(resultat.moi?.faits);
+    // Meme raison qu'a l'inscription : l'empreinte est celle d'APRES la fusion.
+    // Prise sur ce qui vient de partir, le declencheur suivant renverrait un
+    // ensemble plus petit que la fiche, en remplacement — la reprise serait
+    // defaite dans la seconde qui suit.
+    ecrireClassement({
+      dernierEnvoi: {
+        at: new Date().toISOString(),
+        empreinte: empreinte(apres),
+        empreinteRessentis: empreinteRessentis(ressentis),
+      },
+    });
+
+    if (Object.keys(apres).length > avant) {
+      // Quelque chose est revenu : on remonte l'ecran, et c'est la progression
+      // retrouvee qui fait le message — bien plus qu'une phrase. C'est le seul
+      // cas ou remonter est le bon geste ; dans l'autre, il n'afficherait rien
+      // de neuf et l'enfant croirait que le bouton n'a pas marche.
+      ctx.rafraichir();
+      return;
+    }
+    // ON NE REMONTE PAS ICI. Le bloc partirait et emporterait la seule reponse
+    // que l'enfant recoit — c'est l'anomalie 7 du journal, deja payee une fois.
+    retour.textContent = RECUPERATION_A_JOUR;
+  });
+
+  const groupe = el('div', 'action-recuperer');
+  groupe.append(bouton, el('p', 'aide', AIDE_RECUPERER), retour);
+  return groupe;
+}
+
 export function monterActionClassement(hote, ctx) {
   const bloc = el('div', 'action-classement');
   hote.append(bloc);
@@ -337,6 +410,7 @@ export function monterActionClassement(hote, ctx) {
       bloc.append(bouton);
     } else {
       bloc.append(el('p', 'nom-classement', `Tu apparais sous le nom « ${local.pseudo} ».`));
+      bloc.append(boutonRecuperer(local, ctx));
       const gerer = el('a', 'bouton-lien', 'Gérer ce nom');
       gerer.href = '#/reglages';
       bloc.append(gerer);

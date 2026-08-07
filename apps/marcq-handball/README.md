@@ -357,6 +357,20 @@ sert à permettre — et la saisie du code est un envoi de **reprise** : elle pr
 l'union, ne retire rien, et rend la fiche, que l'écran fusionne dans la
 progression locale. L'enfant retrouve donc ses séances sur le nouveau téléphone.
 
+**La reprise a deux portes, et la seconde est celle qui sert vraiment.** L'écran
+de saisie n'est atteignable que tant qu'aucun nom n'est enregistré sur
+l'appareil : passé l'inscription, le bouton qui y mène disparaît, par
+construction. La reprise n'aurait donc eu de porte que pour celui qui n'en a pas
+besoin. D'où le second geste, **« Récupérer ma progression »**, posé sous le nom
+dans « Ma progression » : il renvoie une reprise avec le nom et le code **déjà
+stockés**, sans rien redemander. Un test compte exactement deux `reprise: true`
+dans `vue-rejoindre.js` — l'inscription et ce geste, pas un de plus.
+
+Il remonte l'écran **quand des séances sont revenues**, et seulement dans ce
+cas : la progression retrouvée est alors le message, et elle ne s'affiche qu'en
+remontant. Sinon il l'écrit — « rien de plus à récupérer » —, car un remontage
+qui n'affiche rien de neuf se lit comme un bouton qui n'a pas marché.
+
 Passé ce moment, les deux téléphones sont ordinaires et l'envoi porte l'état
 complet : celui qui envoie en dernier gagne, et s'il a moins de cases cochées, le
 score baisse. C'est voulu, et c'est ce qui fait tenir « le passé se corrige » du
