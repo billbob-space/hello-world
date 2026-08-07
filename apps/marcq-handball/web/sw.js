@@ -33,6 +33,7 @@ const COQUE = [
   '/vue-classement.js',
   '/chrono.js',
   '/video.js',
+  '/sonnerie.js',
   '/vue-equipe.js',
   '/ressenti.js',
   '/vue-coach.js',

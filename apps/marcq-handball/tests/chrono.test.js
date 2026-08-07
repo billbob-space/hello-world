@@ -218,14 +218,21 @@ test('le minuteur est HORS de l etiquette, sinon le demarrer cocherait l exercic
   assert.match(code, /for \(const arreter of demontages\) arreter\(\)/);
 });
 
-test('le minuteur ne garde rien et ne parle a personne', () => {
+test('le minuteur n ECRIT rien et ne parle a personne', () => {
   const code = source('chrono.js');
   // Aucune persistance : un rebours qui reprendrait a 12 s deux jours plus tard
   // serait plus deroutant qu'utile, et le PRD §5 garde le telephone pour ce qui
   // compte.
-  for (const interdit of ['localStorage', './etat.js', 'fetch(', 'innerHTML']) {
+  for (const interdit of ['localStorage', 'fetch(', 'innerHTML']) {
     assert.equal(code.includes(interdit), false, `« ${interdit} » n appartient pas au minuteur`);
   }
+  // UNE SEULE lecture du telephone, et c'est une preference : quelle sonnerie
+  // l'enfant a choisie. Rien d'autre de `etat.js` n'entre ici — surtout pas une
+  // ecriture, qui ferait de ce module un second endroit ou la progression
+  // change.
+  const depuisEtat = [...code.matchAll(/import \{([^}]*)\} from '\.\/etat\.js'/g)]
+    .flatMap(([, liste]) => liste.split(',').map((n) => n.trim()).filter(Boolean));
+  assert.deepEqual(depuisEtat, ['lireSonnerie']);
   // La coque hors ligne doit le connaitre, sinon le premier passage sans reseau
   // sur une seance echoue et rien ne le signale tant qu'on reste connecte.
   assert.match(source('sw.js'), /'\/chrono\.js'/);

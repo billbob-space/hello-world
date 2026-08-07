@@ -547,7 +547,7 @@ qu'il est explicite.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 15:48 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-07 à 16:10 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -555,22 +555,22 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 972 | 0,00 $ |
-| Écriture de cache | 3 550 142 | 19,67 $ |
-| Lecture de cache | 116 205 112 | 55,52 $ |
-| Sortie | 183 947 | 3,11 $ |
-| **Total** | **119 940 173** | **78,30 $ — 68,00 €** |
+| Entrée | 1 073 | 0,00 $ |
+| Écriture de cache | 3 638 801 | 19,93 $ |
+| Lecture de cache | 137 084 038 | 65,61 $ |
+| Sortie | 216 797 | 3,71 $ |
+| **Total** | **140 940 709** | **89,25 $ — 77,50 €** |
 
 **Ce qui coûte**
 
-- **514 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **568 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 337 jetons, écrits une fois par session puis relus à chaque
-  échange : 35 056 881 jetons de relecture, 30 % de tout ce qui a été relu.
+  échange : 38 747 079 jetons de relecture, 28 % de tout ce qui a été relu.
 - **Croissance** — 68 337 jetons relus au premier appel qui relise
-  quelque chose, 524 396 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 566 161 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 119940173 -->
+<!-- cout-total: 140940709 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68337 0 0
 2 principal claude-opus-5 2865 68337 0
@@ -1086,5 +1086,59 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 512 principal claude-opus-5 413 521556 2405
 513 principal claude-opus-5 2427 521969 1059
 514 principal claude-opus-5 1515 524396 1985
+515 principal claude-opus-5 2149 525911 1137
+516 principal claude-opus-5 1665 528060 149
+517 principal claude-opus-4-7 7466 28262 221
+518 principal claude-opus-4-7 304 35728 90
+519 principal claude-opus-4-7 6057 36032 176
+520 principal claude-opus-4-7 1008 42089 167
+521 principal claude-opus-4-7 0 35728 159
+522 principal claude-opus-4-7 242 35728 120
+523 principal claude-opus-4-7 178 35970 125
+524 principal claude-opus-4-7 224 36148 90
+525 principal claude-opus-4-7 6057 36372 92
+526 principal claude-opus-5 253 529725 1432
+527 principal claude-opus-4-7 6883 42429 649
+528 principal claude-opus-4-7 938 49312 162
+529 principal claude-opus-5 1947 529978 127
+530 principal claude-opus-5 239 531925 423
+531 principal claude-opus-4-7 3458 43097 2299
+532 principal claude-opus-5 1482 532164 53
+533 principal claude-opus-4-7 2521 46555 193
+534 principal claude-opus-4-7 959 50250 1311
+535 principal claude-opus-4-7 810 49076 1561
+536 principal claude-opus-4-7 1597 49886 69
+537 principal claude-opus-4-7 8590 51209 1535
+538 principal claude-opus-5 281 533699 118
+539 principal claude-opus-5 160 533980 364
+540 principal claude-opus-5 443 534140 49
+541 principal claude-opus-5 790 534583 34
+542 principal claude-opus-5 339 535407 67
+543 principal claude-opus-5 1126 535746 28
+544 principal claude-opus-5 640 536900 50
+545 principal claude-opus-5 791 537540 55
+546 principal claude-opus-5 403 538331 47
+547 principal claude-opus-5 1106 538734 70
+548 principal claude-opus-5 53 539910 1313
+549 principal claude-opus-5 2083 539963 2130
+550 principal claude-opus-5 2188 542046 641
+551 principal claude-opus-5 4526 544234 1051
+552 principal claude-opus-5 1163 548760 682
+553 principal claude-opus-5 1277 549923 97
+554 principal claude-opus-5 138 551200 496
+555 principal claude-opus-5 546 551338 1643
+556 principal claude-opus-5 1738 551884 362
+557 principal claude-opus-5 512 553622 675
+558 principal claude-opus-5 738 554134 848
+559 principal claude-opus-5 870 554872 3735
+560 principal claude-opus-5 3796 555742 137
+561 principal claude-opus-5 562 559538 106
+562 principal claude-opus-5 136 560100 528
+563 principal claude-opus-5 3012 560236 132
+564 principal claude-opus-5 177 563248 121
+565 principal claude-opus-5 264 563425 496
+566 principal claude-opus-5 518 563689 1724
+567 principal claude-opus-5 1954 564207 1222
+568 principal claude-opus-5 1302 566161 1489
 -->
 <!-- /cout -->
