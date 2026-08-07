@@ -249,7 +249,7 @@ func TestLesHorodatagesSurviventAuRemplacement(t *testing.T) {
 	envoyer(t, cl, "Renard", "4821", "s1-c1", "s1-c2")
 
 	if garde := cl.parCle["renard"].Faits["s1-c1"]; garde != premier {
-		t.Errorf("s1-c1 horodate %s apres renvoi, attendu %s — le departage des ex aequo serait remis a zero", garde, premier)
+		t.Errorf("s1-c1 horodate %s apres renvoi, attendu %s — la date de la premiere coche serait perdue", garde, premier)
 	}
 	if cl.parCle["renard"].Faits["s1-c2"] == premier {
 		t.Error("s1-c2 a herite de l'horodatage du premier envoi")
@@ -423,49 +423,123 @@ func TestLaSuppressionExigeLeCode(t *testing.T) {
 
 // --- Le classement ---------------------------------------------------------
 
-func TestLesRangsSontStrictsEtLePremierArriveEstDevant(t *testing.T) {
+// cases rend les n premiers identifiants de la premiere seance. Elle existe
+// pour que les tests de rang se lisent comme des SCORES et non comme des listes
+// d'identifiants : « quatre cases » dit ce qui compte, « s1-c1, s1-c2, ... » le
+// cache.
+func cases(n int) []string {
+	return []string{"s1-c1", "s1-c2", "s1-r1", "s1-r2", "s1-r3"}[:n]
+}
+
+// peupler envoie une fiche par pseudonyme, toutes au meme score, en avancant
+// l'horloge entre chacune : l'heure ne departage plus rien, et ces tests le
+// verifient precisement en la faisant varier.
+func peupler(t *testing.T, cl *classement, h *horlogeTest, n int, pseudos ...string) {
+	t.Helper()
+	for _, pseudo := range pseudos {
+		envoyer(t, cl, pseudo, "1234", cases(n)...)
+		h.avancer(time.Minute)
+	}
+}
+
+func TestLesRangsSontPartagesAEgalite(t *testing.T) {
 	cl, _, h := magasinDeTest(t)
 
-	// Trois participants a deux cases chacun : seul l'instant ou ils y sont
-	// arrives les departage (PRD §9).
-	envoyer(t, cl, "Premier", "1111", "s1-c1", "s1-c2")
-	h.avancer(time.Minute)
-	envoyer(t, cl, "Deuxieme", "2222", "s1-c1", "s1-c2")
-	h.avancer(time.Minute)
-	envoyer(t, cl, "Troisieme", "3333", "s1-c1", "s1-c2")
+	// Trois participants a deux cases, arrives a une minute d'intervalle, puis
+	// un quatrieme a une seule case. L'heure d'arrivee ne departage plus : les
+	// trois premiers PARTAGENT la premiere place (PRD §9).
+	peupler(t, cl, h, 2, "Premier", "Deuxieme", "Troisieme")
+	peupler(t, cl, h, 1, "Dernier")
 
 	r := cl.lire(jourTest)
-	if r.Participants != 3 {
-		t.Fatalf("participants = %d, attendu 3", r.Participants)
+	if r.Participants != 4 {
+		t.Fatalf("participants = %d, attendu 4", r.Participants)
 	}
-	for i, attendu := range []string{"Premier", "Deuxieme", "Troisieme"} {
-		if r.Classement[i].Rang != i+1 {
-			t.Errorf("ligne %d : rang %d, attendu %d — les rangs doivent etre stricts", i, r.Classement[i].Rang, i+1)
+	for i, attendu := range []int{1, 1, 1, 4} {
+		if r.Classement[i].Rang != attendu {
+			t.Errorf("ligne %d : rang %d, attendu %d", i, r.Classement[i].Rang, attendu)
 		}
-		if r.Classement[i].Pseudo != attendu {
-			t.Errorf("ligne %d : %q, attendu %q", i, r.Classement[i].Pseudo, attendu)
+	}
+	// On compte les ENFANTS devant, jamais les scores : le quatrieme est 4e et
+	// non 2e, sans quoi « 2e sur 4 » cacherait que trois enfants le devancent.
+	if r.Classement[3].Rang == 2 {
+		t.Error("le rang compte les scores et non les enfants devant")
+	}
+}
+
+func TestLEnvoiRendLeNombreDExAequo(t *testing.T) {
+	cl, _, h := magasinDeTest(t)
+	peupler(t, cl, h, 2, "Alpha", "Bravo", "Charlie")
+
+	// La reponse a l'envoi porte le rang ET le nombre des AUTRES a ce rang :
+	// sans lui, l'ecran dirait « 1er sur 3 » sans pouvoir dire « avec 2 autres »,
+	// et le client devrait recalculer un rang qu'il n'a pas le droit de calculer.
+	rep := envoyer(t, cl, "Alpha", "1234", cases(2)...)
+	if rep.Rang != 1 || rep.ExAequo != 2 {
+		t.Errorf("rang %d, exAequo %d — attendu 1 et 2", rep.Rang, rep.ExAequo)
+	}
+
+	seul := envoyer(t, cl, "Delta", "1234", cases(1)...)
+	if seul.Rang != 4 || seul.ExAequo != 0 {
+		t.Errorf("rang %d, exAequo %d — attendu 4 et 0", seul.Rang, seul.ExAequo)
+	}
+}
+
+func TestLePodiumNommeLesTroisMeilleuresMarches(t *testing.T) {
+	cl, _, h := magasinDeTest(t)
+	// Quatre marches : deux enfants a 4 cases, un a 3, trois a 2, un a 1.
+	peupler(t, cl, h, 4, "Anna", "Bilal")
+	peupler(t, cl, h, 3, "Chloe")
+	peupler(t, cl, h, 2, "Dan", "Elias", "Fatou")
+	peupler(t, cl, h, 1, "Gaspard")
+
+	r := cl.lire(jourTest)
+	for _, l := range r.Classement {
+		// Une marche porte plusieurs prenoms : le podium en nomme six ici, la
+		// ou l'ancienne regle en nommait trois et coupait une marche en deux.
+		nomme := l.Cochees >= 2
+		if nomme && l.Pseudo == "" {
+			t.Errorf("rang %d (%d cases) : la marche doit nommer", l.Rang, l.Cochees)
+		}
+		if !nomme && l.Pseudo != "" {
+			t.Errorf("rang %d : %q ne devrait pas transiter", l.Rang, l.Pseudo)
 		}
 	}
 }
 
-func TestSeulesLesTroisPremieresLignesNomment(t *testing.T) {
+func TestUneMarcheTropPeupleeNeNommePersonne(t *testing.T) {
 	cl, _, h := magasinDeTest(t)
-	for i, pseudo := range []string{"Un", "Deux", "Trois", "Quatre", "Cinq"} {
-		// Des scores decroissants, pour que l'ordre soit sans ambiguite.
-		faits := []string{"s1-c1", "s1-c2", "s1-r1", "s1-r2", "s1-r3"}[:5-i]
-		envoyer(t, cl, pseudo, "1234", faits...)
-		h.avancer(time.Minute)
-	}
+	// Neuf enfants a egalite en tete : un de plus que le plafond de noms.
+	peupler(t, cl, h, 2, "Aa", "Bb", "Cc", "Dd", "Ee", "Ff", "Gg", "Hh", "Ii")
+	peupler(t, cl, h, 1, "Zz")
 
 	r := cl.lire(jourTest)
-	for i, l := range r.Classement {
-		// Le nom du quatrieme NE TRANSITE PAS : la regle est appliquee par le
-		// serveur, donc aucun bogue d'affichage ne peut le faire apparaitre.
-		if i < 3 && l.Pseudo == "" {
-			t.Errorf("ligne %d : le podium doit nommer", i)
+	for _, l := range r.Classement {
+		// Aucun nom ne transite : ni celui du groupe de tete, trop nombreux pour
+		// une page publique, ni celui des marches suivantes.
+		if l.Pseudo != "" {
+			t.Errorf("rang %d : %q ne devrait pas transiter", l.Rang, l.Pseudo)
 		}
-		if i >= 3 && l.Pseudo != "" {
-			t.Errorf("ligne %d : %q ne devrait pas transiter", i, l.Pseudo)
+	}
+}
+
+func TestLePlafondDeNomsArreteLesMarchesSuivantes(t *testing.T) {
+	cl, _, h := magasinDeTest(t)
+	// Six en tete — nommes, six noms sur huit —, puis trois qui feraient neuf.
+	peupler(t, cl, h, 3, "Aa", "Bb", "Cc", "Dd", "Ee", "Ff")
+	peupler(t, cl, h, 2, "Gg", "Hh", "Ii")
+	peupler(t, cl, h, 1, "Zz")
+
+	r := cl.lire(jourTest)
+	for _, l := range r.Classement {
+		// Le plafond vaut pour le podium ENTIER : la deuxieme marche ne tient
+		// pas, donc elle se tait — et la troisieme avec elle, sans quoi le
+		// podium nommerait la marche du bas en sautant celle du milieu.
+		if l.Cochees == 3 && l.Pseudo == "" {
+			t.Errorf("rang %d : la marche de tete tient sous le plafond, elle doit nommer", l.Rang)
+		}
+		if l.Cochees < 3 && l.Pseudo != "" {
+			t.Errorf("rang %d : %q ne devrait pas transiter", l.Rang, l.Pseudo)
 		}
 	}
 }
@@ -702,9 +776,10 @@ func TestLaRepriseNeRajeunitPasUneMarque(t *testing.T) {
 	h.avancer(time.Hour)
 	rep := reprendre(t, cl, "Renard", "4821", "s1-c1")
 
-	// Le PRD §9 departage les ex aequo par « le premier arrive a ce score ».
-	// Une reprise qui rajeunirait la marque ferait reculer l'enfant derriere
-	// quelqu'un qui a coche apres lui.
+	// L'horodatage dit QUAND la case a ete cochee pour la premiere fois. Une
+	// reprise le rajeunirait de plusieurs jours sans que rien ne le signale : le
+	// fichier raconterait alors une histoire fausse, et c'est le seul endroit ou
+	// elle se lit.
 	if garde := cl.parCle["renard"].Faits["s1-c1"]; garde != premier {
 		t.Errorf("s1-c1 horodate %s apres reprise, attendu %s", garde, premier)
 	}

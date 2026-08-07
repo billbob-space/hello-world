@@ -47,6 +47,14 @@ const (
 	nomFichier      = "classement.json"
 )
 
+// Les deux bornes du podium (PRD §9). Une MARCHE est un score, pas un enfant :
+// depuis que les ex aequo partagent leur place, trois marches peuvent nommer
+// plus de trois personnes — d'ou le second plafond, qui borne les noms.
+const (
+	marchesPodium = 3
+	nomsPodiumMax = 8
+)
+
 // Les erreurs sentinelles. Leur texte EST le code d'erreur de l'API : api.go y
 // attache un statut et un message francais, et rien d'autre ne les traduit.
 var (
@@ -341,35 +349,32 @@ func (c *classement) noterRefus(cle string) {
 
 // --- La lecture -----------------------------------------------------------
 
-// ligne interne : une fiche, ce qu'elle a coche au jour dit, et l'instant ou
-// elle a atteint ce nombre.
+// ligne interne : une fiche et ce qu'elle a coche au jour dit.
 type ligneInterne struct {
-	p         *participant
-	cochees   int
-	part      float64
-	atteintLe string
+	p       *participant
+	cochees int
+	part    float64
 }
 
-// classer trie les participants selon le PRD §9 et rend des rangs STRICTS, de
-// 1 a N, jamais repetes : « 3e sur 9 » n'aurait aucun sens si trois enfants
-// etaient 3e. L'appelant tient deja le verrou.
+// classer ordonne les participants par nombre de cases cochees. Il n'y a PLUS
+// de second critere : deux enfants au meme score sont ex aequo, et l'ordre qui
+// les separe ici n'est qu'un ordre d'affichage. L'appelant tient deja le verrou.
+//
+// L'heure d'arrivee departageait jusqu'au 2026-08-07, et c'etait une erreur de
+// conception : dans une equipe ou la plupart cochent tout, elle ne classait plus
+// l'assiduite mais la vitesse a sortir son telephone apres la seance — et elle
+// recompensait de cocher AVANT d'avoir fait.
 func (c *classement) classer(jour string) (lignes []ligneInterne, programmees int) {
 	ids := c.prog.programmes(jour)
 	programmees = len(ids)
 
 	for _, p := range c.parCle {
 		l := ligneInterne{p: p}
-		for id, quand := range p.Faits {
+		for id := range p.Faits {
 			if !ids[id] {
 				continue
 			}
 			l.cochees++
-			// Le second critere de tri se DERIVE, il n'est pas stocke : c'est
-			// le plus tardif des horodatages des identifiants comptes, soit
-			// l'instant ou ce participant a atteint ce nombre.
-			if quand > l.atteintLe {
-				l.atteintLe = quand
-			}
 		}
 		if programmees > 0 {
 			l.part = arrondi3(float64(l.cochees) / float64(programmees))
@@ -382,21 +387,68 @@ func (c *classement) classer(jour string) (lignes []ligneInterne, programmees in
 		if a.cochees != b.cochees {
 			return a.cochees > b.cochees
 		}
-		if a.atteintLe != b.atteintLe {
-			// « A egalite, le premier arrive a ce score est devant » (PRD §9).
-			return a.atteintLe < b.atteintLe
-		}
-		// Departage de dernier recours, pour que l'ordre soit total et stable
-		// d'un redemarrage a l'autre.
+		// A egalite, PERSONNE n'est devant : ce qui suit ordonne les prenoms
+		// d'une meme marche, et rien d'autre. La cle rend l'ordre total et
+		// stable d'un redemarrage a l'autre.
 		return a.p.Cle < b.p.Cle
 	})
 	return lignes, programmees
+}
+
+// rangsPartages rend le rang de chaque ligne, la tranche etant deja triee.
+//
+// On compte les ENFANTS DEVANT, jamais les scores : trois premiers a 100 %,
+// puis le suivant est 4e et non 2e. « 2e sur 12 » quand onze sont a egalite
+// devant serait faux, et le PRD §9 tient a un denominateur honnete.
+func rangsPartages(lignes []ligneInterne) []int {
+	rangs := make([]int, len(lignes))
+	for i := range lignes {
+		if i > 0 && lignes[i].cochees == lignes[i-1].cochees {
+			rangs[i] = rangs[i-1]
+			continue
+		}
+		rangs[i] = i + 1
+	}
+	return rangs
+}
+
+// nomsDuPodium dit, ligne par ligne, si son pseudonyme part vers le client.
+//
+// Trois marches au plus, et un plafond de noms qui vaut pour le podium ENTIER :
+// des qu'une marche ferait depasser le plafond, elle se tait — et les suivantes
+// avec elle, sans quoi le podium nommerait la marche du bas en sautant celle du
+// milieu. Une marche muette n'est pas vide : le client en connait l'effectif par
+// le nombre de lignes qui portent son rang, et affiche « 14 enfants ».
+//
+// Le plafond existe parce que la page est PUBLIQUE : quatorze pseudonymes de
+// mineurs n'ont pas a y etre epeles pour dire une chose qu'un nombre dit mieux.
+func nomsDuPodium(lignes []ligneInterne, rangs []int) []bool {
+	nommes := make([]bool, len(lignes))
+	total, marches := 0, 0
+	for i := 0; i < len(lignes); {
+		fin := i
+		for fin < len(lignes) && rangs[fin] == rangs[i] {
+			fin++
+		}
+		marches++
+		if marches > marchesPodium || total+(fin-i) > nomsPodiumMax {
+			break
+		}
+		for k := i; k < fin; k++ {
+			nommes[k] = true
+		}
+		total += fin - i
+		i = fin
+	}
+	return nommes
 }
 
 // composer construit le corps commun a /api/classement et /api/coach.
 // L'appelant tient deja le verrou.
 func (c *classement) composer(jour string) (reponseClassement, []ligneInterne) {
 	lignes, programmees := c.classer(jour)
+	rangs := rangsPartages(lignes)
+	nommes := nomsDuPodium(lignes, rangs)
 
 	r := reponseClassement{
 		Jour:         jour,
@@ -408,12 +460,11 @@ func (c *classement) composer(jour string) (reponseClassement, []ligneInterne) {
 	total := 0
 	for i, l := range lignes {
 		total += l.cochees
-		ligne := ligneClassement{Rang: i + 1, Cochees: l.cochees, Part: l.part}
-		// Le podium nomme trois personnes, la position en nomme zero (PRD §9).
-		// La regle est appliquee PAR LE SERVEUR : le nom du quatrieme ne
-		// transite pas, donc aucun bogue d'affichage ne peut le faire
-		// apparaitre.
-		if i < 3 {
+		ligne := ligneClassement{Rang: rangs[i], Cochees: l.cochees, Part: l.part}
+		// Le podium nomme trois marches, la position en nomme zero (PRD §9). La
+		// regle est appliquee PAR LE SERVEUR : le nom du quatrieme ne transite
+		// pas, donc aucun bogue d'affichage ne peut le faire apparaitre.
+		if nommes[i] {
 			ligne.Pseudo = l.p.Pseudo
 		}
 		r.Classement = append(r.Classement, ligne)
@@ -678,9 +729,18 @@ func (c *classement) enregistrer(e envoiClassement, jour string) (reponseEnvoi, 
 	}
 	for i, l := range lignes {
 		if l.p == p {
-			rep.Rang = i + 1
+			rep.Rang = r.Classement[i].Rang
 			rep.Cochees = l.cochees
 			rep.Part = l.part
+			// Les AUTRES a ce rang, moi excepte. C'est ce qui permet a l'ecran
+			// d'ecrire « 1er sur 12, avec 7 autres » sans recalculer un rang
+			// qu'il n'a pas le droit de calculer (PRP 09).
+			for _, autre := range r.Classement {
+				if autre.Rang == rep.Rang {
+					rep.ExAequo++
+				}
+			}
+			rep.ExAequo--
 			break
 		}
 	}
