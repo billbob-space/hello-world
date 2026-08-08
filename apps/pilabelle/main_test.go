@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func poster(t *testing.T, h http.Handler, methode, chemin, email string, corps any) *httptest.ResponseRecorder {
@@ -82,7 +83,6 @@ func messagesDeTest() Messages {
 	m.MotsDoux = []string{"mot doux de test"}
 	return m
 }
-
 
 func TestCreerProfil(t *testing.T) {
 	h := routes(Dictionnaire{}, messagesDeTest(), t.TempDir())
@@ -221,5 +221,131 @@ func TestJourAvecPiqueApresUneAbsence(t *testing.T) {
 	}
 	if reponse.Pique == "" {
 		t.Fatal("aucune pique apres une absence de deux jours")
+	}
+}
+
+func tousLesJoursDeTest() []string {
+	return []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}
+}
+
+func TestRessentiDejaCompteNeRecomptePas(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	jourDuTest := aujourdhui()
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses:   Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:    Niveaux{Ventre: 1, Cuisses: 1},
+		Serie:      Serie{Actuelle: 3, Record: 3},
+		Historique: []HistoriqueEntree{{Date: jourDuTest, Ressenti: RessentiCorrect, Exercices: []string{"x"}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	w := poster(t, h, "POST", "/api/ressenti", "test@example.com", map[string]string{"ressenti": "facile"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /api/ressenti: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	var recap Recap
+	if err := json.Unmarshal(w.Body.Bytes(), &recap); err != nil {
+		t.Fatal(err)
+	}
+	if !recap.DejaCompte {
+		t.Fatal("deja_compte = false, attendu true (seance deja faite aujourd'hui)")
+	}
+	apres, err := LireProfil(racine, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(apres.Historique) != 1 {
+		t.Fatalf("historique = %d entrees, attendu 1 (pas de recompte)", len(apres.Historique))
+	}
+	if apres.Niveaux != (Niveaux{Ventre: 1, Cuisses: 1}) {
+		t.Fatalf("niveaux modifies par un ressenti deja compte: %+v", apres.Niveaux)
+	}
+}
+
+func TestRessentiDifficileFaitBaisserLeNiveau(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:  Niveaux{Ventre: 3, Cuisses: 3},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	w := poster(t, h, "POST", "/api/ressenti", "test@example.com", map[string]string{"ressenti": "difficile"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /api/ressenti: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	apres, err := LireProfil(racine, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if apres.Niveaux.Ventre != 2 || apres.Niveaux.Cuisses != 2 {
+		t.Fatalf("niveaux apres difficile = %+v, attendu 2/2", apres.Niveaux)
+	}
+	if len(apres.Historique) != 1 {
+		t.Fatalf("%d entree(s) d'historique, attendu 1", len(apres.Historique))
+	}
+}
+
+func TestRessentiTroisFacilesDeSuiteMontentLeNiveau(t *testing.T) {
+	racine := t.TempDir()
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:  Niveaux{Ventre: 2, Cuisses: 2},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	jour, _ := time.Parse("2006-01-02", aujourdhui())
+	// Trois ressentis "facile" un jour apres l'autre, en avancant l'historique
+	// a la main comme le ferait le temps qui passe.
+	for i := range 3 {
+		date := jour.AddDate(0, 0, i).Format("2006-01-02")
+		p, err := LireProfil(racine, "test@example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
+		niveauVentre, facilesVentre := AjusterNiveau(chargerDictionnaireDeTest(t), ZoneVentre, nil, p.Niveaux.Ventre, p.FacilesConsecutifs.Ventre, RessentiFacile)
+		p.Niveaux.Ventre, p.FacilesConsecutifs.Ventre = niveauVentre, facilesVentre
+		p.Historique = append(p.Historique, HistoriqueEntree{Date: date, Ressenti: RessentiFacile})
+		if err := EcrireProfil(racine, "test@example.com", p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	final, err := LireProfil(racine, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if final.Niveaux.Ventre != 3 {
+		t.Fatalf("niveau ventre = %d apres trois faciles de suite, attendu 3", final.Niveaux.Ventre)
+	}
+}
+
+func TestEncouragementJamaisRepete(t *testing.T) {
+	racine := t.TempDir()
+	if err := EcrireProfil(racine, "a@example.com", Profil{
+		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	messages := messagesDeTest()
+	messages.Encouragements = []string{"un", "deux"}
+	h2 := routes(chargerDictionnaireDeTest(t), messages, racine)
+	w1 := poster(t, h2, "POST", "/api/ressenti", "a@example.com", map[string]string{"ressenti": "correct"})
+	var recap1 Recap
+	json.Unmarshal(w1.Body.Bytes(), &recap1)
+
+	// Simule un nouveau jour pour permettre un second ressenti "a-faire".
+	p, _ := LireProfil(racine, "a@example.com")
+	p.Historique[0].Date = "2020-01-01"
+	EcrireProfil(racine, "a@example.com", p)
+
+	w2 := poster(t, h2, "POST", "/api/ressenti", "a@example.com", map[string]string{"ressenti": "correct"})
+	var recap2 Recap
+	json.Unmarshal(w2.Body.Bytes(), &recap2)
+
+	if recap1.Encouragement == recap2.Encouragement {
+		t.Fatalf("meme encouragement deux fois de suite: %q", recap1.Encouragement)
 	}
 }

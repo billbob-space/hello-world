@@ -30,6 +30,7 @@ jamais l'adresse en clair), écrit atomiquement.
 | `POST /api/profil` | crée le profil depuis le questionnaire, `409` si déjà créé |
 | `PUT /api/profil` | modifie les réponses (réglages), jamais rétroactif sur la progression |
 | `GET /api/jour` | l'état du jour (`repos` / `deja-faite` / `a-faire`), la séance résolue et une éventuelle pique de retrouvailles |
+| `POST /api/ressenti` | referme la séance du jour, met à jour niveaux/série/historique, renvoie le récap (série, passage de niveau, encouragement, mot doux) |
 
 Le dictionnaire d'exercices (`data/dictionnaire.json`, dérivé d'`exercices.md`)
 et les stocks de messages (`data/messages.json`) sont des données embarquées,

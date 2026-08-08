@@ -171,7 +171,86 @@ func routes(dico Dictionnaire, messages Messages, racineProfils string) http.Han
 		repondreJSON(w, reponse)
 	})
 
+	mux.HandleFunc("POST /api/ressenti", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		var corps struct {
+			Ressenti Ressenti `json:"ressenti"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&corps); err != nil || !ressentiValide(corps.Ressenti) {
+			http.Error(w, `{"erreur":"ressenti invalide"}`, http.StatusBadRequest)
+			return
+		}
+		profil, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+
+		jour := aujourdhui()
+		seance, cas, err := SeanceDuJour(dico, profil, jour)
+		if err != nil {
+			log.Printf("selection du jour %s pour %s: %v", jour, identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"dictionnaire insuffisant"}`, http.StatusInternalServerError)
+			return
+		}
+
+		recap := Recap{Serie: profil.Serie}
+		if cas != CasAFaire {
+			recap.DejaCompte = true // PRD §7.2 : refaire librement (ou repos) ne recompte pas
+		} else {
+			douleurs := profil.Reponses.Douleurs
+
+			niveauVentre, facilesVentre := AjusterNiveau(dico, ZoneVentre, douleurs, profil.Niveaux.Ventre, profil.FacilesConsecutifs.Ventre, corps.Ressenti)
+			niveauCuisses, facilesCuisses := AjusterNiveau(dico, ZoneCuisses, douleurs, profil.Niveaux.Cuisses, profil.FacilesConsecutifs.Cuisses, corps.Ressenti)
+			recap.NiveauMonte.Ventre = niveauVentre > profil.Niveaux.Ventre
+			recap.NiveauMonte.Cuisses = niveauCuisses > profil.Niveaux.Cuisses
+			profil.Niveaux.Ventre, profil.FacilesConsecutifs.Ventre = niveauVentre, facilesVentre
+			profil.Niveaux.Cuisses, profil.FacilesConsecutifs.Cuisses = niveauCuisses, facilesCuisses
+
+			dernierJourFait := ""
+			if len(profil.Historique) > 0 {
+				dernierJourFait = profil.Historique[len(profil.Historique)-1].Date
+			}
+			profil.Serie = MettreAJourSerie(profil.Serie, profil.Reponses.JoursActifs, dernierJourFait, jour)
+			recap.Serie = profil.Serie
+
+			profil.Historique = append(profil.Historique, HistoriqueEntree{Date: jour, Ressenti: corps.Ressenti, Exercices: idsDeLaSeance(seance)})
+		}
+
+		sel := jour + "|" + email
+		recap.Encouragement = tirerMessage(messages.Encouragements, profil.DerniersMessages.Encouragement, sel+"|enc")
+		profil.DerniersMessages.Encouragement = recap.Encouragement
+		if motDouxDeTempsEnTemps(sel) {
+			recap.MotDoux = tirerMessage(messages.MotsDoux, profil.DerniersMessages.MotDoux, sel+"|doux")
+			profil.DerniersMessages.MotDoux = recap.MotDoux
+		}
+
+		if err := EcrireProfil(racineProfils, email, profil); err != nil {
+			log.Printf("ecriture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, recap)
+	})
+
 	return withIdentiteExigeeSurAPI(mux)
+}
+
+// Recap est la reponse de POST /api/ressenti (PRD §7.4, §10).
+type Recap struct {
+	DejaCompte  bool  `json:"deja_compte,omitempty"`
+	Serie       Serie `json:"serie"`
+	NiveauMonte struct {
+		Ventre  bool `json:"ventre"`
+		Cuisses bool `json:"cuisses"`
+	} `json:"niveau_monte"`
+	Encouragement string `json:"encouragement"`
+	MotDoux       string `json:"mot_doux,omitempty"`
 }
 
 func reponsesValides(r Reponses) bool {

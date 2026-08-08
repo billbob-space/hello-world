@@ -35,3 +35,11 @@ export function mettreAJourProfil(reponses) {
 export function lireJour() {
 	return appeler('/api/jour');
 }
+
+export function envoyerRessenti(ressenti) {
+	return appeler('/api/ressenti', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ ressenti }),
+	});
+}

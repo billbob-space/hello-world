@@ -496,3 +496,27 @@ func jourActifManqueEntre(joursActifs []string, debut, fin string) bool {
 	}
 	return false
 }
+
+func idsDeLaSeance(s Seance) []string {
+	var ids []string
+	for _, b := range s.Blocs {
+		for _, ex := range b.Exercices {
+			ids = append(ids, ex.ID)
+		}
+	}
+	return ids
+}
+
+// motDouxDeTempsEnTemps rend vrai environ une fois sur trois (PRD §10.1 :
+// « pas a chaque fois »). La cadence n'est pas prescrite par le PRD ; ce
+// tirage se resserre ou se desserre depuis ce seul point si l'usage reel
+// montre une frequence mal calibree.
+func motDouxDeTempsEnTemps(sel string) bool {
+	h := fnv.New32a()
+	h.Write([]byte(sel))
+	return h.Sum32()%3 == 0
+}
+
+func ressentiValide(r Ressenti) bool {
+	return r == RessentiFacile || r == RessentiCorrect || r == RessentiDifficile
+}

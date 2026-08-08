@@ -1,7 +1,9 @@
-import { lireProfil, lireJour } from './api.js';
+import { lireProfil, lireJour, envoyerRessenti } from './api.js';
 import { vueQuestionnaire } from './vue-questionnaire.js';
 import { vueJour } from './vue-jour.js';
 import { vueSeance } from './vue-seance.js';
+import { vueRessenti } from './vue-ressenti.js';
+import { vueFin } from './vue-fin.js';
 
 const app = document.querySelector('#app');
 
@@ -16,10 +18,12 @@ async function afficherJour() {
 		jour,
 		onCommencer: (seance) => monter(vueSeance, {
 			seance,
-			onSeanceTerminee: () => {
-				// PRP 05 remplace ce bloc par le ressenti et l'ecran de fin.
-				app.textContent = 'Séance terminée ! (écran de fin à venir)';
-			},
+			onSeanceTerminee: () => monter(vueRessenti, {
+				onChoix: async (ressenti) => {
+					const recap = await envoyerRessenti(ressenti);
+					monter(vueFin, { recap });
+				},
+			}),
 		}),
 	});
 }
