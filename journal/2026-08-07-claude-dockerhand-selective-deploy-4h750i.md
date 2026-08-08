@@ -118,12 +118,40 @@ livrée tant qu'on ne l'a pas regardée en production.
 **Action** — `comportement` — la preuve est la même commande que celle qui a
 mesuré le défaut : après la fusion, `./scripts/prod.sh` doit montrer un seul
 conteneur récemment démarré et les huit autres à leur ancienneté d'avant. Tant
-que cette lecture n'est pas faite, la branche n'est pas finie.
+que cette lecture n'est pas faite, la branche n'est pas finie. **Lecture faite,
+et elle dit deux choses** — voir l'anomalie 6.
+
+### 6. Le réglage forcé recrée aussi ce dont rien n'a changé — mesuré
+
+**Symptome** — première mise en ligne après la fusion, relevée avec
+`./scripts/prod.sh` : les neuf conteneurs affichent `Up 31 seconds`. Les six
+applications, oui, c'est attendu — elles viennent toutes d'être réépinglées d'un
+coup, le workflow ayant changé. Mais `redis`, `ardoise-base` et `compteur-base`
+aussi : leurs blocs du compose n'ont pas bougé d'un caractère, et ils ont été
+recréés quand même.
+
+**Cause** — `Force redeployment`, toujours coché côté serveur. La mesure vaut
+mieux qu'un raisonnement : elle isole exactement ce que le dépôt ne pouvait pas
+prouver, et montre que le mécanisme livré ici est complet mais masqué. Le reste
+de la chaîne, lui, est prouvé de bout en bout : `versions.yml` est arrivé sur
+`main` avec les six commits, le compose a changé de douze lignes et pas une de
+plus, et le conteneur `cadran` tourne sur l'image épinglée
+`cadran:01acc5a7…`, lue dans l'inspection du conteneur en production.
+
+**Detecte par** — `production`
+
+**Action** — `arbitrage` — un geste humain hors du dépôt, et le seul qui reste :
+décocher `Force redeployment` dans les *Deploy options* de la stack. Aucun
+contrôle de la CI ne peut le voir ni le faire ; la porte de service vers la
+production est en lecture seule par construction, et l'élargir pour ce seul
+réglage rouvrirait le droit d'arrêter la stack entière. Le `README` porte
+l'instruction ; la sélectivité se vérifiera à la livraison suivante, en
+comparant les anciennetés des conteneurs.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-07 à 23:54 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-08 à 00:09 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -131,26 +159,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 326 | 0,00 $ |
-| Écriture de cache | 462 412 | 1,42 $ |
-| Lecture de cache | 23 221 609 | 9,53 $ |
-| Sortie | 115 021 | 1,76 $ |
-| **Total** | **23 799 368** | **12,71 $ — 11,04 €** |
+| Entrée | 420 | 0,00 $ |
+| Écriture de cache | 709 025 | 2,96 $ |
+| Lecture de cache | 35 529 075 | 15,68 $ |
+| Sortie | 126 596 | 2,05 $ |
+| **Total** | **36 365 116** | **20,70 $ — 17,97 €** |
 
 **Ce qui coûte**
 
-- **191 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **241 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   59 202 jetons, écrits une fois par session puis relus à chaque
-  échange : 11 248 380 jetons de relecture, 48 % de tout ce qui a été relu.
-- **Tours courts** — 60 des 191 tours (31 %) sortent
+  échange : 14 208 480 jetons de relecture, 39 % de tout ce qui a été relu.
+- **Tours courts** — 104 des 241 tours (43 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 5,96 $, soit 46 % de la facture.
+  une sortie de rien. Ils coûtent 12,95 $, soit 62 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 59 202 jetons relus au premier appel qui relise
-  quelque chose, 229 008 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 282 875 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 23799368 -->
+<!-- cout-total: 36365116 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 59202 0 492
 2 principal claude-opus-5 3547 59202 96
@@ -343,5 +371,55 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 189 principal claude-opus-4-7 14721 32050 6302
 190 principal claude-opus-4-7 6338 46771 69
 191 principal claude-opus-5 266 229008 883
+192 principal claude-opus-5 917 229274 160
+193 principal claude-opus-5 218 230191 118
+194 principal claude-opus-5 232 230409 150
+195 principal claude-opus-5 158 230641 137
+196 principal claude-opus-5 159 230799 132
+197 principal claude-opus-5 142 230958 483
+198 principal claude-opus-5 489 231100 188
+199 principal claude-opus-5 302 231589 272
+200 principal claude-opus-5 191578 41045 137
+201 principal claude-opus-5 1375 232623 171
+202 principal claude-opus-5 181 233998 194
+203 principal claude-opus-5 308 234179 46
+204 principal claude-opus-5 343 234533 137
+205 principal claude-opus-5 2479 234876 253
+206 principal claude-opus-5 367 237355 58
+207 principal claude-opus-5 387 237780 134
+208 principal claude-opus-5 242 238167 160
+209 principal claude-opus-5 1629 238409 137
+210 principal claude-opus-5 2660 240038 136
+211 principal claude-opus-5 574 242698 133
+212 principal claude-opus-5 174 243272 137
+213 principal claude-opus-5 582 243446 168
+214 principal claude-opus-5 561 244028 68
+215 principal claude-opus-5 169 244589 153
+216 principal claude-opus-5 471 244758 687
+217 principal claude-opus-5 6176 245229 251
+218 principal claude-opus-5 368 251405 118
+219 principal claude-opus-5 183 251773 169
+220 principal claude-opus-5 179 251956 201
+221 principal claude-opus-5 319 252135 75
+222 principal claude-opus-5 341 252529 129
+223 principal claude-opus-5 206 252870 163
+224 principal claude-opus-5 11102 253076 181
+225 principal claude-opus-5 777 264178 233
+226 principal claude-opus-5 346 264955 132
+227 principal claude-opus-5 486 265301 167
+228 principal claude-opus-5 177 265787 207
+229 principal claude-opus-5 661 265964 196
+230 principal claude-opus-5 206 266625 137
+231 principal claude-opus-5 2661 266831 351
+232 principal claude-opus-5 491 269492 119
+233 principal claude-opus-5 236 269983 43
+234 principal claude-opus-5 347 270262 137
+235 principal claude-opus-5 457 270609 250
+236 principal claude-opus-5 677 271066 909
+237 principal claude-opus-5 929 271743 66
+238 principal claude-opus-5 681 272672 161
+239 principal claude-opus-5 689 273353 1111
+240 principal claude-opus-5 8833 274042 1430
+241 principal claude-opus-5 2388 282875 90
 -->
 <!-- /cout -->
