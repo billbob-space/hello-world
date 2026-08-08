@@ -49,6 +49,11 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | Respiration profonde debout | Debout, pieds écartés largeur de hanche : inspirer en levant les bras, expirer en les redescendant, lentement. | aucune | [Overhead Arm Swings: Simple Exercise to Boost Circulation & Energy](https://www.youtube.com/shorts/ZKVqUCwsMPs) |
 | Mobilisation épaules et nuque | Cercles d'épaules lents vers l'arrière, puis inclinaisons douces de la tête d'un côté puis l'autre. | épaule (réduire l'amplitude) | [5 Gentle Neck & Shoulder Exercises for Elderly to Ease Tension](https://www.youtube.com/shorts/8j_WvtamM_U) |
 | Mobilisation du bassin | Debout ou assise : cercles doux du bassin, dans un sens puis l'autre. | dos (réduire l'amplitude) | [STANDING HIP CIRCLES improve hip mobility (exercise demo)](https://www.youtube.com/shorts/OqR7Tl6SPLQ) ⚠️ à valider |
+| Marche sur place douce | Marcher sur place lentement, genoux modérément levés, bras qui balancent naturellement. | genou (réduire la hauteur des genoux) | à rechercher |
+| Extension douce des bras et du dos | Debout, bras tendus devant soi, arrondir doucement le dos en expirant, revenir en inspirant. | épaule | à rechercher |
+| Rotation des poignets et des chevilles | Debout ou assise : cercles lents des poignets, puis des chevilles, un côté puis l'autre. | aucune | à rechercher |
+| Balancement latéral du buste | Debout, pieds écartés largeur de hanche, bras relâchés : balancer doucement le buste d'un côté puis l'autre. | dos (réduire l'amplitude) | à rechercher |
+| Montée sur pointes de pieds | Debout, se hisser doucement sur la pointe des pieds, tenir un instant, redescendre. | cheville, équilibre (appui sur un meuble si besoin) | à rechercher |
 
 ## Bloc ventre
 
@@ -79,6 +84,24 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | 3 | Crunch oblique contrôlé | Allongée, une main derrière la tête : soulever l'épaule vers le genou opposé, lentement, amplitude courte. | dos, cou | [Oblique Crunches [How To Do Them Safely] #shorts](https://www.youtube.com/shorts/CjfPWUXqsmk) |
 | 4 | Crunch oblique jambe tendue | Même mouvement, jambe opposée tendue en l'air pendant le mouvement. | dos, cou | [Slow Bicycle Crunch](https://www.youtube.com/shorts/C89CyVGdTkk) |
 
+### Famille — Gainage latéral
+
+| Niveau | Nom | Consigne | Contre-indications | Vidéo |
+|---|---|---|---|---|
+| 1 | Gainage latéral genoux au sol | Allongée sur le côté, appui sur l'avant-bras, genoux pliés : soulever légèrement la hanche, tenue courte. | épaule | à rechercher |
+| 2 | Gainage latéral genoux au sol, tenu | Même position, tenue prolongée par rapport au niveau 1. | épaule | à rechercher |
+| 3 | Gainage latéral jambes tendues, tenue brève | Jambes tendues et empilées, appui sur l'avant-bras, hanche soulevée, tenue courte. | épaule, poignet | à rechercher |
+| 4 | Gainage latéral avec lever de jambe | Même position jambes tendues, la jambe du dessus se lève doucement pendant la tenue. | épaule, hanche | à rechercher |
+
+### Famille — Extension et stabilité
+
+| Niveau | Nom | Consigne | Contre-indications | Vidéo |
+|---|---|---|---|---|
+| 1 | Bird-dog doux, bras seul | À quatre pattes : tendre un bras devant soi, doucement, sans bouger le bassin, puis l'autre bras. | poignet | à rechercher |
+| 2 | Bird-dog doux, jambe seule | À quatre pattes : tendre une jambe derrière soi, doucement, puis l'autre jambe. | genou, poignet | à rechercher |
+| 3 | Bird-dog complet, amplitude réduite | Bras et jambe opposés tendus ensemble, amplitude courte, ventre engagé. | poignet, genou, dos | à rechercher |
+| 4 | Bird-dog complet, tenue | Même mouvement, tenue plus longue en position tendue. | poignet, genou, dos | à rechercher |
+
 ## Bloc cuisses et fessiers
 
 ### Famille — Pont fessier
@@ -108,6 +131,24 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | 3 | Lever de jambe latéral, amplitude complète | Même mouvement, amplitude complète, courte tenue en haut. | hanche, genou | [3 Quick Tips for Extra Range Side Lying Hip Abductions!](https://www.youtube.com/shorts/P1uGnGYUtS0) |
 | 4 | Clam (coquillage) | Allongée sur le côté, genoux pliés, pieds joints : ouvrir le genou du dessus, tenue en haut. | hanche | [Side Lying Clam Shells](https://www.youtube.com/shorts/w2Op5nwUgaI) |
 
+### Famille — Squat doux
+
+| Niveau | Nom | Consigne | Contre-indications | Vidéo |
+|---|---|---|---|---|
+| 1 | Mini-squat debout, appui chaise | Debout, mains sur le dossier d'une chaise : légère descente des genoux, remontée douce. | genou | à rechercher |
+| 2 | Mini-squat debout, sans appui | Même mouvement, amplitude légèrement plus grande, sans les mains. | genou | à rechercher |
+| 3 | Squat à mi-amplitude | Descente jusqu'à mi-cuisse, tenue courte en bas, remontée contrôlée. | genou | à rechercher |
+| 4 | Squat à mi-amplitude, tenue prolongée | Même mouvement, tenue plus longue en position basse. | genou | à rechercher |
+
+### Famille — Fessier au sol
+
+| Niveau | Nom | Consigne | Contre-indications | Vidéo |
+|---|---|---|---|---|
+| 1 | Extension de jambe à quatre pattes, amplitude courte | À quatre pattes : tendre une jambe pliée vers l'arrière et le haut, amplitude courte. | genou, poignet | à rechercher |
+| 2 | Extension de jambe à quatre pattes, tenue | Même mouvement, tenue en haut de l'amplitude. | genou, poignet | à rechercher |
+| 3 | Extension de jambe tendue à quatre pattes | Jambe tendue plutôt que pliée, amplitude modérée. | genou, poignet, dos | à rechercher |
+| 4 | Extension de jambe tendue, tenue | Même mouvement, tenue plus longue en haut. | genou, poignet, dos | à rechercher |
+
 ## Retour au calme (non nivelé)
 
 | Nom | Consigne | Contre-indications | Vidéo |
@@ -115,6 +156,11 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | Étirement chat-vache | À quatre pattes : alterner dos rond et dos creux, doucement, au rythme de la respiration. | genou (variante assise), poignet | [Cat Cow Stretch for Spine Mobility \| Beginner Yoga for Back Flexibility](https://www.youtube.com/shorts/33DU2FHxxDw) |
 | Étirement des ischio-jambiers assise | Assise, une jambe tendue devant, on se penche doucement vers l'avant sans forcer. | dos | [Head to Knee Pose \| Janu Sirsasana](https://www.youtube.com/shorts/CYX6ie7RmHo) |
 | Étirement des hanches allongée | Allongée sur le dos, on ramène un genou vers la poitrine, doucement, puis l'autre. | genou | [Single Knee to Chest](https://www.youtube.com/shorts/muv4W1mjYyQ) |
+| Torsion du dos allongée | Allongée, genoux pliés, on les laisse basculer doucement d'un côté, bras en croix, quelques respirations, puis l'autre côté. | dos, hanche | à rechercher |
+| Étirement des mollets | Debout face à un mur, une jambe reculée tendue, talon au sol, léger appui vers l'avant. | cheville, équilibre (appui mural) | à rechercher |
+| Étirement des épaules et des bras | Debout ou assise : un bras croisé devant la poitrine, léger appui de l'autre bras, doucement, puis l'autre côté. | épaule | à rechercher |
+| Respiration finale allongée | Allongée, mains sur le ventre, quelques respirations profondes et lentes pour clore la séance. | aucune | à rechercher |
+| Étirement du dos assise, enroulement | Assise, jambes légèrement pliées : dos rond, on se penche doucement vers l'avant, bras relâchés vers le sol. | dos | à rechercher |
 
 ---
 
