@@ -31,3 +31,7 @@ export function mettreAJourProfil(reponses) {
 		body: JSON.stringify(reponses),
 	});
 }
+
+export function lireJour() {
+	return appeler('/api/jour');
+}

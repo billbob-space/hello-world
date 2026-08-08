@@ -1,5 +1,7 @@
-import { lireProfil } from './api.js';
+import { lireProfil, lireJour } from './api.js';
 import { vueQuestionnaire } from './vue-questionnaire.js';
+import { vueJour } from './vue-jour.js';
+import { vueSeance } from './vue-seance.js';
 
 const app = document.querySelector('#app');
 
@@ -8,17 +10,26 @@ function monter(vue, props) {
 	vue(app, props);
 }
 
-async function demarrer(profil) {
-	// PRP 04 remplace ce point d'entree par l'ecran du jour.
-	app.textContent = 'Profil enregistré. À très vite pour ta première séance !';
+async function afficherJour() {
+	const jour = await lireJour();
+	monter(vueJour, {
+		jour,
+		onCommencer: (seance) => monter(vueSeance, {
+			seance,
+			onSeanceTerminee: () => {
+				// PRP 05 remplace ce bloc par le ressenti et l'ecran de fin.
+				app.textContent = 'Séance terminée ! (écran de fin à venir)';
+			},
+		}),
+	});
 }
 
 async function amorcer() {
 	const profil = await lireProfil();
 	if (profil === null) {
-		monter(vueQuestionnaire, { onCree: demarrer });
+		monter(vueQuestionnaire, { onCree: afficherJour });
 	} else {
-		demarrer(profil);
+		afficherJour();
 	}
 }
 

@@ -72,6 +72,42 @@ button:active {
 	color: #b3261e;
 }
 
+.pique {
+	background: var(--lavande);
+	border-radius: var(--rayon);
+	padding: var(--espace);
+	font-weight: 600;
+}
+
+ul {
+	list-style: none;
+	padding: 0;
+	margin: 0 0 var(--espace);
+}
+
+ul li {
+	background: var(--vert-doux);
+	border-radius: var(--rayon);
+	padding: 0.5rem var(--espace);
+	margin-bottom: 0.5rem;
+}
+
+.video {
+	display: block;
+	width: 100%;
+	aspect-ratio: 9 / 16;
+	max-height: 60vh;
+	border: none;
+	border-radius: var(--rayon);
+	margin-bottom: var(--espace);
+}
+
+.minuteur {
+	font-size: 1.4rem;
+	font-weight: 700;
+	text-align: center;
+}
+
 @media (prefers-reduced-motion: no-preference) {
 	button {
 		transition: transform 0.1s ease, background 0.2s ease;

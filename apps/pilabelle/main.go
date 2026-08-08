@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "time/tzdata"
 )
@@ -34,7 +35,21 @@ func identite(r *http.Request) (string, error) {
 	return u, nil
 }
 
-func routes(dico Dictionnaire, racineProfils string) http.Handler {
+// parisTZ est figee pour tous les calculs de jour (ossature §5) : l'heure du
+// telephone decide de l'affichage, jamais du jour retenu par le serveur.
+var parisTZ = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Paris")
+	if err != nil {
+		log.Fatalf("fuseau Europe/Paris introuvable : %v", err)
+	}
+	return loc
+}()
+
+func aujourdhui() string {
+	return time.Now().In(parisTZ).Format("2006-01-02")
+}
+
+func routes(dico Dictionnaire, messages Messages, racineProfils string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +129,48 @@ func routes(dico Dictionnaire, racineProfils string) http.Handler {
 		repondreJSON(w, p)
 	})
 
+	mux.HandleFunc("GET /api/jour", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		profil, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+
+		jour := aujourdhui()
+		seance, cas, err := SeanceDuJour(dico, profil, jour)
+		if err != nil {
+			log.Printf("selection du jour %s pour %s: %v", jour, identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"dictionnaire insuffisant"}`, http.StatusInternalServerError)
+			return
+		}
+
+		reponse := struct {
+			Cas    Cas     `json:"cas"`
+			Seance *Seance `json:"seance,omitempty"`
+			Pique  string  `json:"pique,omitempty"`
+		}{Cas: cas}
+		if cas == CasAFaire {
+			reponse.Seance = &seance
+		}
+
+		if ecart := joursDepuisDerniereSeance(profil, jour); ecart >= 1 && cas == CasAFaire {
+			famille, pool := familleEtPool(messages, ecart)
+			pique := tirerMessage(pool, profil.DerniersMessages.Pique, jour+"|"+famille+"|"+email)
+			reponse.Pique = pique
+			profil.DerniersMessages.Pique = pique
+			if err := EcrireProfil(racineProfils, email, profil); err != nil {
+				log.Printf("ecriture profil %s: %v", identifiantFichier(email), err) // non bloquant : la pique s'affiche quand meme
+			}
+		}
+		repondreJSON(w, reponse)
+	})
+
 	return withIdentiteExigeeSurAPI(mux)
 }
 
@@ -183,8 +240,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("dictionnaire invalide : %v", err)
 	}
+	brutMessages, err := dataFS.ReadFile("data/messages.json")
+	if err != nil {
+		log.Fatalf("messages absents de l'image : %v", err)
+	}
+	messages, err := ChargerMessages(brutMessages)
+	if err != nil {
+		log.Fatalf("messages invalides : %v", err)
+	}
 
-	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, racine)}
+	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, racine)}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

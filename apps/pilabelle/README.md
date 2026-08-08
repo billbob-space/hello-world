@@ -21,6 +21,20 @@ Volume `pilabelle-donnees`, monté sur `/var/lib/pilabelle` — il survit au
 redéploiement. Un fichier JSON par compte (nommé par le hash de son identité,
 jamais l'adresse en clair), écrit atomiquement.
 
+## Routes
+
+| Route | Réponse |
+|---|---|
+| `GET /` | `web/index.html`, coque unique |
+| `GET /api/profil` | `404` si absent, sinon la fiche (réponses, niveaux, série) |
+| `POST /api/profil` | crée le profil depuis le questionnaire, `409` si déjà créé |
+| `PUT /api/profil` | modifie les réponses (réglages), jamais rétroactif sur la progression |
+| `GET /api/jour` | l'état du jour (`repos` / `deja-faite` / `a-faire`), la séance résolue et une éventuelle pique de retrouvailles |
+
+Le dictionnaire d'exercices (`data/dictionnaire.json`, dérivé d'`exercices.md`)
+et les stocks de messages (`data/messages.json`) sont des données embarquées,
+jamais recalculées à la volée.
+
 ## Variables d'environnement
 
 Aucun secret. `PORT` (défaut `8080`) et `PILABELLE_DONNEES` (défaut

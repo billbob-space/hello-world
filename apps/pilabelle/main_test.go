@@ -31,7 +31,7 @@ func poster(t *testing.T, h http.Handler, methode, chemin, email string, corps a
 func TestSante(t *testing.T) {
 	r := httptest.NewRequest("GET", "/healthz", nil)
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("healthz = %d, attendu 200", w.Code)
 	}
@@ -40,7 +40,7 @@ func TestSante(t *testing.T) {
 func TestIdentiteExigeeSurAPI(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/profil", nil)
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("sans X-Forwarded-User: %d, attendu 400", w.Code)
 	}
@@ -50,7 +50,7 @@ func TestPageAttente(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("X-Forwarded-User", "test@example.com")
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("/ = %d, attendu 200", w.Code)
 	}
@@ -63,7 +63,7 @@ func TestProfilAbsent(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/profil", nil)
 	r.Header.Set("X-Forwarded-User", "test@example.com")
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("profil absent: %d, attendu 404", w.Code)
 	}
@@ -73,8 +73,19 @@ func reponsesDeTest() Reponses {
 	return Reponses{NiveauDepart: "debutante", JoursActifs: []string{"lundi", "mercredi"}}
 }
 
+func messagesDeTest() Messages {
+	m := Messages{}
+	m.Piques.UnJour = []string{"un jour de test"}
+	m.Piques.QuelquesJours = []string{"quelques jours de test"}
+	m.Piques.UneSemaineOuPlus = []string{"une semaine de test"}
+	m.Encouragements = []string{"bravo de test"}
+	m.MotsDoux = []string{"mot doux de test"}
+	return m
+}
+
+
 func TestCreerProfil(t *testing.T) {
-	h := routes(Dictionnaire{}, t.TempDir())
+	h := routes(Dictionnaire{}, messagesDeTest(), t.TempDir())
 	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	if w.Code != http.StatusCreated {
 		t.Fatalf("creation: %d, attendu 201 — corps: %s", w.Code, w.Body.String())
@@ -90,7 +101,7 @@ func TestCreerProfil(t *testing.T) {
 
 func TestCreerProfilDeuxFoisRefuse(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(Dictionnaire{}, racine)
+	h := routes(Dictionnaire{}, messagesDeTest(), racine)
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	if w.Code != http.StatusConflict {
@@ -100,7 +111,7 @@ func TestCreerProfilDeuxFoisRefuse(t *testing.T) {
 
 func TestReglagesNeTouchentPasNiveauxHistoriqueSerie(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(Dictionnaire{}, racine)
+	h := routes(Dictionnaire{}, messagesDeTest(), racine)
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 
 	// Simule une progression deja ecrite (comme le ferait PRP 05).
@@ -136,5 +147,79 @@ func TestReglagesNeTouchentPasNiveauxHistoriqueSerie(t *testing.T) {
 	}
 	if apres.Reponses.NiveauDepart != "a_deja_pratique" {
 		t.Fatalf("reponses non mises a jour: %+v", apres.Reponses)
+	}
+}
+
+func TestJourRepos(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	// Aucun jour actif declare : quel que soit "aujourd'hui", c'est repos.
+	if err := EcrireProfil(racine, "test@example.com", Profil{Reponses: Reponses{JoursActifs: nil}}); err != nil {
+		t.Fatal(err)
+	}
+	w := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /api/jour: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	var reponse struct {
+		Cas Cas `json:"cas"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &reponse); err != nil {
+		t.Fatal(err)
+	}
+	if reponse.Cas != CasRepos {
+		t.Fatalf("cas = %s, attendu repos", reponse.Cas)
+	}
+}
+
+func TestJourAFaireDeuxAppelsIdempotents(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses: Reponses{JoursActifs: []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}},
+		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var premiere, seconde struct {
+		Cas    Cas     `json:"cas"`
+		Seance *Seance `json:"seance"`
+	}
+	w1 := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	if err := json.Unmarshal(w1.Body.Bytes(), &premiere); err != nil {
+		t.Fatal(err)
+	}
+	w2 := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	if err := json.Unmarshal(w2.Body.Bytes(), &seconde); err != nil {
+		t.Fatal(err)
+	}
+	if premiere.Cas != CasAFaire || seconde.Cas != CasAFaire {
+		t.Fatalf("cas = %s / %s, attendu a-faire / a-faire", premiere.Cas, seconde.Cas)
+	}
+	if premiere.Seance.Blocs[1].Exercices[0].ID != seconde.Seance.Blocs[1].Exercices[0].ID {
+		t.Fatalf("deux appels le meme jour rendent des exercices differents")
+	}
+}
+
+func TestJourAvecPiqueApresUneAbsence(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	tousLesJours := []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses:   Reponses{JoursActifs: tousLesJours},
+		Niveaux:    Niveaux{Ventre: 1, Cuisses: 1},
+		Historique: []HistoriqueEntree{{Date: "2026-08-06", Ressenti: RessentiCorrect}}, // avant-hier
+	}); err != nil {
+		t.Fatal(err)
+	}
+	w := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	var reponse struct {
+		Pique string `json:"pique"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &reponse); err != nil {
+		t.Fatal(err)
+	}
+	if reponse.Pique == "" {
+		t.Fatal("aucune pique apres une absence de deux jours")
 	}
 }

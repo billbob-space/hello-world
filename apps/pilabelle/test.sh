@@ -6,6 +6,6 @@ cd "$(dirname "$0")"
 go vet ./...
 go test ./...
 
-if command -v node >/dev/null 2>&1 && [ -d tests ] && [ -n "$(ls -A tests 2>/dev/null)" ]; then
-  node --test tests/
-fi
+# node --test tests/ traite "tests" comme un fichier : on lui passe des
+# fichiers, pas le repertoire (meme piege documente dans marcq-handball).
+node --test tests/*.test.js

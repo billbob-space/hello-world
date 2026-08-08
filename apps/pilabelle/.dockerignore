@@ -5,6 +5,8 @@
 *.md
 app.yml
 test.sh
+tests
+package.json
 .dockerignore
 pilabelle
 node_modules
@@ -15,3 +17,9 @@ __pycache__
 .env
 .env.*
 *.log
+
+# Complete a la main : ni les tests du navigateur ni les PRP n'entrent dans
+# l'image, go:embed n'emporte que web/ et data/. « *.md » ne couvre que la
+# racine du contexte — prp/ doit donc etre nomme.
+prp/
+exercices.md

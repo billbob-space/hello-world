@@ -9,6 +9,80 @@ import (
 	"time"
 )
 
+// Messages porte les trois stocks de contenu ecrits une fois pour toutes
+// (PRD §10.1, §12) : piques de retrouvailles, encouragements neutres, mots
+// doux. Charge une fois au demarrage, comme le dictionnaire.
+type Messages struct {
+	Piques struct {
+		UnJour           []string `json:"un_jour"`
+		QuelquesJours    []string `json:"quelques_jours"`
+		UneSemaineOuPlus []string `json:"une_semaine_ou_plus"`
+	} `json:"piques"`
+	Encouragements []string `json:"encouragements"`
+	MotsDoux       []string `json:"mots_doux"`
+}
+
+func ChargerMessages(brut []byte) (Messages, error) {
+	var m Messages
+	if err := json.Unmarshal(brut, &m); err != nil {
+		return Messages{}, fmt.Errorf("messages illisibles: %w", err)
+	}
+	if len(m.Piques.UnJour) == 0 || len(m.Piques.QuelquesJours) == 0 || len(m.Piques.UneSemaineOuPlus) == 0 {
+		return Messages{}, fmt.Errorf("chaque famille de pique doit porter au moins un message")
+	}
+	if len(m.Encouragements) == 0 || len(m.MotsDoux) == 0 {
+		return Messages{}, fmt.Errorf("encouragements et mots doux doivent porter au moins un message")
+	}
+	return m, nil
+}
+
+// tirerMessage choisit dans pool, en excluant dernier s'il existe une
+// alternative — jamais deux fois de suite (PRD §10.1).
+func tirerMessage(pool []string, dernier, sel string) string {
+	candidats := pool
+	if len(pool) > 1 {
+		var sansDernier []string
+		for _, m := range pool {
+			if m != dernier {
+				sansDernier = append(sansDernier, m)
+			}
+		}
+		if len(sansDernier) > 0 {
+			candidats = sansDernier
+		}
+	}
+	h := fnv.New32a()
+	h.Write([]byte(sel))
+	return candidats[int(h.Sum32())%len(candidats)]
+}
+
+// familleEtPool classe l'ecart en jours depuis la derniere seance dans l'une
+// des trois familles de pique (PRD §7.2).
+func familleEtPool(m Messages, ecartJours int) (string, []string) {
+	switch {
+	case ecartJours == 1:
+		return "un_jour", m.Piques.UnJour
+	case ecartJours >= 2 && ecartJours <= 6:
+		return "quelques_jours", m.Piques.QuelquesJours
+	default:
+		return "une_semaine_ou_plus", m.Piques.UneSemaineOuPlus
+	}
+}
+
+// joursDepuisDerniereSeance rend -1 si aucune seance n'a encore ete faite :
+// il n'y a alors rien a retrouver, jamais de pique.
+func joursDepuisDerniereSeance(p Profil, aujourdhui string) int {
+	if len(p.Historique) == 0 {
+		return -1
+	}
+	derniere, err1 := time.Parse("2006-01-02", p.Historique[len(p.Historique)-1].Date)
+	jour, err2 := time.Parse("2006-01-02", aujourdhui)
+	if err1 != nil || err2 != nil {
+		return -1
+	}
+	return int(jour.Sub(derniere).Hours() / 24)
+}
+
 // Zone est l'une des quatre zones d'une seance (PRD §8).
 type Zone string
 
