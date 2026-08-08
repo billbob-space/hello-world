@@ -16,7 +16,7 @@ erreur ici casse le deploiement de toutes les autres applications.
 - Nom : `pilabelle` — c'est aussi son sous-domaine, son conteneur et sa route.
 - URL : https://pilabelle.apps.billbob.ovh
 - Qui entre : uniquement les comptes de la liste blanche du serveur (`exposure: private`).
-- Deployee : pas encore — son bloc n'entre pas dans `compose.yaml`.
+- Deployee : oui.
 
 ## Comment elle tourne
 

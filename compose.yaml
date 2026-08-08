@@ -339,10 +339,52 @@ services:
       - marcq-handball-donnees:/var/lib/marcq-handball
   # <<< marcq-handball
 
-  # >>> pilabelle — DESACTIVEE (enabled: false dans apps/pilabelle/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+  # >>> pilabelle — apps/pilabelle/app.yml — https://pilabelle.apps.billbob.ovh
+  pilabelle:
+    image: ghcr.io/billbob-space/hello-world/pilabelle:main
+    container_name: pilabelle
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.pilabelle.rule=Host(`pilabelle.apps.billbob.ovh`)"
+      - "traefik.http.routers.pilabelle.entrypoints=websecure"
+      - "traefik.http.routers.pilabelle.priority=100"
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.pilabelle.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.pilabelle.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pilabelle.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+    volumes:
+      - pilabelle-donnees:/var/lib/pilabelle
   # <<< pilabelle
 
   # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
@@ -443,6 +485,8 @@ volumes:
     name: compteur-donnees
   marcq-handball-donnees:
     name: marcq-handball-donnees
+  pilabelle-donnees:
+    name: pilabelle-donnees
 
 networks:
   apps_net:
