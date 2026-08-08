@@ -66,6 +66,16 @@ le setup script n'a pas encore tourné continue d'exécuter bash normalement, ju
 sans compression. `check-plugins.sh` rapporte sa présence dans la même ligne que
 les plugins et les LSP.
 
+**`rtk gain` et `rtk init --show` annoncent à tort « hook non installé »,
+suggérant de lancer `rtk init -g`.** Vérifié le 8 août 2026 : le hook du dépôt
+fonctionne bel et bien — une commande bash ordinaire, non préfixée par `rtk`,
+est interceptée et comptée dans `rtk gain` sans qu'on l'invoque explicitement.
+Ce diagnostic ne reconnaît que le format que `rtk init -g` lui-même écrirait
+dans le `settings.json` **global** de l'utilisateur ; il ne sait pas lire le
+hook écrit à la main dans celui, versionné, du dépôt. Ignore cette alerte, et
+surtout ne lance jamais `rtk init -g` pour la faire taire : voir plus haut
+pourquoi.
+
 **Déclarer un plugin ne l'installe pas**, et aucun script du dépôt ne peut s'en
 charger : sur `claude.ai/code`, Claude Code **charge les plugins avant de les
 installer**, donc un hook `SessionStart` les déposerait sur le disque sans qu'ils
