@@ -55,6 +55,7 @@ command -v claude >/dev/null || export PATH="/opt/node22/bin:$PATH"
 # qui installe d'un qui echoue en silence.
 claude plugin marketplace add anthropics/claude-plugins-official || true
 claude plugin marketplace add pbakaus/impeccable || true
+claude plugin marketplace add alexgreensh/token-optimizer || true
 for p in \
     superpowers@claude-plugins-official \
     mattpocock-skills@claude-plugins-official \
@@ -68,7 +69,8 @@ for p in \
     typescript-lsp@claude-plugins-official \
     frontend-design@claude-plugins-official \
     playwright@claude-plugins-official \
-    impeccable@impeccable
+    impeccable@impeccable \
+    token-optimizer@alexgreensh-token-optimizer
 do
   claude plugin install "$p" || echo "   echec : $p" >&2
 done

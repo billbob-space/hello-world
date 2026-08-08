@@ -2,6 +2,9 @@
   "extraKnownMarketplaces": {
     "impeccable": {
       "source": { "source": "github", "repo": "pbakaus/impeccable" }
+    },
+    "alexgreensh-token-optimizer": {
+      "source": { "source": "github", "repo": "alexgreensh/token-optimizer" }
     }
   },
   "enabledPlugins": {
@@ -17,7 +20,8 @@
     "typescript-lsp@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
-    "impeccable@impeccable": true
+    "impeccable@impeccable": true,
+    "token-optimizer@alexgreensh-token-optimizer": true
   },
   "hooks": {
     "SessionStart": [
