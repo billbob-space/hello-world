@@ -19,7 +19,10 @@ set -u
 PLUGINS="superpowers@claude-plugins-official mattpocock-skills@claude-plugins-official code-review@claude-plugins-official code-simplifier@claude-plugins-official commit-commands@claude-plugins-official security-guidance@claude-plugins-official context7@claude-plugins-official github@claude-plugins-official gopls-lsp@claude-plugins-official frontend-design@claude-plugins-official playwright@claude-plugins-official impeccable@impeccable token-optimizer@alexgreensh-token-optimizer"
 # plugin:binaire:stack — un triplet par serveur de langage attendu
 TRIPLETS="gopls-lsp:gopls:go"
-# binaire:description — binaires attendus par un hook du depot, sans plugin associe
+# binaire:description — un binaire par ligne, attendu par un hook du depot sans
+# plugin associe. Une ligne, pas un mot separe par un espace : la description
+# contient des espaces, et "for h in $HOOK_BINAIRES" les aurait pris pour autant
+# de binaires distincts.
 HOOK_BINAIRES="rtk:la compression des commandes bash est inactive"
 
 # Un plugin installe = un repertoire non vide dans le cache local, range sous
@@ -56,7 +59,8 @@ done
 # Binaires attendus par un hook du depot, sans plugin qui en depende : meme
 # principe que les LSP, sans le lien "deja signale via un plugin manquant".
 hook_ok=0 hook_total=0 hook_detail=""
-for h in $HOOK_BINAIRES; do
+while IFS= read -r h; do
+  [ -n "$h" ] || continue
   bin=${h%%:*}; desc=${h#*:}
   hook_total=$(( hook_total + 1 ))
   if command -v "$bin" >/dev/null 2>&1; then
@@ -65,7 +69,9 @@ for h in $HOOK_BINAIRES; do
     hook_detail="$hook_detail
   $bin ABSENT — $desc."
   fi
-done
+done <<EOF
+$HOOK_BINAIRES
+EOF
 
 resume="Outillage : $n/$total plugins installes"
 [ "$lsp_total" -gt 0 ] && resume="$resume, $lsp_ok/$lsp_total serveurs LSP presents"
