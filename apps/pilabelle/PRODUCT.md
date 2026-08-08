@@ -82,6 +82,12 @@ quand elle ne l'a pas vue, glisse parfois un mot doux — jamais un ton de
 surveillance ou de reproche. Une pique sympa dit qu'elle a manqué à
 quelqu'un, jamais qu'elle a fauté (§ 7.2, § 10).
 
+**Elle a de l'humour : les piques n'ont pas à rester sages.** La limite
+n'est pas la mordacité, c'est la culpabilisation — une pique bien sentie et
+un peu culottée reste dans les clous tant qu'elle fait rire plutôt que
+culpabiliser. Écrire trop prudent produirait des piques fades, pas des
+piques plus sûres.
+
 ---
 
 ## PRD — Pilabelle : le programme pilates du jour
@@ -432,9 +438,11 @@ n'appelle pas le même mot qu'une semaine de silence, et le texte ne doit
 jamais prétendre « hier » si ce n'est pas vrai. Trois familles suffisent :
 un jour, quelques jours (deux à six), une semaine ou plus. Chaque famille
 contient plusieurs variantes, et les variantes changent aussi de **registre**
-d'une à l'autre — taquinerie légère, clin d'œil complice, petite
-provocation gentille pour la remotiver — de sorte que deux retours à durée
-d'absence égale ne sonnent jamais pareil.
+d'une à l'autre — taquinerie légère, clin d'œil complice, pique bien
+sentie et un peu culottée — de sorte que deux retours à durée d'absence
+égale ne sonnent jamais pareil. Elle a de l'humour : le registre le plus
+mordant n'est pas à mettre de côté par prudence, tant qu'il fait rire plutôt
+que peser (§ Product Principles).
 
 **Les mots doux** viennent en plus des messages d'encouragement neutres
 (« bravo, séance faite ! ») : un mot plus tendre apparaît de temps en
