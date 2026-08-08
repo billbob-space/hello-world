@@ -201,11 +201,19 @@ func repondreJSON(w http.ResponseWriter, statut int, corps any) {
 	}
 }
 
-func repondreErreur(w http.ResponseWriter, code string) {
+func repondreErreur(w http.ResponseWriter, act *activite, code string) {
 	statut, connu := statuts[code]
 	if !connu {
 		statut = http.StatusInternalServerError
 	}
+	// Le refus est trace ICI, et non chez l'appelant : c'est le seul chemin par
+	// lequel une requete d'ecriture repart en echec, et un compteur pose
+	// ailleurs finirait par en manquer un. Le CODE seul — jamais le pseudonyme
+	// ni le corps refuse : « POST 403 » dans les journaux ne disait pas si un
+	// enfant s'etait trompe de code ou si le nom etait deja pris, et c'est
+	// exactement la question qu'on se posait en lisant la production.
+	log.Printf("envoi refuse : %s", code)
+	act.refus(code)
 	switch code {
 	case "trop-d-essais":
 		w.Header().Set("Retry-After", "900")
@@ -217,42 +225,48 @@ func repondreErreur(w http.ResponseWriter, code string) {
 
 // indisponible est la reponse des trois routes quand le magasin n'existe pas.
 // cl == nil est un ETAT VALIDE : le classement est desactive, pas en panne.
-func indisponible(w http.ResponseWriter) {
-	repondreErreur(w, "classement-indisponible")
+func indisponible(w http.ResponseWriter, act *activite) {
+	repondreErreur(w, act, "classement-indisponible")
 }
 
 // --- Les trois routes -----------------------------------------------------
+//
+// act peut etre nil : la mesure d'usage est optionnelle, ses methodes
+// l'absorbent, et aucune route ne se comporte differemment selon qu'elle
+// compte ou non.
 
-func handleClassementGet(cl *classement) http.HandlerFunc {
+func handleClassementGet(cl *classement, act *activite) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
+		act.consultation()
 		if cl == nil {
-			indisponible(w)
+			indisponible(w, act)
 			return
 		}
 		repondreJSON(w, http.StatusOK, cl.lire(cl.jour()))
 	}
 }
 
-func handleCoach(cl *classement) http.HandlerFunc {
+func handleCoach(cl *classement, act *activite) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
+		act.coachLu()
 		if cl == nil {
-			indisponible(w)
+			indisponible(w, act)
 			return
 		}
 		repondreJSON(w, http.StatusOK, cl.coach(cl.jour()))
 	}
 }
 
-func handleClassementPost(cl *classement) http.HandlerFunc {
+func handleClassementPost(cl *classement, act *activite) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if cl == nil {
-			indisponible(w)
+			indisponible(w, act)
 			return
 		}
 
 		e, err := decoderEnvoi(w, r)
 		if err != nil {
-			repondreErreur(w, "json-invalide")
+			repondreErreur(w, act, "json-invalide")
 			return
 		}
 
@@ -264,18 +278,31 @@ func handleClassementPost(cl *classement) http.HandlerFunc {
 			// leur absence ferait echouer un client qui reutilise son gabarit.
 			rep, err := cl.supprimer(e, jour)
 			if err != nil {
-				repondreCodeErreur(w, err)
+				repondreCodeErreur(w, act, err)
 				return
 			}
+			log.Printf("envoi : suppression %s, %d participants",
+				siVrai(rep.Supprime, "effectuee", "sans effet"), rep.Participants)
+			act.suppression()
 			repondreJSON(w, http.StatusOK, rep)
 			return
 		}
 
 		rep, cree, err := cl.enregistrer(e, jour)
 		if err != nil {
-			repondreCodeErreur(w, err)
+			repondreCodeErreur(w, act, err)
 			return
 		}
+		// La ligne qui manquait. « POST 200 » disait qu'un envoi avait abouti,
+		// pas ce qu'il portait : une fiche acceptee a zero exercice — le cas
+		// constate en production le 8 aout — se lisait exactement comme une
+		// fiche pleine. Quatre nombres, aucun pseudonyme, aucun identifiant
+		// d'exercice : de quoi voir un ecran qui n'envoie rien, un telephone
+		// dont le programme est perime, ou un enfant qui vient d'arriver.
+		log.Printf("envoi : %s, %d cochees, %d ignorees, %d participants",
+			natureEnvoi(cree, e.Reprise), rep.Cochees, rep.Ignores, rep.Participants)
+		act.envoi(cree, e.Reprise, rep.Cochees, rep.Ignores)
+
 		statut := http.StatusOK
 		if cree {
 			statut = http.StatusCreated
@@ -284,17 +311,39 @@ func handleClassementPost(cl *classement) http.HandlerFunc {
 	}
 }
 
+// natureEnvoi nomme l'issue d'un envoi accepte. Les trois se ressemblent en
+// HTTP — 200 ou 201 — et ne disent pas du tout la meme chose de l'usage :
+// une inscription est un enfant de plus, une reprise est un telephone change,
+// une mise a jour est un entrainement de plus.
+func natureEnvoi(cree, reprise bool) string {
+	switch {
+	case cree:
+		return "inscription"
+	case reprise:
+		return "reprise"
+	default:
+		return "mise a jour"
+	}
+}
+
+func siVrai(cond bool, oui, non string) string {
+	if cond {
+		return oui
+	}
+	return non
+}
+
 // repondreCodeErreur traduit une erreur sentinelle du magasin. Une erreur
 // inattendue — disque plein, volume passe en lecture seule — rend
 // classement-indisponible : c'est la verite du point de vue du client, et le
 // detail reste dans les journaux du conteneur.
-func repondreCodeErreur(w http.ResponseWriter, err error) {
+func repondreCodeErreur(w http.ResponseWriter, act *activite, err error) {
 	code := err.Error()
 	if _, connu := statuts[code]; !connu {
 		log.Printf("classement : ecriture impossible : %v", err)
 		code = "classement-indisponible"
 	}
-	repondreErreur(w, code)
+	repondreErreur(w, act, code)
 }
 
 // decoderEnvoi lit le corps d'un POST et refuse tout ce qui n'est pas

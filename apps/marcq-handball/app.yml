@@ -38,6 +38,11 @@ ui: true
 # Borne : 200 participants x 53 identifiants font environ 500 Kio. Ce volume se
 # SAUVEGARDE — le perdre remet chaque enfant a zero jusqu'a son prochain envoi
 # et reconstruit l'ordre des ex aequo dans le desordre.
+# Un second fichier y vit depuis le 8 aout : « activite.json », les compteurs
+# d'usage par journee. Il est la parce que les journaux du conteneur disparaissent
+# a chaque deploiement de la stack, et qu'ils etaient donc la mauvaise place pour
+# mesurer trois semaines d'usage. Que des entiers, aucune donnee nominative, et
+# 400 journees au plus : quelques dizaines de Kio, borne comprise.
 volumes:
   - donnees:/var/lib/marcq-handball
 

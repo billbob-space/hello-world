@@ -19,9 +19,10 @@ func newServeur(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("service worker illisible : %v", err)
 	}
-	// cl == nil : le serveur du lot 1, tel qu'il tourne sans MARCQ_DONNEES.
-	// api_test.go couvre les memes routes avec un magasin.
-	return routes(web, sw, nil)
+	// cl == nil ET act == nil : le serveur du lot 1, tel qu'il tourne sans
+	// MARCQ_DONNEES — ni classement, ni mesure d'usage. api_test.go couvre les
+	// memes routes avec un magasin, activite_test.go avec un compteur.
+	return routes(web, sw, nil, nil)
 }
 
 func get(t *testing.T, h http.Handler, chemin string) *httptest.ResponseRecorder {

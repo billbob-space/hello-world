@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -75,12 +76,15 @@ func main() {
 		log.Fatalf("service worker illisible : %v", err)
 	}
 
+	log.Printf("version %s", version)
+
 	cl := ouvrirMagasin(web)
+	act := ouvrirCompteurs()
 
 	addr := ":" + env("PORT", "8080")
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           logging(routes(web, sw, cl)),
+		Handler:           logging(routes(web, sw, cl, act)),
 		ReadHeaderTimeout: 5 * time.Second,
 		// Sans ReadTimeout, un corps envoye octet par octet immobilise une
 		// connexion indefiniment. C'est le seul endroit du projet ou un inconnu
@@ -94,6 +98,13 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
+	// Les compteurs d'usage descendent sur le disque a intervalle regulier, et
+	// une derniere fois quand ce contexte est annule — c'est-a-dire au
+	// redeploiement, le seul arret frequent.
+	vie, finDeVie := context.WithCancel(context.Background())
+	defer finDeVie()
+	go act.veiller(vie)
+
 	go func() {
 		log.Printf("ecoute sur %s", addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -103,6 +114,7 @@ func main() {
 
 	<-stop
 	log.Print("arret demande, fermeture en cours")
+	finDeVie() // les compteurs de la journee en cours descendent sur le disque
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -119,20 +131,32 @@ func main() {
 // et les chemins des imports ES doivent coincider avec les URL servies.
 // cl == nil est un etat valide : les trois routes /api/* repondent alors 503,
 // et l'application sert exactement le lot 1.
-func routes(web fs.FS, sw []byte, cl *classement) http.Handler {
+func routes(web fs.FS, sw []byte, cl *classement, act *activite) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleSante)
 	mux.HandleFunc("GET /sw.js", handleServiceWorker(sw))
 	mux.HandleFunc("GET /programme.json", fichier(web, "programme.json",
 		"application/json; charset=utf-8", "no-cache"))
-	mux.HandleFunc("GET /api/classement", handleClassementGet(cl))
-	mux.HandleFunc("POST /api/classement", handleClassementPost(cl))
-	mux.HandleFunc("GET /api/coach", handleCoach(cl))
+	mux.HandleFunc("GET /api/classement", handleClassementGet(cl, act))
+	mux.HandleFunc("POST /api/classement", handleClassementPost(cl, act))
+	mux.HandleFunc("GET /api/coach", handleCoach(cl, act))
 	// Motif le moins specifique : le ServeMux de Go 1.22 donne la priorite aux
 	// trois routes ci-dessus, et celle-ci recoit tout le reste — index.html a
 	// la racine, les modules ES, style.css, et un 404 pour l'inconnu.
-	mux.Handle("GET /", http.FileServerFS(web))
+	mux.Handle("GET /", compterOuvertures(act, http.FileServerFS(web)))
 	return withVersion(mux)
+}
+
+// compterOuvertures compte les chargements de la coque, et eux seuls. Une page
+// tire une trentaine de fichiers derriere elle : compter toutes les requetes de
+// ce handler donnerait un nombre qui suit la taille du bundle et pas l'usage.
+func compterOuvertures(act *activite, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			act.ouverture()
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // chargerServiceWorker lit sw.js et y injecte la version du binaire. Le nom du
@@ -183,6 +207,25 @@ func ouvrirMagasin(web fs.FS) *classement {
 	}
 	log.Printf("classement : actif sur %s", dossier)
 	return cl
+}
+
+// ouvrirCompteurs prepare la mesure d'usage, et rend nil quand elle n'a pas
+// lieu d'etre. Comme le classement, aucun de ses echecs n'empeche l'application
+// de demarrer : savoir combien d'enfants s'entrainent ne vaut pas d'empecher
+// l'un d'eux de s'entrainer. Un nil se traverse en silence.
+func ouvrirCompteurs() *activite {
+	dossier := env("MARCQ_DONNEES", "")
+	if dossier == "" {
+		log.Print("activite : MARCQ_DONNEES absent, usage non mesure")
+		return nil
+	}
+	act, err := ouvrirActivite(dossier, time.Now)
+	if err != nil {
+		log.Printf("activite : usage non mesure : %v", err)
+		return nil
+	}
+	log.Printf("activite : comptee dans %s", filepath.Join(dossier, nomActivite))
+	return act
 }
 
 func handleSante(w http.ResponseWriter, _ *http.Request) {
