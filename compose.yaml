@@ -339,6 +339,12 @@ services:
       - marcq-handball-donnees:/var/lib/marcq-handball
   # <<< marcq-handball
 
+  # >>> pilabelle — DESACTIVEE (enabled: false dans apps/pilabelle/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< pilabelle
+
   # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
   ramure:
     image: ghcr.io/billbob-space/hello-world/ramure:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
