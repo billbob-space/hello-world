@@ -130,9 +130,10 @@ coup, le workflow ayant changé. Mais `redis`, `ardoise-base` et `compteur-base`
 aussi : leurs blocs du compose n'ont pas bougé d'un caractère, et ils ont été
 recréés quand même.
 
-**Cause** — `Force redeployment`, toujours coché côté serveur. La mesure vaut
-mieux qu'un raisonnement : elle isole exactement ce que le dépôt ne pouvait pas
-prouver, et montre que le mécanisme livré ici est complet mais masqué. Le reste
+**Cause** — `Force redeployment`, toujours coché côté serveur. **Cette cause est
+fausse, et l'anomalie 7 dit pourquoi** : elle expliquait tout le symptôme, ce qui
+a suffi à arrêter la recherche alors que le journal du serveur était lisible dès
+cet instant. Le reste
 de la chaîne, lui, est prouvé de bout en bout : `versions.yml` est arrivé sur
 `main` avec les six commits, le compose a changé de douze lignes et pas une de
 plus, et le conteneur `cadran` tourne sur l'image épinglée
@@ -148,10 +149,51 @@ réglage rouvrirait le droit d'arrêter la stack entière. Le `README` porte
 l'instruction ; la sélectivité se vérifiera à la livraison suivante, en
 comparant les anciennetés des conteneurs.
 
+### 7. Le redémarrage sélectif n'est pas atteignable depuis le dépôt — mesuré
+
+**Symptome** — `Force redeployment` décoché par l'utilisateur, puis une livraison
+qui ne touche qu'une application : le commit de déploiement fait **deux lignes**,
+une dans `compose.yaml` et une dans `versions.yml`. Les neuf conteneurs ont été
+recréés quand même. Le journal de `dockhand`, lu par la porte de service, donne
+la cause en trois lignes :
+
+```
+Will force recreate: true (updated=true)
+Force redeploy setting: false
+Command: docker compose ... up -d --remove-orphans --force-recreate
+```
+
+**Cause** — `dockhand` ajoute `--force-recreate` **de lui-même** dès que sa
+synchronisation a mis à jour au moins un fichier du dépôt. Le réglage
+`Force redeployment` est un second levier, indépendant de cette règle interne :
+le décocher ne la désarme pas. Et comme un déploiement suppose par définition un
+fichier modifié, la condition est toujours vraie — toute livraison recrée toute
+la stack, quoi que fasse le dépôt.
+
+L'anomalie 5 avait nommé ce risque exactement (« un `down` suivi d'un `up` plutôt
+qu'un `up -d` ») et conclu qu'il fallait aller voir en production. C'était la
+bonne conclusion, et elle n'a pas été poussée assez loin : le premier relevé,
+tout étant redémarré, a été mis sur le compte du réglage encore coché — une
+explication suffisante et fausse. Le journal du serveur, lui, était lisible dès
+ce moment-là et aurait montré `Force recreate: true` avec le motif. **Une cause
+plausible qui explique tout le symptôme est le meilleur moyen d'arrêter de
+chercher.**
+
+**Detecte par** — `production`
+
+**Action** — `contrat` — le `README` et `CLAUDE.md` disaient tous deux que la
+livraison ne recréait que le conteneur livré. C'était faux entre le moment où la
+mesure a été faite et celui-ci ; le `README` porte désormais une section dédiée à
+ce qui n'est **pas** obtenu, avec les trois lignes de journal. Ce qui reste acquis
+est réel et se lit là aussi : le dépôt dit quelle version tourne, le retour
+arrière ne reconstruit rien, et le déploiement ne dépend plus d'un réglage du
+serveur. Le levier restant est chez `dockhand` — une option « ne recréer que les
+services modifiés », ou un autre outil de déploiement — et ne se décide pas ici.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-08 à 00:13 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-08 à 00:25 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -159,26 +201,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 469 | 0,00 $ |
-| Écriture de cache | 727 344 | 3,08 $ |
-| Lecture de cache | 43 222 905 | 19,53 $ |
-| Sortie | 134 385 | 2,25 $ |
-| **Total** | **44 085 103** | **24,85 $ — 21,58 €** |
+| Entrée | 553 | 0,00 $ |
+| Écriture de cache | 758 484 | 3,27 $ |
+| Lecture de cache | 57 504 010 | 26,67 $ |
+| Sortie | 149 175 | 2,62 $ |
+| **Total** | **58 412 222** | **32,56 $ — 28,28 €** |
 
 **Ce qui coûte**
 
-- **267 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **312 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   59 202 jetons, écrits une fois par session puis relus à chaque
-  échange : 15 747 732 jetons de relecture, 36 % de tout ce qui a été relu.
-- **Tours courts** — 122 des 267 tours (45 %) sortent
+  échange : 18 411 822 jetons de relecture, 32 % de tout ce qui a été relu.
+- **Tours courts** — 157 des 312 tours (50 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 15,73 $, soit 63 % de la facture.
+  une sortie de rien. Ils coûtent 21,55 $, soit 66 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 59 202 jetons relus au premier appel qui relise
-  quelque chose, 303 902 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 334 061 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 44085103 -->
+<!-- cout-total: 58412222 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 59202 0 492
 2 principal claude-opus-5 3547 59202 96
@@ -447,5 +489,50 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 265 principal claude-opus-5 1024 302382 439
 266 principal claude-opus-5 496 303406 109
 267 principal claude-opus-5 370 303902 523
+268 principal claude-opus-5 584 304272 610
+269 principal claude-opus-5 651 304856 108
+270 principal claude-opus-5 698 305507 187
+271 principal claude-opus-5 460 306205 194
+272 principal claude-opus-5 306 306665 151
+273 principal claude-opus-5 743 306971 131
+274 principal claude-opus-5 140 307714 189
+275 principal claude-opus-5 199 307854 180
+276 principal claude-opus-5 296 308053 22
+277 principal claude-opus-5 339 308371 137
+278 principal claude-opus-5 1095 308710 165
+279 principal claude-opus-5 206 309805 137
+280 principal claude-opus-5 580 310011 235
+281 principal claude-opus-5 1096 310591 170
+282 principal claude-opus-5 179 311687 120
+283 principal claude-opus-5 236 311866 199
+284 principal claude-opus-5 593 312102 167
+285 principal claude-opus-5 177 312695 226
+286 principal claude-opus-5 340 312872 158
+287 principal claude-opus-5 298 313212 160
+288 principal claude-opus-5 169 313510 122
+289 principal claude-opus-5 238 313679 38
+290 principal claude-opus-5 343 313955 146
+291 principal claude-opus-5 465 314298 650
+292 principal claude-opus-5 858 314763 361
+293 principal claude-opus-5 394 315621 76
+294 principal claude-opus-5 1624 316015 192
+295 principal claude-opus-5 1902 317639 118
+296 principal claude-opus-5 659 319541 461
+297 principal claude-opus-5 2437 320200 161
+298 principal claude-opus-5 1101 322637 2130
+299 principal claude-opus-5 2145 323738 106
+300 principal claude-opus-5 113 325883 202
+301 principal claude-opus-5 640 325996 1349
+302 principal claude-opus-5 1907 326636 212
+303 principal claude-opus-5 285 328543 508
+304 principal claude-opus-5 558 328828 107
+305 principal claude-opus-5 729 329386 1952
+306 principal claude-opus-5 1997 330115 82
+307 principal claude-opus-5 805 332112 475
+308 principal claude-opus-5 520 332917 121
+309 principal claude-opus-5 213 333437 226
+310 principal claude-opus-5 276 333650 93
+311 principal claude-opus-5 135 333926 1166
+312 principal claude-opus-5 1411 334061 90
 -->
 <!-- /cout -->

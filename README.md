@@ -175,7 +175,7 @@ Ce même contrôle tourne en CI, en verrou de tous les autres jobs.
 Sur une *pull request*, tout tourne sauf la publication et le déploiement :
 le Dockerfile est validé sans que le tag `:main` bouge.
 
-### Le déploiement ne redémarre que ce qui a changé
+### Les versions épinglées
 
 Chaque application est déployée sur le **commit qui l'a construite**, et non sur
 un tag `:main` commun. Ce commit est écrit par la CI dans `versions.yml` :
@@ -186,23 +186,55 @@ marcq-handball: 9c82467...
 ```
 
 `init.sh` le reporte dans `compose.yaml`. Livrer une application ne fait donc
-bouger qu'**une** ligne `image:` de tout le fichier : `docker compose up` recrée
-ce service-là et laisse les autres conteneurs intacts. Le rayon de souffle d'une
-livraison tombe à l'application livrée — avant, les neuf conteneurs de la stack
-redémarraient pour une correction d'une ligne dans une seule app.
+bouger qu'**une** ligne `image:` de tout le fichier — vérifié : le commit de
+déploiement de `hello-world` du 8 août fait exactement deux lignes, une dans
+`compose.yaml` et une dans `versions.yml`.
 
-Trois conséquences :
+Ce que cela apporte :
 
 - **Le dépôt dit quelle version tourne**, application par application, ce qu'aucun
   tag mutable ne permettait de savoir.
 - **Revenir en arrière** ne reconstruit rien : on remet le commit précédent dans
   `versions.yml`, on lance `./init.sh`, on pousse. L'image est déjà sur GHCR.
-- **`Force redeployment` doit rester DÉCOCHÉ** côté `dockhand` — voir ci-dessous.
+- **Le déploiement ne dépend plus d'un réglage du serveur** : le `compose.yaml`
+  change à chaque livraison, `dockhand` voit donc toujours un diff.
 
 Une application absente de `versions.yml` retombe sur `:main`, le tag mutable :
 c'est le cas d'une app dont aucune image n'a encore été publiée, et `--check` le
 signale en avertissement. Le fichier est **écrit par la CI**, jamais à la main —
 sauf pour un retour en arrière, où l'on change une ligne et relance `./init.sh`.
+
+### Ce que les versions épinglées n'obtiennent PAS : le redémarrage sélectif
+
+L'objectif initial était qu'une livraison ne recrée que le conteneur de l'app
+livrée. **Il n'est pas atteint, et le dépôt n'y peut rien.** Mesuré le 8 août, sur
+une livraison ne touchant que `hello-world` et avec `Force redeployment` décoché :
+les neuf conteneurs de la stack ont été recréés. Le journal de `dockhand` dit
+pourquoi, en trois lignes :
+
+```
+Will force recreate: true (updated=true)
+Force redeploy setting: false
+Command: docker compose ... up -d --remove-orphans --force-recreate
+```
+
+`dockhand` ajoute `--force-recreate` **de lui-même** dès que sa synchronisation a
+mis à jour ne serait-ce qu'un fichier du dépôt — un `README`, une entrée de
+journal, n'importe lequel. Le réglage `Force redeployment` est un *second* levier,
+indépendant de celui-là : le décocher ne change rien à cette règle interne. Et
+puisqu'un déploiement suppose par définition un fichier modifié, la condition est
+toujours vraie : **toute livraison recrée toute la stack**.
+
+Trois conséquences pratiques :
+
+- Une livraison coûte quelques secondes d'indisponibilité à **toutes** les apps,
+  pas seulement à celle qu'on livre. Elles reviennent seules.
+- Un commit de documentation sur `main` fait la même chose, par la
+  synchronisation automatique, alors même que la CI ne déclenche aucun
+  déploiement.
+- Le seul levier restant est côté `dockhand` : une option « ne recréer que les
+  services modifiés » si une version l'apporte, ou un autre outil de déploiement.
+  Rien de tout cela ne se décide depuis ce dépôt.
 
 ### Le webhook
 
@@ -256,9 +288,10 @@ un déploiement, c'est recréer **tous** les conteneurs de la stack.
 Depuis, chaque livraison change une ligne du `compose.yaml`. `dockhand` voit donc
 le diff de lui-même, et le réglage n'a plus lieu d'être :
 
-> Dans les *Deploy options* de la stack, **`Force redeployment` doit être
-> décoché**. Coché, il continue de fonctionner, mais redémarre toute la stack à
-> chaque livraison — le défaut qu'on vient de corriger.
+> Dans les *Deploy options* de la stack, **`Force redeployment` reste décoché**.
+> Il ne sert plus à rien — mais le décocher **ne rend pas** le déploiement
+> sélectif pour autant : `dockhand` force la recréation de son propre chef dès
+> qu'un fichier du dépôt a changé. Voir la section précédente, mesures à l'appui.
 
 `Re-pull images` n'est toujours **pas** nécessaire : le `pull_policy: always` du
 `compose.yaml` couvre le même besoin, et le fait depuis le dépôt plutôt que depuis
