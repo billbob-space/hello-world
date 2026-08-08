@@ -463,12 +463,22 @@ utilisable et lisible sans une seule animation.
 
 ### 11. Contraintes
 
-**Mobile uniquement, pas seulement mobile d'abord.** L'app n'est ouverte que
-sur un téléphone, souvent posé au sol ou contre un mur pendant l'exercice :
+**iPhone uniquement, pas seulement mobile d'abord.** L'app n'est ouverte que
+sur son téléphone, souvent posé au sol ou contre un mur pendant l'exercice :
 gros boutons, lisible à distance, aucune interaction qui suppose de tenir
-l'appareil en main pendant le mouvement. Aucune mise en page de bureau n'est
-nécessaire — l'écran large n'est pas un cas à couvrir, pas seulement un cas
-secondaire.
+l'appareil en main pendant le mouvement. Aucune mise en page de bureau ni de
+tablette n'est nécessaire, et aucun test Android non plus — pas seulement
+des cas secondaires, des cas absents. La mise en page compte avec les zones
+sûres iOS (encoche ou île dynamique en haut, barre d'accueil en bas) plutôt
+qu'avec un cadre générique.
+
+**Direction visuelle : légèrement kawaii, jamais infantilisant.** Couleurs
+douces, formes arrondies, une pointe de mignon dans les icônes et les
+transitions — cohérent avec le ton tendre et taquin déjà décrit (§ 10.1),
+pas avec l'univers d'une appli pour enfants. Le kawaii sert le côté doux et
+personnel de l'app, il ne remplace jamais la lisibilité ni les gros boutons
+exigés plus haut : une exécution mignonne mais illisible en plein effort
+raterait l'objectif.
 
 **Vidéos en lecture intégrée**, hébergées sur YouTube (Shorts), jamais
 re-téléchargées ni stockées par l'application — l'app n'héberge que la
