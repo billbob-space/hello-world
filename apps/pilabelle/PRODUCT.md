@@ -331,7 +331,11 @@ jamais improviser. Chaque exercice du dictionnaire porte :
 
 Construire ce catalogue (rédiger les exercices, les classer, leur associer
 une vidéo) est un travail de contenu, pas de code — il précède ou accompagne
-l'implémentation du lot 1, pas après.
+l'implémentation du lot 1, pas après. Une première version rédigée vit dans
+[`exercices.md`](exercices.md), à côté de ce document ; elle sera reprise
+sous la forme de données que l'implémentation choisira (§ 12), mais son
+contenu — les exercices, leurs niveaux, leurs contre-indications, leurs
+vidéos — ne change pas dans la conversion.
 
 Le dictionnaire est **séparé du code**, comme l'était le programme dans la
 première version de ce document : y ajouter un exercice, corriger une
@@ -497,6 +501,27 @@ sélection (§ 8.2) ait toujours au moins une option valide, et identifier
 pour chacun un Short pilates doux et adapté. Un dictionnaire trop petit fait
 échouer l'algorithme en silence — plus de variantes que ce qu'une semaine
 n'en épuiserait est le seuil à viser, pas un chiffre exact.
+
+**Une vidéo n'entre dans le dictionnaire qu'après vérification, jamais sur
+la seule confiance d'un lien qui a l'air bon.** Cinq conditions, toutes
+requises :
+
+1. le lien pointe vers une vidéo YouTube réelle et existante — jamais une
+   URL construite ou devinée à partir d'un motif probable ;
+2. la vidéo est publique, non privée, non supprimée, non restreinte par
+   âge ou par pays au moment de la vérification ;
+3. elle montre bien le geste nommé par l'exercice, pas une variante ou un
+   exercice voisin ;
+4. elle reste compréhensible **sans le son** — la lecture est silencieuse
+   par défaut (§ 7.3) — donc le mouvement doit se lire à l'image ;
+5. son format est court (Shorts ou équivalent, quelques dizaines de
+   secondes), sans publicité intrusive ni filigrane d'une marque
+   concurrente qui prêterait à confusion.
+
+Un lien qui échoue sur un seul de ces cinq points reste marqué « à
+rechercher » dans `exercices.md` plutôt que d'être renseigné à moitié — un
+mauvais lien découvert par elle en séance coûte plus cher qu'un exercice
+provisoirement sans vidéo.
 
 **Les piques de retrouvailles et les mots doux (§ 7.2, § 10.1) sont eux
 aussi un travail de contenu**, écrit une fois avant la mise en ligne du
