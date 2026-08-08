@@ -463,9 +463,12 @@ utilisable et lisible sans une seule animation.
 
 ### 11. Contraintes
 
-**Mobile d'abord.** Ouverte sur un téléphone, souvent posé au sol ou contre
-un mur pendant l'exercice : gros boutons, lisible à distance, aucune
-interaction qui suppose de tenir l'appareil en main pendant le mouvement.
+**Mobile uniquement, pas seulement mobile d'abord.** L'app n'est ouverte que
+sur un téléphone, souvent posé au sol ou contre un mur pendant l'exercice :
+gros boutons, lisible à distance, aucune interaction qui suppose de tenir
+l'appareil en main pendant le mouvement. Aucune mise en page de bureau n'est
+nécessaire — l'écran large n'est pas un cas à couvrir, pas seulement un cas
+secondaire.
 
 **Vidéos en lecture intégrée**, hébergées sur YouTube (Shorts), jamais
 re-téléchargées ni stockées par l'application — l'app n'héberge que la
