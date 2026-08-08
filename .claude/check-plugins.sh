@@ -19,6 +19,8 @@ set -u
 PLUGINS="superpowers@claude-plugins-official mattpocock-skills@claude-plugins-official code-review@claude-plugins-official code-simplifier@claude-plugins-official commit-commands@claude-plugins-official security-guidance@claude-plugins-official context7@claude-plugins-official github@claude-plugins-official gopls-lsp@claude-plugins-official frontend-design@claude-plugins-official playwright@claude-plugins-official impeccable@impeccable"
 # plugin:binaire:stack — un triplet par serveur de langage attendu
 TRIPLETS="gopls-lsp:gopls:go"
+# binaire:description — binaires attendus par un hook du depot, sans plugin associe
+HOOK_BINAIRES="rtk:la compression des commandes bash est inactive"
 
 # Un plugin installe = un repertoire non vide dans le cache local, range sous
 # <marketplace>/<nom>. installed_plugins.json n'est pas lu : ce manifeste
@@ -51,17 +53,34 @@ for t in $TRIPLETS; do
   fi
 done
 
-if [ "$lsp_total" -gt 0 ]; then
-  echo "Outillage : $n/$total plugins installes, $lsp_ok/$lsp_total serveurs LSP presents."
-else
-  echo "Outillage : $n/$total plugins installes."
-fi
+# Binaires attendus par un hook du depot, sans plugin qui en depende : meme
+# principe que les LSP, sans le lien "deja signale via un plugin manquant".
+hook_ok=0 hook_total=0 hook_detail=""
+for h in $HOOK_BINAIRES; do
+  bin=${h%%:*}; desc=${h#*:}
+  hook_total=$(( hook_total + 1 ))
+  if command -v "$bin" >/dev/null 2>&1; then
+    hook_ok=$(( hook_ok + 1 ))
+  else
+    hook_detail="$hook_detail
+  $bin ABSENT — $desc."
+  fi
+done
+
+resume="Outillage : $n/$total plugins installes"
+[ "$lsp_total" -gt 0 ] && resume="$resume, $lsp_ok/$lsp_total serveurs LSP presents"
+[ "$hook_total" -gt 0 ] && resume="$resume, $hook_ok/$hook_total binaires de hook presents"
+echo "$resume."
 [ -n "$manquants" ] && {
   echo "  manquants :$manquants"
   echo "  -> colle .claude/cloud-setup.sh dans le champ Setup script de l'environnement : claude.ai/code, icone nuage, engrenage."
 }
 [ -n "$lsp_detail" ] && {
   echo "$lsp_detail"
+  echo "  -> leurs commandes d'installation sont dans .claude/cloud-setup.sh."
+}
+[ -n "$hook_detail" ] && {
+  echo "$hook_detail"
   echo "  -> leurs commandes d'installation sont dans .claude/cloud-setup.sh."
 }
 

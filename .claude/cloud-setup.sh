@@ -36,6 +36,14 @@ pids+=($!) noms+=(gopls)
 ( npm install -g typescript-language-server typescript ) >/tmp/typescript-language-server-setup.log 2>&1 &
 pids+=($!) noms+=(typescript-language-server)
 
+# rtk n'est pas un plugin de marketplace : c'est un binaire independant qui
+# compresse la sortie des commandes bash pour l'agent. Il est reference tel
+# quel dans le hook PreToolUse de settings.json (voir memory/outillage.md).
+( export RTK_INSTALL_DIR=/usr/local/bin
+  curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+) >/tmp/rtk-setup.log 2>&1 &
+pids+=($!) noms+=(rtk)
+
 
 # --- plugins Claude Code ---
 # Le setup script tourne en root, avec un PATH plus maigre que celui de la
@@ -70,7 +78,7 @@ for i in "${!pids[@]}"; do
   if command -v "${noms[$i]}" >/dev/null || [ -x "/usr/local/bin/${noms[$i]}" ]; then
     echo "${noms[$i]} present."
   else
-    echo "${noms[$i]} absent — son plugin restera inerte." >&2
+    echo "${noms[$i]} absent — son plugin ou son hook restera inerte." >&2
   fi
 done
 

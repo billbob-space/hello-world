@@ -46,6 +46,25 @@ la fabrique** — les erreurs du compilateur après chaque édition, pour zéro 
 et, dès qu'**une seule** app porte `ui: true`, `frontend-design`, `playwright` et
 `impeccable`.
 
+## rtk — un binaire, pas un plugin de marketplace
+
+`rtk` (rtk-ai/rtk) compresse la sortie des commandes bash lues par l'agent —
+`git status`, les logs de test, etc. Il ne porte ni `.claude-plugin/marketplace.json`
+ni `plugin.json` : il ne s'installe pas avec `claude plugin install`, et n'apparaît
+donc ni dans `enabledPlugins` ni dans la table ci-dessus. Son propre installeur
+(`rtk init -g`) patche `~/.claude/settings.json` — celui de l'utilisateur, jamais le
+`settings.json` versionné du dépôt — ce qui ne convient pas à une fabrique dont
+l'outillage doit être identique à chaque clone.
+
+Il est donc intégré à la main, comme un serveur LSP plutôt que comme un plugin :
+le binaire est installé par `.claude/cloud-setup.sh`, et le hook `PreToolUse` qui
+l'invoque (`rtk hook claude`) est écrit directement dans le `settings.json` du
+dépôt, sur le tool `Bash`. La commande du hook se garde du binaire absent —
+`command -v rtk >/dev/null 2>&1 && rtk hook claude || true` — pour qu'un clone où
+le setup script n'a pas encore tourné continue d'exécuter bash normalement, juste
+sans compression. `check-plugins.sh` rapporte sa présence dans la même ligne que
+les plugins et les LSP.
+
 **Déclarer un plugin ne l'installe pas**, et aucun script du dépôt ne peut s'en
 charger : sur `claude.ai/code`, Claude Code **charge les plugins avant de les
 installer**, donc un hook `SessionStart` les déposerait sur le disque sans qu'ils
@@ -72,10 +91,12 @@ dans ton compte, et rien ne la met à jour automatiquement : après avoir édit�
 
 Puisqu'aucun hook ne peut installer à temps, `.claude/check-plugins.sh` se contente de
 rapporter : il s'exécute à chaque ouverture de session et écrit dans ton contexte
-`Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents.` — une ligne quand
-tout va bien, sinon la liste des manquants et le geste qui répare. Il vérifie deux
-choses qui peuvent diverger : le plugin dans le cache local, et le **binaire** de
-chaque LSP sur la machine. Un rapport qui annonce des manquants signifie que le setup
+`Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents, 1/1 binaires de hook
+presents.` — une ligne quand tout va bien, sinon la liste des manquants et le geste
+qui répare. Il vérifie trois choses qui peuvent diverger : le plugin dans le cache
+local, le **binaire** de chaque LSP sur la machine, et celui de chaque binaire de
+hook comme `rtk`, qui ne dépend d'aucun plugin. Un rapport qui annonce des manquants
+signifie que le setup
 script est absent, périmé, ou n'a pas encore rejoué.
 
 `.claude/settings.local.json` est ignoré par git : c'est là que vont tes préférences
