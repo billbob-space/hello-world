@@ -45,6 +45,32 @@ protégeait — un `app.yml` activé avant que l'image existe sur le registre �
 ne se produit donc pas si l'activation est fusionnée dans le même run qui
 publie l'image pour la première fois.
 
+Le lot 1 (PRP 01 à 05) est implémenté, testé (38 tests Go, 10 tests Node) et
+activé (`enabled: true`). Avant d'activer, un smoke-test manuel du binaire
+compilé (hors des tests automatisés) a exercé le parcours complet : création
+de profil, `GET /api/jour` — l'exercice `cu-jambes-1` a bien été retenu malgré
+la contre-indication `genou` déclarée sur un autre exercice de la même zone,
+preuve que le filtrage §8.2 étape 1 opère réellement et pas seulement en
+test unitaire —, puis `POST /api/ressenti` : série à 1, second envoi le même
+jour renvoyant `deja_compte: true` sans rien modifier. `docker build` n'a pas
+pu être exercé localement (pas de démon Docker dans ce conteneur) ; la
+construction réelle est laissée à la CI, `--check` ayant déjà vérifié
+statiquement la forme du `Dockerfile`.
+
+**Décidé seul, à revoir par vous plus tard : activer malgré deux dettes de
+contenu non résolues**, déjà documentées dans `prp/README.md` et l'ossature
+§11 — trois vidéos `a_rechercher`/`a_valider` dans `exercices.md`, et
+`data/messages.json` qui ne porte qu'un message par famille de pique et par
+stock d'encouragements/mots doux. Aucune des deux n'est un défaut de code :
+un exercice sans vidéo vérifiée s'affiche sans lecteur (comportement voulu,
+PRD §12), et un stock à un seul message ne peut simplement pas varier tant
+qu'il n'en contient pas plus. Le PRD réserve explicitement ce contenu à vous
+(§12 : « le seul contenu de l'application qui gagne à être écrit par vous
+plutôt que déduit du PRD ») — je ne l'ai donc pas inventé à votre place.
+`Action: comportement`, pas `arbitrage` : rien ici ne demandait une décision
+que je ne pouvais pas prendre, seulement du texte que je ne devais pas
+écrire à votre place.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
