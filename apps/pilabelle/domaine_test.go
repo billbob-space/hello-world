@@ -107,7 +107,7 @@ func TestNiveauDescendImmediatement(t *testing.T) {
 func TestNiveauNeMonteQuApresTroisFacilesDeSuite(t *testing.T) {
 	dico := chargerDictionnaireDeTest(t)
 	niveau, fc := 2, 0
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		niveau, fc = AjusterNiveau(dico, ZoneVentre, nil, niveau, fc, RessentiFacile)
 	}
 	if niveau != 2 {
@@ -139,7 +139,7 @@ func TestPlancherJamaisFranchi(t *testing.T) {
 func TestPlafondJamaisFranchi(t *testing.T) {
 	dico := chargerDictionnaireDeTest(t)
 	niveau, fc := 4, 0
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		niveau, fc = AjusterNiveau(dico, ZoneCuisses, nil, niveau, fc, RessentiFacile)
 	}
 	if niveau != 4 {

@@ -49,15 +49,92 @@ func routes(dico Dictionnaire, racineProfils string) http.Handler {
 	mux.Handle("GET /", withVersion(http.FileServer(http.FS(web))))
 
 	mux.HandleFunc("GET /api/profil", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := identite(r); err != nil {
-			http.Error(w, `{"erreur":"identite absente"}`, http.StatusBadRequest)
+		email, _ := identite(r) // withIdentiteExigeeSurAPI a deja verifie sa presence
+		p, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
 			return
 		}
-		// PRP 03 remplace ce stub par la lecture reelle du profil.
-		http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, p)
+	})
+
+	mux.HandleFunc("POST /api/profil", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		if _, err := LireProfil(racineProfils, email); err == nil {
+			http.Error(w, `{"erreur":"profil existe deja"}`, http.StatusConflict)
+			return
+		}
+		var reponses Reponses
+		if err := json.NewDecoder(r.Body).Decode(&reponses); err != nil || !reponsesValides(reponses) {
+			http.Error(w, `{"erreur":"reponses invalides"}`, http.StatusBadRequest)
+			return
+		}
+		p := Profil{
+			VersionSchema: 1,
+			Reponses:      reponses,
+			Niveaux:       NiveauInitial(reponses),
+		}
+		if err := EcrireProfil(racineProfils, email, p); err != nil {
+			log.Printf("ecriture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		repondreJSON(w, p)
+	})
+
+	mux.HandleFunc("PUT /api/profil", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		p, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		var reponses Reponses
+		if err := json.NewDecoder(r.Body).Decode(&reponses); err != nil || !reponsesValides(reponses) {
+			http.Error(w, `{"erreur":"reponses invalides"}`, http.StatusBadRequest)
+			return
+		}
+		p.Reponses = reponses // PRD §7.5 : jamais retroactif sur niveaux, serie ou historique
+		if err := EcrireProfil(racineProfils, email, p); err != nil {
+			log.Printf("ecriture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, p)
 	})
 
 	return withIdentiteExigeeSurAPI(mux)
+}
+
+func reponsesValides(r Reponses) bool {
+	if r.NiveauDepart != "debutante" && r.NiveauDepart != "a_deja_pratique" {
+		return false
+	}
+	if len(r.JoursActifs) == 0 {
+		return false
+	}
+	for _, j := range r.JoursActifs {
+		if _, ok := joursFR[j]; !ok {
+			return false
+		}
+	}
+	for _, d := range r.Douleurs {
+		if !contreIndicationsValides[d] {
+			return false
+		}
+	}
+	return true
 }
 
 // withIdentiteExigeeSurAPI refuse toute route /api/* sans X-Forwarded-User,
