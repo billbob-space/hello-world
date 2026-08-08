@@ -83,6 +83,30 @@ personnelles. Et **jamais de bloc `env` dans `.claude/settings.json`** — il es
 par construction, y poser un jeton le publie ; `--check` refuse un settings qui en
 contient un.
 
+## Les compétences du dépôt, distinctes de celles des plugins
+
+Le tableau ci-dessus décrit des compétences **apportées par des plugins**, donc
+installées hors du dépôt. Une compétence propre à la fabrique s'écrit dans le
+dépôt, versionnée comme les agents et les commandes de mode :
+
+```
+.claude/skills/<nom>/SKILL.md    # en-tête YAML : name, description
+```
+
+Le `name` de l'en-tête **est** celui du répertoire, et la `description` est tout
+ce que tu lis avant de décider de l'invoquer : c'est elle qui doit porter les
+mots que l'utilisateur emploiera, pas un résumé du contenu. Écris-la sans
+accents dans le `name`, pour la même raison que `pas-a-pas`.
+
+Aucun garde-fou ne les tient : `--check` vérifie la présence des trois agents et
+des deux commandes parce que le contrat les promet, alors qu'une compétence
+absente ne casse rien. À l'inverse d'une commande, **elle n'est invocable qu'à la
+session suivante** — voir `memory/travail.md`, section sur les quatre registres.
+
+| Compétence | Ce qu'elle fait |
+|---|---|
+| `compact-claude-md` | Trie et compresse un `CLAUDE.md` par suppression de lignes sans effet, jamais par abréviation ; tri en lecture seule, puis validation humaine, puis application |
+
 ## Une commande `go` isolée, tant que `go.work` n'a pas suivi
 
 Sur une machine de développement où `go env GOWORK` pointe en dur sur le

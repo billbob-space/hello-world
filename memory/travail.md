@@ -209,10 +209,12 @@ Le nom de la commande **est** celui du fichier, d'où `pas-a-pas` sans accents :
 un caractère accentué dans un nom de commande n'est garanti nulle part.
 
 **Une commande écrite est invocable tout de suite** — vérifié : le registre des
-commandes est relu en cours de session, contrairement à celui des agents et à
-celui des plugins, qui ne le sont qu'au démarrage. Les trois registres se
-ressemblent et ne se comportent pas pareil ; ne déduis le comportement d'aucun
-des trois de celui d'un autre.
+commandes est relu en cours de session, contrairement à ceux des agents, des
+plugins et des **compétences**, qui ne le sont qu'au démarrage. Les quatre
+registres se ressemblent et ne se comportent pas pareil ; ne déduis le
+comportement d'aucun des quatre de celui d'un autre. Une compétence ajoutée à
+`.claude/skills/` répond `Unknown skill` jusqu'à la session suivante — vérifié
+le 7 août 2026, en tentant de l'invoquer dans la session qui venait de l'écrire.
 
 `/livrer` s'invoque à n'importe quel moment — avec un sujet, ou sans, auquel cas
 il reprend le travail en cours. C'est ce qui le rend utilisable aux deux moments
