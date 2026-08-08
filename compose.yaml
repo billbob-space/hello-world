@@ -36,7 +36,7 @@ services:
 
   # >>> ardoise — apps/ardoise/app.yml — https://ardoise.apps.billbob.ovh
   ardoise:
-    image: ghcr.io/billbob-space/hello-world/ardoise:main
+    image: ghcr.io/billbob-space/hello-world/ardoise:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
     container_name: ardoise
     restart: unless-stopped
     mem_limit: 128m
@@ -118,7 +118,7 @@ services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh
   cadran:
-    image: ghcr.io/billbob-space/hello-world/cadran:main
+    image: ghcr.io/billbob-space/hello-world/cadran:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
     container_name: cadran
     restart: unless-stopped
     mem_limit: 128m
@@ -164,7 +164,7 @@ services:
 
   # >>> compteur — apps/compteur/app.yml — https://compteur.apps.billbob.ovh
   compteur:
-    image: ghcr.io/billbob-space/hello-world/compteur:main
+    image: ghcr.io/billbob-space/hello-world/compteur:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
     container_name: compteur
     restart: unless-stopped
     mem_limit: 128m
@@ -246,7 +246,7 @@ services:
 
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
-    image: ghcr.io/billbob-space/hello-world/hello-world:main
+    image: ghcr.io/billbob-space/hello-world/hello-world:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
     container_name: hello-world
     restart: unless-stopped
     mem_limit: 128m
@@ -292,7 +292,7 @@ services:
 
   # >>> marcq-handball — apps/marcq-handball/app.yml — https://marcq-handball.apps.billbob.ovh
   marcq-handball:
-    image: ghcr.io/billbob-space/hello-world/marcq-handball:main
+    image: ghcr.io/billbob-space/hello-world/marcq-handball:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
     container_name: marcq-handball
     restart: unless-stopped
     mem_limit: 128m
@@ -341,7 +341,7 @@ services:
 
   # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
   ramure:
-    image: ghcr.io/billbob-space/hello-world/ramure:main
+    image: ghcr.io/billbob-space/hello-world/ramure:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
     container_name: ramure
     restart: unless-stopped
     mem_limit: 128m

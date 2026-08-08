@@ -1,0 +1,18 @@
+# La version de chaque application deployee en production : « <app>: <commit> ».
+#
+# ECRIT PAR LA CI, pas a la main — « ./init.sh --pin <app>=<sha> ». Le tag ainsi
+# fige entre dans compose.yaml, ou il ne bouge que pour l'app qu'on vient de
+# livrer : le serveur ne recree alors que ce conteneur-la, et les autres
+# applications de la stack ne sont pas redemarrees.
+#
+# Une app absente d'ici retombe sur « :main », le tag mutable — le cas d'une app
+# dont aucune image n'a encore ete publiee.
+#
+# Revenir en arriere, c'est remettre ici le commit precedent puis lancer
+# ./init.sh : l'image est deja dans le registre, rien n'est reconstruit.
+ardoise: 01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+cadran: 01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+compteur: 01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+hello-world: 01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+marcq-handball: 01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+ramure: 01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
