@@ -292,7 +292,7 @@ services:
 
   # >>> marcq-handball — apps/marcq-handball/app.yml — https://marcq-handball.apps.billbob.ovh
   marcq-handball:
-    image: ghcr.io/billbob-space/hello-world/marcq-handball:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+    image: ghcr.io/billbob-space/hello-world/marcq-handball:37eb474fd85452aa736ed385d17334c4e04fb4fb
     container_name: marcq-handball
     restart: unless-stopped
     mem_limit: 128m
