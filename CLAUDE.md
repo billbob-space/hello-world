@@ -46,6 +46,7 @@ memory/        un fichier par sujet sorti du contrat : ce que `--check` tient d�
 compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
                bloc volumes: si et seulement si un service en monte un
 fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, et shared_services
+versions.yml   ÉCRIT PAR LA CI — la version en ligne de chaque app : livrer n'en recrée qu'une
 init.sh        le générateur et le vérificateur ; scripts/ les cinq autres
                métiers, lib/ leur commun
 ```
@@ -69,14 +70,13 @@ avant de committer, `--check` refuse un document de `docs/` nommé d'après une 
 ./init.sh --help   # les autres options, et les cinq métiers de scripts/
 ```
 
-Trois artefacts sont **toujours réécrits**, fonction directe des manifestes :
-`compose.yaml`, `go.work` et la notice `apps/<nom>/CLAUDE.md` de chaque app — ne
-les édite jamais à la main, édite le manifeste. Le reste — workflow de CI,
-`.claude/` — est ordinaire : `--check` en vérifie les propriétés qui comptent,
-pas l'égalité à un générateur. `--dry-run` n'écrit **rien**, pas même l'`app.yml`
-qu'un `--enable` modifierait : il affiche l'ancienne et la nouvelle valeur, puis
-le diff des artefacts. `init.sh` ne crée **ni** `Dockerfile` **ni** code
-applicatif : le choix de la technologie t'appartient, app par app.
+Trois artefacts sont **toujours réécrits**, fonction directe des manifestes et de
+`versions.yml` : `compose.yaml`, `go.work` et la notice `apps/<nom>/CLAUDE.md` de chaque
+app — ne les édite jamais à la main, édite le manifeste. Le reste — workflow de CI,
+`.claude/` — est ordinaire : `--check` en vérifie les propriétés qui comptent, pas
+l'égalité à un générateur. `--dry-run` n'écrit **rien**, pas même l'`app.yml` qu'un
+`--enable` modifierait : ancienne valeur, nouvelle, puis le diff des artefacts. `init.sh`
+ne crée **ni** `Dockerfile` **ni** code applicatif : la technologie t'appartient, app par app.
 
 ## `apps/<nom>/app.yml` — les valeurs que tu décides
 
@@ -223,13 +223,13 @@ refus et leurs alternatives : `memory/perimetre.md`.
 ./init.sh --check
 ```
 
-Manifestes, puis artefacts dérivés, puis le compose service par service, puis les
-documents du dépôt. Les avertissements ne bloquent pas, les KO si. Le même contrôle
-tourne en CI, en verrou de tous les autres jobs : avec une stack partagée, un
-compose faux fusionné casserait toutes les apps à la fois. Le déploiement se
-déclenche à chaque fusion sur `main` — deux à trois minutes jusqu'à la mise en
-ligne. Ce que l'app fait **une fois déployée** se regarde avec `./scripts/prod.sh` —
-état, journaux, fichiers, en lecture seule ; le détour qui l'autorise est au `README`.
+Manifestes, artefacts dérivés, compose service par service, documents. Les avertissements
+ne bloquent pas, les KO si. Le même contrôle tourne en CI, en verrou de tous les autres
+jobs : avec une stack partagée, un compose faux fusionné casserait toutes les apps à la
+fois. Le déploiement part à chaque fusion sur `main` — deux à trois minutes — et ne recrée
+que les conteneurs des apps livrées : la CI fige leur version dans `versions.yml`, seul
+leur `image:` bouge. Ce que fait l'app **une fois déployée** se regarde en lecture seule
+avec `./scripts/prod.sh` ; le détour qui l'autorise est au `README`.
 
 ## Le sommaire de `memory/`
 

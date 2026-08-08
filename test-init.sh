@@ -91,6 +91,34 @@ refuse() {  # refuse <nom> <motif attendu> — la mutation est lue sur l'entree 
   fi
 }
 
+# arrete <nom> <motif attendu> — le pendant de « refuse » pour le chemin
+# d'ECRITURE. « refuse » ne juge que --check, qui regarde un depot deja ecrit ;
+# les garde-fous de la generation, eux, doivent arreter AVANT d'ecrire. La
+# difference n'est pas theorique : une valeur fausse acceptee ici entre dans un
+# fichier suivi par git, et le refus arrive une ligne trop tard.
+#
+# Le cas exige donc les trois : sortie non nulle, motif dans le message, et
+# arbre de travail INTACT — c'est la troisieme qui distingue « il a refuse »
+# de « il a ecrit puis s'est plaint ».
+arrete() {  # arrete <nom> <motif attendu>
+  local nom="$1" motif="$2" d sortie code=0 sale
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  sortie=$(bash -c "cd '$d' && $(cat)" 2>&1) || code=$?
+  sale=$(git -C "$d" status --porcelain)
+  if [ "$code" = 0 ]; then
+    echec "$nom" "la commande a reussi — la valeur est passee"
+  elif ! printf '%s\n' "$sortie" | grep -qi -- "$motif"; then
+    echec "$nom" "elle a echoue, mais son message ne nomme pas « $motif »"
+    printf '%s\n' "$sortie" | sed 's/^/      /' | head -3
+  elif [ -n "$sale" ]; then
+    echec "$nom" "elle a refuse, mais apres avoir ecrit :"
+    printf '%s\n' "$sale" | sed 's/^/      /' | head -5
+  else
+    reussi "$nom"
+  fi
+}
+
 # genere <nom> <ligne attendue> — la mutation est un manifeste VALIDE ; on
 # regenere et on verifie que compose.yaml porte la ligne attendue. Les cas
 # « refuse » ne voient que ce que le script rejette ; celui-ci regarde ce qu'il
@@ -237,6 +265,47 @@ FIN
 
 refuse "un compose absent est refuse" "compose" <<'FIN'
 rm -f compose.yaml
+FIN
+
+printf '\n-- versions epinglees\n'
+
+# C'est ce qui rend le deploiement selectif : le tag de l'app livree change,
+# celui des autres non, et le serveur ne recree que ce conteneur-la. Une faute
+# ici ne se verrait qu'au « docker compose up », c'est-a-dire apres le point ou
+# les neuf services de la stack sont deja engages.
+genere "une version epinglee entre dans le compose" \
+       "image: ghcr.io/billbob-space/hello-world/cadran:0123456789abcdef0123456789abcdef01234567" <<'FIN'
+printf 'cadran: 0123456789abcdef0123456789abcdef01234567\n' > versions.yml
+FIN
+
+# Et elle n'entre QUE la : epingler une app ne doit pas deplacer le tag d'une
+# autre, sinon le deploiement redevient global sans que rien ne le dise.
+genere "epingler une app laisse les autres sur leur tag" \
+       "image: ghcr.io/billbob-space/hello-world/ardoise:main" <<'FIN'
+printf 'cadran: 0123456789abcdef0123456789abcdef01234567\n' > versions.yml
+FIN
+
+refuse "un tag de version qui n'est pas un commit est refuse" "tag" <<'FIN'
+printf 'cadran: derniere-version\n' > versions.yml
+FIN
+
+refuse "une version epinglee pour une app inexistante est refusee" "ne designe aucune app" <<'FIN'
+printf 'fantome: 0123456789abcdef0123456789abcdef01234567\n' > versions.yml
+FIN
+
+arrete "--pin refuse un tag qui n'est pas un commit" "tag" <<'FIN'
+./init.sh --pin cadran=v2
+FIN
+
+arrete "--pin refuse une app qui n'existe pas" "introuvable" <<'FIN'
+./init.sh --pin fantome=0123456789abcdef0123456789abcdef01234567
+FIN
+
+# La contrepartie : --pin ecrit bien ce qu'on lui demande, et le reporte dans le
+# compose du meme coup. Deux gestes en un appel, c'est ce sur quoi la CI compte.
+genere "--pin ecrit la version et la reporte dans le compose" \
+       "image: ghcr.io/billbob-space/hello-world/cadran:0123456789abcdef0123456789abcdef01234567" <<'FIN'
+./init.sh --pin cadran=0123456789abcdef0123456789abcdef01234567 >/dev/null
 FIN
 
 printf '\n-- notice de contexte\n'

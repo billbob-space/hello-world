@@ -40,9 +40,13 @@ services:
     container_name: ardoise
     restart: unless-stopped
     mem_limit: 128m
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:
@@ -118,9 +122,13 @@ services:
     container_name: cadran
     restart: unless-stopped
     mem_limit: 128m
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:
@@ -160,9 +168,13 @@ services:
     container_name: compteur
     restart: unless-stopped
     mem_limit: 128m
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:
@@ -238,9 +250,13 @@ services:
     container_name: hello-world
     restart: unless-stopped
     mem_limit: 128m
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:
@@ -280,9 +296,13 @@ services:
     container_name: marcq-handball
     restart: unless-stopped
     mem_limit: 128m
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:
@@ -325,9 +345,13 @@ services:
     container_name: ramure
     restart: unless-stopped
     mem_limit: 128m
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
     healthcheck:

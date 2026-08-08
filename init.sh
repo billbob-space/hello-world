@@ -6,6 +6,7 @@
 #   ./init.sh --check         verifie le depot, service par service
 #   ./init.sh --add NOM       echafaude apps/NOM/ (ni Dockerfile ni code)
 #   ./init.sh --app NOM ...   applique les options ci-dessous a cette app
+#   ./init.sh --pin NOM=SHA   epingle la version deployee d'une app (repetable)
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
 #
@@ -70,6 +71,15 @@
 # conteneur sans le moindre label recoit quand meme un routeur, donc une URL, et
 # sans authentification.
 #
+# versions.yml — LA VERSION DEPLOYEE DE CHAQUE APP, une ligne « <app>: <sha> ».
+# Le fichier est ecrit par la CI (--pin), lu ici, et c'est lui qui rend le
+# deploiement SELECTIF : le tag d'image cesse d'etre le meme a chaque livraison,
+# si bien qu'un « docker compose up » ne recree que les services dont la ligne
+# image: a bouge — les autres conteneurs ne sont pas touches. Une app absente du
+# fichier retombe sur « :main », le tag mutable : c'est le cas d'une app dont
+# aucune image n'a encore ete publiee, et le seul ou la fabrique deploie a
+# l'aveugle.
+#
 # Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
 # TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
@@ -83,6 +93,7 @@ set -euo pipefail
 
 CHECK=0 ADD="" TARGET="" LIST=0 DRYRUN=0 FORCE=0
 declare -A SET=()
+PINS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -92,6 +103,7 @@ while [ $# -gt 0 ]; do
     --force)       FORCE=1 ;;
     --add)         ADD="$2"; TARGET="$2"; shift ;;
     --app)         TARGET="$2"; shift ;;
+    --pin)         PINS+=("$2"); shift ;;
     --port)        SET[port]="$2";        shift ;;
     --memory)      SET[memory]="$2";      shift ;;
     --health)      SET[health_path]="$2"; shift ;;
@@ -130,6 +142,31 @@ valid_name() {  # meme regle pour une app, mais elle dit pourquoi elle refuse
   valid_svc_name "$1" && return 0
   echo "ERREUR : nom d'app invalide : '$1' — il devient un sous-domaine." >&2
   return 1
+}
+
+VERSIONS=versions.yml
+
+# La version epinglee d'une app, ou « main » si aucune ne l'est. Ce n'est PAS un
+# manifeste edite a la main : la CI y ecrit le commit qu'elle vient de publier,
+# et c'est tout l'interet — un tag different a chaque livraison fait bouger la
+# seule ligne image: de l'app livree, donc recreer le seul conteneur concerne.
+# Les --pin de la ligne de commande passent AVANT le fichier, comme SET passe
+# avant app.yml dans app_get : sans quoi « --dry-run --pin » annoncerait le
+# changement puis afficherait des artefacts qui ne le portent pas.
+app_tag() {  # app_tag <app>
+  local p
+  for p in "${PINS[@]-}"; do
+    [ "${p%%=*}" = "$1" ] && { printf '%s' "${p#*=}"; return; }
+  done
+  yget "$VERSIONS" "$1" main
+}
+
+# Un tag d'image accepte ici : un commit git complet, ou le repli « main ». Une
+# forme libre serait admise par Docker et rendrait le deploiement muet en cas de
+# faute de frappe — l'image serait introuvable au « compose up », donc apres le
+# point ou toutes les apps sont deja engagees.
+valid_tag() {  # valid_tag <tag>
+  [ "$1" = main ] || printf '%s' "$1" | grep -qE '^[0-9a-f]{40}$'
 }
 
 app_get() {  # app_get <app> <cle> <defaut> — l'option CLI ne vaut que pour --app
@@ -1104,13 +1141,17 @@ service_block() {  # bloc de service de l'app chargee par load_app
 
   # >>> $APP — apps/$APP/app.yml — https://$APP.$DOMAIN
   $APP:
-    image: $REGISTRY/$ORG/$REPO/$APP:main
+    image: $REGISTRY/$ORG/$REPO/$APP:$(app_tag "$APP")
     container_name: $APP
     restart: unless-stopped
     mem_limit: $A_MEMORY
-    # Le tag :main est mutable : l'image locale portant ce nom est presque
-    # toujours perimee. Sans ce reglage, un redeploiement relance l'image deja
-    # presente et sert silencieusement la version precedente.
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
     pull_policy: always
     # Aucun port publie : Traefik joint le conteneur par le reseau $NETWORK.
 $health
@@ -1786,6 +1827,59 @@ apply_target_options() {
   done
 }
 
+# --pin NOM=SHA — ecrit dans versions.yml la version que la CI vient de publier,
+# puis la generation ordinaire reporte le tag dans compose.yaml. Deux gestes en
+# un seul appel, et c'est voulu : versions.yml sans le compose qui va avec est un
+# fichier que personne ne lit, et le commit de livraison doit porter les deux.
+#
+# Meme discipline que apply_target_options : --dry-run montre l'ecart et n'ecrit
+# rien, et une valeur invalide arrete tout AVANT d'ecrire — un tag fautif ne se
+# verrait sinon qu'au « docker compose up », c'est-a-dire apres le point ou
+# toutes les apps de la stack sont deja engagees.
+apply_pins() {
+  [ ${#PINS[@]} -gt 0 ] || return 0
+  local p a t cur
+  for p in "${PINS[@]}"; do
+    a="${p%%=*}"; t="${p#*=}"
+    if [ "$a" = "$p" ] || [ -z "$a" ] || [ -z "$t" ]; then
+      echo "ERREUR : --pin attend NOM=SHA, recu '$p'" >&2; exit 1
+    fi
+    if [ ! -f "apps/$a/app.yml" ]; then
+      echo "ERREUR : --pin $a — apps/$a/app.yml introuvable, ce n'est pas une app." >&2; exit 1
+    fi
+    if ! valid_tag "$t"; then
+      echo "ERREUR : --pin $a=$t — un tag est un commit git complet (40 caracteres hexadecimaux), ou 'main'." >&2; exit 1
+    fi
+  done
+  if [ ! -f "$VERSIONS" ] && [ "$DRYRUN" = 0 ]; then
+    cat > "$VERSIONS" <<YAML
+# La version de chaque application deployee en production : « <app>: <commit> ».
+#
+# ECRIT PAR LA CI, pas a la main — « ./init.sh --pin <app>=<sha> ». Le tag ainsi
+# fige entre dans compose.yaml, ou il ne bouge que pour l'app qu'on vient de
+# livrer : le serveur ne recree alors que ce conteneur-la, et les autres
+# applications de la stack ne sont pas redemarrees.
+#
+# Une app absente d'ici retombe sur « :main », le tag mutable — le cas d'une app
+# dont aucune image n'a encore ete publiee.
+#
+# Revenir en arriere, c'est remettre ici le commit precedent puis lancer
+# ./init.sh : l'image est deja dans le registre, rien n'est reconstruit.
+YAML
+  fi
+  for p in "${PINS[@]}"; do
+    a="${p%%=*}"; t="${p#*=}"
+    cur=$(yget "$VERSIONS" "$a" main)   # le fichier, pas app_tag : celui-ci rend deja le --pin
+    if [ "$DRYRUN" = 1 ]; then
+      if [ "$cur" = "$t" ]; then ok "$VERSIONS : $a = $t (deja cette valeur)"
+      else warn "$VERSIONS : $a passerait de '$cur' a '$t' — --dry-run n'ecrit rien"; fi
+      continue
+    fi
+    set_key "$VERSIONS" "$a" "$t"
+    ok "$VERSIONS : $a = $t"
+  done
+}
+
 # --- services partages : lus une fois, pour tous les modes -----------------------
 
 load_shared
@@ -1985,7 +2079,7 @@ check_service() {
   has "mem_limit: $A_MEMORY"                                        && ok "$p mem_limit"             || bad "$p mem_limit different de app.yml"
   has "container_name: $APP"                                        && ok "$p container_name"        || bad "$p container_name absent ou different du nom d'app"
   has "pull_policy: always"                                         && ok "$p pull_policy"           || bad "$p pull_policy absent — servirait l'image locale perimee"
-  has "image: $REGISTRY/$ORG/$REPO/$APP:"                           && ok "$p image conforme"        || bad "$p image hors convention de nommage"
+  has "image: $REGISTRY/$ORG/$REPO/$APP:$(app_tag "$APP")"          && ok "$p image sur $(app_tag "$APP")" || bad "$p image hors convention, ou tag different de $VERSIONS — lance ./init.sh"
   has "max-size:"                                                   && ok "$p journaux bornes"       || bad "$p logging absent — journal non borne"
   grep -qE '^[[:space:]]*ports:' <<<"$blk" && bad "$p section ports: interdite — Traefik joint le conteneur par le reseau" || ok "$p aucun port publie"
   grep -qF "$NETWORK" <<<"$blk"            && ok "$p sur $NETWORK" || bad "$p absent du reseau $NETWORK"
@@ -2130,6 +2224,29 @@ check_app_files() {
 # du shell appelant — d'ou des appels ordinaires, jamais un tube ni un sous-shell,
 # faute de quoi --check sortirait en 0 en ayant affiche des KO.
 
+# versions.yml n'est compare a aucun generateur — il est une ENTREE, comme les
+# app.yml. On verifie donc ce qu'il dit, ligne par ligne : une cle qui ne
+# designe aucune app, un tag qui n'est ni un commit ni « main ». Le compose,
+# lui, reste tenu par la comparaison au generateur : un tag change ici et non
+# reporte la-bas ressort en « desynchronise ».
+check_versions() {
+  [ -f "$VERSIONS" ] || { ok "$VERSIONS absent — toutes les apps sur le tag mutable :main"; return; }
+  local cle val n=0 flou=0
+  while IFS= read -r cle; do
+    val=$(yget "$VERSIONS" "$cle" "")
+    n=$(( n + 1 ))
+    if [ ! -f "apps/$cle/app.yml" ]; then
+      bad "$VERSIONS : '$cle' ne designe aucune app — retire la ligne, ou l'app est partie sans elle"
+    elif ! valid_tag "$val"; then
+      bad "$VERSIONS : $cle = '$val' — un tag est un commit git complet, ou 'main'"
+    elif [ "$val" = main ]; then
+      flou=$(( flou + 1 ))
+    fi
+  done < <(sed -nE 's/^([a-z0-9][a-z0-9-]*):[[:space:]].*/\1/p' "$VERSIONS")
+  [ "$flou" = 0 ] || warn "$VERSIONS : $flou app(s) encore sur :main — leur livraison redeploiera a l'aveugle"
+  ok "$VERSIONS : $n version(s) epinglee(s)"
+}
+
 check_manifestes() {
   # 0. Les manifestes eux-memes. Ce controle vient en premier : si un app.yml
   # decrit un volume qui sort de sa racine ou un needs vers un service qui
@@ -2145,6 +2262,7 @@ check_manifestes() {
   fi
   # Ce qui n'est pas faux, mais ne fait pas ce que son auteur croit.
   show_warnings
+  check_versions
 
   # 1. Reproductibilite : le fichier committe correspond-il aux manifestes ?
   # Ce controle-la est le seul capable de prouver que compose.yaml decrit bien
@@ -2681,6 +2799,7 @@ discover_apps
 [ ${#APPS[@]} -gt 0 ] || { echo "ERREUR : aucune app sous apps/ — ./init.sh --add <nom>" >&2; exit 1; }
 
 apply_target_options
+apply_pins
 # Avant d'ecrire quoi que ce soit : une collision de noms de volumes doit
 # arreter la generation, pas seulement --check. Un compose ou deux apps
 # partagent un volume est deja ecrit quand --check le dit.
