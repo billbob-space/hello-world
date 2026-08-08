@@ -41,12 +41,18 @@ func main() {
 	mandataire := httputil.NewSingleHostReverseProxy(cible)
 
 	log.Printf("mandataire sur http://%s -> %s (X-Forwarded-User: %s)", *ecoute, *amont, *user)
-	log.Fatal(http.ListenAndServe(*ecoute, http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			// Traefik ecrase tout en-tete de meme nom present dans la requete
-			// entrante : Set, jamais Add.
-			r.Header.Set("X-Forwarded-User", *user)
-			r.Host = *hote
-			mandataire.ServeHTTP(w, r)
-		})))
+	log.Fatal(http.ListenAndServe(*ecoute, usurpe(*user, *hote, mandataire)))
+}
+
+// usurpe reproduit exactement ce que Traefik fait devant l'application avant
+// de relayer la requete au mandataire : il pose X-Forwarded-User et l'hote
+// public. Extrait de main pour etre testable independamment du reseau.
+func usurpe(user, hote string, mandataire http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Traefik ecrase tout en-tete de meme nom present dans la requete
+		// entrante : Set, jamais Add.
+		r.Header.Set("X-Forwarded-User", user)
+		r.Host = hote
+		mandataire.ServeHTTP(w, r)
+	}
 }

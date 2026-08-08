@@ -83,13 +83,24 @@ optimiste — il ne compte pas la relecture des fichiers qu'une session neuve do
 refaire — mais l'ordre de grandeur tient, et il dit qu'une session très longue
 se paie deux fois.
 
-**4. Les sous-agents — jamais utilisés.**
-**0 tour de sous-agent sur 1 537.** La fabrique définit pourtant trois agents
-(`analyste`, `artisan`, `greffier`) dont c'est précisément la raison d'être :
-l'`artisan` lit et écrit dans le contexte *de l'agent*, pas dans celui de la
-session, et ne rend qu'un résumé. Un chantier de 60 tours mené par l'artisan
-laisse 1 tour dans le contexte principal au lieu de 60. C'est le levier 3 sans
-son inconvénient — la mémoire du travail reste dans la session principale.
+**4. Les sous-agents — mesurés une fois, le 8 août.**
+Point de départ, daté : **0 tour de sous-agent sur 1 537**, le 7 août. L'essai
+prévu par la tâche 6 du plan du même jour a enfin eu lieu le lendemain, sur un
+chantier réel — combler les tests manquants d'un petit outil de
+`hello-world`. Résultat : **+4 790 jetons dans le contexte de la session
+principale**, pour un chantier qui en a coûté 25 702 côté agent (11 actions,
+49 s, tests verts) — le travail est bien resté dans le contexte *de l'agent*,
+la session principale n'a gardé que le résumé. C'est le levier 3 sans son
+inconvénient : la mémoire du chantier reste dans la session qui l'a mené, pas
+dans celle qui l'a demandé.
+
+**Nuance découverte au passage** : le compteur « tours de sous-agent » de
+`cout.sh` n'a rien vu — il cherche un marqueur (`isSidechain`) qui suppose que
+la conversation de l'agent s'écrit dans le même journal que celle qui l'a
+lancé, ce qui n'est pas le cas ici. Le zéro historique ci-dessus reste donc un
+minorant : combien de ces zéros sont de vrais zéros d'usage, et combien sont
+cet angle mort, reste à établir avant de trancher plus loin — voir l'anomalie
+du 8 août dans le journal de branche.
 
 ### Ce qu'il ne faut pas faire
 
