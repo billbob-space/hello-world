@@ -190,10 +190,37 @@ arrière ne reconstruit rien, et le déploiement ne dépend plus d'un réglage d
 serveur. Le levier restant est chez `dockhand` — une option « ne recréer que les
 services modifiés », ou un autre outil de déploiement — et ne se décide pas ici.
 
+### 8. `dockhand` ne fait pas ce que son propre manuel décrit
+
+**Symptome** — enquête demandée par l'utilisateur après l'anomalie 7 : existe-t-il
+une option, ou une version, qui rende le déploiement sélectif ? Le manuel officiel
+énumère quatre *Deploy options* — aucune ne porte sur la recréation — et affirme
+que « Docker Compose only recreates containers whose configuration actually
+changed. Other containers keep running without interruption. » C'est le
+comportement voulu, écrit noir sur blanc. Le serveur, lui, passe
+`--force-recreate`, qui neutralise exactement cette sélectivité.
+
+**Cause** — non identifiable depuis l'extérieur : le dépôt du projet interdit
+explicitement l'exploration par une IA, et cette interdiction a été respectée —
+seuls le manuel public, les notes de version et l'instance de l'utilisateur ont
+été lus. Ce qui est établi tient en trois faits : l'écart existe, la version n'est
+pas en cause — l'image du conteneur date du 2 août 2026, après la dernière version
+publiée (v1.0.40, 31 juillet) —, et aucune demande publique n'a été trouvée sur ce
+sujet.
+
+**Detecte par** — `production`
+
+**Action** — `arbitrage` — la conclusion de l'anomalie 7 (« une option si une
+version l'apporte ») était trop pessimiste : il n'y a pas d'option à attendre,
+il y a un écart à signaler au projet. Le faire est un geste vers un tiers, hors
+du dépôt et hors du périmètre d'un agent : c'est à l'utilisateur de décider s'il
+ouvre ce signalement. Les trois lignes de journal du serveur suffisent à le
+caractériser.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-08 à 00:25 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-08 à 00:32 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -201,26 +228,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 553 | 0,00 $ |
-| Écriture de cache | 758 484 | 3,27 $ |
-| Lecture de cache | 57 504 010 | 26,67 $ |
-| Sortie | 149 175 | 2,62 $ |
-| **Total** | **58 412 222** | **32,56 $ — 28,28 €** |
+| Entrée | 593 | 0,00 $ |
+| Écriture de cache | 778 350 | 3,40 $ |
+| Lecture de cache | 64 783 497 | 30,31 $ |
+| Sortie | 158 745 | 2,86 $ |
+| **Total** | **65 721 185** | **36,56 $ — 31,75 €** |
 
 **Ce qui coûte**
 
-- **312 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **333 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   59 202 jetons, écrits une fois par session puis relus à chaque
-  échange : 18 411 822 jetons de relecture, 32 % de tout ce qui a été relu.
-- **Tours courts** — 157 des 312 tours (50 %) sortent
+  échange : 19 655 064 jetons de relecture, 30 % de tout ce qui a été relu.
+- **Tours courts** — 166 des 333 tours (49 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 21,55 $, soit 66 % de la facture.
+  une sortie de rien. Ils coûtent 23,18 $, soit 63 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 59 202 jetons relus au premier appel qui relise
-  quelque chose, 334 061 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 355 103 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 58412222 -->
+<!-- cout-total: 65721185 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 59202 0 492
 2 principal claude-opus-5 3547 59202 96
@@ -534,5 +561,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 310 principal claude-opus-5 276 333650 93
 311 principal claude-opus-5 135 333926 1166
 312 principal claude-opus-5 1411 334061 90
+313 principal claude-opus-5 3995 335472 533
+314 principal claude-opus-5 607 339467 783
+315 principal claude-opus-5 848 340074 953
+316 principal claude-opus-5 1468 340922 681
+317 principal claude-opus-5 18 343071 484
+318 principal claude-opus-5 624 343089 85
+319 principal claude-opus-5 718 343713 137
+320 principal claude-opus-5 1087 344431 178
+321 principal claude-opus-5 349 345518 137
+322 principal claude-opus-5 576 345867 177
+323 principal claude-opus-5 735 346443 763
+324 principal claude-opus-5 1400 347178 209
+325 principal claude-opus-5 378 348578 77
+326 principal claude-opus-5 1001 348956 510
+327 principal claude-opus-5 846 349957 455
+328 principal claude-opus-5 615 350803 166
+329 principal claude-opus-5 398 351418 516
+330 principal claude-opus-5 1432 351816 1070
+331 principal claude-opus-5 1115 353248 695
+332 principal claude-opus-5 740 354363 842
+333 principal claude-opus-5 916 355103 119
 -->
 <!-- /cout -->

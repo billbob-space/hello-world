@@ -232,9 +232,27 @@ Trois conséquences pratiques :
 - Un commit de documentation sur `main` fait la même chose, par la
   synchronisation automatique, alors même que la CI ne déclenche aucun
   déploiement.
-- Le seul levier restant est côté `dockhand` : une option « ne recréer que les
-  services modifiés » si une version l'apporte, ou un autre outil de déploiement.
-  Rien de tout cela ne se décide depuis ce dépôt.
+- Le seul levier restant est côté `dockhand`, et **ce n'est pas une option qui
+  manque** : son manuel décrit déjà le comportement voulu — voir ci-dessous.
+
+**Ce n'est pas une limite de `dockhand`, c'est un écart à sa propre
+documentation.** Le manuel officiel énumère quatre *Deploy options* — *Build
+images on deploy*, *Disable build cache*, *Re-pull images*, *Force
+redeployment* — dont aucune ne contrôle la recréation, et affirme :
+
+> « Even when a redeploy is triggered, Docker Compose only recreates containers
+> whose configuration actually changed. Other containers keep running without
+> interruption. »
+
+C'est exactement ce qu'on cherche, et ce n'est pas ce que fait le serveur : il
+passe `--force-recreate`, ce qui neutralise précisément cette sélectivité. La
+version en place n'est pas en cause — l'image du conteneur `dockhand` date du
+2 août 2026, soit après la dernière version publiée (v1.0.40, 31 juillet). Aucune
+demande publique sur ce sujet n'a été trouvée.
+
+La suite n'appartient pas à ce dépôt : elle consiste à **signaler l'écart au
+projet** `Finsys/dockhand`, journal du serveur à l'appui — les trois lignes
+ci-dessus suffisent à le caractériser.
 
 ### Le webhook
 
