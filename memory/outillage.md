@@ -20,6 +20,7 @@ outillage. Il se retouche à la main quand une app introduit un `stack` ou un
 | `security-guidance` | Relit chaque modification à la recherche de vulnérabilités |
 | `context7` | Documentation **à jour** des bibliothèques — consulte-le plutôt que ta mémoire |
 | `github` | PR, Actions, GHCR |
+| `token-optimizer` | Audite et compresse ce qui pèse dans le contexte d'une session — commande `/token-optimizer`. Marketplace tierce, `alexgreensh/token-optimizer`, licence PolyForm-Noncommercial |
 
 **Cinq de ces plugins n'ont jamais servi, et c'est réglé : on les garde.**
 Inventaire du 7 août 2026, dans l'entrée de journal
