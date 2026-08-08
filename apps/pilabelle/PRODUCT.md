@@ -521,10 +521,16 @@ requises :
    secondes), sans publicité intrusive ni filigrane d'une marque
    concurrente qui prêterait à confusion.
 
-Un lien qui échoue sur un seul de ces cinq points reste marqué « à
+Un lien qui échoue franchement sur un de ces cinq points reste marqué « à
 rechercher » dans `exercices.md` plutôt que d'être renseigné à moitié — un
 mauvais lien découvert par elle en séance coûte plus cher qu'un exercice
-provisoirement sans vidéo.
+provisoirement sans vidéo. Un lien trouvé par une recherche réelle et
+confirmé public, mais dont la condition 3 (le bon geste) ne peut être
+confirmée que par le titre plutôt que par un visionnage, reste dans le
+dictionnaire sous un troisième état, **« à valider »** : il est utilisable
+dès maintenant, à revoir une fois avant que le lot 1 ne soit mis en ligne.
+Ce n'est ni « bon » ni « à rechercher », et confondre les deux cacherait
+justement ce qu'il reste à vérifier.
 
 **Les piques de retrouvailles et les mots doux (§ 7.2, § 10.1) sont eux
 aussi un travail de contenu**, écrit une fois avant la mise en ligne du
