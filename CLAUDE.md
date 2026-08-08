@@ -46,7 +46,7 @@ memory/        un fichier par sujet sorti du contrat : ce que `--check` tient d�
 compose.yaml   GÉNÉRÉ — la stack entière : les trois sortes de services, plus le
                bloc volumes: si et seulement si un service en monte un
 fabrique.yml   org, dépôt, registre, domaine, réseau, plafonds, et shared_services
-versions.yml   ÉCRIT PAR LA CI — la version en ligne de chaque app : livrer n'en recrée qu'une
+versions.yml   ÉCRIT PAR LA CI — quelle version tourne en ligne, app par app
 init.sh        le générateur et le vérificateur ; scripts/ les cinq autres
                métiers, lib/ leur commun
 ```
@@ -226,10 +226,10 @@ refus et leurs alternatives : `memory/perimetre.md`.
 Manifestes, artefacts dérivés, compose service par service, documents. Les avertissements
 ne bloquent pas, les KO si. Le même contrôle tourne en CI, en verrou de tous les autres
 jobs : avec une stack partagée, un compose faux fusionné casserait toutes les apps à la
-fois. Le déploiement part à chaque fusion sur `main` — deux à trois minutes — et ne recrée
-que les conteneurs des apps livrées : la CI fige leur version dans `versions.yml`, seul
-leur `image:` bouge. Ce que fait l'app **une fois déployée** se regarde en lecture seule
-avec `./scripts/prod.sh` ; le détour qui l'autorise est au `README`.
+fois. Le déploiement part à chaque fusion sur `main` — deux à trois minutes. La CI fige
+la version de chaque app livrée dans `versions.yml` ; `dockhand` recrée pourtant **toute**
+la stack à chaque fois, et le dépôt n'y peut rien — mesuré, `README`. Ce que fait l'app
+**une fois déployée** se regarde en lecture seule avec `./scripts/prod.sh`, expliqué là aussi.
 
 ## Le sommaire de `memory/`
 
