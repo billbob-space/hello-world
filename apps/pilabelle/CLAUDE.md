@@ -20,6 +20,7 @@ Echafaude-le avec `./init.sh --add pilabelle`, puis relance `./init.sh`.
 ## Ses documents
 
 - `apps/pilabelle/PRODUCT.md` — la fiche produit, puis les exigences.
+- `apps/pilabelle/prp/` — les documents d'implementation.
 
 ## Les regles qui s'appliquent a son image
 
