@@ -144,12 +144,12 @@ qu'elle voit suffit à vérifier que tout fonctionne.
 |---|---|---|
 | L'app est ouverte tous les jours | Longueur de la série en cours | croît, ou repart sans culpabiliser après une pause |
 | La séance va au bout | Part des séances commencées qui sont terminées | > 80 % |
-| Le programme reste adapté | Aucune douleur ou gêne rapportée liée à un mouvement | zéro signalement |
+| Le programme reste adapté | Part des séances au ressenti « difficile » (§ 7.4) | rare, et en baisse dans le temps |
 | L'entrée est immédiate | Temps entre l'ouverture de l'app et le premier exercice affiché | quelques secondes, questionnaire initial mis à part |
 
 Une seule utilisatrice active : ces chiffres se lisent à l'œil dans l'app
-elle-même (série affichée, historique des séances), sans tableau de bord ni
-instrumentation dédiée.
+elle-même (série affichée, historique des séances, ressentis), sans
+tableau de bord ni instrumentation dédiée.
 
 ### 5. Principe directeur : zéro décision à l'ouverture
 
@@ -318,24 +318,28 @@ jamais improviser. Chaque exercice du dictionnaire porte :
 
 - **une zone** — ventre, cuisses/fessiers, mise en route, ou retour au
   calme ;
-- **une famille de mouvement** — par exemple « gainage », « pont fessier »,
-  « rotation du buste » : plusieurs exercices d'une même famille sont des
-  variantes les uns des autres, du plus doux au plus soutenu ;
-- **un niveau de difficulté**, du plus doux au plus soutenu (une échelle à
-  quatre crans suffit : découverte, en confiance, soutenu, avancé) ;
+- **pour ventre et cuisses/fessiers seulement** : une famille de mouvement
+  — par exemple « gainage », « pont fessier », « rotation et obliques » :
+  plusieurs exercices d'une même famille sont des variantes les uns des
+  autres, du plus doux au plus soutenu — et un niveau de difficulté sur
+  cette échelle (une échelle à quatre crans suffit : découverte, en
+  confiance, soutenu, avancé). Mise en route et retour au calme n'ont ni
+  famille ni niveau : un seul pool par zone, non gradué (§ 8.2) ;
 - **des étiquettes de contre-indication** — genou, dos, épaule... — qui
   disent quand cet exercice doit être écarté ;
 - sa vidéo Shorts associée et sa consigne courte, comme avant ;
-- son minutage (durée de tenue ou nombre de répétitions lentes, temps de
-  repos, nombre de tours), qui croît avec le niveau de l'exercice.
+- son minutage (durée de tenue ou nombre de répétitions lentes, nombre de
+  tours), dont l'effort croît avec le niveau de l'exercice quand la zone en
+  a un ; le temps de repos, lui, reste stable ou diminue légèrement plutôt
+  que de croître.
 
 Construire ce catalogue (rédiger les exercices, les classer, leur associer
 une vidéo) est un travail de contenu, pas de code — il précède ou accompagne
 l'implémentation du lot 1, pas après. Une première version rédigée vit dans
 [`exercices.md`](exercices.md), à côté de ce document ; elle sera reprise
-sous la forme de données que l'implémentation choisira (§ 12), mais son
-contenu — les exercices, leurs niveaux, leurs contre-indications, leurs
-vidéos — ne change pas dans la conversion.
+sous la forme de données par l'implémentation, mais son contenu — les
+exercices, leurs niveaux, leurs contre-indications, leurs vidéos — ne
+change pas dans la conversion.
 
 Le dictionnaire est **séparé du code**, comme l'était le programme dans la
 première version de ce document : y ajouter un exercice, corriger une
@@ -344,19 +348,21 @@ l'application.
 
 #### 8.2 L'algorithme de sélection quotidienne
 
-**Chaque zone a son propre niveau courant**, indépendant des autres —
-ventre et cuisses peuvent donc diverger au fil des semaines. Le niveau de
+**Ventre et cuisses ont chacun leur propre niveau courant**, indépendant de
+l'autre — ils peuvent donc diverger au fil des semaines. Le niveau de
 départ de chaque zone est déduit du questionnaire initial (§ 6, item 1).
+Mise en route et retour au calme n'ont pas de niveau (§ 8.1) : leur
+sélection saute l'étape 2 ci-dessous.
 
 Chaque jour, pour chaque zone du bloc du jour, l'algorithme :
 
 1. écarte du dictionnaire tout exercice qui porte une étiquette de
    contre-indication déclarée par elle ;
-2. parmi ce qui reste, retient les exercices dont le niveau correspond au
-   niveau courant de la zone ;
+2. **pour ventre et cuisses uniquement** : parmi ce qui reste, retient les
+   exercices dont le niveau correspond au niveau courant de la zone ;
 3. évite l'exercice fait la veille dans cette même zone, s'il existe une
-   autre option au même niveau — pour que deux jours de suite ne se
-   ressemblent pas trop ;
+   autre option (au même niveau, pour ventre et cuisses) — pour que deux
+   jours de suite ne se ressemblent pas trop ;
 4. choisit un exercice parmi ce qui reste.
 
 **Après la séance, le ressenti (§ 7.4) ajuste le niveau des zones

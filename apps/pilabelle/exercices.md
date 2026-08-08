@@ -27,15 +27,19 @@ pas la vidéo entière, mais suffisante pour confirmer ou infirmer la pose.
   regarder la vidéo entière une fois avant la mise en ligne, comme le
   prévoit la règle des cinq conditions en `PRODUCT.md` § 12.
 
-Quatre des cinq doutes initiaux sont levés par la miniature : n° 1
-(bras levés à la verticale, correspond), n° 5 (posture assise en
-tailleur, mains jointes, correspond), n° 15 (jambe tendue, main derrière
-la tête vers le genou opposé, correspond), n° 17 (pont fessier net malgré
-le titre partiellement néerlandais, correspond). Il en reste **un** :
-n° 3, `Mobilisation du bassin` — la miniature montre un appui mural sur
-une jambe, genou relevé, plausible pour un cercle de hanche capté en plein
-mouvement mais pas assez net pour confirmer que le geste reste un cercle
-du bassin plutôt qu'un lever de genou.
+Quatre des cinq doutes initiaux sont levés par la miniature :
+`Respiration profonde debout` (bras levés à la verticale, correspond),
+`Respiration transverse assise` (posture assise en tailleur, mains
+jointes, correspond), `Crunch oblique jambe tendue` (jambe tendue, main
+derrière la tête vers le genou opposé, correspond), `Pont fessier tenu`
+(pont net malgré le titre partiellement néerlandais, correspond). Il en
+reste **un** : `Mobilisation du bassin` — la miniature montre un appui
+mural sur une jambe, genou relevé, plausible pour un cercle de hanche
+capté en plein mouvement mais pas assez net pour confirmer que le geste
+reste un cercle du bassin plutôt qu'un lever de genou.
+
+(Ces noms identifient les exercices sans dépendre de leur position dans
+les tableaux ci-dessous, qui a changé plusieurs fois au fil des ajouts.)
 
 Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 « à rechercher » — ne jamais le remplacer par un lien deviné.
@@ -170,12 +174,12 @@ Chaque lien vient d'une recherche réelle (jamais une URL construite à la
 main) et a été confirmé existant et public via l'API oEmbed de YouTube
 (`youtube.com/oembed?url=...&format=json`), qui renvoie le titre et la
 chaîne sans nécessiter d'authentification — le chargement direct des pages
-`/shorts/` n'exposait pas ces métadonnées de façon fiable. Deux liens ont
-été recontrôlés indépendamment (n° 4 et n° 17) : titres et chaînes
-identiques à ce qui est reporté ci-dessus.
+`/shorts/` n'exposait pas ces métadonnées de façon fiable. Deux liens ont été recontrôlés indépendamment (`Respiration abdominale
+allongée` et `Pont fessier tenu`) : titres et chaînes identiques à ce qui
+est reporté ci-dessus.
 
 Cette première passe confirme qu'une vidéo **existe et correspond par son
-titre** ; elle ne remplace pas un visionnage. Sur le premier lot de 30
+titre** ; elle ne remplace pas un visionnage. Sur la première vague de 30
 exercices, cinq entrées que le titre seul ne suffisait pas à confirmer ont
 été tranchées par miniature : quatre montrent sans ambiguïté la bonne pose
 et sont validées. Il en restait une, `Mobilisation du bassin` (mise en
@@ -183,7 +187,7 @@ route) — la miniature montre une pose plausible mais pas concluante, et
 une image fixe ne montre de toute façon pas le mouvement circulaire
 complet que le nom promet.
 
-Sur le second lot de 26 exercices (élargissement du dictionnaire), même
+Sur la seconde vague de 26 exercices (élargissement du dictionnaire), même
 méthode : trois entrées douteuses au titre, miniature récupérée pour
 chacune. Deux confirmées (`Bird-dog complet, amplitude réduite` et
 `Extension de jambe tendue, tenue`, toutes deux clairement visibles sur
@@ -194,6 +198,7 @@ buste debout — et est repassée en « à rechercher » plutôt que d'être
 laissée en ligne avec un doute.
 
 Deux entrées du dictionnaire (56 exercices) demandent encore une
-intervention avant la mise en ligne du lot 1 : `Mobilisation du bassin`
-(vrai visionnage à faire) et `Balancement latéral du buste` (vidéo encore
+intervention avant la mise en ligne du lot 1 (§ 6 de `PRODUCT.md`) :
+`Mobilisation du bassin` (vrai visionnage à faire) et `Balancement latéral
+du buste` (vidéo encore
 à trouver).
