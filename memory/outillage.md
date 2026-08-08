@@ -100,8 +100,9 @@ accents dans le `name`, pour la même raison que `pas-a-pas`.
 
 Aucun garde-fou ne les tient : `--check` vérifie la présence des trois agents et
 des deux commandes parce que le contrat les promet, alors qu'une compétence
-absente ne casse rien. À l'inverse d'une commande, **elle n'est invocable qu'à la
-session suivante** — voir `memory/travail.md`, section sur les quatre registres.
+absente ne casse rien. À l'inverse d'une commande, **elle n'est pas invocable
+dans la foulée de son écriture** : le registre se rafraîchit avec du retard, sans
+qu'on sache combien — voir `memory/travail.md`, section sur les quatre registres.
 
 | Compétence | Ce qu'elle fait |
 |---|---|
