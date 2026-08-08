@@ -61,6 +61,20 @@ cout_dir() {  # le repertoire des conversations de CE depot, ou vide
   printf '%s' "$d"
 }
 
+# cout_fichiers <repertoire> — un chemin de conversation par ligne : les
+# sessions principales a plat, PUIS les sous-agents. Un sous-agent lance par
+# Agent(...) n'ecrit PAS dans le fichier de la session qui l'a lance : il a le
+# sien, sous <repertoire>/<id-de-session>/subagents/agent-*.jsonl. Trouve a la
+# main le 8 aout 2026 en lancant l'artisan pour de vrai : le releve annoncait
+# toujours « aucun [tour] par des sous-agents » juste apres qu'un sous-agent
+# ait rendu son rapport, faute de regarder ce sous-repertoire.
+cout_fichiers() {
+  local d="$1" f
+  for f in "$d"/*.jsonl "$d"/*/subagents/*.jsonl; do
+    [ -e "$f" ] && printf '%s\n' "$f"
+  done
+}
+
 # cout_releve <repertoire> <branche> <base> — lit toutes les conversations et
 # rend des lignes « CLE valeur... ». Le calcul reste dans awk, ou les flottants
 # existent ; la mise en forme reste dans bash, ou les accents et les tableaux se
@@ -98,6 +112,8 @@ cout_dir() {  # le repertoire des conversations de CE depot, ou vide
 # les exclure amputerait le releve de son propre debut. Toute AUTRE branche
 # nommee est ecartee, et dite.
 cout_releve() {
+  local fichiers=()
+  while IFS= read -r f; do fichiers+=("$f"); done < <(cout_fichiers "$1")
   awk -v TARIFS="$(jetons_tarifs)" \
       -v MULT_E="$JETONS_CACHE_ECRITURE" -v MULT_L="$JETONS_CACHE_LECTURE" \
       -v BRANCHE="$2" -v BASE="$3" '
@@ -120,7 +136,15 @@ cout_releve() {
       v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[ \t]*\"/, "", v); sub(/\"$/, "", v)
       return v
     }
-    FNR == 1 { sessions++; nf = sessions }
+    # Un fichier de sous-agent n a pas de « demarrage » ni de « croissance » a
+    # lui : ce sont des notions de la session PRINCIPALE, et il ne compte pas
+    # non plus comme une session de plus dans « N session(s) lisible(s) ». Son
+    # cout entre quand meme dans le total et dans le poste SIDE plus bas — la
+    # ligne « side » de son premier echange le porte deja.
+    FNR == 1 {
+      side_fichier = (FILENAME ~ /\/subagents\//) ? 1 : 0
+      if (!side_fichier) { sessions++; nf = sessions }
+    }
     {
       p = index($0, "\"usage\":{")
       if (!p) next
@@ -153,7 +177,11 @@ cout_releve() {
         m = substr(tete, RSTART, RLENGTH)
         sub(/^"model":[ \t]*"/, "", m); sub(/"$/, "", m)
       }
-      side = (tete ~ /"isSidechain":[ \t]*true/) ? 1 : 0
+      # Le marqueur isSidechain est cense suffire seul, mais un fichier de
+      # sous-agent en est l emplacement, pas seulement le contenu de chacune
+      # de ses lignes : side_fichier tranche meme si une ligne particuliere
+      # ne le portait pas.
+      side = (side_fichier || (tete ~ /"isSidechain":[ \t]*true/)) ? 1 : 0
 
       v_e = val(u, "input_tokens");                  v_ce = val(u, "cache_creation_input_tokens")
       v_cl = val(u, "cache_read_input_tokens");      v_s  = val(u, "output_tokens")
@@ -175,17 +203,23 @@ cout_releve() {
       det_side[ech] = side; det_m[ech] = m
       det_ce[ech] = v_ce; det_cl[ech] = v_cl; det_s[ech] = v_s
 
-      # Le demarrage — contrat, outillage, definitions d outils — est ecrit en
-      # cache au PREMIER echange de la session, puis relu a chacun des suivants.
-      # Il se mesure donc une fois par session, et se facture autant de fois
-      # qu il y a d echanges apres lui.
-      if (!(nf in sess_ech)) sess_prelude[nf] = v_ce
-      sess_ech[nf]++
-      # La courbe part du premier echange qui RELIT quelque chose : au tout
-      # premier, il n y a rien a relire et le zero qu il rapporte ne dit rien de
-      # la pente. C est la pente qui interesse, pas l origine.
-      if (!premier_vu && v_cl > 0) { premier_cl = v_cl; premier_vu = 1 }
-      dernier_cl = v_cl
+      # Le demarrage et la croissance decrivent la session PRINCIPALE : un
+      # sous-agent a son propre demarrage, dans son propre contexte, qui ne
+      # dit rien de celui de la session qui l a lance — l y melanger fausserait
+      # les deux mesures sans que rien ne le montre.
+      if (!side_fichier) {
+        # Le demarrage — contrat, outillage, definitions d outils — est ecrit en
+        # cache au PREMIER echange de la session, puis relu a chacun des suivants.
+        # Il se mesure donc une fois par session, et se facture autant de fois
+        # qu il y a d echanges apres lui.
+        if (!(nf in sess_ech)) sess_prelude[nf] = v_ce
+        sess_ech[nf]++
+        # La courbe part du premier echange qui RELIT quelque chose : au tout
+        # premier, il n y a rien a relire et le zero qu il rapporte ne dit rien de
+        # la pente. C est la pente qui interesse, pas l origine.
+        if (!premier_vu && v_cl > 0) { premier_cl = v_cl; premier_vu = 1 }
+        dernier_cl = v_cl
+      }
     }
     END {
       for (m in vus) {
@@ -221,7 +255,7 @@ cout_releve() {
         printf "DETAIL %d %s %s %d %d %d\n", i, \
           (det_side[i] ? "agent" : "principal"), det_m[i], det_ce[i], det_cl[i], det_s[i]
     }
-  ' "$1"/*.jsonl
+  ' "${fichiers[@]}"
 }
 
 cout_montant() {  # cout_montant <dollars> <taux|vide> — « 11,44 $ — 9,93 € »

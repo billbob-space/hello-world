@@ -78,6 +78,18 @@ pose() {  # pose <bac> — lit le .jsonl sur l'entree standard et le depose
   cat > "$p/session.jsonl"
 }
 
+# pose_agent <bac> — comme pose, mais dans le sous-repertoire ou le harnais
+# ecrit vraiment un sous-agent : <session>/subagents/agent-*.jsonl, JAMAIS
+# dans le fichier de la session qui l'a lance. cout.sh cherchait « aucun [tour]
+# par des sous-agents » juste apres qu'un vrai sous-agent ait rendu son
+# rapport, le 8 aout 2026, parce qu'il ne regardait que le fichier a plat.
+pose_agent() {
+  local d="$1" p
+  p="$d/home/.claude/projects/$(printf '%s' "$d" | sed 's/[^A-Za-z0-9]/-/g')/session/subagents"
+  mkdir -p "$p"
+  cat > "$p/agent-1.jsonl"
+}
+
 releve() {  # releve <bac> — lance cout.sh en HOME detourne, rend sa sortie
   ( cd "$1" && HOME="$1/home" ./scripts/cout.sh --dry-run 2>&1 )
 }
@@ -170,6 +182,47 @@ porte "la part des sous-agents est chiffree" "sous-agents" <<FIN
 $(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)
 $(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)
 FIN
+
+# Les quatre cas ci-dessus ecrivent le sous-agent DANS le fichier de la session
+# courante — ce que le harnais ne fait jamais. Trouve en lancant l'artisan pour
+# de vrai le 8 aout 2026 : le releve annoncait toujours « aucun [tour] par des
+# sous-agents » juste apres qu'un vrai sous-agent ait rendu son rapport. Le
+# marqueur isSidechain etait bien pose, cout.sh regardait juste le mauvais
+# fichier — le vrai vit sous <session>/subagents/agent-*.jsonl.
+
+sous_agent_fichier_total() {  # <nom> <attendu> — sous-agent dans son propre fichier
+  local nom="$1" attendu="$2" d sortie vu
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
+  pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  if [ "$vu" != "$attendu" ]; then
+    echec "$nom" "total $vu, attendu $attendu"
+  else
+    reussi "$nom"
+  fi
+}
+sous_agent_fichier_total "un sous-agent dans son propre fichier compte dans le total" 2230
+
+sous_agent_fichier_porte() {  # <nom> <motif>
+  local nom="$1" motif="$2" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
+  pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+    reussi "$nom"
+  else
+    echec "$nom" "la sortie ne porte pas « $motif »"
+  fi
+}
+sous_agent_fichier_porte "la part des sous-agents est chiffree depuis son propre fichier" "dont 1 par des sous-agents"
+# Le sous-agent a son propre demarrage, dans son propre contexte : melange au
+# compte de sessions de la session principale, il en ferait 2 au lieu de 1.
+sous_agent_fichier_porte "un fichier de sous-agent ne compte pas comme une session de plus" "1 session(s)"
 
 printf '\n-- ce qui coute\n'
 
