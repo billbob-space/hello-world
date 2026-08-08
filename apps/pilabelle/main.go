@@ -34,7 +34,7 @@ func identite(r *http.Request) (string, error) {
 	return u, nil
 }
 
-func routes(dico []byte, racineProfils string) http.Handler {
+func routes(dico Dictionnaire, racineProfils string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -98,9 +98,13 @@ func repondreJSON(w http.ResponseWriter, v any) {
 
 func main() {
 	racine := env("PILABELLE_DONNEES", "/var/lib/pilabelle")
-	dico, err := dataFS.ReadFile("data/dictionnaire.json")
+	brut, err := dataFS.ReadFile("data/dictionnaire.json")
 	if err != nil {
 		log.Fatalf("dictionnaire absent de l'image : %v", err)
+	}
+	dico, err := ChargerDictionnaire(brut)
+	if err != nil {
+		log.Fatalf("dictionnaire invalide : %v", err)
 	}
 
 	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, racine)}
