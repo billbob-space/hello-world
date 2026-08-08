@@ -17,17 +17,25 @@
 Le minutage indicatif s'applique sauf mention contraire sur l'exercice.
 
 **Vidéo.** Chaque lien ci-dessous a été trouvé par recherche réelle (jamais
-deviné) et confirmé public via l'API oEmbed de YouTube — pas regardé : la
-correspondance avec le geste s'appuie sur le titre et la chaîne, pas sur un
-visionnage. Deux niveaux de confiance :
+deviné) et confirmé public via l'API oEmbed de YouTube. Cinq faisaient
+initialement doute sur titre seul ; leur miniature (`img.youtube.com/vi/
+<id>/hqdefault.jpg`) a ensuite été regardée pour trancher — une image fixe,
+pas la vidéo entière, mais suffisante pour confirmer ou infirmer la pose.
 
-- pas de marque : titre en cohérence claire avec le geste et le public visé
-  (débutant, doux, articulations fragiles) ;
-- **⚠️ à valider** : correspondance plausible mais moins nette (vocabulaire
-  voisin, cadrage différent, titre partiellement dans une autre langue) —
-  à regarder une fois avant la mise en ligne, comme le prévoit la règle des
-  cinq conditions en `PRODUCT.md` § 12. Cinq exercices sur trente sont dans
-  ce cas : n° 1, 3, 5, 15 (ventre) et 17 (pont fessier tenu).
+- pas de marque : geste confirmé, par le titre ou par la miniature ;
+- **⚠️ à valider** : la miniature ne suffit pas à trancher — reste à
+  regarder la vidéo entière une fois avant la mise en ligne, comme le
+  prévoit la règle des cinq conditions en `PRODUCT.md` § 12.
+
+Quatre des cinq doutes initiaux sont levés par la miniature : n° 1
+(bras levés à la verticale, correspond), n° 5 (posture assise en
+tailleur, mains jointes, correspond), n° 15 (jambe tendue, main derrière
+la tête vers le genou opposé, correspond), n° 17 (pont fessier net malgré
+le titre partiellement néerlandais, correspond). Il en reste **un** :
+n° 3, `Mobilisation du bassin` — la miniature montre un appui mural sur
+une jambe, genou relevé, plausible pour un cercle de hanche capté en plein
+mouvement mais pas assez net pour confirmer que le geste reste un cercle
+du bassin plutôt qu'un lever de genou.
 
 Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 « à rechercher » — ne jamais le remplacer par un lien deviné.
@@ -38,7 +46,7 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 
 | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|
-| Respiration profonde debout | Debout, pieds écartés largeur de hanche : inspirer en levant les bras, expirer en les redescendant, lentement. | aucune | [Overhead Arm Swings: Simple Exercise to Boost Circulation & Energy](https://www.youtube.com/shorts/ZKVqUCwsMPs) ⚠️ à valider |
+| Respiration profonde debout | Debout, pieds écartés largeur de hanche : inspirer en levant les bras, expirer en les redescendant, lentement. | aucune | [Overhead Arm Swings: Simple Exercise to Boost Circulation & Energy](https://www.youtube.com/shorts/ZKVqUCwsMPs) |
 | Mobilisation épaules et nuque | Cercles d'épaules lents vers l'arrière, puis inclinaisons douces de la tête d'un côté puis l'autre. | épaule (réduire l'amplitude) | [5 Gentle Neck & Shoulder Exercises for Elderly to Ease Tension](https://www.youtube.com/shorts/8j_WvtamM_U) |
 | Mobilisation du bassin | Debout ou assise : cercles doux du bassin, dans un sens puis l'autre. | dos (réduire l'amplitude) | [STANDING HIP CIRCLES improve hip mobility (exercise demo)](https://www.youtube.com/shorts/OqR7Tl6SPLQ) ⚠️ à valider |
 
@@ -49,7 +57,7 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | Niveau | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|---|
 | 1 | Respiration abdominale allongée | Allongée sur le dos, genoux pliés, pieds au sol, mains sur le ventre : inspirer en gonflant le ventre, expirer en rentrant le nombril vers la colonne. | aucune | [Connection Breath in Supine Lying with Knees Bent](https://www.youtube.com/shorts/yaEGYEPcnuw) |
-| 2 | Respiration transverse assise | Assise en tailleur, dos droit, même respiration, une main sur le bas-ventre pour sentir la contraction. | aucune | [Dirgha Pranayama Tutorial \| The Foundation Breath](https://www.youtube.com/shorts/i_ALr_-n08E) ⚠️ à valider |
+| 2 | Respiration transverse assise | Assise en tailleur, dos droit, même respiration, une main sur le bas-ventre pour sentir la contraction. | aucune | [Dirgha Pranayama Tutorial \| The Foundation Breath](https://www.youtube.com/shorts/i_ALr_-n08E) |
 | 3 | Dead bug doux | Allongée, genoux à 90°, on abaisse doucement un bras et la jambe opposée sans creuser le dos, ventre engagé en permanence. | dos (réduire l'amplitude) | [Modified Dead-bug Lower Core Exercise \| Beginner Friendly](https://www.youtube.com/shorts/IGPMKVKblX8) |
 | 4 | Dead bug complet | Même mouvement, amplitude complète, la jambe se tend presque droite avant de revenir. | dos | [How to Do the Dead Bug Exercise (Correct Form for Beginners)](https://www.youtube.com/shorts/XcYtWYMz39w) |
 
@@ -69,7 +77,7 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | 1 | Torsion assise douce | Assise, genoux pliés, pieds au sol : tourner le buste doucement d'un côté puis l'autre, mains sur les cuisses. | dos (réduire l'amplitude) | [Gentle Seated Spinal Twist for Seniors & Beginners](https://www.youtube.com/shorts/qLk6O9s9dO8) |
 | 2 | Torsion allongée jambes pliées | Allongée, genoux pliés à 90°, on laisse les genoux basculer doucement d'un côté puis l'autre, épaules au sol. | dos, hanche | [Gentle Spine Relief: Easy Windshield Wiper Movements](https://www.youtube.com/shorts/mH6xI1R7GcI) |
 | 3 | Crunch oblique contrôlé | Allongée, une main derrière la tête : soulever l'épaule vers le genou opposé, lentement, amplitude courte. | dos, cou | [Oblique Crunches [How To Do Them Safely] #shorts](https://www.youtube.com/shorts/CjfPWUXqsmk) |
-| 4 | Crunch oblique jambe tendue | Même mouvement, jambe opposée tendue en l'air pendant le mouvement. | dos, cou | [Slow Bicycle Crunch](https://www.youtube.com/shorts/C89CyVGdTkk) ⚠️ à valider |
+| 4 | Crunch oblique jambe tendue | Même mouvement, jambe opposée tendue en l'air pendant le mouvement. | dos, cou | [Slow Bicycle Crunch](https://www.youtube.com/shorts/C89CyVGdTkk) |
 
 ## Bloc cuisses et fessiers
 
@@ -78,7 +86,7 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | Niveau | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|---|
 | 1 | Pont fessier basique | Allongée, genoux pliés, pieds au sol : soulever légèrement le bassin, tenue courte, redescendre doucement. | dos (réduire l'amplitude) | [How to do a glute bridge.](https://www.youtube.com/shorts/R1OXPHRqehw) |
-| 2 | Pont fessier tenu | Même mouvement, montée plus haute, tenue prolongée. | dos | [Glute bridge hold. Fitness oefening uitgelegd. How to](https://www.youtube.com/shorts/Qzks9v6wUfg) ⚠️ à valider |
+| 2 | Pont fessier tenu | Même mouvement, montée plus haute, tenue prolongée. | dos | [Glute bridge hold. Fitness oefening uitgelegd. How to](https://www.youtube.com/shorts/Qzks9v6wUfg) |
 | 3 | Pont fessier une jambe | Même position, une jambe tendue en l'air, appui sur l'autre. | dos, genou | [How to Single-leg Glute Bridge](https://www.youtube.com/shorts/ugk9IjhWtkM) |
 | 4 | Pont fessier pieds surélevés | Pieds posés sur un support bas (marche, livre épais), amplitude de montée plus grande. | dos, genou, équilibre | [Feet Elevated Glute Bridge](https://www.youtube.com/shorts/Ubrrk0cVGok) |
 
@@ -120,8 +128,13 @@ chaîne sans nécessiter d'authentification — le chargement direct des pages
 été recontrôlés indépendamment (n° 4 et n° 17) : titres et chaînes
 identiques à ce qui est reporté ci-dessus.
 
-Cette méthode confirme qu'une vidéo **existe et correspond par son titre** ;
-elle ne remplace pas un visionnage. Les cinq entrées marquées ⚠️ sont
-celles où le titre ne nomme pas explicitement le geste attendu — à
-regarder avant la mise en ligne, le reste peut être considéré comme fiable
-en l'état.
+Cette première passe confirme qu'une vidéo **existe et correspond par son
+titre** ; elle ne remplace pas un visionnage. Sur les cinq entrées que le
+titre seul ne suffisait pas à confirmer, une miniature a ensuite été
+récupérée pour chacune (`img.youtube.com/vi/<id>/hqdefault.jpg`) et
+regardée : quatre montrent sans ambiguïté la bonne pose et sont
+retirées de la liste des doutes. La cinquième (`Mobilisation du bassin`,
+n° 3) reste marquée ⚠️ — la miniature montre une pose plausible mais pas
+concluante, et une image fixe ne montre de toute façon pas le mouvement
+circulaire complet que le nom promet. C'est la seule entrée du dictionnaire
+qui demande encore un vrai visionnage avant la mise en ligne du lot 1.
