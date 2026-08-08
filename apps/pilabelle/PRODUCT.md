@@ -40,7 +40,8 @@ existe pour rendre cette répétition facile et un peu addictive.
 - Chaque jour, une séance unique de 10 à 15 minutes : des exercices pilates
   doux ciblant ventre et cuisses, groupés en blocs, chacun avec sa vidéo
   Shorts de démonstration et son chronomètre d'effort/repos.
-- Un programme qui monte en difficulté par paliers sur plusieurs semaines,
+- Un niveau de difficulté par zone (ventre, cuisses) qui s'ajuste séance
+  après séance selon son ressenti — jamais un programme figé à l'avance —,
   un défi qui change chaque semaine, une série de jours réussis à ne pas
   casser, et de petits messages de récompense.
 - Pas de suivi de mesures corporelles (poids, tour de taille, photos) :
@@ -67,9 +68,25 @@ une force qu'une reprise après un an sans sport ne suppose pas. Le
 questionnaire existe pour retirer ce qui ne convient pas avant qu'elle ne le
 découvre en séance.
 
-**Le fun est une récompense, jamais une pression.** Série, défis, paliers :
+**Le fun est une récompense, jamais une pression.** Série, défis, niveaux :
 ils encouragent à revenir, ils ne punissent jamais une pause. Rater un jour
 casse une série, jamais le programme.
+
+**Le niveau proposé dit la vérité, il ne fait pas semblant de monter.**
+S'il doit redescendre parce qu'une séance était trop dure, il redescend —
+tout de suite, sans qu'elle ait à le demander. Protéger son corps prime
+toujours sur l'impression de progrès.
+
+**L'app est un compagnon affectueux, pas un coach neutre.** Elle taquine
+quand elle ne l'a pas vue, glisse parfois un mot doux — jamais un ton de
+surveillance ou de reproche. Une pique sympa dit qu'elle a manqué à
+quelqu'un, jamais qu'elle a fauté (§ 7.2, § 10).
+
+**Elle a de l'humour : les piques n'ont pas à rester sages.** La limite
+n'est pas la mordacité, c'est la culpabilisation — une pique bien sentie et
+un peu culottée reste dans les clous tant qu'elle fait rire plutôt que
+culpabiliser. Écrire trop prudent produirait des piques fades, pas des
+piques plus sûres.
 
 ---
 
@@ -127,12 +144,12 @@ qu'elle voit suffit à vérifier que tout fonctionne.
 |---|---|---|
 | L'app est ouverte tous les jours | Longueur de la série en cours | croît, ou repart sans culpabiliser après une pause |
 | La séance va au bout | Part des séances commencées qui sont terminées | > 80 % |
-| Le programme reste adapté | Aucune douleur ou gêne rapportée liée à un mouvement | zéro signalement |
+| Le programme reste adapté | Part des séances au ressenti « difficile » (§ 7.4) | rare, et en baisse dans le temps |
 | L'entrée est immédiate | Temps entre l'ouverture de l'app et le premier exercice affiché | quelques secondes, questionnaire initial mis à part |
 
 Une seule utilisatrice active : ces chiffres se lisent à l'œil dans l'app
-elle-même (série affichée, historique des séances), sans tableau de bord ni
-instrumentation dédiée.
+elle-même (série affichée, historique des séances, ressentis), sans
+tableau de bord ni instrumentation dédiée.
 
 ### 5. Principe directeur : zéro décision à l'ouverture
 
@@ -165,21 +182,34 @@ sait pas encore faire seul.
 4. **Chronomètre** : compte à rebours audible et visuel pour chaque phase
    (effort, tenue, repos), passage automatique à l'exercice suivant en fin
    de temps, pause possible à tout moment d'un tap.
-5. **Fin de séance** : récapitulatif de ce qui vient d'être fait, mise à
+5. **Ressenti de fin de séance** : un seul tap parmi facile / correct /
+   difficile, jamais optionnel — c'est le seul signal dont dépend la séance
+   du lendemain (§ 8).
+6. **Dictionnaire d'exercices et algorithme de sélection quotidienne** : le
+   cœur de l'application. Chaque jour, la séance n'est pas relue depuis un
+   programme écrit à l'avance mais **calculée** — un exercice par zone est
+   choisi dans le dictionnaire selon le niveau courant de cette zone et les
+   limitations déclarées (§ 8).
+7. **Fin de séance** : récapitulatif de ce qui vient d'être fait, mise à
    jour de la série en cours, message de récompense.
-6. **Persistance de la progression** : programme, série, historique des
-   séances faites, associés au compte via `X-Forwarded-User` — retrouvés à
-   la reconnexion, sur n'importe quel appareil.
+8. **Persistance de la progression** : niveau courant par zone, historique
+   des ressentis et des séances faites, série — associés au compte via
+   `X-Forwarded-User`, retrouvés à la reconnexion, sur n'importe quel
+   appareil.
+9. **Petits mots** : une pique affectueuse de retrouvailles quand elle
+   revient après un jour sans séance (§ 7.2), organisée en plusieurs
+   familles selon la durée de l'absence pour rester vraie et variée, et de
+   temps en temps un mot doux en fin de séance (§ 10.1) — tirés de stocks
+   de messages écrits une fois, livrés avec l'application comme le
+   dictionnaire d'exercices.
 
 #### Lot 2 — dès que le lot 1 est en ligne
 
-7. **Défi de la semaine** : une variante ou un petit objectif supplémentaire
-   annoncé en début de semaine, distinct de la séance quotidienne.
-8. **Paliers de progression** : le programme se corse par étapes au fil des
-   semaines (tenues plus longues, variantes plus exigeantes des mêmes
-   mouvements), sans jamais dépasser ce que le questionnaire a autorisé.
-9. **Écran personnel** : série actuelle et record, calendrier des séances
-   faites/manquées/repos, palier atteint.
+10. **Défi de la semaine** : une variante ou un petit objectif
+    supplémentaire annoncé en début de semaine, distinct de la séance
+    quotidienne calculée.
+11. **Écran personnel** : série actuelle et record, calendrier des séances
+    faites/manquées/repos, niveau courant de chaque zone.
 
 #### Hors périmètre — décidé, pas oublié
 
@@ -190,8 +220,8 @@ sait pas encore faire seul.
 - **Recherche ou génération dynamique de vidéos** : les vidéos sont une
   sélection fixe, choisie à la main par exercice (§ 8), jamais une requête
   à l'API YouTube au moment de l'affichage.
-- **Édition du programme depuis l'app** par vous ou par elle : le contenu du
-  programme (exercices, vidéos, progression) est un fichier de données livré
+- **Édition du dictionnaire depuis l'app** par vous ou par elle : les
+  exercices, leurs niveaux et leurs vidéos sont un fichier de données livré
   avec l'application, pas un écran d'administration.
 - **Notifications, rappels push ou par e-mail.**
 - **Historique de plusieurs profils** : une seule utilisatrice active ; le
@@ -216,6 +246,16 @@ intermédiaire. Si elle a déjà fait la séance aujourd'hui, l'écran le dit et
 propose de la refaire librement, sans que cela ne compte deux fois dans
 l'historique.
 
+**Si le dernier jour de séance remonte à hier ou plus**, l'écran du jour
+s'ouvre sur une pique de retrouvailles avant d'afficher la séance — jamais
+un compteur de jours manqués, jamais un ton de reproche. La pique est tirée
+dans la famille qui correspond à la durée réelle de l'absence (§ 10.1),
+pour ne jamais dire un « hier » qui serait faux après une semaine de
+silence. Pour une absence d'un jour, par exemple : *« Bah alors, on ne
+s'est pas vu hier 😙. Tu m'as manqué. »* Elle s'affiche une fois puis laisse
+place à la séance — ce n'est pas un écran à fermer, juste une phrase avant
+le reste.
+
 #### 7.3 Faire une séance
 
 L'écran de séance montre l'exercice courant, pas la liste complète à
@@ -235,9 +275,15 @@ terminé déclenche l'écran de fin de séance.
 
 #### 7.4 Fin de séance
 
-Un écran de récompense : séance validée, série mise à jour, message
-d'encouragement qui varie (jamais le même deux fois de suite). Si un défi
-de la semaine était rattaché à cette séance, il est marqué comme relevé ici.
+D'abord le ressenti — un tap parmi trois émojis, facile / correct /
+difficile, obligatoire mais immédiat. Puis l'écran de récompense : séance
+validée, série mise à jour, message d'encouragement qui varie (jamais le
+même deux fois de suite). Si un défi de la semaine était rattaché à cette
+séance, il est marqué comme relevé ici.
+
+Le ressenti n'est jamais montré comme une évaluation : aucun chiffre, aucun
+« tu as fait moins bien qu'hier ». Il sert à calculer la séance de demain
+(§ 8), pas à juger celle d'aujourd'hui.
 
 #### 7.5 Réglages
 
@@ -258,35 +304,89 @@ Structure d'une séance, stable d'un jour à l'autre pour ne jamais surprendre :
    jamais de saut, appui au sol ou sur une chaise pour l'équilibre.
 4. **Retour au calme** (1 à 2 min) — étirements tenus, respiration.
 
-Chaque exercice porte : son nom, sa vidéo Shorts associée, sa consigne, et
-son minutage (durée de tenue ou nombre de répétitions lentes, temps de
-repos, nombre de tours). Le fichier qui décrit ce programme est **séparé du
-code** : une semaine, un exercice ou une vidéo se corrige sans toucher à
+Ce que ces blocs contiennent n'est plus écrit à l'avance semaine par
+semaine : c'est **calculé chaque jour** à partir d'un dictionnaire
+d'exercices et du niveau courant de chaque zone. C'est le changement central
+de ce document par rapport à sa première version : le programme ne suit
+plus un calendrier, il répond à ce qui s'est passé la veille.
+
+#### 8.1 Le dictionnaire d'exercices
+
+Un catalogue d'exercices, plus grand que ce qu'une seule semaine
+utiliserait, organisé pour que l'algorithme (§ 8.2) puisse y choisir sans
+jamais improviser. Chaque exercice du dictionnaire porte :
+
+- **une zone** — ventre, cuisses/fessiers, mise en route, ou retour au
+  calme ;
+- **pour ventre et cuisses/fessiers seulement** : une famille de mouvement
+  — par exemple « gainage », « pont fessier », « rotation et obliques » :
+  plusieurs exercices d'une même famille sont des variantes les uns des
+  autres, du plus doux au plus soutenu — et un niveau de difficulté sur
+  cette échelle (une échelle à quatre crans suffit : découverte, en
+  confiance, soutenu, avancé). Mise en route et retour au calme n'ont ni
+  famille ni niveau : un seul pool par zone, non gradué (§ 8.2) ;
+- **des étiquettes de contre-indication** — genou, dos, épaule... — qui
+  disent quand cet exercice doit être écarté ;
+- sa vidéo Shorts associée et sa consigne courte, comme avant ;
+- son minutage (durée de tenue ou nombre de répétitions lentes, nombre de
+  tours), dont l'effort croît avec le niveau de l'exercice quand la zone en
+  a un ; le temps de repos, lui, reste stable ou diminue légèrement plutôt
+  que de croître.
+
+Construire ce catalogue (rédiger les exercices, les classer, leur associer
+une vidéo) est un travail de contenu, pas de code — il précède ou accompagne
+l'implémentation du lot 1, pas après. Une première version rédigée vit dans
+[`exercices.md`](exercices.md), à côté de ce document ; elle sera reprise
+sous la forme de données par l'implémentation, mais son contenu — les
+exercices, leurs niveaux, leurs contre-indications, leurs vidéos — ne
+change pas dans la conversion.
+
+Le dictionnaire est **séparé du code**, comme l'était le programme dans la
+première version de ce document : y ajouter un exercice, corriger une
+vidéo, ou reclasser un niveau ne doit jamais demander de toucher à
 l'application.
 
-**Progression sur plusieurs semaines**, par paliers plutôt que par
-métronome : les premières semaines privilégient les variantes les plus
-accessibles (genoux au sol, amplitudes courtes, tenues brèves) ; les
-suivantes allongent les tenues et proposent les variantes suivantes des
-mêmes familles de mouvements — jamais des mouvements entièrement nouveaux
-d'un coup, pour que le geste reste reconnaissable d'une semaine à l'autre.
-Un palier ne se débloque qu'après un nombre de séances complètes, pas après
-un nombre de jours écoulés : le programme attend qu'elle soit prête plutôt
-que le calendrier.
+#### 8.2 L'algorithme de sélection quotidienne
 
-**Ce que le questionnaire retire du programme.** Une douleur de genou
-retire les appuis à genoux et les remplace par leurs variantes debout ou
-allongées ; une douleur de dos retire les tenues de gainage longues au
-profit de répétitions courtes. Le programme complet doit donc exister sous
-plusieurs variantes par contrainte déclarée, choisies une fois au
-questionnaire, pas recalculées séance par séance.
+**Ventre et cuisses ont chacun leur propre niveau courant**, indépendant de
+l'autre — ils peuvent donc diverger au fil des semaines. Le niveau de
+départ de chaque zone est déduit du questionnaire initial (§ 6, item 1).
+Mise en route et retour au calme n'ont pas de niveau (§ 8.1) : leur
+sélection saute l'étape 2 ci-dessous.
 
-**Les vidéos** sont une sélection organisée à la main, une par exercice du
-programme — jamais une recherche automatique au moment de l'affichage, pour
-garantir que ce qui s'affiche est toujours pertinent et adapté. Construire
-cette sélection (identifier des Shorts pilates doux, adaptés, de bonne
-qualité, par exercice) fait partie du travail d'implémentation, pas de ce
-document.
+Chaque jour, pour chaque zone du bloc du jour, l'algorithme :
+
+1. écarte du dictionnaire tout exercice qui porte une étiquette de
+   contre-indication déclarée par elle ;
+2. **pour ventre et cuisses uniquement** : parmi ce qui reste, retient les
+   exercices dont le niveau correspond au niveau courant de la zone ;
+3. évite l'exercice fait la veille dans cette même zone, s'il existe une
+   autre option (au même niveau, pour ventre et cuisses) — pour que deux
+   jours de suite ne se ressemblent pas trop ;
+4. choisit un exercice parmi ce qui reste.
+
+**Après la séance, le ressenti (§ 7.4) ajuste le niveau des zones
+travaillées ce jour-là** — ventre et cuisses reçoivent le même signal
+puisqu'un seul ressenti est demandé par séance, mais chacun l'applique à sa
+propre trajectoire :
+
+- **difficile** fait redescendre immédiatement le niveau de la zone d'un
+  cran, sans attendre une confirmation les jours suivants — protéger le
+  corps passe avant de préserver l'impression de progrès ;
+- **facile** plusieurs séances de suite sur la même zone (trois, pour ne
+  pas réagir à un jour de forme isolé) fait monter le niveau d'un cran ;
+- **correct** ne change rien.
+
+**Un plancher et un plafond, jamais franchis.** Le niveau d'une zone ne
+descend jamais sous le niveau le plus bas compatible avec ses limitations
+déclarées — en dessous, il n'y aurait plus rien à proposer. Il ne monte
+jamais au-delà du niveau le plus élevé que le dictionnaire propose pour
+cette zone.
+
+**Les vidéos** restent une sélection organisée à la main, une par exercice
+du dictionnaire — jamais une recherche automatique au moment de
+l'affichage, pour garantir que ce qui s'affiche est toujours pertinent et
+adapté.
 
 ### 9. Règles métier
 
@@ -296,34 +396,72 @@ repos ou une pause, jamais une dette qui s'accumule dans un écran de retard.
 
 **La série se casse au premier jour manqué, et repart aussitôt à zéro sans
 message culpabilisant.** L'écran affiche le fait, pas un jugement : une
-série cassée n'est pas un échec du programme.
+série cassée n'est pas un échec du programme. Le retour, lui, est accueilli
+par une pique affectueuse (§ 7.2), pas par un rappel du compteur perdu —
+les deux disent des choses opposées, et seule la seconde a sa place ici.
 
-**Un palier ne redescend jamais.** Une fois atteint, il reste acquis même
-après une pause de plusieurs semaines — redémarrer au niveau débutant après
-une interruption découragerait plus qu'il n'aiderait à une reprise en
-douceur.
+**Le niveau de chaque zone est indépendant et honnête.** Ventre et cuisses
+évoluent séparément ; aucun des deux n'est plafonné ni tiré par l'autre. Il
+redescend dès qu'une séance a été difficile et remonte seulement après
+plusieurs séances faciles d'affilée — jamais l'inverse, jamais de badge
+séparé qui prétendrait ne monter que dans un sens (§ 8.2).
+
+**Une pause longue ne fait pas redescendre le niveau tout seul.** Seul un
+ressenti « difficile » le fait baisser ; ne pas s'entraîner pendant deux
+semaines et revenir ne recalcule rien tant qu'aucune séance n'a été faite.
 
 **Le défi de la semaine est optionnel et n'affecte jamais la série
 principale.** Le rater ne casse rien ; le relever ajoute une récompense en
 plus, jamais une pénalité en son absence.
 
 **Aucun chiffre corporel n'est jamais demandé ni affiché.** Ni poids, ni
-mensuration, ni calorie : la seule donnée de progression est l'exécution du
-programme (séances faites, série, palier).
+mensuration, ni calorie : les seules données de progression sont
+l'exécution du programme (séances faites, série) et le ressenti déclaratif
+qui ajuste le niveau — jamais une mesure du corps.
 
 ### 10. Le fun, et où il doit être
 
 **Le ton tutoie, encourage, ne moralise jamais.** Pas de vocabulaire de
-coach culpabilisant, pas de comparaison à un idéal, pas de rappel d'un jour
-manqué qui sonnerait comme un reproche.
+coach culpabilisant, pas de comparaison à un idéal. Un rappel d'un jour
+manqué a le droit d'exister (§ 7.2) — mais seulement sous forme de pique
+affectueuse, jamais de reproche : la nuance tient tout entière dans « tu
+m'as manqué » contre « tu as raté ta séance ».
 
 - **Fin d'exercice** : une transition courte, satisfaisante, qui ne retarde
   jamais le passage au suivant.
 - **Fin de séance** : le moment fort — série mise à jour, message
   d'encouragement qui change, éventuellement le défi de la semaine marqué
   comme relevé.
-- **Passage à un palier supérieur** : mis en avant explicitement, une seule
-  fois, le jour où il se débloque.
+- **Passage à un niveau supérieur** sur une zone : mis en avant
+  explicitement, une seule fois, le jour où il se débloque. Une redescente
+  de niveau, elle, ne s'accompagne d'aucune animation — ni pénalité ni
+  fanfare, juste un fait.
+
+#### 10.1 Les piques et les mots doux
+
+Deux stocks distincts, tous deux écrits par vous, tous deux pensés pour ne
+jamais devenir une formule répétée.
+
+**Les piques de retrouvailles** (§ 7.2) sont rangées en plusieurs
+familles selon la durée réelle de l'absence — une absence d'un jour
+n'appelle pas le même mot qu'une semaine de silence, et le texte ne doit
+jamais prétendre « hier » si ce n'est pas vrai. Trois familles suffisent :
+un jour, quelques jours (deux à six), une semaine ou plus. Chaque famille
+contient plusieurs variantes, et les variantes changent aussi de **registre**
+d'une à l'autre — taquinerie légère, clin d'œil complice, pique bien
+sentie et un peu culottée — de sorte que deux retours à durée d'absence
+égale ne sonnent jamais pareil. Elle a de l'humour : le registre le plus
+mordant n'est pas à mettre de côté par prudence, tant qu'il fait rire plutôt
+que peser (§ Product Principles).
+
+**Les mots doux** viennent en plus des messages d'encouragement neutres
+(« bravo, séance faite ! ») : un mot plus tendre apparaît de temps en
+temps en fin de séance, pas à chaque fois, pour que ça reste une surprise
+plutôt qu'une routine prévisible. Ce ne sont pas des félicitations
+d'application, ce sont des mots que vous lui adressez.
+
+Règle commune aux deux stocks : jamais deux fois de suite le même message,
+et un ton toujours personnel, jamais générique de « coach ».
 
 Deux interdits : rien qui bloque l'interaction pendant l'effort ou pendant
 le chronomètre, et `prefers-reduced-motion` respecté — l'app reste
@@ -331,9 +469,24 @@ utilisable et lisible sans une seule animation.
 
 ### 11. Contraintes
 
-**Mobile d'abord.** Ouverte sur un téléphone, souvent posé au sol ou contre
-un mur pendant l'exercice : gros boutons, lisible à distance, aucune
-interaction qui suppose de tenir l'appareil en main pendant le mouvement.
+**Mobile uniquement, iOS et Android, pas seulement mobile d'abord.** Elle
+est sur iPhone, vous êtes sur Android : l'app doit marcher pour les deux
+comptes autorisés, pas seulement pour l'un d'eux. Ouverte sur téléphone,
+souvent posé au sol ou contre un mur pendant l'exercice : gros boutons,
+lisible à distance, aucune interaction qui suppose de tenir l'appareil en
+main pendant le mouvement. Aucune mise en page de bureau ni de tablette
+n'est nécessaire — mais aucun des deux systèmes mobiles n'est un cas
+secondaire. La mise en page compte avec les zones sûres de l'écran
+(encoche, île dynamique ou barre de statut selon l'appareil, barre de
+navigation en bas) plutôt qu'avec un cadre unique pensé pour un seul OS.
+
+**Direction visuelle : légèrement kawaii, jamais infantilisant.** Couleurs
+douces, formes arrondies, une pointe de mignon dans les icônes et les
+transitions — cohérent avec le ton tendre et taquin déjà décrit (§ 10.1),
+pas avec l'univers d'une appli pour enfants. Le kawaii sert le côté doux et
+personnel de l'app, il ne remplace jamais la lisibilité ni les gros boutons
+exigés plus haut : une exécution mignonne mais illisible en plein effort
+raterait l'objectif.
 
 **Vidéos en lecture intégrée**, hébergées sur YouTube (Shorts), jamais
 re-téléchargées ni stockées par l'application — l'app n'héberge que la
@@ -347,7 +500,8 @@ saisi dans l'app.
 
 **Rien de sensible ne transite ni ne se stocke** au-delà des réponses au
 questionnaire (niveau, limitations, jours disponibles) et de la progression
-(séances faites, série, palier) — aucune mesure corporelle, aucune photo.
+(séances faites, série, niveau courant par zone, historique des ressentis)
+— aucune mesure corporelle, aucune photo.
 
 **Français** pour l'interface, la documentation et le code.
 
@@ -356,11 +510,50 @@ ni migration manuelle, ni fichier à créer à la main.
 
 ### 12. Dépendances et prérequis de mise en ligne
 
-**La progression doit survivre à un redéploiement.** Une série ou un palier
-remis à zéro à chaque publication d'image romprait exactement ce que
-l'application cherche à construire — un volume nommé est nécessaire dès le
-lot 1 (voir `memory/volumes.md` au moment de l'implémentation).
+**La progression doit survivre à un redéploiement.** Une série ou un niveau
+de zone remis à zéro à chaque publication d'image romprait exactement ce
+que l'application cherche à construire — un volume nommé est nécessaire dès
+le lot 1 (voir `memory/volumes.md` au moment de l'implémentation).
 
-**La sélection de vidéos est un travail de contenu, pas de code**, à mener
-avant ou pendant l'implémentation du lot 1 : identifier, pour chaque
-exercice du programme initial, un Short pilates doux et adapté.
+**Le dictionnaire d'exercices est un travail de contenu, pas de code**, à
+mener avant ou pendant l'implémentation du lot 1 : rédiger un nombre
+suffisant d'exercices par zone et par niveau pour que l'algorithme de
+sélection (§ 8.2) ait toujours au moins une option valide, et identifier
+pour chacun un Short pilates doux et adapté. Un dictionnaire trop petit fait
+échouer l'algorithme en silence — plus de variantes que ce qu'une semaine
+n'en épuiserait est le seuil à viser, pas un chiffre exact.
+
+**Une vidéo n'entre dans le dictionnaire qu'après vérification, jamais sur
+la seule confiance d'un lien qui a l'air bon.** Cinq conditions, toutes
+requises :
+
+1. le lien pointe vers une vidéo YouTube réelle et existante — jamais une
+   URL construite ou devinée à partir d'un motif probable ;
+2. la vidéo est publique, non privée, non supprimée, non restreinte par
+   âge ou par pays au moment de la vérification ;
+3. elle montre bien le geste nommé par l'exercice, pas une variante ou un
+   exercice voisin ;
+4. elle reste compréhensible **sans le son** — la lecture est silencieuse
+   par défaut (§ 7.3) — donc le mouvement doit se lire à l'image ;
+5. son format est court (Shorts ou équivalent, quelques dizaines de
+   secondes), sans publicité intrusive ni filigrane d'une marque
+   concurrente qui prêterait à confusion.
+
+Un lien qui échoue franchement sur un de ces cinq points reste marqué « à
+rechercher » dans `exercices.md` plutôt que d'être renseigné à moitié — un
+mauvais lien découvert par elle en séance coûte plus cher qu'un exercice
+provisoirement sans vidéo. Un lien trouvé par une recherche réelle et
+confirmé public, mais dont la condition 3 (le bon geste) ne peut être
+confirmée que par le titre plutôt que par un visionnage, reste dans le
+dictionnaire sous un troisième état, **« à valider »** : il est utilisable
+dès maintenant, à revoir une fois avant que le lot 1 ne soit mis en ligne.
+Ce n'est ni « bon » ni « à rechercher », et confondre les deux cacherait
+justement ce qu'il reste à vérifier.
+
+**Les piques de retrouvailles et les mots doux (§ 7.2, § 10.1) sont eux
+aussi un travail de contenu**, écrit une fois avant la mise en ligne du
+lot 1 : assez de variantes dans chaque famille de piques (un jour, quelques
+jours, une semaine ou plus) et dans le stock de mots doux pour ne pas se
+répéter d'une semaine sur l'autre. Vous les écrivez vous-même — c'est le
+seul contenu de l'application qui gagne à être écrit par vous plutôt que
+déduit du PRD.
