@@ -110,3 +110,14 @@ func TestCheminInconnuRepond404(t *testing.T) {
 		t.Fatalf("code = %d, attendu 404", rec.Code)
 	}
 }
+
+// Un pattern enregistre par methode (ex: "GET /healthz") fait repondre le
+// ServeMux 405 pour toute autre methode sur ce meme chemin, automatiquement.
+func TestMethodePostSurHealthzRepond405(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	newMux(t).ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("code = %d, attendu 405", rec.Code)
+	}
+}
