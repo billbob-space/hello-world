@@ -132,10 +132,37 @@ d'écrire, et pas seulement à l'ouverture de la branche, est le geste qui manqu
 `pret.sh` pourrait avertir quand un fichier réécrit a bougé sur `origin/main`
 depuis le point de départ de la branche.
 
+
+### 6. Le déploiement recrée toute la stack, et je l'avais écrit à l'envers
+
+**Symptome** — le compactage affirmait que le déploiement « ne recrée que les
+conteneurs des apps livrées ». La résolution du conflit avec `main` a fait
+apparaître la mesure d'une autre session : `dockhand` recrée **toute** la stack à
+chaque déploiement, et le dépôt ne peut rien y changer.
+
+**Cause** — j'avais déduit la portée du redéploiement de ce que je voyais dans le
+workflow — la CI ne construit et ne fige que les apps modifiées — en supposant que
+`dockhand` en ferait autant. La CI décide ce qu'elle **publie**, pas ce que
+l'orchestrateur **recrée** ; les deux étages sont indépendants et rien dans le
+workflow ne dit ce que fait le second. Même erreur qu'à l'anomalie 2 : conclure sur
+un mécanisme d'après un seul de ses étages.
+
+Le contrat porte maintenant les deux moitiés, chacune vérifiée par qui l'a
+constatée : le job `deploy` est sauté quand rien n'a changé (constaté sur la fusion
+de la PR #84), et quand il part, toute la stack est recréée (mesuré par la session
+du déploiement sélectif).
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — le conflit git a joué son rôle et la mesure de l'autre
+session a corrigé la déduction avant la fusion. C'est le cas où deux sessions
+travaillant sur le même fichier se rattrapent l'une l'autre, l'inverse de
+l'anomalie 5.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-08 à 00:31 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-08 à 00:58 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -143,26 +170,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 8 034 | 0,04 $ |
-| Écriture de cache | 374 136 | 1,90 $ |
-| Lecture de cache | 10 302 777 | 4,87 $ |
-| Sortie | 62 198 | 1,26 $ |
-| **Total** | **10 747 145** | **8,07 $ — 7,01 €** |
+| Entrée | 8 117 | 0,04 $ |
+| Écriture de cache | 453 545 | 2,40 $ |
+| Lecture de cache | 20 247 478 | 9,84 $ |
+| Sortie | 78 330 | 1,67 $ |
+| **Total** | **20 787 470** | **13,95 $ — 12,11 €** |
 
 **Ce qui coûte**
 
-- **89 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **133 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   62 976 jetons, écrits une fois par session puis relus à chaque
-  échange : 5 541 888 jetons de relecture, 53 % de tout ce qui a été relu.
-- **Tours courts** — 38 des 89 tours (42 %) sortent
+  échange : 8 312 832 jetons de relecture, 41 % de tout ce qui a été relu.
+- **Tours courts** — 66 des 133 tours (49 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 2,69 $, soit 33 % de la facture.
+  une sortie de rien. Ils coûtent 6,01 $, soit 43 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 62 976 jetons relus au premier appel qui relise
-  quelque chose, 190 236 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 270 248 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 10747145 -->
+<!-- cout-total: 20787470 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 62976 0 411
 2 principal claude-opus-5 5940 62976 297
@@ -253,5 +280,49 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 87 principal claude-opus-5 5788 184078 109
 88 principal claude-opus-5 370 189866 435
 89 principal claude-opus-5 505 190236 134
+90 principal claude-opus-5 4148 190741 1245
+91 principal claude-opus-5 1292 194889 145
+92 principal claude-opus-5 394 196181 1280
+93 principal claude-opus-5 1794 196575 120
+94 principal claude-opus-5 238 198369 26
+95 principal claude-opus-5 342 198633 137
+96 principal claude-opus-5 159 198975 167
+97 principal claude-opus-5 279 199134 123
+98 principal claude-opus-5 239 199413 29
+99 principal claude-opus-5 344 199681 137
+100 principal claude-opus-5 159 200025 403
+101 principal claude-opus-5 12844 200184 776
+102 principal claude-opus-5 1956 213028 1170
+103 principal claude-opus-5 1285 214984 41
+104 principal claude-opus-5 349 216310 134
+105 principal claude-opus-5 246 216659 480
+106 principal claude-opus-5 599 216905 121
+107 principal claude-opus-5 237 217504 17
+108 principal claude-opus-5 347 217758 137
+109 principal claude-opus-5 159 218105 495
+110 principal claude-opus-5 1136 218264 273
+111 principal claude-opus-5 433 219400 827
+112 principal claude-opus-5 945 219833 132
+113 principal claude-opus-5 348 220910 137
+114 principal claude-opus-5 159 221258 285
+115 principal claude-opus-5 795 221417 178
+116 principal claude-opus-5 268 222212 120
+117 principal claude-opus-5 236 222480 40
+118 principal claude-opus-5 342 222756 178
+119 principal claude-opus-5 17507 223098 515
+120 principal claude-opus-5 759 240605 18
+121 principal claude-opus-5 344 241381 294
+122 principal claude-opus-5 16330 241725 744
+123 principal claude-opus-5 1393 258055 133
+124 principal claude-opus-5 174 259448 137
+125 principal claude-opus-5 590 259622 340
+126 principal claude-opus-5 619 260212 312
+127 principal claude-opus-5 4295 260831 591
+128 principal claude-opus-5 608 265126 159
+129 principal claude-opus-5 1591 265734 1462
+130 principal claude-opus-5 1512 267325 984
+131 principal claude-opus-5 1034 268837 199
+132 principal claude-opus-5 377 269871 141
+133 principal claude-opus-5 204 270248 750
 -->
 <!-- /cout -->

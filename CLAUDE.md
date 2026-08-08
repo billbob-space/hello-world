@@ -41,8 +41,9 @@ init.sh        le générateur et le vérificateur ; scripts/ les cinq autres m�
 ```
 
 **Quatre artefacts sont GÉNÉRÉS** — ne les édite jamais à la main, édite le manifeste :
-`compose.yaml`, `go.work`, la notice `apps/<nom>/CLAUDE.md` de chaque app, et
-`versions.yml` qu'écrit la CI. Le reste, dont le workflow et `.claude/`, est ordinaire.
+`compose.yaml`, la stack entière ; `go.work` ; la notice `apps/<nom>/CLAUDE.md` de chaque
+app ; et `versions.yml`, écrit par la CI, qui dit quelle version tourne en ligne app par
+app. Le reste, dont le workflow et `.claude/`, est ordinaire.
 
 **Partagé** : la stack, la CI, le réseau, le domaine, `shared_services`, l'outillage
 Claude Code. **Propre à chaque app** : son code, son `Dockerfile`, son PRD, son URL, son
@@ -175,9 +176,9 @@ les apps à la fois.
 
 **Le déploiement ne part pas à chaque fusion** : il est sauté tant qu'aucune image d'app ni
 `compose.yaml` n'a changé — un commit de documentation ne redémarre rien. Quand il part, il
-prend deux à trois minutes et ne recrée que les conteneurs des apps livrées, dont la CI a
-figé la version dans `versions.yml`. Ce que fait l'app **une fois déployée** se regarde en
-lecture seule avec `./scripts/prod.sh` ; le détour qui l'autorise est au `README`.
+prend deux à trois minutes, et `dockhand` recrée alors **toute** la stack, pas seulement les
+apps livrées : le dépôt n'y peut rien, c'est mesuré au `README`. Ce que fait l'app **une fois
+déployée** se regarde en lecture seule avec `./scripts/prod.sh`, expliqué là aussi.
 
 ## Le sommaire de `memory/`
 
