@@ -247,12 +247,23 @@ redeployment* — dont aucune ne contrôle la recréation, et affirme :
 C'est exactement ce qu'on cherche, et ce n'est pas ce que fait le serveur : il
 passe `--force-recreate`, ce qui neutralise précisément cette sélectivité. La
 version en place n'est pas en cause — l'image du conteneur `dockhand` date du
-2 août 2026, soit après la dernière version publiée (v1.0.40, 31 juillet). Aucune
-demande publique sur ce sujet n'a été trouvée.
+2 août 2026, soit après la dernière version publiée (v1.0.40, 31 juillet).
 
-La suite n'appartient pas à ce dépôt : elle consiste à **signaler l'écart au
-projet** `Finsys/dockhand`, journal du serveur à l'appui — les trois lignes
-ci-dessus suffisent à le caractériser.
+**Le sujet est déjà signalé chez eux, et depuis longtemps** :
+[`Finsys/dockhand#419`](https://github.com/Finsys/dockhand/issues/419), *« Deploy
+always recreates all containers (--force-recreate); need option to update only
+changed services »*, ouvert le 31 janvier 2026. Il décrit le même comportement,
+sur les trois chemins de déploiement — manuel, *Save and deploy*, et
+synchronisation git — et propose les deux issues évidentes : ne plus forcer par
+défaut, ou en faire une case à cocher. Il est **toujours ouvert**, classé
+*enhancement*, rattaché au jalon 1.0.15 — vingt-cinq versions plus tôt que celle
+qui tourne ici. Il n'y a donc rien à attendre à brève échéance.
+
+Ce qui reste à faire n'appartient pas à ce dépôt et se réduit à un choix : ajouter
+à cette demande l'élément qu'elle ne porte pas — le manuel décrit déjà le
+comportement voulu, ce qui en fait un écart à corriger plutôt qu'une évolution à
+prioriser —, ou changer d'outil de déploiement, ou vivre avec quelques secondes
+d'indisponibilité par livraison.
 
 ### Le webhook
 

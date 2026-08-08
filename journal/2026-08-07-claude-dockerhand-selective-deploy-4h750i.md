@@ -203,10 +203,10 @@ comportement voulu, écrit noir sur blanc. Le serveur, lui, passe
 **Cause** — non identifiable depuis l'extérieur : le dépôt du projet interdit
 explicitement l'exploration par une IA, et cette interdiction a été respectée —
 seuls le manuel public, les notes de version et l'instance de l'utilisateur ont
-été lus. Ce qui est établi tient en trois faits : l'écart existe, la version n'est
-pas en cause — l'image du conteneur date du 2 août 2026, après la dernière version
-publiée (v1.0.40, 31 juillet) —, et aucune demande publique n'a été trouvée sur ce
-sujet.
+été lus. Ce qui est établi tient en deux faits : l'écart existe, et la version
+n'est pas en cause — l'image du conteneur date du 2 août 2026, après la dernière
+version publiée (v1.0.40, 31 juillet). **Un troisième a été affirmé à tort** :
+« aucune demande publique n'a été trouvée » — voir l'anomalie 9.
 
 **Detecte par** — `production`
 
@@ -217,10 +217,38 @@ du dépôt et hors du périmètre d'un agent : c'est à l'utilisateur de décide
 ouvre ce signalement. Les trois lignes de journal du serveur suffisent à le
 caractériser.
 
+### 9. « Rien trouvé » écrit comme « il n'y a rien »
+
+**Symptome** — l'anomalie 8 concluait qu'aucune demande publique n'existait sur
+le sujet, et le `README` l'a répété. C'est faux : `Finsys/dockhand#419`, ouvert le
+31 janvier 2026, s'intitule « Deploy always recreates all containers
+(--force-recreate); need option to update only changed services ». Même
+comportement, mêmes trois chemins de déploiement, et les deux remèdes évidents
+déjà proposés. Toujours ouvert, classé *enhancement*, rattaché au jalon 1.0.15 —
+vingt-cinq versions avant celle qui tourne ici. L'utilisateur l'a trouvé en
+donnant simplement son adresse.
+
+**Cause** — deux recherches web n'ont pas fait remonter cette demande, et leur
+silence a été rapporté comme un résultat : « aucune demande publique n'a été
+trouvée » est devenu, à la ligne suivante, un fait sur le monde. Un moteur de
+recherche indexe mal les fils de discussion d'un dépôt ; le seul index fiable est
+celui du dépôt lui-même, que l'interdiction d'exploration par IA plaçait hors de
+portée. La bonne formulation existait et n'a pas été employée : **dire ce qui a
+été cherché et comment, plutôt que ce qui existe.**
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — une absence de résultat ne se rapporte jamais comme
+une absence de chose, à plus forte raison quand le moyen de vérifier est fermé.
+Le `README` nomme désormais la demande, sa date, son état et son jalon — des faits
+vérifiables — et la conclusion en sort renforcée plutôt qu'affaiblie : le sujet
+est connu depuis six mois et n'avance pas, ce qui tranche la question « faut-il
+attendre une version ».
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-08 à 00:32 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-08 à 00:44 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -228,26 +256,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 593 | 0,00 $ |
-| Écriture de cache | 778 350 | 3,40 $ |
-| Lecture de cache | 64 783 497 | 30,31 $ |
-| Sortie | 158 745 | 2,86 $ |
-| **Total** | **65 721 185** | **36,56 $ — 31,75 €** |
+| Entrée | 629 | 0,00 $ |
+| Écriture de cache | 794 972 | 3,50 $ |
+| Lecture de cache | 71 748 249 | 33,79 $ |
+| Sortie | 167 785 | 3,08 $ |
+| **Total** | **72 711 635** | **40,38 $ — 35,06 €** |
 
 **Ce qui coûte**
 
-- **333 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **352 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   59 202 jetons, écrits une fois par session puis relus à chaque
-  échange : 19 655 064 jetons de relecture, 30 % de tout ce qui a été relu.
-- **Tours courts** — 166 des 333 tours (49 %) sortent
+  échange : 20 779 902 jetons de relecture, 28 % de tout ce qui a été relu.
+- **Tours courts** — 175 des 352 tours (49 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 23,18 $, soit 63 % de la facture.
+  une sortie de rien. Ils coûtent 24,91 $, soit 61 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 59 202 jetons relus au premier appel qui relise
-  quelque chose, 355 103 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 372 773 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 65721185 -->
+<!-- cout-total: 72711635 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 59202 0 492
 2 principal claude-opus-5 3547 59202 96
@@ -582,5 +610,24 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 331 principal claude-opus-5 1115 353248 695
 332 principal claude-opus-5 740 354363 842
 333 principal claude-opus-5 916 355103 119
+334 principal claude-opus-5 3943 356019 693
+335 principal claude-opus-5 754 359962 847
+336 principal claude-opus-5 1362 360716 832
+337 principal claude-opus-5 158 362910 529
+338 principal claude-opus-5 862 363068 842
+339 principal claude-opus-5 1792 363930 133
+340 principal claude-opus-5 174 365722 137
+341 principal claude-opus-5 575 365896 741
+342 principal claude-opus-5 1022 366471 173
+343 principal claude-opus-5 300 367493 274
+344 principal claude-opus-5 22 368067 239
+345 principal claude-opus-5 717 368089 1024
+346 principal claude-opus-5 1169 368806 72
+347 principal claude-opus-5 178 369975 59
+348 principal claude-opus-5 554 370153 941
+349 principal claude-opus-5 986 370707 88
+350 principal claude-opus-5 609 371693 397
+351 principal claude-opus-5 471 372302 900
+352 principal claude-opus-5 974 372773 119
 -->
 <!-- /cout -->
