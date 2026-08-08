@@ -49,11 +49,11 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | Respiration profonde debout | Debout, pieds écartés largeur de hanche : inspirer en levant les bras, expirer en les redescendant, lentement. | aucune | [Overhead Arm Swings: Simple Exercise to Boost Circulation & Energy](https://www.youtube.com/shorts/ZKVqUCwsMPs) |
 | Mobilisation épaules et nuque | Cercles d'épaules lents vers l'arrière, puis inclinaisons douces de la tête d'un côté puis l'autre. | épaule (réduire l'amplitude) | [5 Gentle Neck & Shoulder Exercises for Elderly to Ease Tension](https://www.youtube.com/shorts/8j_WvtamM_U) |
 | Mobilisation du bassin | Debout ou assise : cercles doux du bassin, dans un sens puis l'autre. | dos (réduire l'amplitude) | [STANDING HIP CIRCLES improve hip mobility (exercise demo)](https://www.youtube.com/shorts/OqR7Tl6SPLQ) ⚠️ à valider |
-| Marche sur place douce | Marcher sur place lentement, genoux modérément levés, bras qui balancent naturellement. | genou (réduire la hauteur des genoux) | à rechercher |
-| Extension douce des bras et du dos | Debout, bras tendus devant soi, arrondir doucement le dos en expirant, revenir en inspirant. | épaule | à rechercher |
-| Rotation des poignets et des chevilles | Debout ou assise : cercles lents des poignets, puis des chevilles, un côté puis l'autre. | aucune | à rechercher |
-| Balancement latéral du buste | Debout, pieds écartés largeur de hanche, bras relâchés : balancer doucement le buste d'un côté puis l'autre. | dos (réduire l'amplitude) | à rechercher |
-| Montée sur pointes de pieds | Debout, se hisser doucement sur la pointe des pieds, tenir un instant, redescendre. | cheville, équilibre (appui sur un meuble si besoin) | à rechercher |
+| Marche sur place douce | Marcher sur place lentement, genoux modérément levés, bras qui balancent naturellement. | genou (réduire la hauteur des genoux) | [One-Minute Marching in Place Exercise for Beginners](https://www.youtube.com/shorts/5l-A5_-BPUg) |
+| Extension douce des bras et du dos | Debout, bras tendus devant soi, arrondir doucement le dos en expirant, revenir en inspirant. | épaule | [STANDING Modified Cat Cow Stretch](https://www.youtube.com/shorts/QrGWR7Ic3_8) |
+| Rotation des poignets et des chevilles | Debout ou assise : cercles lents des poignets, puis des chevilles, un côté puis l'autre. | aucune | [Mobility: Ankle/Wrist Circles](https://www.youtube.com/watch?v=QzgRg7HTGmg) |
+| Balancement latéral du buste | Debout, pieds écartés largeur de hanche, bras relâchés : balancer doucement le buste d'un côté puis l'autre. | dos (réduire l'amplitude) | à rechercher (miniature de ["Weight Shifts for Balance"](https://www.youtube.com/shorts/nsfwycOd27c) vue et écartée : c'est un transfert de poids latéral en fente contre un mur, pas un balancement du buste) |
+| Montée sur pointes de pieds | Debout, se hisser doucement sur la pointe des pieds, tenir un instant, redescendre. | cheville, équilibre (appui sur un meuble si besoin) | [Standing Calf Raise](https://www.youtube.com/shorts/fZYTVO9-Ggk) |
 
 ## Bloc ventre
 
@@ -88,19 +88,19 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 
 | Niveau | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|---|
-| 1 | Gainage latéral genoux au sol | Allongée sur le côté, appui sur l'avant-bras, genoux pliés : soulever légèrement la hanche, tenue courte. | épaule | à rechercher |
-| 2 | Gainage latéral genoux au sol, tenu | Même position, tenue prolongée par rapport au niveau 1. | épaule | à rechercher |
-| 3 | Gainage latéral jambes tendues, tenue brève | Jambes tendues et empilées, appui sur l'avant-bras, hanche soulevée, tenue courte. | épaule, poignet | à rechercher |
-| 4 | Gainage latéral avec lever de jambe | Même position jambes tendues, la jambe du dessus se lève doucement pendant la tenue. | épaule, hanche | à rechercher |
+| 1 | Gainage latéral genoux au sol | Allongée sur le côté, appui sur l'avant-bras, genoux pliés : soulever légèrement la hanche, tenue courte. | épaule | [How to Do Modified Side Planks - Beginner Side Plank Modification!](https://www.youtube.com/shorts/8imTmxwFgRg) |
+| 2 | Gainage latéral genoux au sol, tenu | Même position, tenue prolongée par rapport au niveau 1. | épaule | [Kneeling Side Plank](https://www.youtube.com/shorts/5W0XmNZTLO8) |
+| 3 | Gainage latéral jambes tendues, tenue brève | Jambes tendues et empilées, appui sur l'avant-bras, hanche soulevée, tenue courte. | épaule, poignet | [Short Side Plank](https://www.youtube.com/watch?v=QAg3vvgnbXE) |
+| 4 | Gainage latéral avec lever de jambe | Même position jambes tendues, la jambe du dessus se lève doucement pendant la tenue. | épaule, hanche | [Short side plank + leg raise](https://www.youtube.com/shorts/G35DOKE6wo8) |
 
 ### Famille — Extension et stabilité
 
 | Niveau | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|---|
-| 1 | Bird-dog doux, bras seul | À quatre pattes : tendre un bras devant soi, doucement, sans bouger le bassin, puis l'autre bras. | poignet | à rechercher |
-| 2 | Bird-dog doux, jambe seule | À quatre pattes : tendre une jambe derrière soi, doucement, puis l'autre jambe. | genou, poignet | à rechercher |
-| 3 | Bird-dog complet, amplitude réduite | Bras et jambe opposés tendus ensemble, amplitude courte, ventre engagé. | poignet, genou, dos | à rechercher |
-| 4 | Bird-dog complet, tenue | Même mouvement, tenue plus longue en position tendue. | poignet, genou, dos | à rechercher |
+| 1 | Bird-dog doux, bras seul | À quatre pattes : tendre un bras devant soi, doucement, sans bouger le bassin, puis l'autre bras. | poignet | [Bird Dog - Arm Extension](https://www.youtube.com/watch?v=UtdoQq5zsCw) |
+| 2 | Bird-dog doux, jambe seule | À quatre pattes : tendre une jambe derrière soi, doucement, puis l'autre jambe. | genou, poignet | [Bird Dog Leg Extension Exercise](https://www.youtube.com/watch?v=4TxL5Fn0J1Y) |
+| 3 | Bird-dog complet, amplitude réduite | Bras et jambe opposés tendus ensemble, amplitude courte, ventre engagé. | poignet, genou, dos | [BIRD DOG exercise improves core stability and lower back strength (exercise demo)](https://www.youtube.com/shorts/wh2spJeDDQs) |
+| 4 | Bird-dog complet, tenue | Même mouvement, tenue plus longue en position tendue. | poignet, genou, dos | [STRENGTHEN Your Core With This ADVANCED Bird Dog Exercise](https://www.youtube.com/shorts/lUW37OUb_QY) |
 
 ## Bloc cuisses et fessiers
 
@@ -135,19 +135,19 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 
 | Niveau | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|---|
-| 1 | Mini-squat debout, appui chaise | Debout, mains sur le dossier d'une chaise : légère descente des genoux, remontée douce. | genou | à rechercher |
-| 2 | Mini-squat debout, sans appui | Même mouvement, amplitude légèrement plus grande, sans les mains. | genou | à rechercher |
-| 3 | Squat à mi-amplitude | Descente jusqu'à mi-cuisse, tenue courte en bas, remontée contrôlée. | genou | à rechercher |
-| 4 | Squat à mi-amplitude, tenue prolongée | Même mouvement, tenue plus longue en position basse. | genou | à rechercher |
+| 1 | Mini-squat debout, appui chaise | Debout, mains sur le dossier d'une chaise : légère descente des genoux, remontée douce. | genou | [Knee - Mini Squats With Chair Support](https://www.youtube.com/watch?v=Ubh9yjgBR8s) |
+| 2 | Mini-squat debout, sans appui | Même mouvement, amplitude légèrement plus grande, sans les mains. | genou | [Standing Exercises for Seniors: Mini Squats](https://www.youtube.com/shorts/TGHJ5IOxZeU) |
+| 3 | Squat à mi-amplitude | Descente jusqu'à mi-cuisse, tenue courte en bas, remontée contrôlée. | genou | [Half Squat Hold \| Beginner Workout](https://www.youtube.com/shorts/xfBRlAcwffk) |
+| 4 | Squat à mi-amplitude, tenue prolongée | Même mouvement, tenue plus longue en position basse. | genou | [Half Squat Hold](https://www.youtube.com/shorts/Ly-4EyES178) |
 
 ### Famille — Fessier au sol
 
 | Niveau | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|---|
-| 1 | Extension de jambe à quatre pattes, amplitude courte | À quatre pattes : tendre une jambe pliée vers l'arrière et le haut, amplitude courte. | genou, poignet | à rechercher |
-| 2 | Extension de jambe à quatre pattes, tenue | Même mouvement, tenue en haut de l'amplitude. | genou, poignet | à rechercher |
-| 3 | Extension de jambe tendue à quatre pattes | Jambe tendue plutôt que pliée, amplitude modérée. | genou, poignet, dos | à rechercher |
-| 4 | Extension de jambe tendue, tenue | Même mouvement, tenue plus longue en haut. | genou, poignet, dos | à rechercher |
+| 1 | Extension de jambe à quatre pattes, amplitude courte | À quatre pattes : tendre une jambe pliée vers l'arrière et le haut, amplitude courte. | genou, poignet | [Donkey Kicks: how to do it properly](https://www.youtube.com/shorts/XRmrRiIdR2o) |
+| 2 | Extension de jambe à quatre pattes, tenue | Même mouvement, tenue en haut de l'amplitude. | genou, poignet | [Donkey Kick with Pulse \| Glute Activation & Booty Strength Exercise](https://www.youtube.com/shorts/dCIA4YXCIjA) |
+| 3 | Extension de jambe tendue à quatre pattes | Jambe tendue plutôt que pliée, amplitude modérée. | genou, poignet, dos | [Straight Leg Donkey Kick](https://www.youtube.com/shorts/MfisViRvxoc) |
+| 4 | Extension de jambe tendue, tenue | Même mouvement, tenue plus longue en haut. | genou, poignet, dos | [Straight Leg Donkey kick \| Glute Activation](https://www.youtube.com/watch?v=FE0Gsq_BR6s) |
 
 ## Retour au calme (non nivelé)
 
@@ -156,11 +156,11 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 | Étirement chat-vache | À quatre pattes : alterner dos rond et dos creux, doucement, au rythme de la respiration. | genou (variante assise), poignet | [Cat Cow Stretch for Spine Mobility \| Beginner Yoga for Back Flexibility](https://www.youtube.com/shorts/33DU2FHxxDw) |
 | Étirement des ischio-jambiers assise | Assise, une jambe tendue devant, on se penche doucement vers l'avant sans forcer. | dos | [Head to Knee Pose \| Janu Sirsasana](https://www.youtube.com/shorts/CYX6ie7RmHo) |
 | Étirement des hanches allongée | Allongée sur le dos, on ramène un genou vers la poitrine, doucement, puis l'autre. | genou | [Single Knee to Chest](https://www.youtube.com/shorts/muv4W1mjYyQ) |
-| Torsion du dos allongée | Allongée, genoux pliés, on les laisse basculer doucement d'un côté, bras en croix, quelques respirations, puis l'autre côté. | dos, hanche | à rechercher |
-| Étirement des mollets | Debout face à un mur, une jambe reculée tendue, talon au sol, léger appui vers l'avant. | cheville, équilibre (appui mural) | à rechercher |
-| Étirement des épaules et des bras | Debout ou assise : un bras croisé devant la poitrine, léger appui de l'autre bras, doucement, puis l'autre côté. | épaule | à rechercher |
-| Respiration finale allongée | Allongée, mains sur le ventre, quelques respirations profondes et lentes pour clore la séance. | aucune | à rechercher |
-| Étirement du dos assise, enroulement | Assise, jambes légèrement pliées : dos rond, on se penche doucement vers l'avant, bras relâchés vers le sol. | dos | à rechercher |
+| Torsion du dos allongée | Allongée, genoux pliés, on les laisse basculer doucement d'un côté, bras en croix, quelques respirations, puis l'autre côté. | dos, hanche | [Supine Spinal Twist](https://www.youtube.com/shorts/lyhWPzuGUHc) |
+| Étirement des mollets | Debout face à un mur, une jambe reculée tendue, talon au sol, léger appui vers l'avant. | cheville, équilibre (appui mural) | [Standing Calf Stretch Technique #shorts](https://www.youtube.com/shorts/7SO6QzfBRaE) |
+| Étirement des épaules et des bras | Debout ou assise : un bras croisé devant la poitrine, léger appui de l'autre bras, doucement, puis l'autre côté. | épaule | [Shoulder Crossbody Stretch](https://www.youtube.com/shorts/aIq0fLi8iak) |
+| Respiration finale allongée | Allongée, mains sur le ventre, quelques respirations profondes et lentes pour clore la séance. | aucune | [Senior: How to do Diaphragmatic Breathing Lying Down](https://www.youtube.com/watch?v=dqPk2VdM5Tg) |
+| Étirement du dos assise, enroulement | Assise, jambes légèrement pliées : dos rond, on se penche doucement vers l'avant, bras relâchés vers le sol. | dos | [Seated Cat-Cow stretch](https://www.youtube.com/shorts/rZqA5XjcnPQ) |
 
 ---
 
@@ -175,12 +175,25 @@ chaîne sans nécessiter d'authentification — le chargement direct des pages
 identiques à ce qui est reporté ci-dessus.
 
 Cette première passe confirme qu'une vidéo **existe et correspond par son
-titre** ; elle ne remplace pas un visionnage. Sur les cinq entrées que le
-titre seul ne suffisait pas à confirmer, une miniature a ensuite été
-récupérée pour chacune (`img.youtube.com/vi/<id>/hqdefault.jpg`) et
-regardée : quatre montrent sans ambiguïté la bonne pose et sont
-retirées de la liste des doutes. La cinquième (`Mobilisation du bassin`,
-n° 3) reste marquée ⚠️ — la miniature montre une pose plausible mais pas
-concluante, et une image fixe ne montre de toute façon pas le mouvement
-circulaire complet que le nom promet. C'est la seule entrée du dictionnaire
-qui demande encore un vrai visionnage avant la mise en ligne du lot 1.
+titre** ; elle ne remplace pas un visionnage. Sur le premier lot de 30
+exercices, cinq entrées que le titre seul ne suffisait pas à confirmer ont
+été tranchées par miniature : quatre montrent sans ambiguïté la bonne pose
+et sont validées. Il en restait une, `Mobilisation du bassin` (mise en
+route) — la miniature montre une pose plausible mais pas concluante, et
+une image fixe ne montre de toute façon pas le mouvement circulaire
+complet que le nom promet.
+
+Sur le second lot de 26 exercices (élargissement du dictionnaire), même
+méthode : trois entrées douteuses au titre, miniature récupérée pour
+chacune. Deux confirmées (`Bird-dog complet, amplitude réduite` et
+`Extension de jambe tendue, tenue`, toutes deux clairement visibles sur
+l'image). La troisième, `Balancement latéral du buste`, s'est révélée être
+un **mauvais match** une fois la miniature regardée — la vidéo montre un
+transfert de poids latéral en fente contre un mur, pas un balancement du
+buste debout — et est repassée en « à rechercher » plutôt que d'être
+laissée en ligne avec un doute.
+
+Deux entrées du dictionnaire (56 exercices) demandent encore une
+intervention avant la mise en ligne du lot 1 : `Mobilisation du bassin`
+(vrai visionnage à faire) et `Balancement latéral du buste` (vidéo encore
+à trouver).
