@@ -77,6 +77,11 @@ S'il doit redescendre parce qu'une séance était trop dure, il redescend —
 tout de suite, sans qu'elle ait à le demander. Protéger son corps prime
 toujours sur l'impression de progrès.
 
+**L'app est un compagnon affectueux, pas un coach neutre.** Elle taquine
+quand elle ne l'a pas vue, glisse parfois un mot doux — jamais un ton de
+surveillance ou de reproche. Une pique sympa dit qu'elle a manqué à
+quelqu'un, jamais qu'elle a fauté (§ 7.2, § 10).
+
 ---
 
 ## PRD — Pilabelle : le programme pilates du jour
@@ -185,12 +190,17 @@ sait pas encore faire seul.
    des ressentis et des séances faites, série — associés au compte via
    `X-Forwarded-User`, retrouvés à la reconnexion, sur n'importe quel
    appareil.
+9. **Petits mots** : une pique affectueuse de retrouvailles quand elle
+   revient après un jour sans séance (§ 7.2), et de temps en temps un mot
+   doux en fin de séance (§ 10) — tirés d'un stock de messages écrit une
+   fois, livré avec l'application comme le dictionnaire d'exercices.
 
 #### Lot 2 — dès que le lot 1 est en ligne
 
-9. **Défi de la semaine** : une variante ou un petit objectif supplémentaire
-   annoncé en début de semaine, distinct de la séance quotidienne calculée.
-10. **Écran personnel** : série actuelle et record, calendrier des séances
+10. **Défi de la semaine** : une variante ou un petit objectif
+    supplémentaire annoncé en début de semaine, distinct de la séance
+    quotidienne calculée.
+11. **Écran personnel** : série actuelle et record, calendrier des séances
     faites/manquées/repos, niveau courant de chaque zone.
 
 #### Hors périmètre — décidé, pas oublié
@@ -227,6 +237,14 @@ Ouvrir le lien, c'est arriver sur la séance du jour — jamais un écran
 intermédiaire. Si elle a déjà fait la séance aujourd'hui, l'écran le dit et
 propose de la refaire librement, sans que cela ne compte deux fois dans
 l'historique.
+
+**Si le dernier jour de séance remonte à hier ou plus**, l'écran du jour
+s'ouvre sur une pique de retrouvailles avant d'afficher la séance — jamais
+un compteur de jours manqués, jamais un ton de reproche. Par exemple :
+*« Bah alors, on ne s'est pas vu hier 😙. Tu m'as manqué. »* Tirée au sort
+dans un stock de variantes (§ 10), jamais deux fois de suite la même. Elle
+s'affiche une fois puis laisse place à la séance — ce n'est pas un écran à
+fermer, juste une phrase avant le reste.
 
 #### 7.3 Faire une séance
 
@@ -358,7 +376,9 @@ repos ou une pause, jamais une dette qui s'accumule dans un écran de retard.
 
 **La série se casse au premier jour manqué, et repart aussitôt à zéro sans
 message culpabilisant.** L'écran affiche le fait, pas un jugement : une
-série cassée n'est pas un échec du programme.
+série cassée n'est pas un échec du programme. Le retour, lui, est accueilli
+par une pique affectueuse (§ 7.2), pas par un rappel du compteur perdu —
+les deux disent des choses opposées, et seule la seconde a sa place ici.
 
 **Le niveau de chaque zone est indépendant et honnête.** Ventre et cuisses
 évoluent séparément ; aucun des deux n'est plafonné ni tiré par l'autre. Il
@@ -382,8 +402,10 @@ qui ajuste le niveau — jamais une mesure du corps.
 ### 10. Le fun, et où il doit être
 
 **Le ton tutoie, encourage, ne moralise jamais.** Pas de vocabulaire de
-coach culpabilisant, pas de comparaison à un idéal, pas de rappel d'un jour
-manqué qui sonnerait comme un reproche.
+coach culpabilisant, pas de comparaison à un idéal. Un rappel d'un jour
+manqué a le droit d'exister (§ 7.2) — mais seulement sous forme de pique
+affectueuse, jamais de reproche : la nuance tient tout entière dans « tu
+m'as manqué » contre « tu as raté ta séance ».
 
 - **Fin d'exercice** : une transition courte, satisfaisante, qui ne retarde
   jamais le passage au suivant.
@@ -394,6 +416,21 @@ manqué qui sonnerait comme un reproche.
   explicitement, une seule fois, le jour où il se débloque. Une redescente
   de niveau, elle, ne s'accompagne d'aucune animation — ni pénalité ni
   fanfare, juste un fait.
+
+#### 10.1 Les mots doux
+
+En plus des messages d'encouragement neutres (« bravo, séance faite ! »),
+un mot plus tendre apparaît de temps en temps en fin de séance — pas à
+chaque fois, pour que ça reste une surprise plutôt qu'une routine
+prévisible. Ce ne sont pas des félicitations d'application : ce sont des
+mots que vous lui adressez, écrits une fois, tirés au sort au même titre
+que les encouragements ordinaires.
+
+Les piques de retrouvailles (§ 7.2) et les mots doux sont deux stocks
+distincts — les premières ne se déclenchent qu'au retour après une pause,
+les seconds à n'importe quelle fin de séance — mais partagent la même
+règle : jamais deux fois de suite le même message, et un ton personnel,
+jamais générique.
 
 Deux interdits : rien qui bloque l'interaction pendant l'effort ou pendant
 le chronomètre, et `prefers-reduced-motion` respecté — l'app reste
@@ -439,3 +476,9 @@ sélection (§ 8.2) ait toujours au moins une option valide, et identifier
 pour chacun un Short pilates doux et adapté. Un dictionnaire trop petit fait
 échouer l'algorithme en silence — plus de variantes que ce qu'une semaine
 n'en épuiserait est le seuil à viser, pas un chiffre exact.
+
+**Les piques de retrouvailles et les mots doux (§ 7.2, § 10.1) sont eux
+aussi un travail de contenu**, écrit une fois avant la mise en ligne du
+lot 1 : assez de variantes dans chaque stock pour ne pas se répéter d'une
+semaine sur l'autre. Vous les écrivez vous-même — c'est le seul contenu de
+l'application qui gagne à être écrit par vous plutôt que déduit du PRD.
