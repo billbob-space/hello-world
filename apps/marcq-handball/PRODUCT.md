@@ -616,8 +616,8 @@ quatorzième.
 ### 16. Ajouté après les PRP
 
 Les onze PRP livrés le 6 août ne sont pas le dernier état de l'application :
-onze changements ont suivi le 7 août, tous nés de l'usage réel et aucun
-prévu par un PRP. Cette section les tient, et elle est la contrepartie des
+douze changements ont suivi, onze le 7 août et un le 8, tous nés de l'usage réel
+et aucun prévu par un PRP. Cette section les tient, et elle est la contrepartie des
 § 6 et § 13 : sans elle, le seul endroit du dépôt où ces changements existent
 est l'historique des commits, que personne ne relit pour savoir ce que
 l'application fait aujourd'hui.
@@ -629,7 +629,8 @@ quatre derniers n'ont levé aucune exclusion — les trois interdits du § 10
 tiennent — mais chacun arbitre quelque chose que ce document ne disait nulle
 part : le thème visuel du club (§ 16.5), le nom du geste total des réglages
 (§ 16.6), le sort d'un code périmé (§ 16.7) et ce qu'on entend à zéro
-(§ 16.8).
+(§ 16.8). Le douzième, le 8 août, ne touche pas à l'application : il rend le
+serveur capable de dire si quelqu'un s'en sert (§ 16.9).
 
 #### 16.1 Le minuteur d'exercice — 7 août
 
@@ -863,6 +864,39 @@ seule sinusoïde tenue, qui était un bip long et non une cloche.
 rien sur le timbre. Ce qui est arbitré ici — et que le PRD ne disait nulle part
 — est qu'**un son livré avec l'application est acceptable, un son chargé
 ailleurs ne l'est pas**.
+
+#### 16.9 Le serveur compte son usage — 8 août
+
+Question posée par le décideur : *est-ce que des familles ont réussi à s'en
+servir ?* Le serveur ne savait pas répondre. Les journaux du conteneur
+disparaissent à chaque déploiement de la fabrique — sur trois semaines de
+programme, ils ne racontent que les heures écoulées depuis le dernier
+redémarrage —, et une requête `POST … 200` s'y lisait pareil que l'envoi ait
+porté douze exercices ou zéro. Le seul indice durable était le fichier du
+classement lui-même, qui dit qui s'est inscrit et **pas** combien de gens ont
+ouvert l'app sans aller jusque-là.
+
+**L'application tient désormais des compteurs d'usage**, dans un fichier
+`activite.json` du même volume que le classement : par journée, le nombre
+d'ouvertures, de consultations, d'inscriptions, de reprises, de mises à jour, de
+suppressions, d'envois acceptés *à zéro exercice*, d'identifiants d'exercice
+périmés, et de refus par code d'erreur. Le détail dans le `README`.
+
+*Ce que cela change au § 5* — rien, et c'est la condition à laquelle cela a été
+fait. Le principe « par défaut, rien ne quitte le téléphone » n'est pas entamé :
+**l'application n'envoie rien de nouveau**. Ce qui est compté, c'est ce que le
+serveur voyait déjà passer, et il n'en garde que des entiers. Le fichier n'a
+aucun champ où un prénom, un pseudonyme, un identifiant d'exercice ou une
+adresse pourrait entrer — même garantie *de forme*, et non de consigne, que pour
+le corps du `POST`.
+
+*Ce que cela ne dit toujours pas, et qui a été écarté* : **où les gens
+abandonnent**. Quelqu'un qui ouvre l'app, tape son prénom, hésite et referme ne
+laisse qu'une ouverture de plus. Le savoir demanderait que l'app émette des
+traces de parcours — donc qu'elle envoie quelque chose que l'enfant n'a pas
+choisi d'envoyer. Proposé au décideur le 8 août, **refusé au profit de la mesure
+côté serveur seule**. C'est une exclusion décidée, pas un oubli : la mesure
+s'arrête là où commence la promesse du § 5.
 
 ---
 

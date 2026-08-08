@@ -22,8 +22,10 @@ identifiants d'exercices.
 **Le prénom de l'enfant ne quitte jamais son appareil** (PRD §5), et c'est la
 *forme* de l'API qui le garantit, pas une consigne : le corps accepté a
 exactement cinq champs, tout champ inconnu fait échouer la requête entière,
-aucun en-tête n'est lu, les journaux ne portent que méthode, chemin, statut et
-durée, et la fiche stockée n'a aucun champ pour accueillir un nom.
+aucun en-tête n'est lu, les journaux ne portent que méthode, chemin, statut,
+durée et des **nombres** — jamais une valeur reçue, pas même refusée — et la
+fiche stockée n'a aucun champ pour accueillir un nom. Ce que les journaux disent
+de l'usage, et ce qu'ils n'en diront jamais : « Savoir si quelqu'un s'en sert ».
 
 ## Routes
 
@@ -176,6 +178,75 @@ qui, à 95 %, fonctionne hors ligne dans le navigateur :
 | `MARCQ_DONNEES` non défini | classement désactivé, les trois routes `/api` rendent `503`, le reste sert normalement |
 | volume appartenant à root | une sonde d'écriture le dit **au démarrage** dans les journaux, avant tout trafic ; puis même comportement que ci-dessus |
 | `classement.json` illisible | renommé en `classement.corrompu-<date>.json`, on repart vide, trace sur la sortie standard |
+
+## Savoir si quelqu'un s'en sert
+
+Question posée le 8 août, à laquelle les journaux du conteneur ne savaient pas
+répondre. Deux raisons, et deux réponses.
+
+**Les journaux ne survivent pas au déploiement.** `dockhand` recrée la stack
+entière à chaque livraison — y compris les apps qu'on n'a pas touchées — et les
+lignes d'avant disparaissent. Sur un programme de trois semaines, lire l'usage
+dans les journaux revient à lire les heures écoulées depuis le dernier
+redémarrage. Un fichier `activite.json`, dans le même volume que le classement,
+tient donc des **compteurs par journée** qui, eux, traversent :
+
+```json
+"2026-08-08": { "ouvertures": 12, "consultations": 27, "inscriptions": 1,
+                "misesAJour": 2, "envoisVides": 1, "refus": { "code-refuse": 2 } }
+```
+
+Que des entiers, par jour et par événement. Le fichier **n'a aucun champ où un
+nom, un identifiant d'exercice ou une adresse pourrait entrer** : il dit combien
+de fois, jamais par qui — c'est la promesse du PRD §5, tenue par la forme du
+fichier et non par une consigne. `ouvertures` compte des chargements de la
+coque, pas des personnes : un rechargement en vaut un autre, et rien ici ne
+distingue deux visiteurs.
+
+Les compteurs montent en mémoire et descendent sur le disque **au plus une fois
+toutes les 30 secondes**, plus une dernière fois à l'arrêt. C'est ce qui les
+sépare d'une amplification d'écriture : `/api/classement` est une route publique
+sans limite de débit, et écrire à chaque requête donnerait à n'importe qui le
+moyen de faire travailler le disque aussi vite qu'il sait demander. Le fichier
+est mis de côté et la mesure repart de zéro s'il devient illisible, comme
+`classement.json`. Un `MARCQ_DONNEES` absent ou un volume en lecture seule
+désactivent la mesure et rien d'autre : compter combien d'enfants s'entraînent
+ne vaut pas d'empêcher l'un d'eux de s'entraîner.
+
+**Les journaux ne disaient pas ce qu'un envoi portait.** Un `POST /api/classement
+200` se lisait pareil qu'un envoi ait apporté douze exercices ou zéro, et un
+`403` ne disait pas si un enfant s'était trompé de code ou si le nom était déjà
+pris. Deux lignes le disent maintenant, toujours sans rien d'identifiant :
+
+```
+envoi : inscription, 3 cochees, 0 ignorees, 5 participants
+envoi : mise a jour, 0 cochees, 2 ignorees, 5 participants
+envoi : suppression effectuee, 4 participants
+envoi refuse : code-refuse
+```
+
+Ce qu'elles permettent de voir : une fiche acceptée **à zéro exercice** — donc
+un écran qui n'envoie pas ce qu'il croit envoyer, ou un enfant qui ne
+s'entraîne pas ; un `ignorees` qui monte — donc un téléphone servant un
+`programme.json` périmé depuis le cache de son service worker ; et une rafale
+de `code-refuse` — donc quelqu'un bloqué à la porte du classement.
+
+Une ligne de résumé tombe aussi dans les journaux au changement de jour, ce qui
+rend la veille lisible sans ouvrir le fichier :
+
+```
+activite 2026-08-08 : 12 ouvertures, 27 consultations, 1 inscriptions, 2 code-refuse
+```
+
+Ce qu'aucune de ces deux mesures ne dira jamais : **où les gens abandonnent**.
+Quelqu'un qui ouvre l'app, tape son prénom, hésite et referme ne laisse qu'une
+`ouverture`. Le savoir demanderait que l'app envoie des traces de parcours — ce
+que le PRD §5 interdit par défaut, et qui n'a pas été fait.
+
+Pour lire tout ça depuis un poste de développement :
+
+    ./scripts/prod.sh journaux marcq-handball 500
+    ./scripts/prod.sh lire marcq-handball /var/lib/marcq-handball/activite.json
 
 ## Développement
 

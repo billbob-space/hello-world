@@ -31,7 +31,7 @@ func serveurSur(t *testing.T, cl *classement) http.Handler {
 	if err != nil {
 		t.Fatalf("service worker illisible : %v", err)
 	}
-	return routes(web, sw, cl)
+	return routes(web, sw, cl, nil)
 }
 
 func poster(t *testing.T, h http.Handler, corps string) *httptest.ResponseRecorder {
