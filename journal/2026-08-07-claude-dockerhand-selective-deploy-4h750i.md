@@ -151,7 +151,7 @@ comparant les anciennetés des conteneurs.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-08 à 00:09 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-08 à 00:13 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -159,26 +159,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 420 | 0,00 $ |
-| Écriture de cache | 709 025 | 2,96 $ |
-| Lecture de cache | 35 529 075 | 15,68 $ |
-| Sortie | 126 596 | 2,05 $ |
-| **Total** | **36 365 116** | **20,70 $ — 17,97 €** |
+| Entrée | 469 | 0,00 $ |
+| Écriture de cache | 727 344 | 3,08 $ |
+| Lecture de cache | 43 222 905 | 19,53 $ |
+| Sortie | 134 385 | 2,25 $ |
+| **Total** | **44 085 103** | **24,85 $ — 21,58 €** |
 
 **Ce qui coûte**
 
-- **241 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **267 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   59 202 jetons, écrits une fois par session puis relus à chaque
-  échange : 14 208 480 jetons de relecture, 39 % de tout ce qui a été relu.
-- **Tours courts** — 104 des 241 tours (43 %) sortent
+  échange : 15 747 732 jetons de relecture, 36 % de tout ce qui a été relu.
+- **Tours courts** — 122 des 267 tours (45 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 12,95 $, soit 62 % de la facture.
+  une sortie de rien. Ils coûtent 15,73 $, soit 63 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 59 202 jetons relus au premier appel qui relise
-  quelque chose, 282 875 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 303 902 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 36365116 -->
+<!-- cout-total: 44085103 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 59202 0 492
 2 principal claude-opus-5 3547 59202 96
@@ -421,5 +421,31 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 239 principal claude-opus-5 689 273353 1111
 240 principal claude-opus-5 8833 274042 1430
 241 principal claude-opus-5 2388 282875 90
+242 principal claude-opus-5 3970 285263 501
+243 principal claude-opus-5 592 289233 91
+244 principal claude-opus-5 261 289825 696
+245 principal claude-opus-5 1558 290086 111
+246 principal claude-opus-5 227 291644 166
+247 principal claude-opus-5 1074 291871 133
+248 principal claude-opus-5 143 292945 193
+249 principal claude-opus-5 311 293088 178
+250 principal claude-opus-5 770 293399 189
+251 principal claude-opus-5 198 294169 182
+252 principal claude-opus-5 294 294367 169
+253 principal claude-opus-5 1119 294661 170
+254 principal claude-opus-5 211 295780 137
+255 principal claude-opus-5 580 295991 92
+256 principal claude-opus-5 692 296571 627
+257 principal claude-opus-5 342 297890 214
+258 principal claude-opus-5 480 298232 140
+259 principal claude-opus-5 488 298712 56
+260 principal claude-opus-5 278 299200 63
+261 principal claude-opus-5 21 299541 1035
+262 principal claude-opus-5 1082 299562 72
+263 principal claude-opus-5 822 300644 634
+264 principal claude-opus-5 916 301466 869
+265 principal claude-opus-5 1024 302382 439
+266 principal claude-opus-5 496 303406 109
+267 principal claude-opus-5 370 303902 523
 -->
 <!-- /cout -->

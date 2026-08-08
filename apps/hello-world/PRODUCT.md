@@ -40,10 +40,11 @@ référence au contrat sans le respecter ligne à ligne.
 ## Operating Context
 
 - Déploiement déclenché par la fusion sur `main` : GitHub construit l'image, la
-  publie sur GHCR sous le tag mutable `:main`, le serveur la récupère. Deux à
-  trois minutes entre la fusion et la mise en ligne. L'application partage sa
-  stack avec les autres applications de la fabrique : un déploiement les
-  redémarre toutes.
+  publie sur GHCR sous le commit qui l'a construite, l'inscrit dans `versions.yml`
+  et le serveur la récupère. Deux à trois minutes entre la fusion et la mise en
+  ligne. L'application partage sa stack avec les autres applications de la
+  fabrique, mais seul son propre conteneur est recréé : les autres ne sont pas
+  redémarrées.
 - La version est le SHA du commit, injecté à la construction par
   `-ldflags "-X main.version=…"`. Une construction locale vaut `dev`.
 - Deux moyens de vérifier un déploiement : l'en-tête `X-App-Version`, présent sur
