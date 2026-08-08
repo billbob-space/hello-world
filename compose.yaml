@@ -246,7 +246,7 @@ services:
 
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
-    image: ghcr.io/billbob-space/hello-world/hello-world:01acc5a7aed9b6d63cf48341db71e1ca8a855c8b
+    image: ghcr.io/billbob-space/hello-world/hello-world:298ca7847986c823cca4cc16f2a2decc4ea0f7de
     container_name: hello-world
     restart: unless-stopped
     mem_limit: 128m
