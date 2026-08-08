@@ -463,14 +463,16 @@ utilisable et lisible sans une seule animation.
 
 ### 11. Contraintes
 
-**iPhone uniquement, pas seulement mobile d'abord.** L'app n'est ouverte que
-sur son téléphone, souvent posé au sol ou contre un mur pendant l'exercice :
-gros boutons, lisible à distance, aucune interaction qui suppose de tenir
-l'appareil en main pendant le mouvement. Aucune mise en page de bureau ni de
-tablette n'est nécessaire, et aucun test Android non plus — pas seulement
-des cas secondaires, des cas absents. La mise en page compte avec les zones
-sûres iOS (encoche ou île dynamique en haut, barre d'accueil en bas) plutôt
-qu'avec un cadre générique.
+**Mobile uniquement, iOS et Android, pas seulement mobile d'abord.** Elle
+est sur iPhone, vous êtes sur Android : l'app doit marcher pour les deux
+comptes autorisés, pas seulement pour l'un d'eux. Ouverte sur téléphone,
+souvent posé au sol ou contre un mur pendant l'exercice : gros boutons,
+lisible à distance, aucune interaction qui suppose de tenir l'appareil en
+main pendant le mouvement. Aucune mise en page de bureau ni de tablette
+n'est nécessaire — mais aucun des deux systèmes mobiles n'est un cas
+secondaire. La mise en page compte avec les zones sûres de l'écran
+(encoche, île dynamique ou barre de statut selon l'appareil, barre de
+navigation en bas) plutôt qu'avec un cadre unique pensé pour un seul OS.
 
 **Direction visuelle : légèrement kawaii, jamais infantilisant.** Couleurs
 douces, formes arrondies, une pointe de mignon dans les icônes et les
