@@ -1,0 +1,19 @@
+{
+  "piques": {
+    "un_jour": [
+      "Bah alors, on ne s'est pas vu hier 😙. Tu m'as manqué."
+    ],
+    "quelques_jours": [
+      "Ça fait quelques jours dis donc. On la reprend doucement ?"
+    ],
+    "une_semaine_ou_plus": [
+      "Une semaine sans nouvelles... je commençais à croire que tu m'avais remplacée 😏."
+    ]
+  },
+  "encouragements": [
+    "Bravo, séance faite !"
+  ],
+  "mots_doux": [
+    "Je suis fière de toi, tu sais."
+  ]
+}

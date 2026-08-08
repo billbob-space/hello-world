@@ -1,0 +1,140 @@
+/* Jetons : doux, arrondi, un peu kawaii — jamais au prix de la lisibilite en
+   plein effort (PRD §11). Mobile uniquement, zones de tap >= 44px. */
+:root {
+	--rose: #ffb4c6;
+	--rose-clair: #ffe3ea;
+	--lavande: #d8c7f5;
+	--vert-doux: #b7e4c7;
+	--texte: #3a2e35;
+	--fond: #fff8f9;
+	--rayon: 1.25rem;
+	--espace: 1rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	min-height: 100dvh;
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+	background: var(--fond);
+	color: var(--texte);
+	font-family: system-ui, -apple-system, sans-serif;
+	font-size: 1.05rem;
+	line-height: 1.5;
+}
+
+#app {
+	max-width: 32rem;
+	margin: 0 auto;
+	padding: 1.5rem;
+}
+
+fieldset {
+	border: none;
+	background: var(--rose-clair);
+	border-radius: var(--rayon);
+	padding: var(--espace);
+	margin-bottom: var(--espace);
+}
+
+legend {
+	font-weight: 600;
+	padding: 0 0.25rem;
+}
+
+label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 44px;
+	padding: 0.25rem 0;
+}
+
+button {
+	display: block;
+	width: 100%;
+	min-height: 48px;
+	border: none;
+	border-radius: var(--rayon);
+	background: var(--rose);
+	color: var(--texte);
+	font-size: 1.1rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+button:active {
+	background: var(--lavande);
+}
+
+.erreur {
+	color: #b3261e;
+}
+
+.pique {
+	background: var(--lavande);
+	border-radius: var(--rayon);
+	padding: var(--espace);
+	font-weight: 600;
+}
+
+ul {
+	list-style: none;
+	padding: 0;
+	margin: 0 0 var(--espace);
+}
+
+ul li {
+	background: var(--vert-doux);
+	border-radius: var(--rayon);
+	padding: 0.5rem var(--espace);
+	margin-bottom: 0.5rem;
+}
+
+.video {
+	display: block;
+	width: 100%;
+	aspect-ratio: 9 / 16;
+	max-height: 60vh;
+	border: none;
+	border-radius: var(--rayon);
+	margin-bottom: var(--espace);
+}
+
+.minuteur {
+	font-size: 1.4rem;
+	font-weight: 700;
+	text-align: center;
+}
+
+.ressenti {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.encouragement,
+.niveau-monte {
+	font-size: 1.2rem;
+	font-weight: 700;
+	text-align: center;
+}
+
+.mot-doux {
+	font-style: italic;
+	text-align: center;
+}
+
+.serie {
+	text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	button {
+		transition: transform 0.1s ease, background 0.2s ease;
+	}
+	button:active {
+		transform: scale(0.98);
+	}
+}

@@ -1,0 +1,237 @@
+{
+  "echelle_niveaux": [
+    { "niveau": 1, "effort_s": 20, "repos_s": 20, "tours": 1 },
+    { "niveau": 2, "effort_s": 25, "repos_s": 15, "tours": 1 },
+    { "niveau": 3, "effort_s": 30, "repos_s": 15, "tours": 2 },
+    { "niveau": 4, "effort_s": 40, "repos_s": 15, "tours": 2 }
+  ],
+  "exercices": [
+    {
+      "id": "mr-respiration-debout",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Respiration profonde debout",
+      "consigne": "Debout, pieds écartés largeur de hanche : inspirer en levant les bras, expirer en les redescendant, lentement.",
+      "contre_indications": [],
+      "minutage": { "effort_s": 20, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/ZKVqUCwsMPs" }
+    },
+    {
+      "id": "mr-mobilisation-epaules-nuque",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Mobilisation épaules et nuque",
+      "consigne": "Cercles d'épaules lents vers l'arrière, puis inclinaisons douces de la tête d'un côté puis l'autre.",
+      "contre_indications": ["epaule"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/8j_WvtamM_U" }
+    },
+    {
+      "id": "mr-mobilisation-bassin",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Mobilisation du bassin",
+      "consigne": "Debout ou assise : cercles doux du bassin, dans un sens puis l'autre.",
+      "contre_indications": ["dos"],
+      "minutage": { "effort_s": 20, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "a_valider", "url": "https://www.youtube.com/shorts/OqR7Tl6SPLQ" }
+    },
+    {
+      "id": "mr-marche-sur-place",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Marche sur place douce",
+      "consigne": "Marcher sur place lentement, genoux modérément levés, bras qui balancent naturellement.",
+      "contre_indications": ["genou"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/5l-A5_-BPUg" }
+    },
+    {
+      "id": "mr-extension-bras-dos",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Extension douce des bras et du dos",
+      "consigne": "Debout, bras tendus devant soi, arrondir doucement le dos en expirant, revenir en inspirant.",
+      "contre_indications": ["epaule"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/QrGWR7Ic3_8" }
+    },
+    {
+      "id": "mr-rotation-poignets-chevilles",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Rotation des poignets et des chevilles",
+      "consigne": "Debout ou assise : cercles lents des poignets, puis des chevilles, un côté puis l'autre.",
+      "contre_indications": [],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=QzgRg7HTGmg" }
+    },
+    {
+      "id": "mr-balancement-lateral-buste",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Balancement latéral du buste",
+      "consigne": "Debout, pieds écartés largeur de hanche, bras relâchés : balancer doucement le buste d'un côté puis l'autre.",
+      "contre_indications": ["dos"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "a_rechercher", "url": "" }
+    },
+    {
+      "id": "mr-montee-pointes-pieds",
+      "zone": "mise_en_route",
+      "famille": null,
+      "niveau": null,
+      "nom": "Montée sur pointes de pieds",
+      "consigne": "Debout, se hisser doucement sur la pointe des pieds, tenir un instant, redescendre.",
+      "contre_indications": ["cheville", "equilibre"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/fZYTVO9-Ggk" }
+    },
+
+    { "id": "vt-transverse-1", "zone": "ventre", "famille": "respiration_et_transverse", "niveau": 1, "nom": "Respiration abdominale allongée", "consigne": "Allongée sur le dos, genoux pliés, pieds au sol, mains sur le ventre : inspirer en gonflant le ventre, expirer en rentrant le nombril vers la colonne.", "contre_indications": [], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/yaEGYEPcnuw" } },
+    { "id": "vt-transverse-2", "zone": "ventre", "famille": "respiration_et_transverse", "niveau": 2, "nom": "Respiration transverse assise", "consigne": "Assise en tailleur, dos droit, même respiration, une main sur le bas-ventre pour sentir la contraction.", "contre_indications": [], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/i_ALr_-n08E" } },
+    { "id": "vt-transverse-3", "zone": "ventre", "famille": "respiration_et_transverse", "niveau": 3, "nom": "Dead bug doux", "consigne": "Allongée, genoux à 90°, on abaisse doucement un bras et la jambe opposée sans creuser le dos, ventre engagé en permanence.", "contre_indications": ["dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/IGPMKVKblX8" } },
+    { "id": "vt-transverse-4", "zone": "ventre", "famille": "respiration_et_transverse", "niveau": 4, "nom": "Dead bug complet", "consigne": "Même mouvement, amplitude complète, la jambe se tend presque droite avant de revenir.", "contre_indications": ["dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/XcYtWYMz39w" } },
+
+    { "id": "vt-gainage-1", "zone": "ventre", "famille": "gainage_ventral", "niveau": 1, "nom": "Gainage sur les genoux", "consigne": "Position de planche, genoux au sol, avant-bras posés, dos droit, tenue courte.", "contre_indications": ["poignet", "epaule"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/5r93RRstZD0" } },
+    { "id": "vt-gainage-2", "zone": "ventre", "famille": "gainage_ventral", "niveau": 2, "nom": "Gainage avant-bras genoux au sol, tenu", "consigne": "Même position, tenue prolongée par rapport au niveau 1.", "contre_indications": ["poignet", "epaule"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/QUAzWJcLCik" } },
+    { "id": "vt-gainage-3", "zone": "ventre", "famille": "gainage_ventral", "niveau": 3, "nom": "Gainage planche complète, tenue brève", "consigne": "Genoux décollés du sol, corps aligné des épaules aux talons, tenue courte.", "contre_indications": ["poignet", "epaule", "dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/cOMQltCQP2A" } },
+    { "id": "vt-gainage-4", "zone": "ventre", "famille": "gainage_ventral", "niveau": 4, "nom": "Gainage planche avec touchers d'épaule", "consigne": "Planche complète : toucher alternativement l'épaule opposée avec la main, sans bouger le bassin.", "contre_indications": ["poignet", "epaule", "dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/eyeuugrpLYA" } },
+
+    { "id": "vt-obliques-1", "zone": "ventre", "famille": "rotation_et_obliques", "niveau": 1, "nom": "Torsion assise douce", "consigne": "Assise, genoux pliés, pieds au sol : tourner le buste doucement d'un côté puis l'autre, mains sur les cuisses.", "contre_indications": ["dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/qLk6O9s9dO8" } },
+    { "id": "vt-obliques-2", "zone": "ventre", "famille": "rotation_et_obliques", "niveau": 2, "nom": "Torsion allongée jambes pliées", "consigne": "Allongée, genoux pliés à 90°, on laisse les genoux basculer doucement d'un côté puis l'autre, épaules au sol.", "contre_indications": ["dos", "hanche"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/mH6xI1R7GcI" } },
+    { "id": "vt-obliques-3", "zone": "ventre", "famille": "rotation_et_obliques", "niveau": 3, "nom": "Crunch oblique contrôlé", "consigne": "Allongée, une main derrière la tête : soulever l'épaule vers le genou opposé, lentement, amplitude courte.", "contre_indications": ["dos", "cou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/CjfPWUXqsmk" } },
+    { "id": "vt-obliques-4", "zone": "ventre", "famille": "rotation_et_obliques", "niveau": 4, "nom": "Crunch oblique jambe tendue", "consigne": "Même mouvement, jambe opposée tendue en l'air pendant le mouvement.", "contre_indications": ["dos", "cou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/C89CyVGdTkk" } },
+
+    { "id": "vt-lateral-1", "zone": "ventre", "famille": "gainage_lateral", "niveau": 1, "nom": "Gainage latéral genoux au sol", "consigne": "Allongée sur le côté, appui sur l'avant-bras, genoux pliés : soulever légèrement la hanche, tenue courte.", "contre_indications": ["epaule"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/8imTmxwFgRg" } },
+    { "id": "vt-lateral-2", "zone": "ventre", "famille": "gainage_lateral", "niveau": 2, "nom": "Gainage latéral genoux au sol, tenu", "consigne": "Même position, tenue prolongée par rapport au niveau 1.", "contre_indications": ["epaule"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/5W0XmNZTLO8" } },
+    { "id": "vt-lateral-3", "zone": "ventre", "famille": "gainage_lateral", "niveau": 3, "nom": "Gainage latéral jambes tendues, tenue brève", "consigne": "Jambes tendues et empilées, appui sur l'avant-bras, hanche soulevée, tenue courte.", "contre_indications": ["epaule", "poignet"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=QAg3vvgnbXE" } },
+    { "id": "vt-lateral-4", "zone": "ventre", "famille": "gainage_lateral", "niveau": 4, "nom": "Gainage latéral avec lever de jambe", "consigne": "Même position jambes tendues, la jambe du dessus se lève doucement pendant la tenue.", "contre_indications": ["epaule", "hanche"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/G35DOKE6wo8" } },
+
+    { "id": "vt-birddog-1", "zone": "ventre", "famille": "extension_et_stabilite", "niveau": 1, "nom": "Bird-dog doux, bras seul", "consigne": "À quatre pattes : tendre un bras devant soi, doucement, sans bouger le bassin, puis l'autre bras.", "contre_indications": ["poignet"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=UtdoQq5zsCw" } },
+    { "id": "vt-birddog-2", "zone": "ventre", "famille": "extension_et_stabilite", "niveau": 2, "nom": "Bird-dog doux, jambe seule", "consigne": "À quatre pattes : tendre une jambe derrière soi, doucement, puis l'autre jambe.", "contre_indications": ["genou", "poignet"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=4TxL5Fn0J1Y" } },
+    { "id": "vt-birddog-3", "zone": "ventre", "famille": "extension_et_stabilite", "niveau": 3, "nom": "Bird-dog complet, amplitude réduite", "consigne": "Bras et jambe opposés tendus ensemble, amplitude courte, ventre engagé.", "contre_indications": ["poignet", "genou", "dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/wh2spJeDDQs" } },
+    { "id": "vt-birddog-4", "zone": "ventre", "famille": "extension_et_stabilite", "niveau": 4, "nom": "Bird-dog complet, tenue", "consigne": "Même mouvement, tenue plus longue en position tendue.", "contre_indications": ["poignet", "genou", "dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/lUW37OUb_QY" } },
+
+    { "id": "cu-pont-1", "zone": "cuisses", "famille": "pont_fessier", "niveau": 1, "nom": "Pont fessier basique", "consigne": "Allongée, genoux pliés, pieds au sol : soulever légèrement le bassin, tenue courte, redescendre doucement.", "contre_indications": ["dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/R1OXPHRqehw" } },
+    { "id": "cu-pont-2", "zone": "cuisses", "famille": "pont_fessier", "niveau": 2, "nom": "Pont fessier tenu", "consigne": "Même mouvement, montée plus haute, tenue prolongée.", "contre_indications": ["dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/Qzks9v6wUfg" } },
+    { "id": "cu-pont-3", "zone": "cuisses", "famille": "pont_fessier", "niveau": 3, "nom": "Pont fessier une jambe", "consigne": "Même position, une jambe tendue en l'air, appui sur l'autre.", "contre_indications": ["dos", "genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/ugk9IjhWtkM" } },
+    { "id": "cu-pont-4", "zone": "cuisses", "famille": "pont_fessier", "niveau": 4, "nom": "Pont fessier pieds surélevés", "consigne": "Pieds posés sur un support bas (marche, livre épais), amplitude de montée plus grande.", "contre_indications": ["dos", "genou", "equilibre"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/Ubrrk0cVGok" } },
+
+    { "id": "cu-fente-1", "zone": "cuisses", "famille": "fente_et_chaise", "niveau": 1, "nom": "Squat assisté sur chaise", "consigne": "S'asseoir et se relever lentement d'une chaise, amplitude réduite, mains libres ou appui léger.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/rlBn15i2ybU" } },
+    { "id": "cu-fente-2", "zone": "cuisses", "famille": "fente_et_chaise", "niveau": 2, "nom": "Fente statique avant, avec appui", "consigne": "Un pied devant, un derrière, genoux légèrement pliés, appui sur le dossier d'une chaise pour l'équilibre.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/ACRW0ZEq62Y" } },
+    { "id": "cu-fente-3", "zone": "cuisses", "famille": "fente_et_chaise", "niveau": 3, "nom": "Fente statique sans appui", "consigne": "Même mouvement, amplitude plus grande, sans les mains.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/_Zc5kyQ5S_A" } },
+    { "id": "cu-fente-4", "zone": "cuisses", "famille": "fente_et_chaise", "niveau": 4, "nom": "Chaise contre un mur", "consigne": "Dos contre un mur, genoux pliés à 90°, tenue.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/gn1GW7dBoog" } },
+
+    { "id": "cu-jambes-1", "zone": "cuisses", "famille": "jambes_et_hanches", "niveau": 1, "nom": "Cercles de jambe allongée", "consigne": "Allongée sur le dos, une jambe tendue vers le plafond : petits cercles lents, puis l'autre jambe.", "contre_indications": ["hanche"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/Ssd7NZ5HaBM" } },
+    { "id": "cu-jambes-2", "zone": "cuisses", "famille": "jambes_et_hanches", "niveau": 2, "nom": "Lever de jambe latéral", "consigne": "Allongée sur le côté, jambe du dessus qui se lève doucement, amplitude courte.", "contre_indications": ["hanche"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/9V2DBdH7tpM" } },
+    { "id": "cu-jambes-3", "zone": "cuisses", "famille": "jambes_et_hanches", "niveau": 3, "nom": "Lever de jambe latéral, amplitude complète", "consigne": "Même mouvement, amplitude complète, courte tenue en haut.", "contre_indications": ["hanche", "genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/P1uGnGYUtS0" } },
+    { "id": "cu-jambes-4", "zone": "cuisses", "famille": "jambes_et_hanches", "niveau": 4, "nom": "Clam (coquillage)", "consigne": "Allongée sur le côté, genoux pliés, pieds joints : ouvrir le genou du dessus, tenue en haut.", "contre_indications": ["hanche"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/w2Op5nwUgaI" } },
+
+    { "id": "cu-squat-1", "zone": "cuisses", "famille": "squat_doux", "niveau": 1, "nom": "Mini-squat debout, appui chaise", "consigne": "Debout, mains sur le dossier d'une chaise : légère descente des genoux, remontée douce.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=Ubh9yjgBR8s" } },
+    { "id": "cu-squat-2", "zone": "cuisses", "famille": "squat_doux", "niveau": 2, "nom": "Mini-squat debout, sans appui", "consigne": "Même mouvement, amplitude légèrement plus grande, sans les mains.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/TGHJ5IOxZeU" } },
+    { "id": "cu-squat-3", "zone": "cuisses", "famille": "squat_doux", "niveau": 3, "nom": "Squat à mi-amplitude", "consigne": "Descente jusqu'à mi-cuisse, tenue courte en bas, remontée contrôlée.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/xfBRlAcwffk" } },
+    { "id": "cu-squat-4", "zone": "cuisses", "famille": "squat_doux", "niveau": 4, "nom": "Squat à mi-amplitude, tenue prolongée", "consigne": "Même mouvement, tenue plus longue en position basse.", "contre_indications": ["genou"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/Ly-4EyES178" } },
+
+    { "id": "cu-fessier-1", "zone": "cuisses", "famille": "fessier_au_sol", "niveau": 1, "nom": "Extension de jambe à quatre pattes, amplitude courte", "consigne": "À quatre pattes : tendre une jambe pliée vers l'arrière et le haut, amplitude courte.", "contre_indications": ["genou", "poignet"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/XRmrRiIdR2o" } },
+    { "id": "cu-fessier-2", "zone": "cuisses", "famille": "fessier_au_sol", "niveau": 2, "nom": "Extension de jambe à quatre pattes, tenue", "consigne": "Même mouvement, tenue en haut de l'amplitude.", "contre_indications": ["genou", "poignet"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/dCIA4YXCIjA" } },
+    { "id": "cu-fessier-3", "zone": "cuisses", "famille": "fessier_au_sol", "niveau": 3, "nom": "Extension de jambe tendue à quatre pattes", "consigne": "Jambe tendue plutôt que pliée, amplitude modérée.", "contre_indications": ["genou", "poignet", "dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/MfisViRvxoc" } },
+    { "id": "cu-fessier-4", "zone": "cuisses", "famille": "fessier_au_sol", "niveau": 4, "nom": "Extension de jambe tendue, tenue", "consigne": "Même mouvement, tenue plus longue en haut.", "contre_indications": ["genou", "poignet", "dos"], "minutage": null, "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=FE0Gsq_BR6s" } },
+
+    {
+      "id": "rc-chat-vache",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Étirement chat-vache",
+      "consigne": "À quatre pattes : alterner dos rond et dos creux, doucement, au rythme de la respiration.",
+      "contre_indications": ["genou", "poignet"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/33DU2FHxxDw" }
+    },
+    {
+      "id": "rc-etirement-ischios",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Étirement des ischio-jambiers assise",
+      "consigne": "Assise, une jambe tendue devant, on se penche doucement vers l'avant sans forcer.",
+      "contre_indications": ["dos"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/CYX6ie7RmHo" }
+    },
+    {
+      "id": "rc-etirement-hanches",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Étirement des hanches allongée",
+      "consigne": "Allongée sur le dos, on ramène un genou vers la poitrine, doucement, puis l'autre.",
+      "contre_indications": ["genou"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/muv4W1mjYyQ" }
+    },
+    {
+      "id": "rc-torsion-dos",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Torsion du dos allongée",
+      "consigne": "Allongée, genoux pliés, on les laisse basculer doucement d'un côté, bras en croix, quelques respirations, puis l'autre côté.",
+      "contre_indications": ["dos", "hanche"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/lyhWPzuGUHc" }
+    },
+    {
+      "id": "rc-etirement-mollets",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Étirement des mollets",
+      "consigne": "Debout face à un mur, une jambe reculée tendue, talon au sol, léger appui vers l'avant.",
+      "contre_indications": ["cheville", "equilibre"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/7SO6QzfBRaE" }
+    },
+    {
+      "id": "rc-etirement-epaules-bras",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Étirement des épaules et des bras",
+      "consigne": "Debout ou assise : un bras croisé devant la poitrine, léger appui de l'autre bras, doucement, puis l'autre côté.",
+      "contre_indications": ["epaule"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/aIq0fLi8iak" }
+    },
+    {
+      "id": "rc-respiration-finale",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Respiration finale allongée",
+      "consigne": "Allongée, mains sur le ventre, quelques respirations profondes et lentes pour clore la séance.",
+      "contre_indications": [],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=dqPk2VdM5Tg" }
+    },
+    {
+      "id": "rc-etirement-dos-enroulement",
+      "zone": "retour_au_calme",
+      "famille": null,
+      "niveau": null,
+      "nom": "Étirement du dos assise, enroulement",
+      "consigne": "Assise, jambes légèrement pliées : dos rond, on se penche doucement vers l'avant, bras relâchés vers le sol.",
+      "contre_indications": ["dos"],
+      "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/rZqA5XjcnPQ" }
+    }
+  ]
+}

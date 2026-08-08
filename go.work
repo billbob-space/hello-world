@@ -18,4 +18,5 @@ use ./apps/cadran
 use ./apps/compteur
 use ./apps/hello-world
 use ./apps/marcq-handball
+use ./apps/pilabelle
 use ./apps/ramure
