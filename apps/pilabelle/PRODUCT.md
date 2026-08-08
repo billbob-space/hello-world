@@ -191,9 +191,11 @@ sait pas encore faire seul.
    `X-Forwarded-User`, retrouvés à la reconnexion, sur n'importe quel
    appareil.
 9. **Petits mots** : une pique affectueuse de retrouvailles quand elle
-   revient après un jour sans séance (§ 7.2), et de temps en temps un mot
-   doux en fin de séance (§ 10) — tirés d'un stock de messages écrit une
-   fois, livré avec l'application comme le dictionnaire d'exercices.
+   revient après un jour sans séance (§ 7.2), organisée en plusieurs
+   familles selon la durée de l'absence pour rester vraie et variée, et de
+   temps en temps un mot doux en fin de séance (§ 10.1) — tirés de stocks
+   de messages écrits une fois, livrés avec l'application comme le
+   dictionnaire d'exercices.
 
 #### Lot 2 — dès que le lot 1 est en ligne
 
@@ -240,11 +242,13 @@ l'historique.
 
 **Si le dernier jour de séance remonte à hier ou plus**, l'écran du jour
 s'ouvre sur une pique de retrouvailles avant d'afficher la séance — jamais
-un compteur de jours manqués, jamais un ton de reproche. Par exemple :
-*« Bah alors, on ne s'est pas vu hier 😙. Tu m'as manqué. »* Tirée au sort
-dans un stock de variantes (§ 10), jamais deux fois de suite la même. Elle
-s'affiche une fois puis laisse place à la séance — ce n'est pas un écran à
-fermer, juste une phrase avant le reste.
+un compteur de jours manqués, jamais un ton de reproche. La pique est tirée
+dans la famille qui correspond à la durée réelle de l'absence (§ 10.1),
+pour ne jamais dire un « hier » qui serait faux après une semaine de
+silence. Pour une absence d'un jour, par exemple : *« Bah alors, on ne
+s'est pas vu hier 😙. Tu m'as manqué. »* Elle s'affiche une fois puis laisse
+place à la séance — ce n'est pas un écran à fermer, juste une phrase avant
+le reste.
 
 #### 7.3 Faire une séance
 
@@ -417,20 +421,29 @@ m'as manqué » contre « tu as raté ta séance ».
   de niveau, elle, ne s'accompagne d'aucune animation — ni pénalité ni
   fanfare, juste un fait.
 
-#### 10.1 Les mots doux
+#### 10.1 Les piques et les mots doux
 
-En plus des messages d'encouragement neutres (« bravo, séance faite ! »),
-un mot plus tendre apparaît de temps en temps en fin de séance — pas à
-chaque fois, pour que ça reste une surprise plutôt qu'une routine
-prévisible. Ce ne sont pas des félicitations d'application : ce sont des
-mots que vous lui adressez, écrits une fois, tirés au sort au même titre
-que les encouragements ordinaires.
+Deux stocks distincts, tous deux écrits par vous, tous deux pensés pour ne
+jamais devenir une formule répétée.
 
-Les piques de retrouvailles (§ 7.2) et les mots doux sont deux stocks
-distincts — les premières ne se déclenchent qu'au retour après une pause,
-les seconds à n'importe quelle fin de séance — mais partagent la même
-règle : jamais deux fois de suite le même message, et un ton personnel,
-jamais générique.
+**Les piques de retrouvailles** (§ 7.2) sont rangées en plusieurs
+familles selon la durée réelle de l'absence — une absence d'un jour
+n'appelle pas le même mot qu'une semaine de silence, et le texte ne doit
+jamais prétendre « hier » si ce n'est pas vrai. Trois familles suffisent :
+un jour, quelques jours (deux à six), une semaine ou plus. Chaque famille
+contient plusieurs variantes, et les variantes changent aussi de **registre**
+d'une à l'autre — taquinerie légère, clin d'œil complice, petite
+provocation gentille pour la remotiver — de sorte que deux retours à durée
+d'absence égale ne sonnent jamais pareil.
+
+**Les mots doux** viennent en plus des messages d'encouragement neutres
+(« bravo, séance faite ! ») : un mot plus tendre apparaît de temps en
+temps en fin de séance, pas à chaque fois, pour que ça reste une surprise
+plutôt qu'une routine prévisible. Ce ne sont pas des félicitations
+d'application, ce sont des mots que vous lui adressez.
+
+Règle commune aux deux stocks : jamais deux fois de suite le même message,
+et un ton toujours personnel, jamais générique de « coach ».
 
 Deux interdits : rien qui bloque l'interaction pendant l'effort ou pendant
 le chronomètre, et `prefers-reduced-motion` respecté — l'app reste
@@ -479,6 +492,8 @@ n'en épuiserait est le seuil à viser, pas un chiffre exact.
 
 **Les piques de retrouvailles et les mots doux (§ 7.2, § 10.1) sont eux
 aussi un travail de contenu**, écrit une fois avant la mise en ligne du
-lot 1 : assez de variantes dans chaque stock pour ne pas se répéter d'une
-semaine sur l'autre. Vous les écrivez vous-même — c'est le seul contenu de
-l'application qui gagne à être écrit par vous plutôt que déduit du PRD.
+lot 1 : assez de variantes dans chaque famille de piques (un jour, quelques
+jours, une semaine ou plus) et dans le stock de mots doux pour ne pas se
+répéter d'une semaine sur l'autre. Vous les écrivez vous-même — c'est le
+seul contenu de l'application qui gagne à être écrit par vous plutôt que
+déduit du PRD.
