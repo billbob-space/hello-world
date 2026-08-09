@@ -303,6 +303,21 @@ hr {
 	border: 1px solid var(--lavande-300);
 }
 
+.defi {
+	background: var(--lavande-100);
+	color: var(--lavande-500);
+	border-radius: var(--rayon-sm);
+	padding: 0.6rem var(--espace);
+	font-weight: 600;
+	font-size: 0.9rem;
+	text-align: center;
+}
+
+.defi.defi-releve {
+	background: var(--menthe-100);
+	color: var(--menthe-700);
+}
+
 ul {
 	list-style: none;
 	padding: 0;
@@ -434,6 +449,21 @@ ul li {
 @keyframes apparition-niveau {
 	from { transform: scale(0.92) translateY(0.25rem); opacity: 0; }
 	to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.defi-recompense {
+	background: var(--corail-100);
+	color: var(--corail-700);
+	border-radius: var(--rayon);
+	padding: var(--espace);
+	text-align: center;
+	font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.defi-recompense {
+		animation: apparition-niveau 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+	}
 }
 
 .mot-doux {

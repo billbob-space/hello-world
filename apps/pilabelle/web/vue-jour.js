@@ -32,6 +32,16 @@ function lienReglages(onReglages) {
 	return lien;
 }
 
+// Le defi de la semaine (PRD §6 item 10, §9) : un petit objectif optionnel a
+// cote de la seance calculee. Fonction pure, testee independamment du DOM —
+// l'absence de defi ou un defi pas encore releve ne produisent jamais de
+// texte d'echec, seulement rien ou le titre (PRP 06, « aucun ecran ni
+// notification qui rappelle un defi manque »).
+export function libelleDefi(defi) {
+	if (!defi) return null;
+	return defi.releve ? `✓ Défi relevé : ${defi.titre}` : `Défi de la semaine : ${defi.titre}`;
+}
+
 export function vueJour(conteneur, { jour, onCommencer, onReglages }) {
 	conteneur.textContent = '';
 	conteneur.appendChild(lienReglages(onReglages));
@@ -41,6 +51,13 @@ export function vueJour(conteneur, { jour, onCommencer, onReglages }) {
 	// la seance »).
 	if (jour.pique) {
 		conteneur.appendChild(paragraphe(jour.pique, 'pique'));
+	}
+
+	// Le defi de la semaine s'affiche a cote de la seance, qu'il soit encore a
+	// relever ou deja relevé — jamais un etat "manque" (regle du PRP 06).
+	const libelle = libelleDefi(jour.defi);
+	if (libelle) {
+		conteneur.appendChild(paragraphe(libelle, jour.defi.releve ? 'defi defi-releve' : 'defi'));
 	}
 
 	const carte = document.createElement('div');

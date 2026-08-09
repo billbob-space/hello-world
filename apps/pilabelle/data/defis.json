@@ -1,0 +1,34 @@
+{
+  "defis": [
+    {
+      "id": "sem-toutes-1",
+      "titre": "Zéro jour sauté cette semaine",
+      "type": "toutes_les_seances_actives"
+    },
+    {
+      "id": "sem-toutes-2",
+      "titre": "Toutes tes séances, pas une de moins",
+      "type": "toutes_les_seances_actives"
+    },
+    {
+      "id": "sem-toutes-3",
+      "titre": "Une semaine complète, rien que pour toi",
+      "type": "toutes_les_seances_actives"
+    },
+    {
+      "id": "sem-facile-1",
+      "titre": "Deux séances qui filent toutes seules",
+      "type": "ressenti_facile_x2"
+    },
+    {
+      "id": "sem-facile-2",
+      "titre": "Deux fois \"facile\" avant dimanche",
+      "type": "ressenti_facile_x2"
+    },
+    {
+      "id": "sem-facile-3",
+      "titre": "Sentir que ça devient facile, deux fois cette semaine",
+      "type": "ressenti_facile_x2"
+    }
+  ]
+}

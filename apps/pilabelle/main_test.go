@@ -33,7 +33,7 @@ func poster(t *testing.T, h http.Handler, methode, chemin, email string, corps a
 func TestSante(t *testing.T) {
 	r := httptest.NewRequest("GET", "/healthz", nil)
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("healthz = %d, attendu 200", w.Code)
 	}
@@ -42,7 +42,7 @@ func TestSante(t *testing.T) {
 func TestIdentiteExigeeSurAPI(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/profil", nil)
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("sans X-Forwarded-User: %d, attendu 400", w.Code)
 	}
@@ -52,7 +52,7 @@ func TestPageAttente(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("X-Forwarded-User", "test@example.com")
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("/ = %d, attendu 200", w.Code)
 	}
@@ -65,7 +65,7 @@ func TestProfilAbsent(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/profil", nil)
 	r.Header.Set("X-Forwarded-User", "test@example.com")
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("profil absent: %d, attendu 404", w.Code)
 	}
@@ -85,8 +85,17 @@ func messagesDeTest() Messages {
 	return m
 }
 
+func defisDeTest() []DefiCatalogue {
+	return []DefiCatalogue{
+		{ID: "d-toutes-1", Titre: "toutes 1 de test", Type: DefiToutesLesSeancesActives},
+		{ID: "d-toutes-2", Titre: "toutes 2 de test", Type: DefiToutesLesSeancesActives},
+		{ID: "d-facile-1", Titre: "facile 1 de test", Type: DefiRessentiFacileX2},
+		{ID: "d-facile-2", Titre: "facile 2 de test", Type: DefiRessentiFacileX2},
+	}
+}
+
 func TestCreerProfil(t *testing.T) {
-	h := routes(Dictionnaire{}, messagesDeTest(), t.TempDir())
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir())
 	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	if w.Code != http.StatusCreated {
 		t.Fatalf("creation: %d, attendu 201 — corps: %s", w.Code, w.Body.String())
@@ -102,7 +111,7 @@ func TestCreerProfil(t *testing.T) {
 
 func TestCreerProfilDeuxFoisRefuse(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(Dictionnaire{}, messagesDeTest(), racine)
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine)
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	if w.Code != http.StatusConflict {
@@ -112,7 +121,7 @@ func TestCreerProfilDeuxFoisRefuse(t *testing.T) {
 
 func TestReglagesNeTouchentPasNiveauxHistoriqueSerie(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(Dictionnaire{}, messagesDeTest(), racine)
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine)
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 
 	// Simule une progression deja ecrite (comme le ferait PRP 05).
@@ -153,7 +162,7 @@ func TestReglagesNeTouchentPasNiveauxHistoriqueSerie(t *testing.T) {
 
 func TestJourRepos(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	// Aucun jour actif declare : quel que soit "aujourd'hui", c'est repos.
 	if err := EcrireProfil(racine, "test@example.com", Profil{Reponses: Reponses{JoursActifs: nil}}); err != nil {
 		t.Fatal(err)
@@ -175,7 +184,7 @@ func TestJourRepos(t *testing.T) {
 
 func TestJourAFaireDeuxAppelsIdempotents(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}},
 		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
@@ -204,7 +213,7 @@ func TestJourAFaireDeuxAppelsIdempotents(t *testing.T) {
 
 func TestJourAvecPiqueApresUneAbsence(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	tousLesJours := []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses:   Reponses{JoursActifs: tousLesJours},
@@ -231,7 +240,7 @@ func tousLesJoursDeTest() []string {
 
 func TestRessentiDejaCompteNeRecomptePas(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	jourDuTest := aujourdhui()
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses:   Reponses{JoursActifs: tousLesJoursDeTest()},
@@ -266,7 +275,7 @@ func TestRessentiDejaCompteNeRecomptePas(t *testing.T) {
 
 func TestRessentiDifficileFaitBaisserLeNiveau(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
 		Niveaux:  Niveaux{Ventre: 3, Cuisses: 3},
@@ -332,7 +341,7 @@ func TestEncouragementJamaisRepete(t *testing.T) {
 	}
 	messages := messagesDeTest()
 	messages.Encouragements = []string{"un", "deux"}
-	h2 := routes(chargerDictionnaireDeTest(t), messages, racine)
+	h2 := routes(chargerDictionnaireDeTest(t), messages, defisDeTest(), racine)
 	w1 := poster(t, h2, "POST", "/api/ressenti", "a@example.com", map[string]string{"ressenti": "correct"})
 	var recap1 Recap
 	json.Unmarshal(w1.Body.Bytes(), &recap1)
@@ -351,9 +360,180 @@ func TestEncouragementJamaisRepete(t *testing.T) {
 	}
 }
 
+// nomJourFR rend le nom francais du jour de semaine de dateISO, pour
+// construire un profil dont "aujourd'hui" est toujours un jour actif quel
+// que soit le jour ou tourne le test.
+func nomJourFR(t *testing.T, dateISO string) string {
+	t.Helper()
+	d, err := time.Parse("2006-01-02", dateISO)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nom, jourSemaine := range joursFR {
+		if jourSemaine == d.Weekday() {
+			return nom
+		}
+	}
+	t.Fatalf("jour introuvable pour %s", dateISO)
+	return ""
+}
+
+// TestJourTireUnDefiLaPremiereFois couvre le critere d'acceptation 1 : un
+// profil sans defi de la semaine ne montre rien de casse sur l'ecran du
+// jour — il en tire un aussitot.
+func TestJourTireUnDefiLaPremiereFois(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	jour := aujourdhui()
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses: Reponses{JoursActifs: []string{nomJourFR(t, jour)}},
+		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	w := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /api/jour: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	var reponse struct {
+		Defi *DefiSemaine `json:"defi"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &reponse); err != nil {
+		t.Fatal(err)
+	}
+	if reponse.Defi == nil || reponse.Defi.ID == "" {
+		t.Fatalf("aucun defi tire alors que le profil n'en avait pas: %+v", reponse.Defi)
+	}
+	if reponse.Defi.Semaine != semaineISODeDate(jour) {
+		t.Fatalf("semaine du defi = %s, attendu %s", reponse.Defi.Semaine, semaineISODeDate(jour))
+	}
+
+	apres, err := LireProfil(racine, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if apres.DefiSemaine == nil || apres.DefiSemaine.ID != reponse.Defi.ID {
+		t.Fatal("defi tire non persiste sur le profil")
+	}
+}
+
+func TestJourDefiStablePourLaMemeSemaine(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var premiere, seconde struct {
+		Defi *DefiSemaine `json:"defi"`
+	}
+	w1 := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	if err := json.Unmarshal(w1.Body.Bytes(), &premiere); err != nil {
+		t.Fatal(err)
+	}
+	w2 := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	if err := json.Unmarshal(w2.Body.Bytes(), &seconde); err != nil {
+		t.Fatal(err)
+	}
+	if premiere.Defi.ID != seconde.Defi.ID {
+		t.Fatalf("le defi change dans la meme semaine: %s puis %s", premiere.Defi.ID, seconde.Defi.ID)
+	}
+}
+
+// TestJourRedessineLeDefiSiLaSemaineAChange verifie le tirage hebdomadaire
+// du verrou du 9 aout 2026 : une semaine differente de celle du profil
+// declenche un nouveau tirage, persiste aussitot.
+func TestJourRedessineLeDefiSiLaSemaineAChange(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses:    Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:     Niveaux{Ventre: 1, Cuisses: 1},
+		DefiSemaine: &DefiSemaine{ID: "d-toutes-1", Titre: "ancien", Type: DefiToutesLesSeancesActives, Semaine: "2000-W01"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	w := poster(t, h, "GET", "/api/jour", "test@example.com", nil)
+	var reponse struct {
+		Defi *DefiSemaine `json:"defi"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &reponse); err != nil {
+		t.Fatal(err)
+	}
+	if reponse.Defi.Semaine == "2000-W01" {
+		t.Fatal("defi d'une semaine perimee jamais redessine")
+	}
+}
+
+// TestRessentiSansDefiNeCassePasEtNeMarqueRien couvre les criteres 1 et 2 :
+// sans defi assigne, POST /api/ressenti ne casse rien et ne fait apparaitre
+// aucune mention de defi rate.
+func TestRessentiSansDefiNeCassePasEtNeMarqueRien(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
+		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	w := poster(t, h, "POST", "/api/ressenti", "test@example.com", map[string]string{"ressenti": "correct"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /api/ressenti: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	var recap Recap
+	if err := json.Unmarshal(w.Body.Bytes(), &recap); err != nil {
+		t.Fatal(err)
+	}
+	if recap.DefiReleve != nil {
+		t.Fatalf("defi_releve = %v, attendu absent sans defi assigne", *recap.DefiReleve)
+	}
+}
+
+// TestRessentiDefiReleveToutesLesSeancesActives couvre la transition
+// false -> true de Recap.DefiReleve (verrou du 9 aout 2026, meme logique que
+// NiveauMonte).
+func TestRessentiDefiReleveToutesLesSeancesActives(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	jour := aujourdhui()
+	semaine := semaineISODeDate(jour)
+	if err := EcrireProfil(racine, "test@example.com", Profil{
+		Reponses:    Reponses{JoursActifs: []string{nomJourFR(t, jour)}}, // aujourd'hui, seul jour actif de la semaine
+		Niveaux:     Niveaux{Ventre: 1, Cuisses: 1},
+		DefiSemaine: &DefiSemaine{ID: "d-toutes-1", Titre: "t", Type: DefiToutesLesSeancesActives, Semaine: semaine},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	w := poster(t, h, "POST", "/api/ressenti", "test@example.com", map[string]string{"ressenti": "correct"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /api/ressenti: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	var recap Recap
+	if err := json.Unmarshal(w.Body.Bytes(), &recap); err != nil {
+		t.Fatal(err)
+	}
+	if recap.DefiReleve == nil || !*recap.DefiReleve {
+		t.Fatalf("defi_releve = %v, attendu true (seul jour actif de la semaine, fait aujourd'hui)", recap.DefiReleve)
+	}
+
+	apres, err := LireProfil(racine, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if apres.DefiSemaine == nil || !apres.DefiSemaine.Releve {
+		t.Fatal("defi non marque releve sur le profil persiste")
+	}
+}
+
 func TestSupprimerProfil(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 
 	w := poster(t, h, "DELETE", "/api/profil", "test@example.com", nil)
@@ -373,7 +553,7 @@ func TestSupprimerProfil(t *testing.T) {
 
 func TestSupprimerProfilIdempotent(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	// Aucun profil cree : la suppression ne doit pas echouer.
 	w := poster(t, h, "DELETE", "/api/profil", "test@example.com", nil)
 	if w.Code != http.StatusOK {
@@ -383,7 +563,7 @@ func TestSupprimerProfilIdempotent(t *testing.T) {
 
 func TestSupprimerProfilNeTouchePasUnAutreCompte(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
 	poster(t, h, "POST", "/api/profil", "elle@example.com", reponsesDeTest())
 	poster(t, h, "POST", "/api/profil", "vous@example.com", reponsesDeTest())
 

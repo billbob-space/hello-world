@@ -76,6 +76,38 @@ même endroit que `NiveauMonte`, même logique de détection au vol.
   manqué** : le PRD ne prévoit pour lui que des issues positives (relevé /
   silencieux), jamais une issue négative visible.
 
+## Le verrou, tranché le 9 août 2026
+
+`apps/pilabelle/PRODUCT.md` §12 borne la réserve de contenu humain aux piques et
+aux mots doux (« le **seul** contenu de l'application qui gagne à être écrit par
+vous ») : le contenu des défis n'en fait pas partie, à la différence de ce que
+suggérait la première version de ce PRP. Il se déduit du PRD comme le
+dictionnaire d'exercices.
+
+**La piste proposée est confirmée telle quelle** — `data/defis.json`, tirage
+hebdomadaire ISO sans répétition immédiate. Précisions :
+
+- **Deux types, pas plus pour ce lot** : `toutes_les_seances_actives` (chaque
+  jour actif de la semaine ISO a une entrée dans l'historique à cette date) et
+  `ressenti_facile_x2` (au moins deux entrées `ressenti: "facile"` dans la
+  semaine ISO). Les deux se vérifient entièrement depuis `profil.Historique` et
+  `profil.Reponses.JoursActifs`, sans état supplémentaire.
+- **Le tirage réutilise `tirerMessage`** (même mécanique que les piques,
+  PRP 04) : `sel = semaineISO + "|" + email`, `dernier = profil.DefiSemaine.ID`
+  de la semaine précédente si elle existe — même garantie de non-répétition que
+  les piques, explicitement acceptée comme équivalente par le critère 4
+  ci-dessous.
+- **Le stock** : trois défis par type (six au total), titres variés — écrits
+  pendant l'implémentation, dans le même esprit que le dictionnaire d'exercices
+  (PRD §12) : jamais culpabilisants, cohérents avec le principe « rater ne
+  coûte rien ».
+- **Le tirage a lieu dans `GET /api/jour`**, comparé à `profil.DefiSemaine.Semaine`
+  (l'ISO de la semaine courante) : semaine différente ou champ nil → nouveau
+  tirage, persisté aussitôt. `EvaluerDefi` s'appelle dans `POST /api/ressenti`,
+  après la mise à jour de la série, uniquement si `cas == CasAFaire` et
+  `!profil.DefiSemaine.Releve` — la transition `false → true` seule remplit
+  `Recap.DefiReleve`, même logique que `NiveauMonte`.
+
 ## Critères d'acceptation
 
 | # | Constat |
@@ -85,9 +117,7 @@ même endroit que `NiveauMonte`, même logique de détection au vol.
 | 3 | `EvaluerDefi` est une fonction pure, testée indépendamment de la route |
 | 4 | Le tirage hebdomadaire ne répète pas un défi avant d'avoir épuisé le stock (comme les piques, PRP 04) |
 
-## Ce qui bloque ce PRP
+## Ce qui bloquait ce PRP — tranché le 9 août 2026
 
-| Point | Qui tranche |
-|---|---|
-| La piste ci-dessus (type de défi, stock initial) | vous — à confirmer avant la première ligne de code |
-| Le contenu des défis eux-mêmes | vous, en contenu, comme les piques et les mots doux |
+Plus rien ne bloque : voir « Le verrou, tranché le 9 août 2026 » ci-dessus. Ce
+PRP passe donc à l'implémentation.

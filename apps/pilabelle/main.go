@@ -49,7 +49,7 @@ func aujourdhui() string {
 	return time.Now().In(parisTZ).Format("2006-01-02")
 }
 
-func routes(dico Dictionnaire, messages Messages, racineProfils string) http.Handler {
+func routes(dico Dictionnaire, messages Messages, defis []DefiCatalogue, racineProfils string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -163,21 +163,43 @@ func routes(dico Dictionnaire, messages Messages, racineProfils string) http.Han
 		}
 
 		reponse := struct {
-			Cas    Cas     `json:"cas"`
-			Seance *Seance `json:"seance,omitempty"`
-			Pique  string  `json:"pique,omitempty"`
+			Cas    Cas          `json:"cas"`
+			Seance *Seance      `json:"seance,omitempty"`
+			Pique  string       `json:"pique,omitempty"`
+			Defi   *DefiSemaine `json:"defi,omitempty"`
 		}{Cas: cas}
 		if cas == CasAFaire {
 			reponse.Seance = &seance
 		}
+
+		profilModifie := false
+
+		// Tirage hebdomadaire du defi (PRP 06, verrou du 9 aout 2026) : une
+		// semaine differente de celle du profil, ou aucun defi encore tire,
+		// declenche un nouveau tirage, persiste aussitot.
+		semaineCourante := semaineISODeDate(jour)
+		if profil.DefiSemaine == nil || profil.DefiSemaine.Semaine != semaineCourante {
+			dernier := ""
+			if profil.DefiSemaine != nil {
+				dernier = profil.DefiSemaine.ID
+			}
+			nouveauDefi := DefiDeLaSemaine(defis, dernier, semaineCourante+"|"+email, semaineCourante)
+			profil.DefiSemaine = &nouveauDefi
+			profilModifie = true
+		}
+		reponse.Defi = profil.DefiSemaine
 
 		if ecart := joursDepuisDerniereSeance(profil, jour); ecart >= 1 && cas == CasAFaire {
 			famille, pool := familleEtPool(messages, ecart)
 			pique := tirerMessage(pool, profil.DerniersMessages.Pique, jour+"|"+famille+"|"+email)
 			reponse.Pique = pique
 			profil.DerniersMessages.Pique = pique
+			profilModifie = true
+		}
+
+		if profilModifie {
 			if err := EcrireProfil(racineProfils, email, profil); err != nil {
-				log.Printf("ecriture profil %s: %v", identifiantFichier(email), err) // non bloquant : la pique s'affiche quand meme
+				log.Printf("ecriture profil %s: %v", identifiantFichier(email), err) // non bloquant : la reponse s'affiche quand meme
 			}
 		}
 		repondreJSON(w, reponse)
@@ -232,6 +254,17 @@ func routes(dico Dictionnaire, messages Messages, racineProfils string) http.Han
 			recap.Serie = profil.Serie
 
 			profil.Historique = append(profil.Historique, HistoriqueEntree{Date: jour, Ressenti: corps.Ressenti, Exercices: idsDeLaSeance(seance)})
+
+			// Defi de la semaine (PRP 06, verrou du 9 aout 2026) : seule la
+			// transition false -> true remplit Recap.DefiReleve, meme logique
+			// que NiveauMonte. Rater ne produit jamais rien de visible.
+			if profil.DefiSemaine != nil && !profil.DefiSemaine.Releve {
+				if EvaluerDefi(*profil.DefiSemaine, profil, jour) {
+					profil.DefiSemaine.Releve = true
+					releve := true
+					recap.DefiReleve = &releve
+				}
+			}
 		}
 
 		sel := jour + "|" + email
@@ -263,6 +296,7 @@ type Recap struct {
 	} `json:"niveau_monte"`
 	Encouragement string `json:"encouragement"`
 	MotDoux       string `json:"mot_doux,omitempty"`
+	DefiReleve    *bool  `json:"defi_releve,omitempty"`
 }
 
 func reponsesValides(r Reponses) bool {
@@ -339,8 +373,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("messages invalides : %v", err)
 	}
+	brutDefis, err := dataFS.ReadFile("data/defis.json")
+	if err != nil {
+		log.Fatalf("defis absents de l'image : %v", err)
+	}
+	defis, err := ChargerDefis(brutDefis)
+	if err != nil {
+		log.Fatalf("defis invalides : %v", err)
+	}
 
-	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, racine)}
+	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, defis, racine)}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

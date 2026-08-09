@@ -202,6 +202,26 @@ branche à une autre construite avant que l'outillage n'existe.
 (étape 3) disent maintenant explicitement de déléguer le code d'une app à `artisan` et
 l'enregistrement git au `greffier`, plutôt que de les faire soi-même.
 
+---
+
+Reprise sur la même branche (PR #107 fusionnée depuis) pour le lot 2 : défi de la
+semaine (PRP 06) et écran personnel (PRP 07), en mode `/livrer`, sujet choisi par
+l'utilisateur parmi trois options faute de travail en cours dans la conversation.
+
+Le verrou du PRP 06 (contenu et règle de génération du défi, laissé ouvert à
+l'écriture initiale) est tranché seul : `PRODUCT.md` §12 borne la réserve de
+contenu humain aux piques et aux mots doux (« le **seul** contenu... qui gagne à
+être écrit par vous ») — le défi n'en fait pas partie, il se déduit du PRD comme
+le dictionnaire d'exercices. Décision et sa justification écrites dans le PRP
+lui-même (§ « Le verrou, tranché le 9 août 2026 ») plutôt que recopiées ici :
+c'est là qu'un futur lecteur du PRP les cherchera.
+
+Conformément à la correction faite plus haut sur cette branche, le code des deux
+PRP est délégué à l'agent `artisan`, l'enregistrement git au `greffier` — la
+conversation principale n'écrit que les PRP (dialogue déjà eu, ici avec
+moi-même en l'absence de désaccord à arbitrer) et ne touche à aucun fichier de
+code de l'app.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
