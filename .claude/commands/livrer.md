@@ -44,11 +44,26 @@ travail**, pas a la fin. Elle enregistre les anomalies — ce qui a surpris, cas
 ou s'est revele faux, y compris tes propres erreurs de raisonnement. Les quatre
 champs et leurs deux vocabulaires fermes sont dans `memory/travail.md`.
 
-**3. La boucle, un tour par etape verifiee.** Ecris le code. Puis :
+**3. La boucle, un tour par etape verifiee.**
 
-    ./scripts/pret.sh          # branche dediee, contrat vert, tests des apps touchees
-    git add -A && git commit   # message dans le style du depot
-    git push -u origin <branche>
+Le code d'une app se delegue, il ne s'ecrit pas dans ta propre conversation :
+
+    Agent(subagent_type: "artisan")   # nom de l'app + la tache — jamais en tache de fond
+
+Ecris toi-meme seulement ce qui est hors de son perimetre — `.claude/`, `scripts/`,
+`fabrique.yml`, `init.sh`, plusieurs apps a la fois — ou ce qui demande un dialogue deja
+eu avec l'utilisateur (PRD, PRP). Recopie dans le journal les anomalies que l'artisan
+rapporte : lui ne peut pas les y ecrire, et ce qu'il ne te dit pas dans sa reponse est
+perdu.
+
+Puis, a chaque etape verifiee, l'enregistrement se delegue aussi :
+
+    Agent(subagent_type: "greffier")  # ouvre la branche si besoin, verifie, committe, pousse
+
+Ne fais pas `git add`/`commit`/`push` toi-meme, ni `./scripts/pret.sh` a sa place : le
+greffier le fait deja dans sa propre sequence, sur un modele moins cher et sans les
+diffs dans ton contexte. S'il rapporte un echec, repare et relance-le — ce n'est pas a
+toi de committer par-dessus.
 
 Un commit par etape relisable seule, pas un commit au kilometre. Le raisonnement
 detaille va dans le message de commit, ou il survit a la fusion.

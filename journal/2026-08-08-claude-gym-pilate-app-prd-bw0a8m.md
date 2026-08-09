@@ -1,7 +1,7 @@
 # 2026-08-08 — claude/gym-pilate-app-prd-bw0a8m
 
 Branche : `claude/gym-pilate-app-prd-bw0a8m`
-Périmètre : pilabelle
+Périmètre : pilabelle, fabrique
 Mode : `chaud`
 
 ## Anomalies
@@ -180,6 +180,27 @@ anomalie et un réglage à resserrer :
   fréquence de tirage resserrée de 1/3 à 1/2 (`motDouxDeTempsEnTemps`,
   `domaine.go`) — décision seule, PRD §10.1 ne fixe pas de cadence,
   révisable au prochain retour d'usage.
+
+---
+
+Retour sur l'audit d'usage demandé par l'utilisateur après la mise en ligne : les trois
+agents dédiés (`artisan`, `greffier`, `analyste`) n'ont quasiment pas servi sur cette
+branche — 61 des 814 appels au modèle relevaient d'un sous-agent, tous issus de
+`/impeccable` (le polish visuel), aucun de `artisan` ni de `greffier`. Tout le code, les
+PRP et les commits ont été écrits et enregistrés par la conversation principale
+elle-même.
+
+**Cause** — ni le contrat (`Comment on travaille`) ni `/livrer` ne disaient d'appeler ces
+agents : ils sont décrits dans `memory/travail.md` comme des outils disponibles, avec
+leurs règles, mais rien dans la boucle de travail effective (« écris le code »,
+« git add -A && git commit ») ne renvoyait vers eux. Un outil documenté mais jamais
+invoqué dans le chemin normal ne sert à rien.
+
+`Detecte par` — `utilisateur`, après la mise en ligne, en comparant le coût de cette
+branche à une autre construite avant que l'outillage n'existe.
+`Action` — `contrat` — `CLAUDE.md` (§ Comment on travaille) et `.claude/commands/livrer.md`
+(étape 3) disent maintenant explicitement de déléguer le code d'une app à `artisan` et
+l'enregistrement git au `greffier`, plutôt que de les faire soi-même.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
