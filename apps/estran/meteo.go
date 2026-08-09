@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -165,20 +167,47 @@ func (c *ClientMeteo) recupererMarine(ctx context.Context) (reponseMarineBrute, 
 	return r, err
 }
 
-func recupererJSON(ctx context.Context, client *http.Client, url string, dest any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// recupererJSON ne laisse jamais fuiter la chaine de requete dans une erreur :
+// maree.go y passe la cle api-maree.fr en parametre, et http.Client renvoie
+// des erreurs de type *url.Error qui embarquent l'URL complete telle
+// qu'appelee. sansRequete() et causeSansURL() gardent l'erreur utile sans le
+// secret.
+func recupererJSON(ctx context.Context, client *http.Client, cible string, dest any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cible, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s : requete invalide", sansRequete(cible))
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s : %w", sansRequete(cible), causeSansURL(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s : statut %d", url, resp.StatusCode)
+		return fmt.Errorf("%s : statut %d", sansRequete(cible), resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(dest)
+}
+
+// sansRequete retire la chaine de requete (donc toute cle d'API) d'une URL,
+// pour ne garder que ce qui est sur de journaliser.
+func sansRequete(cible string) string {
+	u, err := url.Parse(cible)
+	if err != nil {
+		return "url illisible"
+	}
+	u.RawQuery = ""
+	return u.String()
+}
+
+// causeSansURL extrait la cause d'une erreur reseau sans l'URL complete que
+// http.Client y accole (*url.Error.Error() reimprime l'URL demandee, cle
+// d'API comprise).
+func causeSansURL(err error) error {
+	var uerr *url.Error
+	if errors.As(err, &uerr) {
+		return uerr.Err
+	}
+	return err
 }
 
 func valeurA(s []float64, i int) float64 {

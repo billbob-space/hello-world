@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -159,5 +160,26 @@ func TestValeurA(t *testing.T) {
 func TestParisTZChargee(t *testing.T) {
 	if parisTZ == nil || parisTZ == time.UTC {
 		t.Fatal("parisTZ doit resoudre Europe/Paris, pas UTC")
+	}
+}
+
+func TestSansRequete_RetireLaCle(t *testing.T) {
+	got := sansRequete("https://api-maree.fr/tide-extrema?site=x&key=SECRET123")
+	if got != "https://api-maree.fr/tide-extrema" {
+		t.Fatalf("sansRequete = %q, la cle ne doit jamais y figurer", got)
+	}
+}
+
+func TestRecupererJSON_ErreurNeContientJamaisLaCle(t *testing.T) {
+	// Port improbable, injoignable : declenche une erreur *url.Error dont le
+	// message brut de Go embarque l'URL demandee, cle comprise.
+	cible := "http://127.0.0.1:1/tide-extrema?site=x&key=SECRET123"
+	var dest any
+	err := recupererJSON(context.Background(), &http.Client{Timeout: time.Second}, cible, &dest)
+	if err == nil {
+		t.Fatal("attendu une erreur : port injoignable")
+	}
+	if strings.Contains(err.Error(), "SECRET123") {
+		t.Fatalf("l'erreur contient la cle API : %v", err)
 	}
 }

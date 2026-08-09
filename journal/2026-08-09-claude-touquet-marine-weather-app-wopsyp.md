@@ -94,10 +94,36 @@ absente du registre) ne peut donc pas se produire ici, et `deploy` porte de
 toute façon son propre contrôle (`docker buildx imagetools inspect` sur
 chaque image du compose) avant tout redéploiement.
 
+---
+
+### 3. La clé api-maree.fr pouvait fuiter dans les journaux d'erreur
+
+**Symptôme** — la revue de sécurité automatique déclenchée après le commit
+signale que `maree.go` construit l'URL des deux appels api-maree.fr avec
+`key=<API_MAREE_KEY>` dans la chaîne de requête, puis la transmet à
+`recupererJSON`, qui la réimprimait telle quelle dans ses erreurs — ces
+erreurs remontant jusqu'aux `log.Printf` de `main.go`, la clé aurait fini en
+clair dans les journaux (sortie standard) à la première panne réseau.
+**Cause** — deux fuites, pas une seule : le message d'erreur explicite
+(`fmt.Errorf("%s : statut %d", url, ...)`) et surtout `*url.Error`, que
+`http.Client.Do` renvoie déjà rempli de l'URL complète demandée — un simple
+`%w` sur cette erreur aurait suffi à réimprimer la clé même sans jamais
+nommer `url` explicitement.
+**Detecte par** — `relecture`
+**Action** — `garde-fou` — `recupererJSON` (`meteo.go`) ne journalise plus
+jamais la chaîne de requête : `sansRequete()` la retire avant tout message
+d'erreur, `causeSansURL()` déballe `*url.Error` pour n'en garder que la
+cause. Deux tests verrouillent le comportement (`TestSansRequete_RetireLaCle`,
+`TestRecupererJSON_ErreurNeContientJamaisLaCle` — ce dernier vérifie sur une
+vraie erreur réseau, pas seulement sur le message construit à la main).
+Rien dans ce dépôt ne détecte aujourd'hui une clé qui fuiterait par un autre
+chemin qu'un appel HTTP échoué : un grep de journaux en CI serait le
+garde-fou générique, absent pour l'instant.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-09 à 12:49 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-09 à 12:57 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -105,26 +131,26 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 4 716 | 0,01 $ |
-| Écriture de cache | 380 847 | 1,35 $ |
-| Lecture de cache | 36 698 622 | 10,98 $ |
-| Sortie | 128 899 | 1,93 $ |
-| **Total** | **37 213 084** | **14,27 $ — 12,40 €** |
+| Entrée | 4 832 | 0,01 $ |
+| Écriture de cache | 845 791 | 2,69 $ |
+| Lecture de cache | 46 492 417 | 13,81 $ |
+| Sortie | 155 615 | 2,13 $ |
+| **Total** | **47 498 655** | **18,65 $ — 16,19 €** |
 
 **Ce qui coûte**
 
-- **155 appel(s) au modèle** — un par réponse, outils compris —, dont 8 par des sous-agents — 134 847 jetons, 0,00 $.
+- **192 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   67 265 jetons, écrits une fois par session puis relus à chaque
-  échange : 9 820 690 jetons de relecture, 26 % de tout ce qui a été relu.
-- **Tours courts** — 61 des 155 tours (39 %) sortent
+  échange : 11 905 905 jetons de relecture, 25 % de tout ce qui a été relu.
+- **Tours courts** — 77 des 192 tours (40 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 5,48 $, soit 38 % de la facture.
+  une sortie de rien. Ils coûtent 7,40 $, soit 39 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 67 265 jetons relus au premier appel qui relise
-  quelque chose, 360 258 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 387 330 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 37213084 -->
+<!-- cout-total: 47498655 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-sonnet-5 67265 0 76
 2 principal claude-sonnet-5 605 67265 1466
@@ -273,13 +299,50 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 145 principal claude-sonnet-5 1223 358665 296
 146 principal claude-sonnet-5 370 359888 271
 147 principal claude-sonnet-5 345 360258 289
-148 agent claude-haiku-4-5-20251001 11265 0 4
-149 agent claude-haiku-4-5-20251001 1480 11265 2
-150 agent claude-haiku-4-5-20251001 307 12745 2
-151 agent claude-haiku-4-5-20251001 5128 13052 2
-152 agent claude-haiku-4-5-20251001 849 18180 3
-153 agent claude-haiku-4-5-20251001 528 19029 4
-154 agent claude-haiku-4-5-20251001 723 19557 2
-155 agent claude-haiku-4-5-20251001 370 20280 4
+148 principal claude-sonnet-5 4402 360603 106
+149 principal claude-sonnet-5 307 365005 1125
+150 principal claude-sonnet-5 1491 365312 285
+151 principal claude-sonnet-5 373 366803 211
+152 principal claude-sonnet-5 834 367176 142
+153 principal claude-sonnet-5 302 368010 314
+154 principal claude-sonnet-5 1688 368312 154
+155 principal claude-sonnet-5 161 370000 110
+156 principal claude-sonnet-5 1117 370161 1565
+157 principal claude-opus-4-7 35788 28233 3747
+158 principal claude-sonnet-5 2096 371278 477
+159 principal claude-sonnet-5 3064 373374 291
+160 principal claude-opus-4-7 4968 64021 718
+161 principal claude-sonnet-5 411 376438 200
+162 principal claude-sonnet-5 633 376849 1319
+163 principal claude-sonnet-5 1386 377482 69
+164 principal claude-opus-4-7 1512 68989 2333
+165 principal claude-opus-4-7 36025 28233 5866
+166 principal claude-opus-4-7 5911 64258 1113
+167 principal claude-sonnet-5 331186 49060 997
+168 principal claude-sonnet-5 1224 380246 1550
+169 principal claude-sonnet-5 1603 381470 1008
+170 principal claude-sonnet-5 1061 383073 280
+171 principal claude-sonnet-5 470 384134 177
+172 principal claude-sonnet-5 574 384604 600
+173 principal claude-sonnet-5 628 385178 242
+174 principal claude-sonnet-5 338 385806 142
+175 principal claude-sonnet-5 144 386144 178
+176 principal claude-sonnet-5 323 386288 279
+177 principal claude-sonnet-5 719 386611 976
+178 principal claude-sonnet-5 1050 387330 129
+179 agent claude-haiku-4-5-20251001 11416 0 4
+180 agent claude-haiku-4-5-20251001 1837 11416 2
+181 agent claude-haiku-4-5-20251001 2386 13253 2
+182 agent claude-haiku-4-5-20251001 4451 15639 1
+183 agent claude-haiku-4-5-20251001 2826 20090 2
+184 agent claude-haiku-4-5-20251001 239 22916 2
+185 agent claude-haiku-4-5-20251001 11265 0 4
+186 agent claude-haiku-4-5-20251001 1480 11265 2
+187 agent claude-haiku-4-5-20251001 307 12745 2
+188 agent claude-haiku-4-5-20251001 5128 13052 2
+189 agent claude-haiku-4-5-20251001 849 18180 3
+190 agent claude-haiku-4-5-20251001 528 19029 4
+191 agent claude-haiku-4-5-20251001 723 19557 2
+192 agent claude-haiku-4-5-20251001 370 20280 4
 -->
 <!-- /cout -->
