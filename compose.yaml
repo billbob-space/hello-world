@@ -246,7 +246,7 @@ services:
 
   # >>> estran — apps/estran/app.yml — https://estran.apps.billbob.ovh
   estran:
-    image: ghcr.io/billbob-space/hello-world/estran:0ed0f929b755aafc20f83b87e12bb8a9c597d263
+    image: ghcr.io/billbob-space/hello-world/estran:33dca5c309bc9250eab4fcfb64f9ec3d27b76d5d
     container_name: estran
     restart: unless-stopped
     mem_limit: 128m
