@@ -10,18 +10,22 @@ const CHOIX = [
 export function vueRessenti(conteneur, { onChoix }) {
 	conteneur.textContent = '';
 
-	const titre = document.createElement('p');
-	titre.textContent = 'Comment tu as trouvé la séance ?';
-	conteneur.appendChild(titre);
+	const carte = document.createElement('div');
+	carte.className = 'carte';
+	conteneur.appendChild(carte);
+
+	carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Séance terminée' }));
+	carte.appendChild(Object.assign(document.createElement('p'), { className: 'sous-titre', textContent: 'Comment tu as trouvé la séance ?' }));
 
 	const rangee = document.createElement('div');
 	rangee.className = 'ressenti';
 	for (const [valeur, emoji, libelle] of CHOIX) {
 		const b = document.createElement('button');
 		b.type = 'button';
-		b.textContent = `${emoji} ${libelle}`;
+		if (valeur !== 'facile') b.className = 'secondaire';
+		b.textContent = `${emoji}  ${libelle}`;
 		b.addEventListener('click', () => onChoix(valeur));
 		rangee.appendChild(b);
 	}
-	conteneur.appendChild(rangee);
+	carte.appendChild(rangee);
 }

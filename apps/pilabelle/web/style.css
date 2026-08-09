@@ -1,112 +1,377 @@
-/* Jetons : doux, arrondi, un peu kawaii — jamais au prix de la lisibilite en
-   plein effort (PRD §11). Mobile uniquement, zones de tap >= 44px. */
+/* pilabelle — jetons : doux, arrondi, kawaii sans infantiliser (PRD §11).
+   Mode Operate : le confort de la tâche prime sur la démonstration. Police
+   système bien réglée plutôt qu'importée — l'app doit rester légère et
+   utilisable même sur un réseau capricieux, posée au sol pendant l'effort. */
+
 :root {
-	--rose: #ffb4c6;
-	--rose-clair: #ffe3ea;
-	--lavande: #d8c7f5;
-	--vert-doux: #b7e4c7;
-	--texte: #3a2e35;
-	--fond: #fff8f9;
+	/* Couleurs — un rose tendre en primaire, une lavande en secondaire,
+	   un vert doux pour la validation, jamais saturés à fond. */
+	--rose-50:  #fff5f7;
+	--rose-100: #ffe3ea;
+	--rose-300: #ffb4c6;
+	--rose-500: #f6839f;
+	--rose-700: #d4577a;
+
+	--lavande-100: #f1eafc;
+	--lavande-300: #d8c7f5;
+	--lavande-500: #a988e0;
+
+	--menthe-100: #e3f7ea;
+	--menthe-500: #6fbf8f;
+	--menthe-700: #2f7a4f;
+
+	--corail-100: #fde9ea;
+	--corail-500: #e2717f;
+	--corail-700: #a3394a;
+
+	--encre: #3a2e35;
+	--encre-douce: #6e5c66;
+	--fond: #fffaf8;
+	--carte: #ffffff;
+	--liseré: #f3e3e8;
+
+	/* Formes et rythme */
+	--rayon-sm: 0.75rem;
 	--rayon: 1.25rem;
-	--espace: 1rem;
+	--rayon-lg: 1.75rem;
+	--espace-xs: 0.5rem;
+	--espace-sm: 0.75rem;
+	--espace: 1.25rem;
+	--espace-lg: 2rem;
+
+	/* Ombre : décalage + flou, jamais un halo à décalage nul */
+	--ombre-sm: 0 2px 6px -2px rgb(58 46 53 / 0.12);
+	--ombre: 0 8px 24px -8px rgb(58 46 53 / 0.18), 0 2px 6px -2px rgb(58 46 53 / 0.08);
+	--ombre-carte: 0 1px 3px rgb(58 46 53 / 0.06), 0 1px 2px rgb(58 46 53 / 0.04);
+
+	--police: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
-* { box-sizing: border-box; }
+* {
+	box-sizing: border-box;
+}
+
+::selection {
+	background: var(--rose-300);
+	color: var(--encre);
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
 
 body {
 	margin: 0;
 	min-height: 100dvh;
-	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-	background: var(--fond);
-	color: var(--texte);
-	font-family: system-ui, -apple-system, sans-serif;
-	font-size: 1.05rem;
-	line-height: 1.5;
+	padding: max(env(safe-area-inset-top), 1rem) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+	background:
+		radial-gradient(60rem 40rem at 100% -10%, var(--rose-50) 0%, transparent 60%),
+		radial-gradient(50rem 40rem at -10% 110%, var(--lavande-100) 0%, transparent 55%),
+		var(--fond);
+	background-attachment: fixed;
+	color: var(--encre);
+	font-family: var(--police);
+	font-size: 1rem;
+	line-height: 1.55;
+	-webkit-font-smoothing: antialiased;
 }
 
 #app {
-	max-width: 32rem;
+	max-width: 28rem;
 	margin: 0 auto;
-	padding: 1.5rem;
+	padding: var(--espace-lg) var(--espace) calc(var(--espace-lg) + env(safe-area-inset-bottom));
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	gap: var(--espace);
 }
+
+@media (prefers-reduced-motion: no-preference) {
+	#app {
+		animation: apparition 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+}
+
+@keyframes apparition {
+	from { opacity: 0; transform: translateY(0.5rem); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Typographie ------------------------------------------------------- */
+
+h1, h2, h3 {
+	margin: 0;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.05rem; color: var(--encre-douce); font-weight: 600; }
+
+p {
+	margin: 0;
+}
+
+.sous-titre {
+	color: var(--encre-douce);
+	font-size: 0.95rem;
+}
+
+/* Cartes -------------------------------------------------------------- */
+
+.carte {
+	background: var(--carte);
+	border-radius: var(--rayon-lg);
+	padding: var(--espace-lg) var(--espace);
+	box-shadow: var(--ombre-carte);
+	border: 1px solid var(--liseré);
+	display: flex;
+	flex-direction: column;
+	gap: var(--espace-sm);
+}
+
+/* Boutons --------------------------------------------------------------
+   Zones de tap >= 48px (PRD §11). Etats complets : hover, focus-visible,
+   active, disabled. */
+
+button {
+	display: block;
+	width: 100%;
+	min-height: 52px;
+	border: none;
+	border-radius: var(--rayon);
+	background: var(--rose-300);
+	color: var(--rose-700);
+	font-family: inherit;
+	font-size: 1.05rem;
+	font-weight: 700;
+	cursor: pointer;
+	padding: 0 1.25rem;
+	box-shadow: var(--ombre-sm);
+}
+
+button:hover {
+	background: var(--rose-500);
+	color: #fff;
+}
+
+button:active {
+	background: var(--rose-700);
+	color: #fff;
+	box-shadow: none;
+}
+
+button:focus-visible {
+	outline: 3px solid var(--lavande-500);
+	outline-offset: 2px;
+}
+
+button:disabled {
+	background: var(--liseré);
+	color: var(--encre-douce);
+	box-shadow: none;
+	cursor: not-allowed;
+}
+
+button.secondaire {
+	background: var(--lavande-100);
+	color: var(--lavande-500);
+	box-shadow: none;
+}
+
+button.secondaire:hover {
+	background: var(--lavande-300);
+	color: var(--encre);
+}
+
+button.secondaire:active {
+	background: var(--lavande-500);
+	color: #fff;
+}
+
+button.danger {
+	background: var(--corail-100);
+	color: var(--corail-700);
+	box-shadow: none;
+}
+
+button.danger:hover {
+	background: var(--corail-500);
+	color: #fff;
+}
+
+button.danger:active {
+	background: var(--corail-700);
+	color: #fff;
+}
+
+.lien-discret {
+	display: inline-flex;
+	align-items: center;
+	width: auto;
+	min-height: 44px;
+	padding: 0 0.25rem;
+	background: transparent;
+	color: var(--encre-douce);
+	box-shadow: none;
+	font-size: 0.95rem;
+	font-weight: 600;
+	align-self: flex-start;
+}
+
+.lien-discret:hover {
+	background: transparent;
+	color: var(--rose-700);
+}
+
+.lien-discret:active {
+	background: transparent;
+	color: var(--rose-700);
+}
+
+/* Formulaires ----------------------------------------------------------- */
 
 fieldset {
 	border: none;
-	background: var(--rose-clair);
+	background: var(--rose-50);
 	border-radius: var(--rayon);
 	padding: var(--espace);
-	margin-bottom: var(--espace);
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
 }
 
 legend {
-	font-weight: 600;
-	padding: 0 0.25rem;
+	font-weight: 700;
+	font-size: 0.95rem;
+	padding: 0 0.25rem 0.5rem;
+	color: var(--encre);
 }
 
 label {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
-	min-height: 44px;
-	padding: 0.25rem 0;
-}
-
-button {
-	display: block;
-	width: 100%;
+	gap: 0.75rem;
 	min-height: 48px;
-	border: none;
-	border-radius: var(--rayon);
-	background: var(--rose);
-	color: var(--texte);
-	font-size: 1.1rem;
-	font-weight: 600;
-	cursor: pointer;
+	padding: 0.25rem 0.5rem;
+	border-radius: var(--rayon-sm);
+	font-size: 0.98rem;
 }
 
-button:active {
-	background: var(--lavande);
+label:has(input:checked) {
+	background: var(--rose-100);
+	font-weight: 600;
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+	width: 1.3rem;
+	height: 1.3rem;
+	accent-color: var(--rose-500);
+	flex-shrink: 0;
+}
+
+form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--espace);
 }
 
 .erreur {
-	color: #b3261e;
+	color: var(--corail-700);
+	font-size: 0.9rem;
+	font-weight: 600;
 }
 
+hr {
+	border: none;
+	border-top: 1px solid var(--liseré);
+	margin: 0;
+}
+
+/* Écran du jour ----------------------------------------------------------- */
+
 .pique {
-	background: var(--lavande);
+	background: var(--lavande-100);
 	border-radius: var(--rayon);
 	padding: var(--espace);
 	font-weight: 600;
+	color: var(--encre);
+	border: 1px solid var(--lavande-300);
 }
 
 ul {
 	list-style: none;
 	padding: 0;
-	margin: 0 0 var(--espace);
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
 }
 
 ul li {
-	background: var(--vert-doux);
-	border-radius: var(--rayon);
-	padding: 0.5rem var(--espace);
-	margin-bottom: 0.5rem;
+	background: var(--menthe-100);
+	color: var(--menthe-700);
+	border-radius: var(--rayon-sm);
+	padding: 0.75rem var(--espace);
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+/* Écran de séance ----------------------------------------------------------- */
+
+.progression {
+	display: flex;
+	gap: 0.4rem;
+}
+
+.progression span {
+	flex: 1;
+	height: 6px;
+	border-radius: 3px;
+	background: var(--liseré);
+}
+
+.progression span.faite {
+	background: var(--menthe-500);
+}
+
+.progression span.courante {
+	background: var(--rose-500);
 }
 
 .video {
 	display: block;
 	width: 100%;
 	aspect-ratio: 9 / 16;
-	max-height: 60vh;
+	max-height: 55vh;
 	border: none;
-	border-radius: var(--rayon);
-	margin-bottom: var(--espace);
+	border-radius: var(--rayon-lg);
+	box-shadow: var(--ombre);
+}
+
+.consigne {
+	font-size: 1.05rem;
+	line-height: 1.5;
 }
 
 .minuteur {
-	font-size: 1.4rem;
-	font-weight: 700;
+	font-size: 2.5rem;
+	font-weight: 800;
 	text-align: center;
+	font-variant-numeric: tabular-nums;
+	color: var(--rose-700);
+	min-height: 3rem;
 }
+
+.minuteur.repos {
+	color: var(--lavande-500);
+}
+
+/* Ressenti ----------------------------------------------------------- */
 
 .ressenti {
 	display: flex;
@@ -114,60 +379,87 @@ ul li {
 	gap: 0.75rem;
 }
 
-.encouragement,
-.niveau-monte {
-	font-size: 1.2rem;
-	font-weight: 700;
+.ressenti button {
+	font-size: 1.15rem;
+	text-align: left;
+}
+
+/* Fin de séance ----------------------------------------------------------- */
+
+.encouragement {
+	font-size: 1.3rem;
+	font-weight: 800;
 	text-align: center;
+	color: var(--rose-700);
+}
+
+.serie {
+	text-align: center;
+	font-weight: 600;
+	color: var(--encre-douce);
+}
+
+.serie strong {
+	color: var(--encre);
+	font-size: 1.1rem;
+}
+
+.niveau-monte {
+	background: var(--menthe-100);
+	color: var(--menthe-700);
+	border-radius: var(--rayon);
+	padding: var(--espace);
+	text-align: center;
+	font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.niveau-monte {
+		animation: apparition-niveau 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+}
+
+@keyframes apparition-niveau {
+	from { transform: scale(0.92) translateY(0.25rem); opacity: 0; }
+	to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .mot-doux {
 	font-style: italic;
 	text-align: center;
+	color: var(--encre-douce);
 }
 
-.serie {
-	text-align: center;
-}
+/* Réglages — zone de danger ----------------------------------------------- */
 
-.lien-discret {
-	display: inline-block;
-	width: auto;
-	min-height: 44px;
-	padding: 0 0.75rem;
-	background: transparent;
-	color: var(--texte);
-	text-decoration: underline;
-	font-size: 0.95rem;
-	font-weight: 400;
-	margin-bottom: var(--espace);
-}
-
-hr {
-	border: none;
-	border-top: 1px solid var(--rose-clair);
-	margin: 1.5rem 0;
+.zone-danger {
+	display: flex;
+	flex-direction: column;
+	gap: var(--espace-sm);
 }
 
 .zone-danger p {
-	font-size: 0.9rem;
-	color: #6b5a61;
+	font-size: 0.88rem;
+	color: var(--encre-douce);
 }
 
-button.danger {
-	background: #f8d7da;
-	color: #7a2530;
-}
-
-button.danger:active {
-	background: #f1b6bb;
-}
+/* Mouvement ----------------------------------------------------------- */
 
 @media (prefers-reduced-motion: no-preference) {
 	button {
-		transition: transform 0.1s ease, background 0.2s ease;
+		transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 	}
 	button:active {
 		transform: scale(0.98);
 	}
+	.carte, fieldset, .pique, ul li {
+		transition: box-shadow 0.15s ease;
+	}
+	.progression span {
+		transition: background 0.3s ease;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#app { animation: none; }
 }

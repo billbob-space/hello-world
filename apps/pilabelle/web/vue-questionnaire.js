@@ -3,6 +3,7 @@ import { creerProfil, lireProfil } from './api.js';
 
 export function vueQuestionnaire(conteneur, { onCree }) {
 	construireFormulaireReponses(conteneur, {
+		titre: 'Bienvenue 👋',
 		libelleBouton: 'Commencer',
 		onValider: async (reponses) => {
 			try {

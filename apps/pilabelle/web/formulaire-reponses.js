@@ -36,11 +36,18 @@ function creerCase(type, name, valeur, libelle, coche) {
 	return label;
 }
 
-export function construireFormulaireReponses(conteneur, { reponsesInitiales, onValider, libelleBouton }) {
+export function construireFormulaireReponses(conteneur, { reponsesInitiales, onValider, libelleBouton, titre }) {
 	const r = reponsesInitiales || { niveau_depart: '', douleurs: [], jours_actifs: [] };
 	conteneur.textContent = '';
 
+	const carte = document.createElement('div');
+	carte.className = 'carte';
+	conteneur.appendChild(carte);
+
+	if (titre) carte.appendChild(Object.assign(document.createElement('h1'), { textContent: titre }));
+
 	const form = document.createElement('form');
+	carte.appendChild(form);
 
 	const fsNiveau = document.createElement('fieldset');
 	fsNiveau.appendChild(Object.assign(document.createElement('legend'), { textContent: 'Ton niveau de départ' }));
@@ -67,8 +74,6 @@ export function construireFormulaireReponses(conteneur, { reponsesInitiales, onV
 	erreur.className = 'erreur';
 	erreur.hidden = true;
 	form.appendChild(erreur);
-
-	conteneur.appendChild(form);
 
 	form.addEventListener('submit', async (evenement) => {
 		evenement.preventDefault();

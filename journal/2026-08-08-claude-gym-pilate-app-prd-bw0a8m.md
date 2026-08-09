@@ -124,10 +124,26 @@ réinitialisation. `Detecte par: auteur` — `Action: garde-fou` : aucun test
 de ce dépôt ne peut aujourd'hui détecter un écran orphelin, silencieux
 jusqu'à ce qu'un humain clique dessus.
 
+---
+
+Demande explicite : « retravaille l'ui pour avoir quelque chose de plus
+beau et agréable à utiliser » — via `/impeccable`. Polish complet
+(confirmé par l'utilisateur sur trois options proposées), direction déjà
+fixée par le PRD §11 (kawaii doux, jamais infantilisant) donc non
+rediscutée. Palette étendue (rose/lavande/menthe/corail), échelle
+typographique, cartes avec ombre portée réelle, focus-visible et
+sélection de texte thémés, barre de progression pendant la séance, états
+de boutons complets (hover/focus/active/disabled). Police système plutôt
+qu'importée — mode Operate, l'app doit rester légère hors ligne capricieuse.
+Comportement et routes API inchangés. Détecteur mécanique Impeccable
+(`detect.mjs`) lancé une fois sur tous les fichiers touchés : un
+avertissement (easing "bounce" tape-à-l'œil sur l'animation de palier),
+corrigé, second passage propre.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-09 à 09:33 UTC, sur 2 session(s) lisible(s) depuis
+Relevé le 2026-08-09 à 09:50 UTC, sur 2 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -135,26 +151,26 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 27 338 | 0,08 $ |
-| Écriture de cache | 3 337 341 | 12,36 $ |
-| Lecture de cache | 209 246 876 | 62,68 $ |
-| Sortie | 37 100 | 0,53 $ |
-| **Total** | **212 648 655** | **75,65 $ — 65,69 €** |
+| Entrée | 27 459 | 0,08 $ |
+| Écriture de cache | 3 981 267 | 14,70 $ |
+| Lecture de cache | 243 746 553 | 72,96 $ |
+| Sortie | 68 746 | 0,92 $ |
+| **Total** | **247 824 025** | **88,67 $ — 77,00 €** |
 
 **Ce qui coûte**
 
-- **665 appel(s) au modèle** — un par réponse, outils compris —, dont 61 par des sous-agents — 4 928 772 jetons, 2,66 $.
+- **726 appel(s) au modèle** — un par réponse, outils compris —, dont 61 par des sous-agents — 4 928 772 jetons, 2,66 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   66 917 jetons, écrits une fois par session puis relus à chaque
-  échange : 40 350 951 jetons de relecture, 19 % de tout ce qui a été relu.
-- **Tours courts** — 623 des 665 tours (93 %) sortent
+  échange : 44 432 888 jetons de relecture, 18 % de tout ce qui a été relu.
+- **Tours courts** — 657 des 726 tours (90 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 66,00 $, soit 87 % de la facture.
+  une sortie de rien. Ils coûtent 74,56 $, soit 84 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 66 917 jetons relus au premier appel qui relise
-  quelque chose, 596 444 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 663 988 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 212648655 -->
+<!-- cout-total: 247824025 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-sonnet-5 66917 0 0
 2 principal claude-sonnet-5 5622 66917 0
@@ -760,66 +776,127 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 602 principal claude-sonnet-5 286 595162 921
 603 principal claude-sonnet-5 996 595448 202
 604 principal claude-sonnet-5 481 596444 67
-605 agent claude-sonnet-5 39896 0 6
-606 agent claude-sonnet-5 2800 39896 4
-607 agent claude-sonnet-5 1408 42696 5
-608 agent claude-sonnet-5 4504 44104 2
-609 agent claude-sonnet-5 386 48608 2
-610 agent claude-sonnet-5 511 48994 2
-611 agent claude-sonnet-5 1615 49505 2
-612 agent claude-sonnet-5 5447 51120 2
-613 agent claude-sonnet-5 4092 56567 2
-614 agent claude-sonnet-5 4190 60659 4
-615 agent claude-sonnet-5 728 64849 3
-616 agent claude-sonnet-5 5362 65577 3
-617 agent claude-sonnet-5 2281 70939 2
-618 agent claude-sonnet-5 1603 73220 2
-619 agent claude-sonnet-5 387 74823 3
-620 agent claude-sonnet-5 5805 75210 3
-621 agent claude-sonnet-5 1094 81015 2
-622 agent claude-sonnet-5 5244 82109 2
-623 agent claude-sonnet-5 2853 87353 2
-624 agent claude-sonnet-5 2059 90206 4
-625 agent claude-sonnet-5 1554 92265 2
-626 agent claude-sonnet-5 1508 93819 2
-627 agent claude-sonnet-5 292 95327 3
-628 agent claude-sonnet-5 4179 95619 3
-629 agent claude-sonnet-5 2220 99798 1
-630 agent claude-sonnet-5 4053 102018 9
-631 agent claude-sonnet-5 2967 106071 2
-632 agent claude-sonnet-5 497 109038 3
-633 agent claude-sonnet-5 3988 109535 3
-634 agent claude-sonnet-5 2330 113523 1
-635 agent claude-sonnet-5 2800 115853 3
-636 agent claude-sonnet-5 3169 118653 2
-637 agent claude-sonnet-5 1854 121822 2
-638 agent claude-sonnet-5 262 123676 3
-639 agent claude-sonnet-5 727 123938 2
-640 agent claude-sonnet-5 2710 124665 2
-641 agent claude-sonnet-5 39900 0 6
-642 agent claude-sonnet-5 2795 39900 4
-643 agent claude-sonnet-5 6232 42695 5
-644 agent claude-sonnet-5 3933 48927 8
-645 agent claude-sonnet-5 4001 52860 5
-646 agent claude-sonnet-5 5838 56861 6
-647 agent claude-sonnet-5 5890 62699 2
-648 agent claude-sonnet-5 4079 68589 2
-649 agent claude-sonnet-5 2110 72668 3
-650 agent claude-sonnet-5 5049 74778 3
-651 agent claude-sonnet-5 7213 79827 5
-652 agent claude-sonnet-5 6843 87040 2
-653 agent claude-sonnet-5 6254 93883 4
-654 agent claude-sonnet-5 1600 100137 2
-655 agent claude-sonnet-5 3009 101737 2
-656 agent claude-sonnet-5 3206 104746 2
-657 agent claude-sonnet-5 41779 0 3
-658 agent claude-sonnet-5 14744 41779 2
-659 agent claude-sonnet-5 9232 56523 4
-660 agent claude-sonnet-5 5635 65755 3
-661 agent claude-sonnet-5 590 71390 2
-662 agent claude-sonnet-5 3006 71980 5
-663 agent claude-sonnet-5 2833 74986 2
-664 agent claude-sonnet-5 4641 77819 5
-665 agent claude-sonnet-5 5501 82460 2
+605 principal claude-sonnet-5 4102 596925 176
+606 principal claude-sonnet-5 567 601027 499
+607 principal claude-sonnet-5 715 601594 273
+608 principal claude-opus-4-7 6991 28233 200
+609 principal claude-opus-4-7 316 35224 117
+610 principal claude-opus-4-7 172 35540 77
+611 principal claude-opus-4-7 180 35712 153
+612 principal claude-sonnet-5 542 602309 888
+613 principal claude-sonnet-5 929 602851 87
+614 principal claude-sonnet-5 206 603780 20
+615 principal claude-sonnet-5 557626 49064 208
+616 principal claude-sonnet-5 828 606690 155
+617 principal claude-sonnet-5 415 607518 18
+618 principal claude-opus-4-7 7269 35892 2823
+619 principal claude-opus-4-7 6157 43161 1886
+620 principal claude-sonnet-5 1112 607951 137
+621 principal claude-sonnet-5 1097 609063 164
+622 principal claude-sonnet-5 205 610160 137
+623 principal claude-sonnet-5 595 610365 121
+624 principal claude-sonnet-5 537 610960 35
+625 principal claude-sonnet-5 1122 611532 121
+626 principal claude-sonnet-5 442 612654 483
+627 principal claude-sonnet-5 749 613096 14
+628 principal claude-sonnet-5 1237 613859 66
+629 principal claude-sonnet-5 410 615096 134
+630 principal claude-sonnet-5 164 615506 178
+631 principal claude-sonnet-5 198 615670 310
+632 principal claude-sonnet-5 1544 615868 23
+633 principal claude-sonnet-5 3766 617435 420
+634 principal claude-sonnet-5 776 621201 244
+635 principal claude-sonnet-5 4343 621977 163
+636 principal claude-sonnet-5 3479 626320 2661
+637 principal claude-sonnet-5 2764 629799 138
+638 principal claude-sonnet-5 1524 632563 304
+639 principal claude-sonnet-5 1736 634087 518
+640 principal claude-sonnet-5 6305 635823 6377
+641 principal claude-sonnet-5 6698 642128 163
+642 principal claude-sonnet-5 340 648826 516
+643 principal claude-sonnet-5 669 649166 1345
+644 principal claude-sonnet-5 1405 649835 1482
+645 principal claude-sonnet-5 1542 651240 647
+646 principal claude-sonnet-5 707 652782 958
+647 principal claude-sonnet-5 1165 653489 323
+648 principal claude-sonnet-5 383 654654 380
+649 principal claude-sonnet-5 2022 655037 790
+650 principal claude-sonnet-5 853 657059 256
+651 principal claude-sonnet-5 488 657912 120
+652 principal claude-sonnet-5 391 658400 232
+653 principal claude-sonnet-5 295 658791 935
+654 principal claude-sonnet-5 996 659086 406
+655 principal claude-sonnet-5 545 660082 296
+656 principal claude-sonnet-5 498 660627 277
+657 principal claude-sonnet-5 502 661125 115
+658 principal claude-sonnet-5 287 661627 437
+659 principal claude-sonnet-5 599 661914 296
+660 principal claude-sonnet-5 291 662513 133
+661 principal claude-sonnet-5 196 662804 101
+662 principal claude-sonnet-5 437 663000 173
+663 principal claude-sonnet-5 213 663437 134
+664 principal claude-sonnet-5 338 663650 702
+665 principal claude-sonnet-5 946 663988 101
+666 agent claude-sonnet-5 39896 0 6
+667 agent claude-sonnet-5 2800 39896 4
+668 agent claude-sonnet-5 1408 42696 5
+669 agent claude-sonnet-5 4504 44104 2
+670 agent claude-sonnet-5 386 48608 2
+671 agent claude-sonnet-5 511 48994 2
+672 agent claude-sonnet-5 1615 49505 2
+673 agent claude-sonnet-5 5447 51120 2
+674 agent claude-sonnet-5 4092 56567 2
+675 agent claude-sonnet-5 4190 60659 4
+676 agent claude-sonnet-5 728 64849 3
+677 agent claude-sonnet-5 5362 65577 3
+678 agent claude-sonnet-5 2281 70939 2
+679 agent claude-sonnet-5 1603 73220 2
+680 agent claude-sonnet-5 387 74823 3
+681 agent claude-sonnet-5 5805 75210 3
+682 agent claude-sonnet-5 1094 81015 2
+683 agent claude-sonnet-5 5244 82109 2
+684 agent claude-sonnet-5 2853 87353 2
+685 agent claude-sonnet-5 2059 90206 4
+686 agent claude-sonnet-5 1554 92265 2
+687 agent claude-sonnet-5 1508 93819 2
+688 agent claude-sonnet-5 292 95327 3
+689 agent claude-sonnet-5 4179 95619 3
+690 agent claude-sonnet-5 2220 99798 1
+691 agent claude-sonnet-5 4053 102018 9
+692 agent claude-sonnet-5 2967 106071 2
+693 agent claude-sonnet-5 497 109038 3
+694 agent claude-sonnet-5 3988 109535 3
+695 agent claude-sonnet-5 2330 113523 1
+696 agent claude-sonnet-5 2800 115853 3
+697 agent claude-sonnet-5 3169 118653 2
+698 agent claude-sonnet-5 1854 121822 2
+699 agent claude-sonnet-5 262 123676 3
+700 agent claude-sonnet-5 727 123938 2
+701 agent claude-sonnet-5 2710 124665 2
+702 agent claude-sonnet-5 39900 0 6
+703 agent claude-sonnet-5 2795 39900 4
+704 agent claude-sonnet-5 6232 42695 5
+705 agent claude-sonnet-5 3933 48927 8
+706 agent claude-sonnet-5 4001 52860 5
+707 agent claude-sonnet-5 5838 56861 6
+708 agent claude-sonnet-5 5890 62699 2
+709 agent claude-sonnet-5 4079 68589 2
+710 agent claude-sonnet-5 2110 72668 3
+711 agent claude-sonnet-5 5049 74778 3
+712 agent claude-sonnet-5 7213 79827 5
+713 agent claude-sonnet-5 6843 87040 2
+714 agent claude-sonnet-5 6254 93883 4
+715 agent claude-sonnet-5 1600 100137 2
+716 agent claude-sonnet-5 3009 101737 2
+717 agent claude-sonnet-5 3206 104746 2
+718 agent claude-sonnet-5 41779 0 3
+719 agent claude-sonnet-5 14744 41779 2
+720 agent claude-sonnet-5 9232 56523 4
+721 agent claude-sonnet-5 5635 65755 3
+722 agent claude-sonnet-5 590 71390 2
+723 agent claude-sonnet-5 3006 71980 5
+724 agent claude-sonnet-5 2833 74986 2
+725 agent claude-sonnet-5 4641 77819 5
+726 agent claude-sonnet-5 5501 82460 2
 -->
 <!-- /cout -->
