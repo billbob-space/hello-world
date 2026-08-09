@@ -1,0 +1,63 @@
+# Parametres de deploiement de estran.
+# Le nom de l'app — donc son URL — est celui du repertoire : apps/estran/
+# Ce fichier n'est JAMAIS reecrit par init.sh : edite-le, puis relance ./init.sh
+#
+# enabled: false = l'app vit dans le depot mais n'entre pas dans compose.yaml.
+# Passe-le a true une fois sa premiere image publiee sur le registre.
+enabled: true
+port: 8080
+memory: 128m
+health_path: /healthz
+health_cmd: wget --spider -q http://localhost:8080/healthz
+exposure: private
+# Outillage de l'agent, sans effet sur le deploiement :
+stack: go
+ui: true
+
+# --- Quatre sections OPTIONNELLES. Absentes, elles n'ecrivent pas une ligne
+# --- dans compose.yaml. Decommente celles dont tu as besoin.
+
+# Volumes NOMMES Docker : <nom>:<chemin conteneur>[:ro]
+# <nom> est le nom LOGIQUE du volume, pas un chemin ni un sous-repertoire : il
+# doit correspondre a ^[a-z0-9][a-z0-9-]*$. Le volume reel s'appelle
+# « estran-<nom> » — celui ci-dessous serait « estran-donnees » — et
+# « docker compose up » le cree tout seul : rien a preparer sur l'hote. Les bind
+# mounts sont refuses : un repertoire hote absent serait cree EN ROOT et l'app,
+# qui tourne en non-root, ne pourrait pas y ecrire. Seul suffixe admis : :ro
+#
+# ATTENTION — le proprietaire du volume vient de ton Dockerfile : au premier
+# montage, Docker recopie dans le volume vide le repertoire tel qu'il existe
+# dans l'IMAGE. Cree-le et donne-le a ton utilisateur AVANT la directive USER :
+#   RUN mkdir -p /var/lib/estran && chown 10001:10001 /var/lib/estran
+# volumes:
+#   - donnees:/var/lib/estran
+#   - cache:/var/cache/estran:ro
+
+# NOMS des variables d'environnement a passer depuis l'hote. JAMAIS de valeurs :
+# un element contenant un « = » est refuse a la generation. L'infrastructure
+# injecte la valeur cote serveur ; declare le nom attendu dans le README.
+env: [API_MAREE_KEY]
+
+# Services partages de la fabrique dont cette app depend (shared_services dans
+# fabrique.yml). Verifie a la generation : un nom non declare la-bas est une
+# erreur, pas une panne au demarrage. Emet un depends_on sur ce service.
+# needs: [redis]
+
+# Services annexes propres a cette application. Chacun devient le service
+# « estran-<name> », non route : init.sh lui pose « traefik.enable=false », le seul
+# label qui RETIRE du routage, et il n'a donc pas d'URL — seuls ses voisins du
+# reseau le joignent, par ce nom. « name » et « image » sont obligatoires ;
+# « memory » (defaut 128m), « command », « volumes » et « env » sont libres.
+# « command » n'a pas de validation propre : c'est le compose PRODUIT, plus ce
+# fichier-ci, que init.sh scanne avant d'ecrire. Une cle qui evoque un secret
+# suivie d'une valeur litterale arrete la generation, quelle que soit la syntaxe
+# par laquelle elle arrive. Ecris « ${NOM} » — le NOM va dans env: — ou le
+# CHEMIN d'un secret monte en fichier.
+# Ses volumes portent le nom de l'APP, pas le sien : « donnees:/data » ici monte
+# le meme volume « estran-donnees » que la section volumes: ci-dessus. C'est ainsi
+# qu'un worker partage les donnees de son service principal.
+# services:
+#   - name: worker
+#     image: ghcr.io/billbob-space/hello-world/estran:main
+#     memory: 64m
+#     command: --mode worker

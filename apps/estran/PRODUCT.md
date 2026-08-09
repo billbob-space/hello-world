@@ -84,13 +84,18 @@ Hand*) :
 - État de la mer (hauteur de vagues, houle) : **Open-Meteo Marine** — même
   fournisseur, sans clé, couvre la Manche et la façade française à 5 km de
   résolution.
-- Marée (heures et hauteurs de pleine/basse mer) : aucune source officielle
-  française n'est ouverte sans clé — le SHOM réserve son API de prédiction à
-  un abonnement payant, son portail web gratuit n'étant pas une API. Une
-  clé d'API gratuite à faible quota (par exemple Stormglass, ou équivalent)
-  sera nécessaire ; le fournisseur précis reste à arbitrer à l'implémentation.
-  Cette clé se déclare en `env:` dans `app.yml` et dans le `README`, jamais en
-  valeur littérale dans le dépôt.
+- Marée (heures et hauteurs de pleine/basse mer) : **api-maree.fr** —
+  prédictions dérivées du SHOM, gratuites, clé simple par inscription (pas
+  d'abonnement payant), quota largement suffisant pour un seul point consulté
+  ponctuellement. Le point le plus proche disponible dans leur catalogue
+  n'est ni Étaples ni Le Touquet (absents), mais **Berck-Plage/Fort-Mahon**
+  (~20 km au sud, même façade ouverte) : une approximation assumée,
+  documentée ci-dessous plutôt que présentée comme une précision qu'on ne
+  tient pas. La clé (`API_MAREE_KEY`) se déclare en `env:` dans `app.yml` et
+  dans le `README`, jamais en valeur littérale dans le dépôt — l'obtenir
+  revient à l'exploitant, comme tout secret de la fabrique. Tant qu'elle est
+  absente, la jauge de marée affiche « configuration requise » plutôt qu'une
+  valeur inventée.
 
 Contraintes techniques :
 
@@ -124,13 +129,19 @@ application météo générale.
   Étaples–Le Touquet) montre la forme attendue : vent (direction, force,
   rafales), vagues et houle, pluie, nébulosité, température (air et
   ressentie), et des marées présentées en heure + hauteur + coefficient.
-- Recherché et confirmé le 9 août 2026 : Open-Meteo (météo horaire) et
-  Open-Meteo Marine (état de mer) sont gratuits et sans clé ; le SHOM n'ouvre
-  son API de marée qu'à un abonnement payant.
+- Recherché et confirmé le 9 août 2026, par appel réel aux API : Open-Meteo
+  (météo horaire) et Open-Meteo Marine (état de mer) répondent sans clé sur
+  les coordonnées du Touquet-Paris-Plage (`50.517, 1.583`) ; le SHOM n'ouvre
+  son API de marée qu'à un abonnement payant ; api-maree.fr couvre la façade
+  Manche/Nord-Pas-de-Calais gratuitement mais pas Étaples/Le Touquet
+  spécifiquement — `berck-plage-fort-mahon` est le point le plus proche de
+  son catalogue. Détail de l'arbitrage : `apps/estran/prp/00-ossature.md`.
 
 Ce qui n'existe pas et ne doit pas être inventé : compte utilisateur,
 historique personnel, alertes ou notifications, plusieurs lieux, données de
-qualité de l'eau ou de baignade — rien de tout cela n'a été demandé.
+qualité de l'eau ou de baignade, une précision de marée à l'endroit exact
+d'Étaples/Le Touquet — rien de tout cela n'a été demandé, et le dernier point
+est une limite connue plutôt qu'un objectif non atteint.
 
 ## Product Principles
 

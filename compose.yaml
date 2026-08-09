@@ -244,6 +244,54 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
   # <<< compteur-base
 
+  # >>> estran — apps/estran/app.yml — https://estran.apps.billbob.ovh
+  estran:
+    image: ghcr.io/billbob-space/hello-world/estran:main
+    container_name: estran
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.estran.rule=Host(`estran.apps.billbob.ovh`)"
+      - "traefik.http.routers.estran.entrypoints=websecure"
+      - "traefik.http.routers.estran.priority=100"
+      # forwardauth = authentification Google + liste blanche du serveur
+      # (exposure private). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.estran.middlewares=forwardauth,security-headers@file"
+      - "traefik.http.routers.estran.tls.certresolver=letsencrypt"
+      - "traefik.http.services.estran.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+    environment:
+      - API_MAREE_KEY=${API_MAREE_KEY:-}
+  # <<< estran
+
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
     image: ghcr.io/billbob-space/hello-world/hello-world:7ba3e0bbafcfa929a7810110bc11b2afd4051fb5

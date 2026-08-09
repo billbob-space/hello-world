@@ -1,6 +1,6 @@
 # estran — notice de contexte
 
-<!-- GENERE par ./init.sh. Cette app n a pas encore de manifeste.
+<!-- GENERE par ./init.sh depuis apps/estran/app.yml et fabrique.yml.
      Ne l'edite pas : --check refuse une notice qui a derive. -->
 
 ## Ton perimetre
@@ -13,13 +13,31 @@ erreur ici casse le deploiement de toutes les autres applications.
 
 ## Ce que tu ecris
 
-Cette application n'a pas encore de manifeste : le manifeste reste a ecrire.
-Son nom — donc son sous-domaine, son conteneur et sa route — sera `estran`.
-Echafaude-le avec `./init.sh --add estran`, puis relance `./init.sh`.
+- Nom : `estran` — c'est aussi son sous-domaine, son conteneur et sa route.
+- URL : https://estran.apps.billbob.ovh
+- Qui entre : uniquement les comptes de la liste blanche du serveur (`exposure: private`).
+- Deployee : oui.
+
+## Comment elle tourne
+
+- Technologie : `go`
+- Port : `8080`
+- Memoire : `128m`
+- Healthcheck : `/healthz` — `wget --spider -q http://localhost:8080/healthz`
+
+## Ce qu'elle garde
+
+- Attend le secret `API_MAREE_KEY` : le NOM est dans le depot, la VALEUR est injectee par l'infrastructure.
+
+## Comment la tester
+
+    ./apps/estran/test.sh
 
 ## Ses documents
 
 - `apps/estran/PRODUCT.md` — la fiche produit, puis les exigences.
+- `apps/estran/README.md` — le mode d'emploi technique.
+- `apps/estran/prp/` — les documents d'implementation.
 
 ## Les regles qui s'appliquent a son image
 
