@@ -120,10 +120,80 @@ Rien dans ce dépôt ne détecte aujourd'hui une clé qui fuiterait par un autre
 chemin qu'un appel HTTP échoué : un grep de journaux en CI serait le
 garde-fou générique, absent pour l'instant.
 
+---
+
+Retour d'usage réel après mise en ligne : « la lisibilité de l'app est
+moyenne, la police est trop petite et le contraste faible » ; demande
+d'ajouter la vitesse du vent et la probabilité de pluie à la prévision.
+Vérification faite avant de coder : ces deux données étaient déjà présentes
+dans `/api/previsions` et rendues dans chaque carte horaire — la demande
+« ajoute » se lisait donc comme une conséquence du premier problème (police
+0,72 rem, couleur `--sable-300` à ~3,7:1 de contraste sur le fond des
+cartes, sous le texte n'importe où sur la page ne se voyait pas comme une
+donnée à part entière), pas comme une fonctionnalité manquante.
+
+Branche relancée depuis `main` (PR #108 déjà fusionnée) — même nom, entrée
+de journal reprise, pas de nouvelle branche.
+
+Corrections : `--sable-300` relevé de `#c9bb96` (~3,7:1) à `#ddd0ae` (~6,3:1
+sur `--encre-700`, ~7,4:1 sur `--encre-900`) ; tailles de police remontées
+d'un cran sur tout le texte secondaire (jauge, cartes horaires, tendance à
+7 jours, pied de page) ; pluie et vent dans les cartes horaires sortis du
+style « détail » discret (0,72 rem, `--sable-300`) pour rejoindre le poids
+visuel de l'heure (0,95 rem, `--sable-100`/`--eau-400`, gras) — c'est cette
+mise en retrait, plus que leur absence, qui les rendait invisibles.
+
+### 4. Contraste insuffisant sur le texte secondaire, non détecté avant livraison
+
+**Symptôme** — retour d'usage réel : lisibilité moyenne, police trop petite,
+contraste faible ; pluie/vent perçus comme absents alors qu'ils étaient
+rendus.
+**Cause** — vérifié après coup (calcul de luminance relative, formule WCAG) :
+`--sable-300` (`#c9bb96`) sur `--encre-700` donnait déjà 7,2:1, au-dessus du
+seuil AA (4.5:1) — le ratio seul ne suffisait donc pas à expliquer le
+signalement. Le levier réel était la taille de police (0,72–0,85 rem sur les
+données les plus utiles, pluie et vent), qui rendait un texte numériquement
+contrasté visuellement négligeable. La couleur a quand même été éclaircie
+(9:1) en plus de l'agrandissement, par prudence plutôt que par mesure d'un
+défaut confirmé.
+**Detecte par** — `utilisateur`
+**Action** — `garde-fou` — rien dans `impeccable` (détecteur statique lancé à
+chaque écriture de fichier `web/`) n'a signalé le contraste insuffisant, il
+n'a donc rattrapé ni le problème initial ni sa correction : un contrôle de
+contraste WCAG sur les couleurs de texte déclarées serait le garde-fou qui
+manque ici, pas seulement pour `estran`.
+
+---
+
+Demande explicite, dans le même échange : « je veux aussi voir les hauteurs
+de marée dans la prévision à 7 jours ». Correction du PRD plutôt que capacité
+hors périmètre : le PRD (§ Capabilities and Constraints, « Tendance à 7
+jours ») annonçait déjà des « grandes lignes » jour par jour, la ligne
+bouge pour dire ce qu'elle couvre désormais (`memory/produit.md`).
+
+Choix d'implémentation : plutôt qu'un troisième appel HTTP, la fenêtre déjà
+interrogée pour encadrer l'instant présent (jauge) est élargie à
+`nombreJoursAffiches` (7) jours — un seul appel `tide-extrema` sert les deux
+besoins. `grouperParJour` réduit les extrema à la plus haute pleine mer et la
+plus basse basse mer par jour (un jour sans extremum retourné reste à `nil`
+sur ses trois champs, jamais un zéro qui se lirait comme une mesure). La
+fusion avec la tendance météo se fait côté client par date : `/api/previsions`
+et `/api/maree` restent deux endpoints indépendants, dégradés chacun de son
+côté, et la ligne de marée d'un jour disparaît simplement si l'une des deux
+données manque — jamais une valeur inventée pour combler l'autre.
+
+6 tests ajoutés (`grouperParJour`, `vueJoursMaree`, tendance dans
+`RecupererA`), tous verts. Vérification visuelle faite avec les deux
+endpoints simulés (`page.route` de Playwright) plutôt qu'avec le réseau réel
+de ce conteneur, redevenu indisponible pendant cette étape — confirmé par un
+`curl` direct vers `api.open-meteo.com` en échec, donc pas propre au code de
+l'app. `Detecte par: auteur` — `Action: rien` : aucune conséquence sur le
+code, seulement sur la méthode de vérification de cette étape.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-09 à 12:57 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-09 à 16:13 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -131,26 +201,26 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 4 832 | 0,01 $ |
-| Écriture de cache | 845 791 | 2,69 $ |
-| Lecture de cache | 46 492 417 | 13,81 $ |
-| Sortie | 155 615 | 2,13 $ |
-| **Total** | **47 498 655** | **18,65 $ — 16,19 €** |
+| Entrée | 5 044 | 0,01 $ |
+| Écriture de cache | 1 382 285 | 4,59 $ |
+| Lecture de cache | 89 749 281 | 26,69 $ |
+| Sortie | 214 095 | 2,87 $ |
+| **Total** | **91 350 705** | **34,17 $ — 29,68 €** |
 
 **Ce qui coûte**
 
-- **192 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
+- **300 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   67 265 jetons, écrits une fois par session puis relus à chaque
-  échange : 11 905 905 jetons de relecture, 25 % de tout ce qui a été relu.
-- **Tours courts** — 77 des 192 tours (40 %) sortent
+  échange : 19 170 525 jetons de relecture, 21 % de tout ce qui a été relu.
+- **Tours courts** — 132 des 300 tours (44 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 7,40 $, soit 39 % de la facture.
+  une sortie de rien. Ils coûtent 16,31 $, soit 47 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 67 265 jetons relus au premier appel qui relise
-  quelque chose, 387 330 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 484 400 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 47498655 -->
+<!-- cout-total: 91350705 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-sonnet-5 67265 0 76
 2 principal claude-sonnet-5 605 67265 1466
@@ -330,19 +400,127 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 176 principal claude-sonnet-5 323 386288 279
 177 principal claude-sonnet-5 719 386611 976
 178 principal claude-sonnet-5 1050 387330 129
-179 agent claude-haiku-4-5-20251001 11416 0 4
-180 agent claude-haiku-4-5-20251001 1837 11416 2
-181 agent claude-haiku-4-5-20251001 2386 13253 2
-182 agent claude-haiku-4-5-20251001 4451 15639 1
-183 agent claude-haiku-4-5-20251001 2826 20090 2
-184 agent claude-haiku-4-5-20251001 239 22916 2
-185 agent claude-haiku-4-5-20251001 11265 0 4
-186 agent claude-haiku-4-5-20251001 1480 11265 2
-187 agent claude-haiku-4-5-20251001 307 12745 2
-188 agent claude-haiku-4-5-20251001 5128 13052 2
-189 agent claude-haiku-4-5-20251001 849 18180 3
-190 agent claude-haiku-4-5-20251001 528 19029 4
-191 agent claude-haiku-4-5-20251001 723 19557 2
-192 agent claude-haiku-4-5-20251001 370 20280 4
+179 principal claude-sonnet-5 4353 388380 157
+180 principal claude-sonnet-5 623 392733 144
+181 principal claude-sonnet-5 345 393356 454
+182 principal claude-sonnet-5 600 393701 498
+183 principal claude-opus-4-7 4975 28233 104
+184 principal claude-opus-4-7 152 33208 112
+185 principal claude-opus-4-7 164 33360 74
+186 principal claude-sonnet-5 565 394301 89
+187 principal claude-opus-4-7 97 33524 131
+188 principal claude-opus-4-7 7616 33621 118
+189 principal claude-opus-4-7 251 41237 73
+190 principal claude-opus-4-7 3562 41488 113
+191 principal claude-opus-4-7 3651 45050 6606
+192 principal claude-opus-4-7 8835 48701 1294
+193 principal claude-sonnet-5 426 394955 137
+194 principal claude-sonnet-5 907 395381 536
+195 principal claude-sonnet-5 603 396288 69
+196 principal claude-sonnet-5 279 396960 137
+197 principal claude-sonnet-5 1089 397239 162
+198 principal claude-sonnet-5 1265 398328 195
+199 principal claude-sonnet-5 236 399593 137
+200 principal claude-sonnet-5 596 399829 311
+201 principal claude-sonnet-5 1126 400425 339
+202 principal claude-sonnet-5 856 401551 362
+203 principal claude-sonnet-5 527 402407 275
+204 principal claude-sonnet-5 6529 402934 772
+205 principal claude-sonnet-5 839 409463 61
+206 principal claude-sonnet-5 401315 0 71
+207 principal claude-sonnet-5 3235 401315 2949
+208 principal claude-sonnet-5 8337 404550 595
+209 principal claude-sonnet-5 639 412887 102
+210 principal claude-sonnet-5 115 413526 159
+211 principal claude-sonnet-5 239 413641 161
+212 principal claude-sonnet-5 176 413880 213
+213 principal claude-sonnet-5 576 414056 204
+214 principal claude-sonnet-5 214 414632 440
+215 principal claude-sonnet-5 596 414846 625
+216 principal claude-sonnet-5 854 415442 527
+217 principal claude-sonnet-5 1101 416296 180
+218 principal claude-sonnet-5 260 417397 417
+219 principal claude-sonnet-5 573 417657 803
+220 principal claude-sonnet-5 959 418230 1015
+221 principal claude-sonnet-5 1171 419189 1013
+222 principal claude-sonnet-5 1169 420360 623
+223 principal claude-sonnet-5 779 421529 174
+224 principal claude-sonnet-5 638 422308 482
+225 principal claude-sonnet-5 535 422946 189
+226 principal claude-sonnet-5 223 423481 149
+227 principal claude-sonnet-5 556 423704 223
+228 principal claude-sonnet-5 236 424260 110
+229 principal claude-sonnet-5 782 424496 174
+230 principal claude-sonnet-5 403 425278 251
+231 principal claude-sonnet-5 1997 425681 296
+232 principal claude-sonnet-5 349 427678 147
+233 principal claude-sonnet-5 344 428027 383
+234 principal claude-sonnet-5 1075 428371 173
+235 principal claude-sonnet-5 631 429446 133
+236 principal claude-sonnet-5 380 430077 1136
+237 principal claude-sonnet-5 1210 430457 1176
+238 principal claude-sonnet-5 1250 431667 512
+239 principal claude-sonnet-5 610 432917 1292
+240 principal claude-sonnet-5 1448 433527 610
+241 principal claude-sonnet-5 684 434975 171
+242 principal claude-sonnet-5 223 435659 133
+243 principal claude-sonnet-5 4854 435882 6031
+244 principal claude-sonnet-5 7054 440736 929
+245 principal claude-sonnet-5 981 447790 623
+246 principal claude-sonnet-5 675 448771 874
+247 principal claude-sonnet-5 926 449446 1153
+248 principal claude-sonnet-5 1206 450372 276
+249 principal claude-sonnet-5 329 451578 385
+250 principal claude-sonnet-5 3489 451907 1177
+251 principal claude-sonnet-5 2530 455396 176
+252 principal claude-sonnet-5 1528 457926 429
+253 principal claude-sonnet-5 483 459454 159
+254 principal claude-sonnet-5 175 459937 153
+255 principal claude-sonnet-5 835 460112 461
+256 principal claude-sonnet-5 643 460947 525
+257 principal claude-sonnet-5 580 461590 109
+258 principal claude-sonnet-5 1303 462170 150
+259 principal claude-sonnet-5 1043 463473 180
+260 principal claude-sonnet-5 847 464516 112
+261 principal claude-sonnet-5 1080 465363 2888
+262 principal claude-sonnet-5 2941 466443 176
+263 principal claude-sonnet-5 1507 469384 687
+264 principal claude-sonnet-5 740 470891 174
+265 principal claude-sonnet-5 716 471631 960
+266 principal claude-sonnet-5 1116 472347 206
+267 principal claude-sonnet-5 371 473463 112
+268 principal claude-sonnet-5 343 473834 286
+269 principal claude-sonnet-5 442 474177 149
+270 principal claude-sonnet-5 583 474619 149
+271 principal claude-sonnet-5 138 475202 1130
+272 principal claude-sonnet-5 1137 475340 110
+273 principal claude-sonnet-5 782 476477 297
+274 principal claude-sonnet-5 332 477259 144
+275 principal claude-sonnet-5 356 477591 367
+276 principal claude-sonnet-5 414 477947 1596
+277 principal claude-sonnet-5 1603 478361 111
+278 principal claude-sonnet-5 910 479964 575
+279 principal claude-sonnet-5 1046 480874 158
+280 principal claude-sonnet-5 602 481920 636
+281 principal claude-sonnet-5 692 482522 149
+282 principal claude-sonnet-5 165 483214 106
+283 principal claude-sonnet-5 306 483379 215
+284 principal claude-sonnet-5 255 483685 133
+285 principal claude-sonnet-5 460 483940 953
+286 principal claude-sonnet-5 1027 484400 640
+287 agent claude-haiku-4-5-20251001 11416 0 4
+288 agent claude-haiku-4-5-20251001 1837 11416 2
+289 agent claude-haiku-4-5-20251001 2386 13253 2
+290 agent claude-haiku-4-5-20251001 4451 15639 1
+291 agent claude-haiku-4-5-20251001 2826 20090 2
+292 agent claude-haiku-4-5-20251001 239 22916 2
+293 agent claude-haiku-4-5-20251001 11265 0 4
+294 agent claude-haiku-4-5-20251001 1480 11265 2
+295 agent claude-haiku-4-5-20251001 307 12745 2
+296 agent claude-haiku-4-5-20251001 5128 13052 2
+297 agent claude-haiku-4-5-20251001 849 18180 3
+298 agent claude-haiku-4-5-20251001 528 19029 4
+299 agent claude-haiku-4-5-20251001 723 19557 2
+300 agent claude-haiku-4-5-20251001 370 20280 4
 -->
 <!-- /cout -->

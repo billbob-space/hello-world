@@ -96,16 +96,43 @@ type VueExtremum struct {
 }
 
 type ReponseMaree struct {
-	Configure     bool         `json:"configure"`
-	Frais         bool         `json:"frais,omitempty"`
-	HauteurM      *float64     `json:"hauteur_m,omitempty"`
-	HeureMesure   string       `json:"heure_mesure,omitempty"`
-	PositionPct   *float64     `json:"position_pct,omitempty"`
-	Sens          string       `json:"sens,omitempty"`
-	Precedent     *VueExtremum `json:"precedent,omitempty"`
-	Prochain      *VueExtremum `json:"prochain,omitempty"`
-	SiteReference string       `json:"site_reference,omitempty"`
-	Erreur        string       `json:"erreur,omitempty"`
+	Configure     bool           `json:"configure"`
+	Frais         bool           `json:"frais,omitempty"`
+	HauteurM      *float64       `json:"hauteur_m,omitempty"`
+	HeureMesure   string         `json:"heure_mesure,omitempty"`
+	PositionPct   *float64       `json:"position_pct,omitempty"`
+	Sens          string         `json:"sens,omitempty"`
+	Precedent     *VueExtremum   `json:"precedent,omitempty"`
+	Prochain      *VueExtremum   `json:"prochain,omitempty"`
+	Jours         []VueJourMaree `json:"jours,omitempty"`
+	SiteReference string         `json:"site_reference,omitempty"`
+	Erreur        string         `json:"erreur,omitempty"`
+}
+
+// VueJourMaree est le resume de maree d'un jour, pour la tendance a 7 jours.
+// HauteM/BasseM/Coefficient restent absents (omitempty) quand le fournisseur
+// n'a rien retourne pour ce jour — jamais une valeur inventee.
+type VueJourMaree struct {
+	Date        string   `json:"date"`
+	HauteM      *float64 `json:"haute_m,omitempty"`
+	BasseM      *float64 `json:"basse_m,omitempty"`
+	Coefficient *int     `json:"coefficient,omitempty"`
+}
+
+func vueJoursMaree(jours []JourMaree) []VueJourMaree {
+	v := make([]VueJourMaree, len(jours))
+	for i, j := range jours {
+		v[i] = VueJourMaree{Date: j.Date.Format("2006-01-02"), Coefficient: j.Coefficient}
+		if j.HauteM != nil {
+			h := arrondi2(*j.HauteM)
+			v[i].HauteM = &h
+		}
+		if j.BasseM != nil {
+			b := arrondi2(*j.BasseM)
+			v[i].BasseM = &b
+		}
+	}
+	return v
 }
 
 func vueExtremum(e Extremum) *VueExtremum {
@@ -129,6 +156,7 @@ func vueMaree(m Maree, frais bool, site string) ReponseMaree {
 		Sens:          m.Sens,
 		Precedent:     vueExtremum(m.Precedent),
 		Prochain:      vueExtremum(m.Prochain),
+		Jours:         vueJoursMaree(m.Tendance),
 		SiteReference: site,
 	}
 }

@@ -84,14 +84,17 @@ function rendrePrevisions(donnees) {
           <span class="heure">${esc(h.heure)}</span>
           ${icone(h.symbole, "icone")}
           <span class="temperature">${Math.round(h.temperature_c)}°</span>
-          <span class="detail">${icone("goutte")}${h.pluie_pct}%</span>
-          <span class="detail">${icone("vent")}${h.vent_kmh} km/h</span>
-          ${vagues}
+          <div class="stats">
+            <span class="detail pluie">${icone("goutte")}${h.pluie_pct}%</span>
+            <span class="detail">${icone("vent")}${h.vent_kmh} km/h</span>
+            ${vagues}
+          </div>
         </div>`;
       })
       .join("");
 
-    rendreTendance(donnees.jours || []);
+    joursMeteoActuels = donnees.jours || [];
+    actualiserTendance();
   }
 
   if (source) {
@@ -101,22 +104,48 @@ function rendrePrevisions(donnees) {
   }
 }
 
-function rendreTendance(jours) {
+// Les prévisions météo et la marée arrivent de deux endpoints indépendants,
+// qui se dégradent chacun de son côté (PRODUCT.md, principe 3). La tendance
+// à 7 jours fusionne les deux par date dès que l'une des deux réponses
+// arrive ou change ; l'absence de données de marée (pas de clé, jour non
+// couvert par le fournisseur) laisse simplement la ligne de marée de côté,
+// jamais une valeur inventée.
+let joursMeteoActuels = null;
+let joursMareeActuels = null;
+
+function actualiserTendance() {
   const rangee = document.getElementById("jours-rangee");
-  if (!jours.length) {
+  if (!joursMeteoActuels || !joursMeteoActuels.length) {
     rangee.innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
     return;
   }
-  rangee.innerHTML = jours
-    .map(
-      (j) => `
+
+  const mareeParDate = new Map((joursMareeActuels || []).map((j) => [j.date, j]));
+
+  rangee.innerHTML = joursMeteoActuels
+    .map((j) => {
+      const maree = mareeParDate.get(j.date);
+      const aDesDonnees = maree && (maree.haute_m != null || maree.basse_m != null);
+      const ligneMaree = aDesDonnees
+        ? `<div class="jour-maree">
+             ${icone("vague")}
+             ${maree.haute_m != null ? `<span class="haute">${maree.haute_m.toFixed(1)} m</span>` : "—"}
+             <span class="separateur">·</span>
+             ${maree.basse_m != null ? `<span class="basse">${maree.basse_m.toFixed(1)} m</span>` : "—"}
+             ${maree.coefficient != null ? `<span class="coef">coef&nbsp;${maree.coefficient}</span>` : ""}
+           </div>`
+        : "";
+      return `
       <div class="jour-ligne">
-        <span class="jour-nom">${esc(j.jour_semaine)}</span>
-        ${icone(j.symbole, "icone")}
-        <span class="pluie">${icone("goutte")}${j.pluie_pct_max}%</span>
-        <span class="temps"><span class="max">${Math.round(j.temp_max_c)}°</span> <span class="min">${Math.round(j.temp_min_c)}°</span></span>
-      </div>`
-    )
+        <div class="jour-principale">
+          <span class="jour-nom">${esc(j.jour_semaine)}</span>
+          ${icone(j.symbole, "icone")}
+          <span class="pluie">${icone("goutte")}${j.pluie_pct_max}%</span>
+          <span class="temps"><span class="max">${Math.round(j.temp_max_c)}°</span> <span class="min">${Math.round(j.temp_min_c)}°</span></span>
+        </div>
+        ${ligneMaree}
+      </div>`;
+    })
     .join("");
 }
 
@@ -134,14 +163,21 @@ function rendreJauge(m) {
         côté serveur — la jauge de marée s'activera dès qu'elle le sera.
       </div>`;
     prochaineBasculeISO = null;
+    joursMareeActuels = null;
+    actualiserTendance();
     return;
   }
 
   if (m.erreur) {
     carte.innerHTML = `<div class="jauge-non-configuree"><strong>Marée indisponible</strong>${esc(m.erreur)}</div>`;
     prochaineBasculeISO = null;
+    joursMareeActuels = null;
+    actualiserTendance();
     return;
   }
+
+  joursMareeActuels = m.jours || null;
+  actualiserTendance();
 
   const sensIcone = m.sens === "montante" ? "fleche_haut" : "fleche_bas";
   const sensTexte = m.sens === "montante" ? "Montante" : "Descendante";

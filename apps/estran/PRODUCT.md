@@ -74,7 +74,10 @@ Fonctions confirmées :
   la prochaine bascule (prochaine pleine mer ou basse mer) et un repère clair
   du temps restant avant elle.
 - **Tendance à 7 jours** — vue résumée jour par jour (température, risque de
-  pluie, grandes lignes), sans le détail horaire de la prévision à 5 heures.
+  pluie, grandes lignes), sans le détail horaire de la prévision à 5 heures ;
+  pour chaque jour couvert par le fournisseur de marée, la plus haute pleine
+  mer et la plus basse basse mer du jour, avec le coefficient — demandé
+  explicitement après la première mise en ligne.
 
 Sources de données, arbitrées après recherche (détail dans *Evidence on
 Hand*) :

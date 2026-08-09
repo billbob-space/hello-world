@@ -56,6 +56,10 @@ func TestVueMaree(t *testing.T) {
 		Prochain:    Extremum{Type: "BM", Heure: time.Date(2026, 8, 9, 20, 45, 0, 0, parisTZ), HauteurM: 2.1},
 		PositionPct: 8.1,
 		Sens:        "descendante",
+		Tendance: []JourMaree{
+			{Date: time.Date(2026, 8, 9, 0, 0, 0, 0, parisTZ), HauteM: floatPtr(6.9), BasseM: floatPtr(1.8), Coefficient: &coef},
+			{Date: time.Date(2026, 8, 10, 0, 0, 0, 0, parisTZ)},
+		},
 	}
 
 	v := vueMaree(m, true, "berck-plage-fort-mahon")
@@ -75,7 +79,18 @@ func TestVueMaree(t *testing.T) {
 	if v.SiteReference != "berck-plage-fort-mahon" {
 		t.Errorf("SiteReference = %q", v.SiteReference)
 	}
+	if len(v.Jours) != 2 {
+		t.Fatalf("Jours = %d entree(s), attendu 2", len(v.Jours))
+	}
+	if v.Jours[0].Date != "2026-08-09" || v.Jours[0].HauteM == nil || *v.Jours[0].HauteM != 6.9 {
+		t.Errorf("Jours[0] = %+v, attendu date 2026-08-09 et haute 6.9", v.Jours[0])
+	}
+	if v.Jours[1].HauteM != nil || v.Jours[1].BasseM != nil {
+		t.Errorf("Jours[1] = %+v, attendu entierement vide (aucune donnee ce jour-la)", v.Jours[1])
+	}
 }
+
+func floatPtr(v float64) *float64 { return &v }
 
 func TestArrondi(t *testing.T) {
 	if v := arrondi2(6.9449999); v != 6.94 {
