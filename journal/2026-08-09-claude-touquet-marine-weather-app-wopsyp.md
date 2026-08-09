@@ -190,10 +190,33 @@ de ce conteneur, redevenu indisponible pendant cette étape — confirmé par un
 l'app. `Detecte par: auteur` — `Action: rien` : aucune conséquence sur le
 code, seulement sur la méthode de vérification de cette étape.
 
+---
+
+Retour d'usage réel après mise en ligne (capture d'écran fournie) : « optimise
+la taille pour obtenir des infos en écran plein » — la page laissait un grand
+espace vide sous le pied, la capture faisant environ 1900 px pour un contenu
+d'environ 1400 px. Vérifié avant de choisir un correctif : à cette hauteur de
+contenu, presque tous les téléphones réels ont un viewport PLUS PETIT que le
+contenu (mesuré ~900 px sur les gabarits courants) — la page a donc presque
+toujours besoin de défiler, et l'espace vide de la capture vient d'un
+viewport plus haut que la moyenne (tablette, ou zoom réduit), pas d'un défaut
+général. Corrigé pour les deux cas à la fois plutôt que pour un seul :
+`body` en colonne flexible, `main` en `flex: 1` avec `justify-content:
+center` — sur un viewport plus grand que le contenu, l'espace se répartit
+au-dessus et en dessous plutôt que de rester coincé sous le pied ; sur un
+viewport plus petit, le centrage n'a aucun effet visible et la page défile
+normalement, comme avant. Un premier essai plus agressif (échelle d'espacement
+et tailles de police relevées de ~20 %) a été écarté : mesuré à 1680 px de
+contenu contre 1400 px avant, il aggravait le défilement sur téléphone sans
+rien apporter sur les grands viewports, où le centrage seul suffit déjà.
+Vérifié par capture d'écran à deux hauteurs de viewport (892 px et 1700 px,
+endpoints simulés) : le contenu défile normalement dans le premier cas, se
+centre avec un espace réparti dans le second.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-09 à 16:13 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-09 à 16:28 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -201,26 +224,26 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 5 044 | 0,01 $ |
-| Écriture de cache | 1 382 285 | 4,59 $ |
-| Lecture de cache | 89 749 281 | 26,69 $ |
-| Sortie | 214 095 | 2,87 $ |
-| **Total** | **91 350 705** | **34,17 $ — 29,68 €** |
+| Entrée | 5 147 | 0,01 $ |
+| Écriture de cache | 1 947 655 | 6,45 $ |
+| Lecture de cache | 111 778 332 | 33,12 $ |
+| Sortie | 246 814 | 3,25 $ |
+| **Total** | **113 977 948** | **42,85 $ — 37,21 €** |
 
 **Ce qui coûte**
 
-- **300 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
+- **355 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   67 265 jetons, écrits une fois par session puis relus à chaque
-  échange : 19 170 525 jetons de relecture, 21 % de tout ce qui a été relu.
-- **Tours courts** — 132 des 300 tours (44 %) sortent
+  échange : 22 870 100 jetons de relecture, 20 % de tout ce qui a été relu.
+- **Tours courts** — 158 des 355 tours (44 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 16,31 $, soit 47 % de la facture.
+  une sortie de rien. Ils coûtent 21,99 $, soit 51 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 67 265 jetons relus au premier appel qui relise
-  quelque chose, 484 400 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 533 850 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 91350705 -->
+<!-- cout-total: 113977948 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-sonnet-5 67265 0 76
 2 principal claude-sonnet-5 605 67265 1466
@@ -508,19 +531,74 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 284 principal claude-sonnet-5 255 483685 133
 285 principal claude-sonnet-5 460 483940 953
 286 principal claude-sonnet-5 1027 484400 640
-287 agent claude-haiku-4-5-20251001 11416 0 4
-288 agent claude-haiku-4-5-20251001 1837 11416 2
-289 agent claude-haiku-4-5-20251001 2386 13253 2
-290 agent claude-haiku-4-5-20251001 4451 15639 1
-291 agent claude-haiku-4-5-20251001 2826 20090 2
-292 agent claude-haiku-4-5-20251001 239 22916 2
-293 agent claude-haiku-4-5-20251001 11265 0 4
-294 agent claude-haiku-4-5-20251001 1480 11265 2
-295 agent claude-haiku-4-5-20251001 307 12745 2
-296 agent claude-haiku-4-5-20251001 5128 13052 2
-297 agent claude-haiku-4-5-20251001 849 18180 3
-298 agent claude-haiku-4-5-20251001 528 19029 4
-299 agent claude-haiku-4-5-20251001 723 19557 2
-300 agent claude-haiku-4-5-20251001 370 20280 4
+287 principal claude-sonnet-5 5221 485427 142
+288 principal claude-sonnet-5 300 490648 582
+289 principal claude-sonnet-5 888 490948 121
+290 principal claude-sonnet-5 478 491836 86
+291 principal claude-opus-4-7 38720 0 308
+292 principal claude-opus-4-7 356 38720 93
+293 principal claude-sonnet-5 480 492314 1082
+294 principal claude-opus-4-7 224 39076 83
+295 principal claude-opus-4-7 4574 39300 84
+296 principal claude-sonnet-5 1613 492794 424
+297 principal claude-opus-4-7 3058 43874 84
+298 principal claude-sonnet-5 491 494407 92
+299 principal claude-opus-4-7 6631 46932 3485
+300 principal claude-opus-4-7 7088 53563 154
+301 principal claude-opus-4-7 279 60651 155
+302 principal claude-opus-4-7 216 60930 86
+303 principal claude-opus-4-7 2188 61146 116
+304 principal claude-opus-4-7 4069 63334 934
+305 principal claude-opus-4-7 2107 67403 1800
+306 principal claude-sonnet-5 446263 49060 137
+307 principal claude-sonnet-5 1509 495323 147
+308 principal claude-sonnet-5 188 496832 137
+309 principal claude-sonnet-5 599 497020 411
+310 principal claude-sonnet-5 775 497619 25
+311 principal claude-sonnet-5 391 498032 58
+312 principal claude-sonnet-5 935 498032 137
+313 principal claude-sonnet-5 284 498967 132
+314 principal claude-sonnet-5 470 499251 106
+315 principal claude-sonnet-5 119 499721 165
+316 principal claude-sonnet-5 2585 500005 2127
+317 principal claude-sonnet-5 2140 502590 138
+318 principal claude-sonnet-5 202 504730 144
+319 principal claude-sonnet-5 1662 504932 1280
+320 principal claude-sonnet-5 1436 506594 322
+321 principal claude-sonnet-5 478 508030 325
+322 principal claude-sonnet-5 481 508508 1034
+323 principal claude-sonnet-5 5314 508989 263
+324 principal claude-sonnet-5 297 514303 126
+325 principal claude-sonnet-5 549 514600 1226
+326 principal claude-sonnet-5 1233 515149 112
+327 principal claude-sonnet-5 706 516382 3793
+328 principal claude-sonnet-5 3800 517088 154
+329 principal claude-sonnet-5 161 520888 112
+330 principal claude-sonnet-5 706 521049 1179
+331 principal claude-sonnet-5 1202 521755 2041
+332 principal claude-sonnet-5 2183 522957 2763
+333 principal claude-sonnet-5 2874 525140 538
+334 principal claude-sonnet-5 575 528014 1697
+335 principal claude-sonnet-5 2120 528589 113
+336 principal claude-sonnet-5 1143 530709 229
+337 principal claude-sonnet-5 824 531852 292
+338 principal claude-sonnet-5 487 532676 146
+339 principal claude-sonnet-5 186 533163 133
+340 principal claude-sonnet-5 501 533349 937
+341 principal claude-sonnet-5 1011 533850 129
+342 agent claude-haiku-4-5-20251001 11416 0 4
+343 agent claude-haiku-4-5-20251001 1837 11416 2
+344 agent claude-haiku-4-5-20251001 2386 13253 2
+345 agent claude-haiku-4-5-20251001 4451 15639 1
+346 agent claude-haiku-4-5-20251001 2826 20090 2
+347 agent claude-haiku-4-5-20251001 239 22916 2
+348 agent claude-haiku-4-5-20251001 11265 0 4
+349 agent claude-haiku-4-5-20251001 1480 11265 2
+350 agent claude-haiku-4-5-20251001 307 12745 2
+351 agent claude-haiku-4-5-20251001 5128 13052 2
+352 agent claude-haiku-4-5-20251001 849 18180 3
+353 agent claude-haiku-4-5-20251001 528 19029 4
+354 agent claude-haiku-4-5-20251001 723 19557 2
+355 agent claude-haiku-4-5-20251001 370 20280 4
 -->
 <!-- /cout -->
