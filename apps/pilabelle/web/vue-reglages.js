@@ -4,6 +4,7 @@ import { mettreAJourProfil, supprimerProfil } from './api.js';
 export function vueReglages(conteneur, { profil, onEnregistre, onReinitialise, onRetour }) {
 	construireFormulaireReponses(conteneur, {
 		reponsesInitiales: profil.reponses,
+		titre: 'Réglages',
 		libelleBouton: 'Enregistrer',
 		onValider: async (reponses) => {
 			const profilMisAJour = await mettreAJourProfil(reponses);
@@ -21,15 +22,14 @@ export function vueReglages(conteneur, { profil, onEnregistre, onReinitialise, o
 	// Ajoute apres les PRP (PRODUCT.md, "Ajoute apres les PRP") : demande
 	// explicite en usage reel, absente du PRD initial. Confirmation native
 	// avant un geste irreversible — efface serie, historique et niveaux.
-	const separateur = document.createElement('hr');
-	conteneur.appendChild(separateur);
+	const carteDanger = document.createElement('div');
+	carteDanger.className = 'carte zone-danger';
 
-	const zoneDanger = document.createElement('div');
-	zoneDanger.className = 'zone-danger';
+	carteDanger.appendChild(Object.assign(document.createElement('h3'), { textContent: 'Zone sensible' }));
 
 	const avertissement = document.createElement('p');
 	avertissement.textContent = 'Repartir de zéro efface ta série, ton historique et tes niveaux. Cette action est irréversible.';
-	zoneDanger.appendChild(avertissement);
+	carteDanger.appendChild(avertissement);
 
 	const boutonReset = document.createElement('button');
 	boutonReset.type = 'button';
@@ -40,7 +40,7 @@ export function vueReglages(conteneur, { profil, onEnregistre, onReinitialise, o
 		await supprimerProfil();
 		onReinitialise();
 	});
-	zoneDanger.appendChild(boutonReset);
+	carteDanger.appendChild(boutonReset);
 
-	conteneur.appendChild(zoneDanger);
+	conteneur.appendChild(carteDanger);
 }

@@ -43,26 +43,33 @@ export function vueJour(conteneur, { jour, onCommencer, onReglages }) {
 		conteneur.appendChild(paragraphe(jour.pique, 'pique'));
 	}
 
+	const carte = document.createElement('div');
+	carte.className = 'carte';
+	conteneur.appendChild(carte);
+
 	if (jour.cas === 'repos') {
-		conteneur.appendChild(paragraphe('Aujourd\'hui, jour de repos. À demain !'));
+		carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Jour de repos' }));
+		carte.appendChild(paragraphe('Rien à faire aujourd\'hui. À demain !', 'sous-titre'));
 		return;
 	}
 
 	if (jour.cas === 'deja-faite') {
-		conteneur.appendChild(paragraphe('Séance déjà faite aujourd\'hui.'));
-		conteneur.appendChild(bouton('Refaire la séance', () => onCommencer(jour.seance)));
+		carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Séance déjà faite ✓' }));
+		carte.appendChild(paragraphe('Tu peux la refaire librement, ça ne compte pas deux fois.', 'sous-titre'));
+		carte.appendChild(bouton('Refaire la séance', () => onCommencer(jour.seance)));
 		return;
 	}
 
 	// cas === 'a-faire'
 	const nbBlocs = jour.seance.blocs.length;
-	conteneur.appendChild(paragraphe(`Séance du jour — ${nbBlocs} étapes`));
+	carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Séance du jour' }));
+	carte.appendChild(paragraphe(`${nbBlocs} étapes, guidées pas à pas`, 'sous-titre'));
 	const liste = document.createElement('ul');
 	for (const bloc of jour.seance.blocs) {
 		const li = document.createElement('li');
 		li.textContent = NOM_ZONE[bloc.zone] || bloc.zone;
 		liste.appendChild(li);
 	}
-	conteneur.appendChild(liste);
-	conteneur.appendChild(bouton('Commencer', () => onCommencer(jour.seance)));
+	carte.appendChild(liste);
+	carte.appendChild(bouton('Commencer', () => onCommencer(jour.seance)));
 }

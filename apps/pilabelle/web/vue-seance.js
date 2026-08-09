@@ -10,9 +10,27 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 	const idsFaits = [];
 	let index = 0;
 
+	function progression() {
+		const barre = document.createElement('div');
+		barre.className = 'progression';
+		for (let i = 0; i < exercices.length; i++) {
+			const segment = document.createElement('span');
+			if (i < index) segment.className = 'faite';
+			else if (i === index) segment.className = 'courante';
+			barre.appendChild(segment);
+		}
+		return barre;
+	}
+
 	function afficherExercice() {
 		conteneur.textContent = '';
 		const exercice = exercices[index];
+
+		const carte = document.createElement('div');
+		carte.className = 'carte';
+		conteneur.appendChild(carte);
+
+		carte.appendChild(progression());
 
 		const video = urlIntegree(exercice.video && exercice.video.url);
 		if (video) {
@@ -20,31 +38,38 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 			iframe.src = video;
 			iframe.setAttribute('allow', 'autoplay');
 			iframe.className = 'video';
-			conteneur.appendChild(iframe);
+			carte.appendChild(iframe);
 		}
 
+		const titre = document.createElement('h2');
+		titre.textContent = exercice.nom;
+		carte.appendChild(titre);
+
 		const consigne = document.createElement('p');
+		consigne.className = 'consigne';
 		consigne.textContent = exercice.consigne;
-		conteneur.appendChild(consigne);
+		carte.appendChild(consigne);
 
 		const minutage = exercice.minutage || { effort_s: 20, repos_s: 15, tours: 1 };
 		const minuteur = creerMinuteur(minutage);
 
 		const etatAffiche = document.createElement('p');
 		etatAffiche.className = 'minuteur';
-		conteneur.appendChild(etatAffiche);
+		carte.appendChild(etatAffiche);
 
 		const boutonPrincipal = document.createElement('button');
 		boutonPrincipal.type = 'button';
 		boutonPrincipal.textContent = 'Prête';
-		conteneur.appendChild(boutonPrincipal);
+		carte.appendChild(boutonPrincipal);
 
 		minuteur.abonner(({ etat, phase, restant }) => {
 			if (etat === 'attente') {
 				etatAffiche.textContent = '';
+				etatAffiche.classList.remove('repos');
 			} else if (etat === 'en_cours') {
-				etatAffiche.textContent = `${phase === 'effort' ? 'Effort' : 'Repos'} — ${restant}s`;
-				boutonPrincipal.textContent = 'Pause';
+				etatAffiche.textContent = `${restant}`;
+				etatAffiche.classList.toggle('repos', phase === 'repos');
+				boutonPrincipal.textContent = phase === 'effort' ? 'Pause' : 'Pause (repos)';
 			} else if (etat === 'pause') {
 				boutonPrincipal.textContent = 'Reprendre';
 			} else if (etat === 'termine') {

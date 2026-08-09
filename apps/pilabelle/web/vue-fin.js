@@ -6,22 +6,31 @@
 export function vueFin(conteneur, { recap }) {
 	conteneur.textContent = '';
 
+	const carte = document.createElement('div');
+	carte.className = 'carte';
+	conteneur.appendChild(carte);
+
 	if (recap.deja_compte) {
-		const p = document.createElement('p');
-		p.textContent = 'Séance déjà comptée pour aujourd\'hui — merci pour cette reprise libre !';
-		conteneur.appendChild(p);
+		carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Bravo pour cette reprise !' }));
+		carte.appendChild(Object.assign(document.createElement('p'), {
+			className: 'sous-titre',
+			textContent: 'Séance déjà comptée pour aujourd\'hui — merci d\'être revenue.',
+		}));
 		return;
 	}
 
 	const encouragement = document.createElement('p');
 	encouragement.className = 'encouragement';
 	encouragement.textContent = recap.encouragement;
-	conteneur.appendChild(encouragement);
+	carte.appendChild(encouragement);
 
 	const serie = document.createElement('p');
 	serie.className = 'serie';
-	serie.textContent = `Série : ${recap.serie.actuelle} jour(s) — record ${recap.serie.record}`;
-	conteneur.appendChild(serie);
+	serie.append('Série : ');
+	const fort = document.createElement('strong');
+	fort.textContent = `${recap.serie.actuelle} jour${recap.serie.actuelle > 1 ? 's' : ''}`;
+	serie.append(fort, ` — record ${recap.serie.record}`);
+	carte.appendChild(serie);
 
 	if (recap.niveau_monte && (recap.niveau_monte.ventre || recap.niveau_monte.cuisses)) {
 		const zones = [];
@@ -29,14 +38,14 @@ export function vueFin(conteneur, { recap }) {
 		if (recap.niveau_monte.cuisses) zones.push('cuisses');
 		const p = document.createElement('p');
 		p.className = 'niveau-monte';
-		p.textContent = `Niveau supérieur débloqué : ${zones.join(' et ')} ! 🎉`;
-		conteneur.appendChild(p);
+		p.textContent = `🎉 Niveau supérieur débloqué : ${zones.join(' et ')} !`;
+		carte.appendChild(p);
 	}
 
 	if (recap.mot_doux) {
 		const p = document.createElement('p');
 		p.className = 'mot-doux';
 		p.textContent = recap.mot_doux;
-		conteneur.appendChild(p);
+		carte.appendChild(p);
 	}
 }
