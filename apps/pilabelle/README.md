@@ -32,6 +32,7 @@ jamais l'adresse en clair), écrit atomiquement.
 | `DELETE /api/profil` | efface le profil du compte appelant — irréversible, idempotent |
 | `GET /api/jour` | l'état du jour (`repos` / `deja-faite` / `a-faire`), la séance résolue et une éventuelle pique de retrouvailles |
 | `POST /api/ressenti` | referme la séance du jour, met à jour niveaux/série/historique, renvoie le récap (série, passage de niveau, encouragement, mot doux) |
+| `GET /api/personnel` | série actuelle et record, niveaux courants (ventre, cuisses), calendrier fait/manqué/repos/à venir des quatre semaines écoulées plus la semaine en cours — lecture seule, rien de recalculé |
 
 Le dictionnaire d'exercices (`data/dictionnaire.json`, dérivé d'`exercices.md`)
 et les stocks de messages (`data/messages.json`) sont des données embarquées,

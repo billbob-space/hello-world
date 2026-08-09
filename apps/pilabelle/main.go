@@ -283,7 +283,36 @@ func routes(dico Dictionnaire, messages Messages, defis []DefiCatalogue, racineP
 		repondreJSON(w, recap)
 	})
 
+	mux.HandleFunc("GET /api/personnel", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		profil, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		jour := aujourdhui()
+		debut, fin := fenetreCalendrier(jour)
+		repondreJSON(w, PersonnelReponse{
+			Serie:      profil.Serie,
+			Niveaux:    profil.Niveaux,
+			Calendrier: Calendrier(profil, debut, fin, jour),
+		})
+	})
+
 	return withIdentiteExigeeSurAPI(mux)
+}
+
+// PersonnelReponse est la reponse de GET /api/personnel (PRP 07) : rien de
+// nouveau a calculer, tout vient deja de Profil.
+type PersonnelReponse struct {
+	Serie      Serie            `json:"serie"`
+	Niveaux    Niveaux          `json:"niveaux"`
+	Calendrier []JourCalendrier `json:"calendrier"`
 }
 
 // Recap est la reponse de POST /api/ressenti (PRD §7.4, §10).

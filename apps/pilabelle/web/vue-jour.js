@@ -32,6 +32,18 @@ function lienReglages(onReglages) {
 	return lien;
 }
 
+// Point d'entree vers l'ecran personnel (PRP 07) : serie, calendrier et
+// niveaux, en lecture seule. A cote du lien Reglages, meme patron de
+// navigation (bouton discret, pas de menu).
+function lienPersonnel(onPersonnel) {
+	const lien = document.createElement('button');
+	lien.type = 'button';
+	lien.className = 'lien-discret';
+	lien.textContent = 'Mon activité';
+	lien.addEventListener('click', onPersonnel);
+	return lien;
+}
+
 // Le defi de la semaine (PRD §6 item 10, §9) : un petit objectif optionnel a
 // cote de la seance calculee. Fonction pure, testee independamment du DOM —
 // l'absence de defi ou un defi pas encore releve ne produisent jamais de
@@ -42,9 +54,14 @@ export function libelleDefi(defi) {
 	return defi.releve ? `✓ Défi relevé : ${defi.titre}` : `Défi de la semaine : ${defi.titre}`;
 }
 
-export function vueJour(conteneur, { jour, onCommencer, onReglages }) {
+export function vueJour(conteneur, { jour, onCommencer, onReglages, onPersonnel }) {
 	conteneur.textContent = '';
-	conteneur.appendChild(lienReglages(onReglages));
+
+	const barreNav = document.createElement('div');
+	barreNav.className = 'barre-nav';
+	barreNav.appendChild(lienPersonnel(onPersonnel));
+	barreNav.appendChild(lienReglages(onReglages));
+	conteneur.appendChild(barreNav);
 
 	// La pique se montre une seule fois au premier rendu de cet ecran, jamais
 	// relue au re-rendu (PRD §7.2 : « s'affiche une fois puis laisse place a

@@ -698,3 +698,70 @@ func auMoinsDeuxFacilesDansLaSemaine(profil Profil, semaineISO, jour string) boo
 	}
 	return n >= 2
 }
+
+// StatutJour est l'etat d'un jour dans le calendrier de l'ecran personnel
+// (PRP 07).
+type StatutJour string
+
+const (
+	StatutFait   StatutJour = "fait"
+	StatutManque StatutJour = "manque"
+	StatutRepos  StatutJour = "repos"
+	StatutAVenir StatutJour = "avenir"
+)
+
+type JourCalendrier struct {
+	Date   string     `json:"date"`
+	Statut StatutJour `json:"statut"`
+}
+
+// Calendrier couvre [debut, fin], inclusif, sans trou (PRP 07). Un jour non
+// actif (JourActif faux) est toujours repos, jamais manque. Un jour actif
+// qui n'est pas apres aujourdhui sans entree d'historique a cette date est
+// manque ; un jour actif apres aujourdhui est avenir, jamais manque — le
+// calendrier ne pretend jamais qu'un jour qui n'est pas encore arrive a ete
+// rate. debut, fin et aujourdhui sont des YYYY-MM-DD, comparables comme des
+// chaines.
+func Calendrier(profil Profil, debut, fin, aujourdhui string) []JourCalendrier {
+	d, errD := time.Parse("2006-01-02", debut)
+	f, errF := time.Parse("2006-01-02", fin)
+	if errD != nil || errF != nil {
+		return nil
+	}
+	faites := map[string]bool{}
+	for _, h := range profil.Historique {
+		faites[h.Date] = true
+	}
+	var jours []JourCalendrier
+	for cur := d; !cur.After(f); cur = cur.AddDate(0, 0, 1) {
+		date := cur.Format("2006-01-02")
+		var statut StatutJour
+		switch {
+		case !JourActif(profil.Reponses.JoursActifs, date):
+			statut = StatutRepos
+		case date > aujourdhui:
+			statut = StatutAVenir
+		case faites[date]:
+			statut = StatutFait
+		default:
+			statut = StatutManque
+		}
+		jours = append(jours, JourCalendrier{Date: date, Statut: statut})
+	}
+	return jours
+}
+
+// fenetreCalendrier calcule la fenetre par defaut de l'ecran personnel (PRP
+// 07, "a ajuster a l'usage plutot qu'a figer ici") : les quatre semaines
+// ecoulees plus la semaine en cours, du lundi de la semaine courante moins
+// 28 jours au dimanche de la semaine courante — ce qui montre aussi les
+// jours a venir de la semaine en cours (statut "avenir").
+func fenetreCalendrier(aujourdhui string) (debut, fin string) {
+	d, err := time.Parse("2006-01-02", aujourdhui)
+	if err != nil {
+		return "", ""
+	}
+	joursDepuisLundi := (int(d.Weekday()) + 6) % 7 // dimanche=0 -> 6, lundi=1 -> 0
+	lundi := d.AddDate(0, 0, -joursDepuisLundi)
+	return lundi.AddDate(0, 0, -28).Format("2006-01-02"), lundi.AddDate(0, 0, 6).Format("2006-01-02")
+}

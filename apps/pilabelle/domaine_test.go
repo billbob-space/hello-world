@@ -477,3 +477,99 @@ func TestNiveauInitial(t *testing.T) {
 		t.Fatalf("a_deja_pratique: %+v, attendu 2/2", n)
 	}
 }
+
+// TestCalendrier couvre les 5 criteres d'acceptation de PRP 07, un par cas
+// (le critere 5 — --check et test.sh verts — se verifie en lancant les deux,
+// pas par une assertion).
+func TestCalendrier(t *testing.T) {
+	casTest := []struct {
+		nom        string
+		profil     Profil
+		aujourdhui string
+		date       string
+		attendu    StatutJour
+	}{
+		{
+			nom:        "critere 1 : jour de repos declare jamais manque, meme dans le passe",
+			profil:     Profil{Reponses: Reponses{JoursActifs: []string{"lundi"}}},
+			aujourdhui: "2026-08-08", // samedi
+			date:       "2026-08-04", // mardi, non actif, passe
+			attendu:    StatutRepos,
+		},
+		{
+			nom:        "critere 2 : jour futur jamais manque",
+			profil:     Profil{Reponses: Reponses{JoursActifs: []string{"lundi"}}},
+			aujourdhui: "2026-08-08", // samedi
+			date:       "2026-08-10", // lundi suivant, futur
+			attendu:    StatutAVenir,
+		},
+		{
+			nom: "jour actif passe sans historique -> manque",
+			profil: Profil{
+				Reponses: Reponses{JoursActifs: []string{"lundi"}},
+			},
+			aujourdhui: "2026-08-08",
+			date:       "2026-08-03", // lundi passe, aucune entree
+			attendu:    StatutManque,
+		},
+		{
+			nom: "jour actif passe avec entree d'historique -> fait",
+			profil: Profil{
+				Reponses:   Reponses{JoursActifs: []string{"lundi"}},
+				Historique: []HistoriqueEntree{{Date: "2026-08-03", Ressenti: RessentiCorrect}},
+			},
+			aujourdhui: "2026-08-08",
+			date:       "2026-08-03",
+			attendu:    StatutFait,
+		},
+		{
+			nom:        "aujourd'hui actif sans entree -> manque, pas avenir",
+			profil:     Profil{Reponses: Reponses{JoursActifs: []string{"samedi"}}},
+			aujourdhui: "2026-08-08", // samedi
+			date:       "2026-08-08",
+			attendu:    StatutManque,
+		},
+	}
+	for _, c := range casTest {
+		t.Run(c.nom, func(t *testing.T) {
+			jours := Calendrier(c.profil, c.date, c.date, c.aujourdhui)
+			if len(jours) != 1 {
+				t.Fatalf("%d jours, attendu 1", len(jours))
+			}
+			if jours[0].Statut != c.attendu {
+				t.Fatalf("statut = %s, attendu %s", jours[0].Statut, c.attendu)
+			}
+		})
+	}
+}
+
+// TestCalendrierSansTrou verifie que l'intervalle est couvert entierement,
+// jour par jour, sans en sauter aucun (PRP 07 : "sans trou").
+func TestCalendrierSansTrou(t *testing.T) {
+	profil := Profil{Reponses: Reponses{JoursActifs: []string{"lundi", "mercredi"}}}
+	jours := Calendrier(profil, "2026-08-01", "2026-08-10", "2026-08-08")
+	if len(jours) != 10 {
+		t.Fatalf("%d jours, attendu 10 (1er au 10 aout inclus)", len(jours))
+	}
+	for i, j := range jours {
+		attendu := time.Date(2026, 8, 1+i, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		if j.Date != attendu {
+			t.Fatalf("jour %d: date = %s, attendu %s", i, j.Date, attendu)
+		}
+	}
+}
+
+// TestCalendrierNiveauxIndependants (critere 3 est verifie cote route,
+// TestPersonnel) documente ici que Calendrier lui-meme ne touche jamais aux
+// niveaux — il ne s'appuie que sur JoursActifs et Historique.
+func TestFenetreCalendrierQuatreSemainesEcouleesPlusSemaineEnCours(t *testing.T) {
+	// 2026-08-08 est un samedi de la semaine ISO 2026-W32, dont le lundi est
+	// le 2026-08-03 et le dimanche le 2026-08-09.
+	debut, fin := fenetreCalendrier("2026-08-08")
+	if debut != "2026-07-06" {
+		t.Fatalf("debut = %s, attendu 2026-07-06 (lundi - 28 jours)", debut)
+	}
+	if fin != "2026-08-09" {
+		t.Fatalf("fin = %s, attendu 2026-08-09 (dimanche de la semaine en cours)", fin)
+	}
+}

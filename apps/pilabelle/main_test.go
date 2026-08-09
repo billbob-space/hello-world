@@ -573,3 +573,47 @@ func TestSupprimerProfilNeTouchePasUnAutreCompte(t *testing.T) {
 		t.Fatalf("profil d'un autre compte affecte: %v", err)
 	}
 }
+
+func TestPersonnelAbsent(t *testing.T) {
+	w := poster(t, routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()), "GET", "/api/personnel", "test@example.com", nil)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("profil absent: %d, attendu 404", w.Code)
+	}
+}
+
+// TestPersonnel verifie que la reponse ne fait que relire Profil (PRP 07 :
+// "rien de nouveau a calculer") — serie et niveaux exactement ceux ecrits,
+// les deux zones independantes l'une de l'autre (critere 3 et 4), et un
+// calendrier non vide, borne par la fenetre par defaut (critere 5 se
+// verifie par ailleurs, en lancant test.sh et --check).
+func TestPersonnel(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	profil := Profil{
+		Reponses:   Reponses{JoursActifs: []string{"lundi"}},
+		Niveaux:    Niveaux{Ventre: 2, Cuisses: 3},
+		Serie:      Serie{Actuelle: 4, Record: 9},
+		Historique: []HistoriqueEntree{{Date: "2026-08-03", Ressenti: RessentiCorrect}},
+	}
+	if err := EcrireProfil(racine, "test@example.com", profil); err != nil {
+		t.Fatal(err)
+	}
+
+	w := poster(t, h, "GET", "/api/personnel", "test@example.com", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /api/personnel: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+	var reponse PersonnelReponse
+	if err := json.Unmarshal(w.Body.Bytes(), &reponse); err != nil {
+		t.Fatal(err)
+	}
+	if reponse.Serie != profil.Serie {
+		t.Fatalf("serie = %+v, attendu %+v (aucun recalcul divergent de PRP 05)", reponse.Serie, profil.Serie)
+	}
+	if reponse.Niveaux != profil.Niveaux {
+		t.Fatalf("niveaux = %+v, attendu %+v (ventre et cuisses independants, jamais moyennes)", reponse.Niveaux, profil.Niveaux)
+	}
+	if len(reponse.Calendrier) == 0 {
+		t.Fatalf("calendrier vide")
+	}
+}

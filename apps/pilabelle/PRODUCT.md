@@ -574,3 +574,15 @@ Confirmation native avant d'agir — le geste est irréversible et n'a pas de
 « refaire » possible. Ne change rien à la mécanique du programme
 lui-même : c'est une porte de sortie, pas une nouvelle règle de la
 progression.
+
+### Écran personnel
+
+Implémentation du PRP 07, livré le 9 août 2026 : un écran de synthèse en
+lecture seule affichant la série actuelle et le record, le niveau courant de
+chaque zone (ventre, cuisses/fessiers), et un calendrier des cinq dernières
+semaines (fait, manqué, repos, à venir). Accessible depuis un bouton « Mon
+activité » sur l'écran du jour (§ 7.2 du PRD principal).
+
+Alimenté par une route `GET /api/personnel` qui retourne l'historique et la
+progression du compte authentifié. Contraint à son propre compte (`X-Forwarded-User`) :
+personne ne peut consulter un profil qui n'est pas le sien.

@@ -221,6 +221,13 @@ button.danger:active {
 	align-self: flex-start;
 }
 
+.barre-nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--espace-sm);
+}
+
 .lien-discret:hover {
 	background: transparent;
 	color: var(--rose-700);
@@ -470,6 +477,70 @@ ul li {
 	font-style: italic;
 	text-align: center;
 	color: var(--encre-douce);
+}
+
+/* Écran personnel ----------------------------------------------------------- */
+
+.niveaux {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.niveaux li {
+	display: flex;
+	justify-content: space-between;
+	background: var(--lavande-100);
+	color: var(--lavande-500);
+	border-radius: var(--rayon-sm);
+	padding: 0.75rem var(--espace);
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+.calendrier {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.calendrier-semaine {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 0.4rem;
+}
+
+.calendrier-jour {
+	aspect-ratio: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--rayon-sm);
+	font-size: 0.9rem;
+	font-weight: 700;
+	background: var(--liseré);
+	color: var(--encre-douce);
+}
+
+.calendrier-jour.jour-fait {
+	background: var(--menthe-100);
+	color: var(--menthe-700);
+}
+
+.calendrier-jour.jour-manque {
+	background: var(--corail-100);
+	color: var(--corail-700);
+}
+
+.calendrier-jour.jour-repos {
+	background: transparent;
+	color: var(--encre-douce);
+	opacity: 0.5;
+}
+
+.calendrier-jour.jour-avenir {
+	background: var(--fond);
+	border: 1px dashed var(--liseré);
 }
 
 /* Réglages — zone de danger ----------------------------------------------- */
