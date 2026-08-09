@@ -68,19 +68,24 @@ semaine, à la différence du dictionnaire ou des piques qui sont entièrement
 spécifiés. Écrire du code détaillé avant cette décision serait du travail à
 jeter.
 
-## Dettes de contenu avant d'activer réellement l'app (ossature §11)
+## Dettes de contenu — closes le 8 août 2026
 
-Deux points ne bloquent aucun PRP mais bloquent `--enable` (PRP 01, seconde
-pull request) :
+Les PRP ci-dessus ont été écrits avant que ces deux points ne soient
+fermés ; le PRP livré ne se rouvre pas pour les y noter (`memory/produit.md`),
+d'où ce compte rendu ici plutôt que dans `02-dictionnaire.md` ou
+`04-jour-et-seance.md` :
 
-- **Trois vidéos `a_rechercher`, deux `a_valider`** dans `exercices.md`
-  (relevé au 8 août 2026) — à résoudre en contenu, jamais par une URL
-  devinée.
-- **Les stocks de piques, encouragements et mots doux** (`data/messages.json`,
-  PRP 04) ne portent qu'un exemple par famille au moment de l'écriture de ces
-  PRP — le PRD §12 les réserve explicitement à vous, pas à une génération
-  automatique.
+- **Les deux vidéos non résolues d'`exercices.md`** (`Mobilisation du
+  bassin`, `Balancement latéral du buste`) sont closes : la première
+  confirmée par le titre de sa vidéo existante ; la seconde, faute d'un
+  bon remplaçant trouvable pour le geste décrit, **renommée**
+  `Étirement latéral debout` avec une nouvelle vidéo réelle et vérifiée
+  (Cleveland Clinic) — jamais une URL devinée pour coller à l'ancien nom.
+- **Les stocks de piques, encouragements et mots doux**
+  (`data/messages.json`) portent désormais 4 à 6 variantes par famille au
+  lieu d'un seul exemple.
 
-Ces dettes ne se voient pas dans `--check` : rien dans le contrat de la
-fabrique ne vérifie la variété d'un contenu éditorial. C'est à la relecture
-humaine avant la seconde pull request de PRP 01 de les fermer.
+Ces dettes ne se voyaient pas dans `--check` : rien dans le contrat de la
+fabrique ne vérifie la variété d'un contenu éditorial — c'est resté une
+relecture humaine (ici, une demande explicite en conversation) qui les a
+fermées, après la mise en ligne du lot 1.

@@ -129,6 +129,18 @@ func routes(dico Dictionnaire, messages Messages, racineProfils string) http.Han
 		repondreJSON(w, p)
 	})
 
+	// Ajoute apres les PRP (PRODUCT.md, "Ajoute apres les PRP") : reinitialiser
+	// son propre profil depuis les reglages, demande explicite en usage reel.
+	mux.HandleFunc("DELETE /api/profil", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		if err := SupprimerProfil(racineProfils, email); err != nil {
+			log.Printf("suppression profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, map[string]bool{"supprime": true})
+	})
+
 	mux.HandleFunc("GET /api/jour", func(w http.ResponseWriter, r *http.Request) {
 		email, _ := identite(r)
 		profil, err := LireProfil(racineProfils, email)

@@ -37,7 +37,7 @@
       "consigne": "Debout ou assise : cercles doux du bassin, dans un sens puis l'autre.",
       "contre_indications": ["dos"],
       "minutage": { "effort_s": 20, "repos_s": 10, "tours": 1 },
-      "video": { "statut": "a_valider", "url": "https://www.youtube.com/shorts/OqR7Tl6SPLQ" }
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/OqR7Tl6SPLQ" }
     },
     {
       "id": "mr-marche-sur-place",
@@ -73,15 +73,15 @@
       "video": { "statut": "ok", "url": "https://www.youtube.com/watch?v=QzgRg7HTGmg" }
     },
     {
-      "id": "mr-balancement-lateral-buste",
+      "id": "mr-etirement-lateral-debout",
       "zone": "mise_en_route",
       "famille": null,
       "niveau": null,
-      "nom": "Balancement latéral du buste",
-      "consigne": "Debout, pieds écartés largeur de hanche, bras relâchés : balancer doucement le buste d'un côté puis l'autre.",
-      "contre_indications": ["dos"],
+      "nom": "Étirement latéral debout",
+      "consigne": "Debout, pieds légèrement écartés : lever un bras au-dessus de la tête et incliner doucement le buste sur le côté opposé, sentir l'étirement, puis l'autre côté.",
+      "contre_indications": ["dos", "epaule"],
       "minutage": { "effort_s": 25, "repos_s": 10, "tours": 1 },
-      "video": { "statut": "a_rechercher", "url": "" }
+      "video": { "statut": "ok", "url": "https://www.youtube.com/shorts/Vko-SJok-fk" }
     },
     {
       "id": "mr-montee-pointes-pieds",
