@@ -557,3 +557,20 @@ jours, une semaine ou plus) et dans le stock de mots doux pour ne pas se
 répéter d'une semaine sur l'autre. Vous les écrivez vous-même — c'est le
 seul contenu de l'application qui gagne à être écrit par vous plutôt que
 déduit du PRD.
+
+## Ajouté après les PRP
+
+### Réinitialiser son propre profil
+
+Demandée en usage réel après la mise en ligne du lot 1, le 9 août 2026 :
+un geste dans les réglages qui efface le profil du compte qui le demande —
+réponses, niveaux, série, historique — et ramène directement au
+questionnaire initial. Le PRD ne prévoyait aucun geste destructeur côté
+utilisatrice ; ce n'était pas écarté explicitement, seulement absent.
+
+Contraint à son seul compte (`X-Forwarded-User`, comme toute route
+`/api/*`) : personne ne peut effacer un profil qui n'est pas le sien.
+Confirmation native avant d'agir — le geste est irréversible et n'a pas de
+« refaire » possible. Ne change rien à la mécanique du programme
+lui-même : c'est une porte de sortie, pas une nouvelle règle de la
+progression.

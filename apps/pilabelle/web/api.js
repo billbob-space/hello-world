@@ -43,3 +43,7 @@ export function envoyerRessenti(ressenti) {
 		body: JSON.stringify({ ressenti }),
 	});
 }
+
+export function supprimerProfil() {
+	return appeler('/api/profil', { method: 'DELETE' });
+}

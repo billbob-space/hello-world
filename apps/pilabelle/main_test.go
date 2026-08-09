@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -347,5 +348,48 @@ func TestEncouragementJamaisRepete(t *testing.T) {
 
 	if recap1.Encouragement == recap2.Encouragement {
 		t.Fatalf("meme encouragement deux fois de suite: %q", recap1.Encouragement)
+	}
+}
+
+func TestSupprimerProfil(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
+
+	w := poster(t, h, "DELETE", "/api/profil", "test@example.com", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("DELETE /api/profil: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+
+	if _, err := LireProfil(racine, "test@example.com"); !errors.Is(err, ErrProfilAbsent) {
+		t.Fatalf("profil encore present apres suppression: %v", err)
+	}
+
+	wGet := poster(t, h, "GET", "/api/profil", "test@example.com", nil)
+	if wGet.Code != http.StatusNotFound {
+		t.Fatalf("GET apres suppression: %d, attendu 404", wGet.Code)
+	}
+}
+
+func TestSupprimerProfilIdempotent(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	// Aucun profil cree : la suppression ne doit pas echouer.
+	w := poster(t, h, "DELETE", "/api/profil", "test@example.com", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("DELETE sans profil: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSupprimerProfilNeTouchePasUnAutreCompte(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), racine)
+	poster(t, h, "POST", "/api/profil", "elle@example.com", reponsesDeTest())
+	poster(t, h, "POST", "/api/profil", "vous@example.com", reponsesDeTest())
+
+	poster(t, h, "DELETE", "/api/profil", "elle@example.com", nil)
+
+	if _, err := LireProfil(racine, "vous@example.com"); err != nil {
+		t.Fatalf("profil d'un autre compte affecte: %v", err)
 	}
 }

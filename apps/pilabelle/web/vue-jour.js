@@ -23,8 +23,18 @@ function paragraphe(texte, classe) {
 	return p;
 }
 
-export function vueJour(conteneur, { jour, onCommencer }) {
+function lienReglages(onReglages) {
+	const lien = document.createElement('button');
+	lien.type = 'button';
+	lien.className = 'lien-discret';
+	lien.textContent = 'Réglages';
+	lien.addEventListener('click', onReglages);
+	return lien;
+}
+
+export function vueJour(conteneur, { jour, onCommencer, onReglages }) {
 	conteneur.textContent = '';
+	conteneur.appendChild(lienReglages(onReglages));
 
 	// La pique se montre une seule fois au premier rendu de cet ecran, jamais
 	// relue au re-rendu (PRD §7.2 : « s'affiche une fois puis laisse place a

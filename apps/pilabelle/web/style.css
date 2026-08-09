@@ -130,6 +130,39 @@ ul li {
 	text-align: center;
 }
 
+.lien-discret {
+	display: inline-block;
+	width: auto;
+	min-height: 44px;
+	padding: 0 0.75rem;
+	background: transparent;
+	color: var(--texte);
+	text-decoration: underline;
+	font-size: 0.95rem;
+	font-weight: 400;
+	margin-bottom: var(--espace);
+}
+
+hr {
+	border: none;
+	border-top: 1px solid var(--rose-clair);
+	margin: 1.5rem 0;
+}
+
+.zone-danger p {
+	font-size: 0.9rem;
+	color: #6b5a61;
+}
+
+button.danger {
+	background: #f8d7da;
+	color: #7a2530;
+}
+
+button.danger:active {
+	background: #f1b6bb;
+}
+
 @media (prefers-reduced-motion: no-preference) {
 	button {
 		transition: transform 0.1s ease, background 0.2s ease;

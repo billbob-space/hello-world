@@ -29,6 +29,7 @@ jamais l'adresse en clair), écrit atomiquement.
 | `GET /api/profil` | `404` si absent, sinon la fiche (réponses, niveaux, série) |
 | `POST /api/profil` | crée le profil depuis le questionnaire, `409` si déjà créé |
 | `PUT /api/profil` | modifie les réponses (réglages), jamais rétroactif sur la progression |
+| `DELETE /api/profil` | efface le profil du compte appelant — irréversible, idempotent |
 | `GET /api/jour` | l'état du jour (`repos` / `deja-faite` / `a-faire`), la séance résolue et une éventuelle pique de retrouvailles |
 | `POST /api/ressenti` | referme la séance du jour, met à jour niveaux/série/historique, renvoie le récap (série, passage de niveau, encouragement, mot doux) |
 

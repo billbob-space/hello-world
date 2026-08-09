@@ -53,3 +53,15 @@ func EcrireProfil(racine, email string, p Profil) error {
 	}
 	return os.Rename(tmp, dest)
 }
+
+// SupprimerProfil efface le profil de CE compte, et seulement le sien —
+// identite() garantit deja que l'appelant ne peut agir que sur son propre
+// fichier (ossature §7). Idempotent : un profil deja absent n'est pas une
+// erreur.
+func SupprimerProfil(racine, email string) error {
+	err := os.Remove(cheminProfil(racine, email))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
