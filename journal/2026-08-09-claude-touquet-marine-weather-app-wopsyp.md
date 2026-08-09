@@ -213,10 +213,40 @@ Vérifié par capture d'écran à deux hauteurs de viewport (892 px et 1700 px,
 endpoints simulés) : le contenu défile normalement dans le premier cas, se
 centre avec un espace réparti dans le second.
 
+---
+
+Nouvelle capture d'écran de l'utilisateur, sur téléphone réel cette fois
+(clé `API_MAREE_KEY` posée entre-temps côté serveur — la jauge affiche des
+vraies données) : « ça reste encore très petit pour bien lire ». Le
+correctif précédent avait déjà relevé la taille du texte secondaire, mais
+prudemment (~10-15 %) pour ne pas aggraver le défilement mesuré à l'étape
+d'avant — le retour d'usage dit que ce n'était pas assez.
+
+### 5. Le point d'interrogation réduisait la police là où elle comptait le plus
+
+**Symptôme** — capture d'écran sur téléphone réel, texte encore trop petit
+malgré le correctif précédent.
+**Cause** — deux causes, pas une : les tailles relevées la fois précédente
+restaient prudentes (~10-15 %) par souci de ne pas aggraver le défilement ;
+et surtout `@media (max-width: 480px)` réduisait encore la police des
+cartes horaires et de la tendance sous ce seuil — précisément les
+téléphones, l'appareil que la correction visait.
+**Detecte par** — `utilisateur`
+**Action** — `garde-fou` — tailles de police augmentées plus franchement
+(titres, chiffres de la jauge, cartes horaires, lignes de la tendance, +25 à
++40 % selon les éléments), et la réduction sous 480px retirée : sous ce
+seuil, seule la mise en page se resserre désormais (colonnes, marges),
+jamais le texte. Vérifié à 360px de large (le plus étroit testé) : aucun
+débordement horizontal (`scrollWidth - clientWidth = 0`), capture d'écran à
+l'appui. Le compromis lisibilité contre défilement, retenu à l'étape
+précédente, est tranché en faveur de la lisibilité : l'utilisateur n'a
+jamais mentionné le défilement comme un problème, seulement la taille du
+texte, à deux reprises.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-09 à 16:28 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-09 à 17:36 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -224,26 +254,26 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 5 147 | 0,01 $ |
-| Écriture de cache | 1 947 655 | 6,45 $ |
-| Lecture de cache | 111 778 332 | 33,12 $ |
-| Sortie | 246 814 | 3,25 $ |
-| **Total** | **113 977 948** | **42,85 $ — 37,21 €** |
+| Entrée | 5 205 | 0,02 $ |
+| Écriture de cache | 2 959 684 | 10,25 $ |
+| Lecture de cache | 126 577 896 | 37,56 $ |
+| Sortie | 260 301 | 3,46 $ |
+| **Total** | **129 803 086** | **51,28 $ — 44,54 €** |
 
 **Ce qui coûte**
 
-- **355 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
+- **384 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 241 379 jetons, 0,00 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   67 265 jetons, écrits une fois par session puis relus à chaque
-  échange : 22 870 100 jetons de relecture, 20 % de tout ce qui a été relu.
-- **Tours courts** — 158 des 355 tours (44 %) sortent
+  échange : 24 820 785 jetons de relecture, 19 % de tout ce qui a été relu.
+- **Tours courts** — 176 des 384 tours (45 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 21,99 $, soit 51 % de la facture.
+  une sortie de rien. Ils coûtent 26,74 $, soit 52 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 67 265 jetons relus au premier appel qui relise
-  quelque chose, 533 850 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 555 114 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 113977948 -->
+<!-- cout-total: 129803086 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-sonnet-5 67265 0 76
 2 principal claude-sonnet-5 605 67265 1466
@@ -586,19 +616,48 @@ claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 339 principal claude-sonnet-5 186 533163 133
 340 principal claude-sonnet-5 501 533349 937
 341 principal claude-sonnet-5 1011 533850 129
-342 agent claude-haiku-4-5-20251001 11416 0 4
-343 agent claude-haiku-4-5-20251001 1837 11416 2
-344 agent claude-haiku-4-5-20251001 2386 13253 2
-345 agent claude-haiku-4-5-20251001 4451 15639 1
-346 agent claude-haiku-4-5-20251001 2826 20090 2
-347 agent claude-haiku-4-5-20251001 239 22916 2
-348 agent claude-haiku-4-5-20251001 11265 0 4
-349 agent claude-haiku-4-5-20251001 1480 11265 2
-350 agent claude-haiku-4-5-20251001 307 12745 2
-351 agent claude-haiku-4-5-20251001 5128 13052 2
-352 agent claude-haiku-4-5-20251001 849 18180 3
-353 agent claude-haiku-4-5-20251001 528 19029 4
-354 agent claude-haiku-4-5-20251001 723 19557 2
-355 agent claude-haiku-4-5-20251001 370 20280 4
+342 principal claude-sonnet-5 4293 534861 141
+343 principal claude-sonnet-5 626 539154 510
+344 principal claude-sonnet-5 820 539780 700
+345 principal claude-sonnet-5 1231 540600 322
+346 principal claude-sonnet-5 389 541831 187
+347 principal claude-sonnet-5 493703 49060 137
+348 principal claude-sonnet-5 1091 542763 143
+349 principal claude-sonnet-5 184 543854 137
+350 principal claude-sonnet-5 600 544038 288
+351 principal claude-sonnet-5 1067 544638 43
+352 principal claude-sonnet-5 323 545748 141
+353 principal claude-sonnet-5 666 546071 14
+354 principal claude-sonnet-5 483310 49060 3541
+355 principal claude-sonnet-5 7837 532370 641
+356 principal claude-sonnet-5 1050 540207 988
+357 principal claude-sonnet-5 1144 541257 297
+358 principal claude-sonnet-5 334 542401 1252
+359 principal claude-sonnet-5 1267 542735 130
+360 principal claude-sonnet-5 1088 544002 254
+361 principal claude-sonnet-5 369 545090 125
+362 principal claude-sonnet-5 165 545459 133
+363 principal claude-sonnet-5 517 545624 969
+364 principal claude-sonnet-5 1043 546141 116
+365 principal claude-sonnet-5 4507 547184 358
+366 principal claude-sonnet-5 497 551691 480
+367 principal claude-sonnet-5 554 552188 181
+368 principal claude-sonnet-5 1159 552742 222
+369 principal claude-sonnet-5 1213 553901 908
+370 principal claude-sonnet-5 982 555114 129
+371 agent claude-haiku-4-5-20251001 11416 0 4
+372 agent claude-haiku-4-5-20251001 1837 11416 2
+373 agent claude-haiku-4-5-20251001 2386 13253 2
+374 agent claude-haiku-4-5-20251001 4451 15639 1
+375 agent claude-haiku-4-5-20251001 2826 20090 2
+376 agent claude-haiku-4-5-20251001 239 22916 2
+377 agent claude-haiku-4-5-20251001 11265 0 4
+378 agent claude-haiku-4-5-20251001 1480 11265 2
+379 agent claude-haiku-4-5-20251001 307 12745 2
+380 agent claude-haiku-4-5-20251001 5128 13052 2
+381 agent claude-haiku-4-5-20251001 849 18180 3
+382 agent claude-haiku-4-5-20251001 528 19029 4
+383 agent claude-haiku-4-5-20251001 723 19557 2
+384 agent claude-haiku-4-5-20251001 370 20280 4
 -->
 <!-- /cout -->

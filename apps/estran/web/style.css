@@ -107,27 +107,27 @@ main {
 
 .entete-titre h1 {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 2.2rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
 .lieu {
   margin: var(--espace-1) 0 0;
-  font-size: 1rem;
+  font-size: 1.15rem;
   color: var(--sable-200);
 }
 
 .horloge {
   margin: 0;
   font-variant-numeric: tabular-nums;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   color: var(--sable-200);
 }
 
 .titre-section {
   margin: 0 0 var(--espace-3);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -179,13 +179,13 @@ main {
 }
 
 .jauge-hauteur {
-  font-size: 2.1rem;
+  font-size: 3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .jauge-hauteur small {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: var(--sable-200);
   margin-left: var(--espace-1);
@@ -195,14 +195,14 @@ main {
   display: flex;
   align-items: center;
   gap: var(--espace-2);
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   color: var(--ambre-400);
   font-weight: 700;
 }
 
 .jauge-sens svg {
-  width: 1.1em;
-  height: 1.1em;
+  width: 1.2em;
+  height: 1.2em;
 }
 
 .jauge-piste {
@@ -239,14 +239,14 @@ main {
 .jauge-reperes {
   display: flex;
   justify-content: space-between;
-  font-size: 0.92rem;
+  font-size: 1.1rem;
   color: var(--sable-300);
 }
 
 .jauge-repere strong {
   display: block;
   color: var(--sable-100);
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -258,7 +258,7 @@ main {
   margin-top: var(--espace-4);
   padding-top: var(--espace-3);
   border-top: 1px solid rgba(244, 236, 216, 0.1);
-  font-size: 1.02rem;
+  font-size: 1.2rem;
   color: var(--sable-200);
   text-align: center;
 }
@@ -295,20 +295,20 @@ main {
 }
 
 .heure-carte .heure {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--sable-200);
   font-variant-numeric: tabular-nums;
 }
 
 .heure-carte .icone {
-  width: 32px;
-  height: 32px;
+  width: 42px;
+  height: 42px;
   margin: var(--espace-1) 0;
 }
 
 .heure-carte .temperature {
-  font-size: 1.3rem;
+  font-size: 1.7rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -325,7 +325,7 @@ main {
 }
 
 .heure-carte .detail {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--sable-100);
   font-variant-numeric: tabular-nums;
@@ -339,8 +339,8 @@ main {
 }
 
 .heure-carte .detail svg {
-  width: 1.05em;
-  height: 1.05em;
+  width: 1.15em;
+  height: 1.15em;
   flex-shrink: 0;
   opacity: 0.9;
 }
@@ -372,15 +372,15 @@ main {
 }
 
 .jour-ligne .jour-nom {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--sable-200);
   text-transform: capitalize;
 }
 
 .jour-ligne .icone {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
 }
 
 /* Hauteurs de maree du jour : ligne secondaire, sous la meteo. Teal (eau),
@@ -393,7 +393,7 @@ main {
   margin: var(--espace-1) 0 0 calc(5.5em + var(--espace-3));
   padding-top: var(--espace-1);
   border-top: 1px solid rgba(244, 236, 216, 0.08);
-  font-size: 0.88rem;
+  font-size: 1.02rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--eau-400);
@@ -417,7 +417,7 @@ main {
 }
 
 .jour-ligne .pluie {
-  font-size: 0.92rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--eau-400);
   display: flex;
@@ -432,7 +432,7 @@ main {
 }
 
 .jour-ligne .temps {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -453,12 +453,16 @@ main {
   margin: 0 auto;
   padding: 0 var(--espace-4) var(--espace-5);
   text-align: center;
-  font-size: 0.88rem;
+  font-size: 1rem;
   color: var(--sable-300);
 }
 
 /* ---------- responsive ---------- */
 
+/* En dessous de 480px, seule la mise en page se resserre (colonnes, marges) —
+   jamais la taille du texte : un telephone est precisement l'appareil ou la
+   lisibilite compte le plus, la retrecir ici defaisait la correction du
+   dessus (retour d'usage reel, cf. journal). */
 @media (max-width: 480px) {
   .heures-rangee {
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -467,14 +471,9 @@ main {
   .heure-carte {
     padding: var(--espace-2) var(--espace-1);
   }
-  .heure-carte .heure {
-    font-size: 0.82rem;
-  }
-  .heure-carte .temperature {
-    font-size: 1.1rem;
-  }
-  .heure-carte .detail {
-    font-size: 0.82rem;
+  .heure-carte .icone {
+    width: 34px;
+    height: 34px;
   }
   .jour-principale {
     grid-template-columns: 4.5em auto 1fr auto;
@@ -482,7 +481,6 @@ main {
   }
   .jour-maree {
     margin-left: calc(4.5em + var(--espace-2));
-    font-size: 0.82rem;
   }
 }
 
