@@ -12,7 +12,12 @@
   --encre-600: #1a4257;
   --sable-100: #f4ecd8;
   --sable-200: #e4d7b8;
-  --sable-300: #c9bb96;
+  /* Relevee de #c9bb96 (7,2:1 sur --encre-700 — passait deja WCAG AA au
+     calcul) a #ddd0ae (9:1) : le retour d'usage reel montrait un contraste
+     percu insuffisant que le ratio seul ne predisait pas, combine a des
+     tailles de police trop petites sur le texte secondaire — c'est ce second
+     levier qui a le plus compte, corrige partout ci-dessous. */
+  --sable-300: #ddd0ae;
   --eau-400: #4fb3a9;
   --eau-500: #2f8f8c;
   --eau-600: #1f6b6f;
@@ -104,29 +109,29 @@ main {
 
 .lieu {
   margin: var(--espace-1) 0 0;
-  font-size: 0.9rem;
-  color: var(--sable-300);
+  font-size: 1rem;
+  color: var(--sable-200);
 }
 
 .horloge {
   margin: 0;
   font-variant-numeric: tabular-nums;
-  font-size: 0.95rem;
-  color: var(--sable-300);
+  font-size: 1.05rem;
+  color: var(--sable-200);
 }
 
 .titre-section {
   margin: 0 0 var(--espace-3);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--sable-300);
+  color: var(--sable-200);
 }
 
 .etat-attente {
-  color: var(--sable-300);
-  font-size: 0.9rem;
+  color: var(--sable-200);
+  font-size: 1rem;
 }
 
 /* ---------- jauge de maree ---------- */
@@ -140,8 +145,8 @@ main {
 }
 
 .jauge-chargement {
-  color: var(--sable-300);
-  font-size: 0.9rem;
+  color: var(--sable-200);
+  font-size: 1rem;
   text-align: center;
   padding: var(--espace-4) 0;
 }
@@ -149,16 +154,16 @@ main {
 .jauge-non-configuree {
   text-align: center;
   padding: var(--espace-3) 0;
-  color: var(--sable-300);
-  font-size: 0.9rem;
-  line-height: 1.5;
+  color: var(--sable-200);
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 .jauge-non-configuree strong {
   display: block;
   color: var(--sable-100);
-  font-size: 1rem;
-  margin-bottom: var(--espace-1);
+  font-size: 1.1rem;
+  margin-bottom: var(--espace-2);
 }
 
 .jauge-entete {
@@ -175,9 +180,9 @@ main {
 }
 
 .jauge-hauteur small {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--sable-300);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--sable-200);
   margin-left: var(--espace-1);
 }
 
@@ -185,9 +190,9 @@ main {
   display: flex;
   align-items: center;
   gap: var(--espace-2);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--ambre-400);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .jauge-sens svg {
@@ -229,14 +234,14 @@ main {
 .jauge-reperes {
   display: flex;
   justify-content: space-between;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   color: var(--sable-300);
 }
 
 .jauge-repere strong {
   display: block;
   color: var(--sable-100);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -248,7 +253,7 @@ main {
   margin-top: var(--espace-4);
   padding-top: var(--espace-3);
   border-top: 1px solid rgba(244, 236, 216, 0.1);
-  font-size: 0.92rem;
+  font-size: 1.02rem;
   color: var(--sable-200);
   text-align: center;
 }
@@ -259,7 +264,7 @@ main {
 
 .jauge-perimee {
   margin-top: var(--espace-3);
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   color: var(--rouge-400);
   text-align: center;
 }
@@ -285,35 +290,54 @@ main {
 }
 
 .heure-carte .heure {
-  font-size: 0.82rem;
-  color: var(--sable-300);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--sable-200);
   font-variant-numeric: tabular-nums;
 }
 
 .heure-carte .icone {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   margin: var(--espace-1) 0;
 }
 
 .heure-carte .temperature {
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
+/* Pluie et vent sont le coeur de la prevision courte, pas un detail en
+   retrait : meme poids visuel que l'heure, contraste plein (--sable-100),
+   jamais le sable-300 reserve aux libelles secondaires. */
+.heure-carte .stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espace-1);
+  margin-top: var(--espace-1);
+}
+
 .heure-carte .detail {
-  font-size: 0.72rem;
-  color: var(--sable-300);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--sable-100);
+  font-variant-numeric: tabular-nums;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
+}
+
+.heure-carte .detail.pluie {
+  color: var(--eau-400);
 }
 
 .heure-carte .detail svg {
-  width: 0.9em;
-  height: 0.9em;
+  width: 1.05em;
+  height: 1.05em;
   flex-shrink: 0;
+  opacity: 0.9;
 }
 
 /* ---------- tendance 7 jours ---------- */
@@ -327,10 +351,6 @@ main {
 }
 
 .jour-ligne {
-  display: grid;
-  grid-template-columns: 5.5em auto 1fr auto;
-  align-items: center;
-  gap: var(--espace-3);
   padding: var(--espace-2) var(--espace-3);
   background: var(--encre-700);
 }
@@ -339,40 +359,82 @@ main {
   background: var(--encre-800);
 }
 
+.jour-principale {
+  display: grid;
+  grid-template-columns: 5.5em auto 1fr auto;
+  align-items: center;
+  gap: var(--espace-3);
+}
+
 .jour-ligne .jour-nom {
-  font-size: 0.88rem;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--sable-200);
   text-transform: capitalize;
 }
 
 .jour-ligne .icone {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
+}
+
+/* Hauteurs de maree du jour : ligne secondaire, sous la meteo. Teal (eau),
+   jamais l'ambre — l'ambre reste reserve a la position courante sur la
+   jauge (PRODUCT.md, principe 2 et 4). */
+.jour-maree {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--espace-1) 0 0 calc(5.5em + var(--espace-3));
+  padding-top: var(--espace-1);
+  border-top: 1px solid rgba(244, 236, 216, 0.08);
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--eau-400);
+}
+
+.jour-maree svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.jour-maree .separateur {
+  color: var(--sable-300);
+  font-weight: 400;
+}
+
+.jour-maree .coef {
+  margin-left: auto;
+  color: var(--sable-300);
+  font-weight: 500;
 }
 
 .jour-ligne .pluie {
-  font-size: 0.8rem;
+  font-size: 0.92rem;
+  font-weight: 600;
   color: var(--eau-400);
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   justify-self: start;
 }
 
 .jour-ligne .pluie svg {
-  width: 0.95em;
-  height: 0.95em;
+  width: 1em;
+  height: 1em;
 }
 
 .jour-ligne .temps {
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .jour-ligne .temps .max {
   color: var(--sable-100);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .jour-ligne .temps .min {
@@ -386,7 +448,7 @@ main {
   margin: 0 auto;
   padding: 0 var(--espace-4) var(--espace-5);
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   color: var(--sable-300);
 }
 
@@ -400,12 +462,22 @@ main {
   .heure-carte {
     padding: var(--espace-2) var(--espace-1);
   }
-  .heure-carte .temperature {
-    font-size: 1rem;
+  .heure-carte .heure {
+    font-size: 0.82rem;
   }
-  .jour-ligne {
+  .heure-carte .temperature {
+    font-size: 1.1rem;
+  }
+  .heure-carte .detail {
+    font-size: 0.82rem;
+  }
+  .jour-principale {
     grid-template-columns: 4.5em auto 1fr auto;
     gap: var(--espace-2);
+  }
+  .jour-maree {
+    margin-left: calc(4.5em + var(--espace-2));
+    font-size: 0.82rem;
   }
 }
 

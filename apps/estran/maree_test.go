@@ -82,6 +82,12 @@ func TestClientMaree_RecupererA_EncadreEtInterpole(t *testing.T) {
 	if m.PositionPct < 7 || m.PositionPct > 9 {
 		t.Errorf("position = %v%%, attendu ~8%%", m.PositionPct)
 	}
+	if len(m.Tendance) != nombreJoursAffiches {
+		t.Fatalf("tendance = %d jour(s), attendu %d", len(m.Tendance), nombreJoursAffiches)
+	}
+	if m.Tendance[0].HauteM == nil || *m.Tendance[0].HauteM != 6.9 {
+		t.Errorf("tendance jour 0 haute = %v, attendu 6.9", m.Tendance[0].HauteM)
+	}
 }
 
 func TestClientMaree_Recuperer_SansCle(t *testing.T) {
@@ -122,5 +128,43 @@ func TestClamp(t *testing.T) {
 	}
 	if v := clamp(42, 0, 100); v != 42 {
 		t.Errorf("clamp(42,0,100) = %v, attendu 42", v)
+	}
+}
+
+func TestGrouperParJour(t *testing.T) {
+	coef := 76
+	extrema := []Extremum{
+		{Type: "BM", Heure: time.Date(2026, 8, 9, 8, 12, 0, 0, parisTZ), HauteurM: 1.8},
+		{Type: "PM", Heure: time.Date(2026, 8, 9, 14, 30, 0, 0, parisTZ), HauteurM: 6.9, Coefficient: &coef},
+		{Type: "BM", Heure: time.Date(2026, 8, 9, 20, 45, 0, 0, parisTZ), HauteurM: 2.1},
+		// Deuxieme pleine mer du 9, plus basse : le maximum du jour doit rester 6.9.
+		{Type: "PM", Heure: time.Date(2026, 8, 9, 2, 0, 0, 0, parisTZ), HauteurM: 6.5},
+		// 10 aout : hors fenetre si nJours=1, dedans si nJours>=2.
+		{Type: "PM", Heure: time.Date(2026, 8, 10, 15, 0, 0, 0, parisTZ), HauteurM: 7.1},
+	}
+	debut := time.Date(2026, 8, 9, 10, 0, 0, 0, parisTZ)
+
+	jours := grouperParJour(extrema, debut, 3)
+
+	if len(jours) != 3 {
+		t.Fatalf("attendu 3 jours, recu %d", len(jours))
+	}
+	if jours[0].HauteM == nil || *jours[0].HauteM != 6.9 {
+		t.Errorf("jour 0 (9 aout) haute = %v, attendu 6.9 (max des deux PM)", jours[0].HauteM)
+	}
+	if jours[0].BasseM == nil || *jours[0].BasseM != 1.8 {
+		t.Errorf("jour 0 basse = %v, attendu 1.8", jours[0].BasseM)
+	}
+	if jours[0].Coefficient == nil || *jours[0].Coefficient != 76 {
+		t.Errorf("jour 0 coefficient = %v, attendu 76 (celui de la PM retenue)", jours[0].Coefficient)
+	}
+	if jours[1].HauteM == nil || *jours[1].HauteM != 7.1 {
+		t.Errorf("jour 1 (10 aout) haute = %v, attendu 7.1", jours[1].HauteM)
+	}
+	if jours[1].BasseM != nil {
+		t.Errorf("jour 1 basse = %v, attendu nil (aucune BM fournie ce jour-la)", *jours[1].BasseM)
+	}
+	if jours[2].HauteM != nil || jours[2].BasseM != nil {
+		t.Errorf("jour 2 (11 aout) attendu entierement vide, recu %+v", jours[2])
 	}
 }

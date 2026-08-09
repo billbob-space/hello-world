@@ -38,6 +38,21 @@ type Maree struct {
 	// Sens vaut "montante" quand Prochain est une pleine mer, "descendante"
 	// sinon.
 	Sens string
+	// Tendance resume chaque jour de la fenetre affichee (nombreJoursAffiches
+	// jours a partir d'aujourd'hui) : la plus haute pleine mer et la plus
+	// basse basse mer du jour. nil pour un jour sans extremum retourne par
+	// le fournisseur, jamais une valeur inventee.
+	Tendance []JourMaree
+}
+
+// JourMaree resume un jour pour la tendance a 7 jours. HauteM/BasseM/
+// Coefficient restent nil quand le fournisseur n'a rien retourne pour ce
+// jour-la, plutot que de tomber a zero — un zero se lirait comme une mesure.
+type JourMaree struct {
+	Date        time.Time
+	HauteM      *float64
+	BasseM      *float64
+	Coefficient *int
 }
 
 // ClientMaree interroge api-maree.fr pour un site fixe. Sans cle, Recuperer
@@ -92,9 +107,12 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 		return Maree{}, ErrCleAbsente
 	}
 
-	// Une journee de part et d'autre de maintenant : large marge pour ne
-	// jamais manquer l'extremum encadrant, y compris pres de minuit.
-	extrema, err := c.recupererExtrema(ctx, maintenant.AddDate(0, 0, -1), maintenant.AddDate(0, 0, 1))
+	// Une seule requete d'extrema couvre les deux besoins : encadrer
+	// l'instant present pour la jauge (marge d'une journee avant, pour ne
+	// jamais manquer l'extremum encadrant pres de minuit) et couvrir la
+	// fenetre de tendance affichee (nombreJoursAffiches jours) sans appel
+	// HTTP supplementaire.
+	extrema, err := c.recupererExtrema(ctx, maintenant.AddDate(0, 0, -1), maintenant.AddDate(0, 0, nombreJoursAffiches))
 	if err != nil {
 		return Maree{}, fmt.Errorf("horaires de maree : %w", err)
 	}
@@ -127,7 +145,45 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 		Prochain:    prochain,
 		PositionPct: position,
 		Sens:        sens,
+		Tendance:    grouperParJour(extrema, maintenant, nombreJoursAffiches),
 	}, nil
+}
+
+// grouperParJour reduit les extrema a un resume par jour : la plus haute
+// pleine mer et la plus basse basse mer, sur nJours a partir du jour de
+// debut (heure locale). Un jour que le fournisseur n'a pas couvert reste a
+// nil sur ses trois champs plutot que de tomber a zero.
+func grouperParJour(extrema []Extremum, debut time.Time, nJours int) []JourMaree {
+	debutJour := time.Date(debut.Year(), debut.Month(), debut.Day(), 0, 0, 0, 0, debut.Location())
+
+	jours := make([]JourMaree, nJours)
+	for i := range jours {
+		jours[i].Date = debutJour.AddDate(0, 0, i)
+	}
+
+	for _, e := range extrema {
+		i := int(e.Heure.Sub(debutJour).Hours() / 24)
+		if i < 0 || i >= nJours {
+			continue
+		}
+		switch e.Type {
+		case "PM":
+			if jours[i].HauteM == nil || e.HauteurM > *jours[i].HauteM {
+				h := e.HauteurM
+				jours[i].HauteM = &h
+				if e.Coefficient != nil {
+					c := *e.Coefficient
+					jours[i].Coefficient = &c
+				}
+			}
+		case "BM":
+			if jours[i].BasseM == nil || e.HauteurM < *jours[i].BasseM {
+				b := e.HauteurM
+				jours[i].BasseM = &b
+			}
+		}
+	}
+	return jours
 }
 
 func (c *ClientMaree) recupererExtrema(ctx context.Context, de, a time.Time) ([]Extremum, error) {
