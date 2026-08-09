@@ -281,6 +281,23 @@ input[type="checkbox"] {
 	flex-shrink: 0;
 }
 
+input[type="time"] {
+	min-height: 48px;
+	border: 1px solid var(--liseré);
+	border-radius: var(--rayon-sm);
+	padding: 0 0.75rem;
+	font-family: inherit;
+	font-size: 1rem;
+	color: var(--encre);
+	background: #fff;
+	flex: 1;
+}
+
+input[type="time"]:focus-visible {
+	outline: 3px solid var(--lavande-500);
+	outline-offset: 2px;
+}
+
 form {
 	display: flex;
 	flex-direction: column;

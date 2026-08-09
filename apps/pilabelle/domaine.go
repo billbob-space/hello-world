@@ -195,6 +195,32 @@ type DefiSemaine struct {
 	Semaine string   `json:"semaine"` // "2026-W33", ISO
 }
 
+// AbonnementPush est un PushSubscription du navigateur (endpoint et cles de
+// chiffrement), tel que renvoye par PushManager.subscribe() cote client
+// (PRODUIT "Notifications : rappel de seance et mots doux", 9 aout 2026).
+type AbonnementPush struct {
+	Endpoint string `json:"endpoint"`
+	P256dh   string `json:"p256dh"`
+	Auth     string `json:"auth"`
+}
+
+// Notifications porte l'etat des notifications push d'un profil (PRODUIT
+// "Notifications : rappel de seance et mots doux", 9 aout 2026). Opt-in, un seul
+// abonnement par profil : un profil sans Abonnement ne recoit jamais rien, c'est
+// le comportement par defaut. Sous-type dedie plutot que des champs eparpilles
+// dans Profil, sur le modele de DefiSemaine.
+type Notifications struct {
+	Abonnement *AbonnementPush `json:"abonnement,omitempty"`
+	// HeureRappel est au format "HH:MM" ; vide veut dire le defaut 18:00
+	// (heureRappelEffective).
+	HeureRappel string `json:"heure_rappel,omitempty"`
+	// DernierRappel et DernierMotDoux sont des dates YYYY-MM-DD : elles evitent
+	// un double envoi si le conteneur redemarre entre deux verifications du
+	// planificateur (main.go), jamais recalculees a la volee.
+	DernierRappel  string `json:"dernier_rappel,omitempty"`
+	DernierMotDoux string `json:"dernier_mot_doux,omitempty"`
+}
+
 type Profil struct {
 	VersionSchema      int                `json:"version_schema"`
 	Reponses           Reponses           `json:"reponses"`
@@ -204,6 +230,7 @@ type Profil struct {
 	Historique         []HistoriqueEntree `json:"historique"`
 	DerniersMessages   DerniersMessages   `json:"derniers_messages"`
 	DefiSemaine        *DefiSemaine       `json:"defi_semaine"`
+	Notifications      Notifications      `json:"notifications"`
 }
 
 var contreIndicationsValides = map[string]bool{
@@ -764,4 +791,121 @@ func fenetreCalendrier(aujourdhui string) (debut, fin string) {
 	joursDepuisLundi := (int(d.Weekday()) + 6) % 7 // dimanche=0 -> 6, lundi=1 -> 0
 	lundi := d.AddDate(0, 0, -joursDepuisLundi)
 	return lundi.AddDate(0, 0, -28).Format("2006-01-02"), lundi.AddDate(0, 0, 6).Format("2006-01-02")
+}
+
+// Notifications : rappel de seance et mots doux (PRODUIT, "Ajoute apres les
+// PRP", 9 aout 2026). Fonctions pures — aucun acces disque, reseau ni horloge
+// implicite — testees independamment du planificateur (main.go) et de l'envoi
+// reel (notifications.go).
+
+const heureRappelParDefaut = "18:00"
+
+// heureRappelEffective rend l'heure de rappel choisie par le profil, ou le
+// defaut 18:00 (PRODUIT) si elle n'a jamais ete reglee.
+func heureRappelEffective(n Notifications) string {
+	if n.HeureRappel == "" {
+		return heureRappelParDefaut
+	}
+	return n.HeureRappel
+}
+
+// heureValide verifie strictement le format "HH:MM" (deux chiffres zero-pad de
+// chaque cote), celui que rend un <input type="time"> de navigateur.
+func heureValide(h string) bool {
+	if len(h) != 5 || h[2] != ':' {
+		return false
+	}
+	var hh, mm int
+	if _, err := fmt.Sscanf(h, "%d:%d", &hh, &mm); err != nil {
+		return false
+	}
+	return hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59
+}
+
+// RappelDu dit si le rappel de seance doit partir maintenant pour ce profil
+// (PRODUIT "Notifications" : au plus une fois par jour actif, a l'heure
+// choisie, seulement si la seance n'est pas deja faite). cas est le resultat
+// DEJA calcule de SeanceDuJour pour ce profil et ce jour — jamais recalcule
+// ici, pour ne dupliquer ni JourActif ni la detection "deja-faite" (PRD §7).
+// maintenant est deja exprime en Europe/Paris.
+func RappelDu(profil Profil, cas Cas, maintenant time.Time) bool {
+	if profil.Notifications.Abonnement == nil {
+		return false // opt-in : jamais de notification implicite
+	}
+	if cas != CasAFaire {
+		return false // repos ou deja-faite : jamais de rappel, jamais une pression
+	}
+	aujourdhui := maintenant.Format("2006-01-02")
+	if profil.Notifications.DernierRappel == aujourdhui {
+		return false // deja envoye aujourd'hui, meme si le conteneur a redemarre entre-temps
+	}
+	var hh, mm int
+	if _, err := fmt.Sscanf(heureRappelEffective(profil.Notifications), "%d:%d", &hh, &mm); err != nil {
+		return false
+	}
+	cible := time.Date(maintenant.Year(), maintenant.Month(), maintenant.Day(), hh, mm, 0, 0, maintenant.Location())
+	return !maintenant.Before(cible)
+}
+
+// motDouxJoursDeLaSemaine choisit, de facon deterministe pour (id, semaineISO),
+// jusqu'a trois jours de la semaine ISO ou un mot doux pourra partir (PRODUIT :
+// "jusqu'a trois par semaine"). id identifie le profil de facon stable
+// (l'identifiant de fichier de stockage.go suffit, l'email en clair n'est
+// jamais necessaire ici). Chaque jour est note puis les notes triees, pour ne
+// jamais dependre de l'ordre d'iteration d'une map.
+func motDouxJoursDeLaSemaine(id, semaineISO string) []string {
+	dates := datesDeLaSemaineISO(semaineISO)
+	if len(dates) == 0 {
+		return nil
+	}
+	type note struct {
+		date  string
+		score uint32
+	}
+	notes := make([]note, len(dates))
+	for i, d := range dates {
+		h := fnv.New32a()
+		h.Write([]byte(id + "|" + d + "|mot-doux-jour"))
+		notes[i] = note{date: d, score: h.Sum32()}
+	}
+	sort.Slice(notes, func(i, j int) bool { return notes[i].score < notes[j].score })
+	n := min(3, len(notes))
+	choisis := make([]string, n)
+	for i := range n {
+		choisis[i] = notes[i].date
+	}
+	sort.Strings(choisis)
+	return choisis
+}
+
+// motDouxHeureDuJour choisit, de facon deterministe pour (id, date), une heure
+// aleatoire dans la fenetre 9h-21h Europe/Paris (PRODUIT : "pour ne jamais
+// reveiller personne").
+func motDouxHeureDuJour(id, date string) (heure, minute int) {
+	h := fnv.New32a()
+	h.Write([]byte(id + "|" + date + "|mot-doux-heure"))
+	const minutesDansLaFenetre = 12 * 60 // 9h -> 21h
+	offset := int(h.Sum32() % minutesDansLaFenetre)
+	return 9 + offset/60, offset % 60
+}
+
+// MotDouxDu dit si un mot doux doit partir maintenant pour ce profil (PRODUIT
+// "Notifications") : independant de la seance, au plus trois par semaine,
+// jamais deux fois le meme jour. id identifie le profil (stockage.go),
+// maintenant est deja exprime en Europe/Paris.
+func MotDouxDu(id string, profil Profil, maintenant time.Time) bool {
+	if profil.Notifications.Abonnement == nil {
+		return false
+	}
+	aujourdhui := maintenant.Format("2006-01-02")
+	if profil.Notifications.DernierMotDoux == aujourdhui {
+		return false
+	}
+	semaine := semaineISODeDate(aujourdhui)
+	if !slices.Contains(motDouxJoursDeLaSemaine(id, semaine), aujourdhui) {
+		return false
+	}
+	hh, mm := motDouxHeureDuJour(id, aujourdhui)
+	cible := time.Date(maintenant.Year(), maintenant.Month(), maintenant.Day(), hh, mm, 0, 0, maintenant.Location())
+	return !maintenant.Before(cible)
 }

@@ -28,6 +28,9 @@ erreur ici casse le deploiement de toutes les autres applications.
 ## Ce qu'elle garde
 
 - Volume `pilabelle-donnees`, monte sur `/var/lib/pilabelle` — il survit au redeploiement.
+- Attend le secret `VAPID_PUBLIC_KEY` : le NOM est dans le depot, la VALEUR est injectee par l'infrastructure.
+- Attend le secret `VAPID_PRIVATE_KEY` : le NOM est dans le depot, la VALEUR est injectee par l'infrastructure.
+- Attend le secret `VAPID_CONTACT` : le NOM est dans le depot, la VALEUR est injectee par l'infrastructure.
 
 ## Comment la tester
 

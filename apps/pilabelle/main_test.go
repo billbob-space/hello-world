@@ -33,7 +33,7 @@ func poster(t *testing.T, h http.Handler, methode, chemin, email string, corps a
 func TestSante(t *testing.T) {
 	r := httptest.NewRequest("GET", "/healthz", nil)
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "").ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("healthz = %d, attendu 200", w.Code)
 	}
@@ -42,7 +42,7 @@ func TestSante(t *testing.T) {
 func TestIdentiteExigeeSurAPI(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/profil", nil)
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "").ServeHTTP(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("sans X-Forwarded-User: %d, attendu 400", w.Code)
 	}
@@ -52,7 +52,7 @@ func TestPageAttente(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("X-Forwarded-User", "test@example.com")
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "").ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Fatalf("/ = %d, attendu 200", w.Code)
 	}
@@ -65,7 +65,7 @@ func TestProfilAbsent(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/profil", nil)
 	r.Header.Set("X-Forwarded-User", "test@example.com")
 	w := httptest.NewRecorder()
-	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()).ServeHTTP(w, r)
+	routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "").ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("profil absent: %d, attendu 404", w.Code)
 	}
@@ -95,7 +95,7 @@ func defisDeTest() []DefiCatalogue {
 }
 
 func TestCreerProfil(t *testing.T) {
-	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir())
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "")
 	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	if w.Code != http.StatusCreated {
 		t.Fatalf("creation: %d, attendu 201 — corps: %s", w.Code, w.Body.String())
@@ -111,7 +111,7 @@ func TestCreerProfil(t *testing.T) {
 
 func TestCreerProfilDeuxFoisRefuse(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine)
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine, "")
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 	if w.Code != http.StatusConflict {
@@ -121,7 +121,7 @@ func TestCreerProfilDeuxFoisRefuse(t *testing.T) {
 
 func TestReglagesNeTouchentPasNiveauxHistoriqueSerie(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine)
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine, "")
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 
 	// Simule une progression deja ecrite (comme le ferait PRP 05).
@@ -162,7 +162,7 @@ func TestReglagesNeTouchentPasNiveauxHistoriqueSerie(t *testing.T) {
 
 func TestJourRepos(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	// Aucun jour actif declare : quel que soit "aujourd'hui", c'est repos.
 	if err := EcrireProfil(racine, "test@example.com", Profil{Reponses: Reponses{JoursActifs: nil}}); err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestJourRepos(t *testing.T) {
 
 func TestJourAFaireDeuxAppelsIdempotents(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}},
 		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
@@ -213,7 +213,7 @@ func TestJourAFaireDeuxAppelsIdempotents(t *testing.T) {
 
 func TestJourAvecPiqueApresUneAbsence(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	tousLesJours := []string{"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"}
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses:   Reponses{JoursActifs: tousLesJours},
@@ -240,7 +240,7 @@ func tousLesJoursDeTest() []string {
 
 func TestRessentiDejaCompteNeRecomptePas(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	jourDuTest := aujourdhui()
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses:   Reponses{JoursActifs: tousLesJoursDeTest()},
@@ -275,7 +275,7 @@ func TestRessentiDejaCompteNeRecomptePas(t *testing.T) {
 
 func TestRessentiDifficileFaitBaisserLeNiveau(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
 		Niveaux:  Niveaux{Ventre: 3, Cuisses: 3},
@@ -341,7 +341,7 @@ func TestEncouragementJamaisRepete(t *testing.T) {
 	}
 	messages := messagesDeTest()
 	messages.Encouragements = []string{"un", "deux"}
-	h2 := routes(chargerDictionnaireDeTest(t), messages, defisDeTest(), racine)
+	h2 := routes(chargerDictionnaireDeTest(t), messages, defisDeTest(), racine, "")
 	w1 := poster(t, h2, "POST", "/api/ressenti", "a@example.com", map[string]string{"ressenti": "correct"})
 	var recap1 Recap
 	json.Unmarshal(w1.Body.Bytes(), &recap1)
@@ -383,7 +383,7 @@ func nomJourFR(t *testing.T, dateISO string) string {
 // jour — il en tire un aussitot.
 func TestJourTireUnDefiLaPremiereFois(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	jour := aujourdhui()
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: []string{nomJourFR(t, jour)}},
@@ -420,7 +420,7 @@ func TestJourTireUnDefiLaPremiereFois(t *testing.T) {
 
 func TestJourDefiStablePourLaMemeSemaine(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
 		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
@@ -448,7 +448,7 @@ func TestJourDefiStablePourLaMemeSemaine(t *testing.T) {
 // declenche un nouveau tirage, persiste aussitot.
 func TestJourRedessineLeDefiSiLaSemaineAChange(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses:    Reponses{JoursActifs: tousLesJoursDeTest()},
 		Niveaux:     Niveaux{Ventre: 1, Cuisses: 1},
@@ -474,7 +474,7 @@ func TestJourRedessineLeDefiSiLaSemaineAChange(t *testing.T) {
 // aucune mention de defi rate.
 func TestRessentiSansDefiNeCassePasEtNeMarqueRien(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	if err := EcrireProfil(racine, "test@example.com", Profil{
 		Reponses: Reponses{JoursActifs: tousLesJoursDeTest()},
 		Niveaux:  Niveaux{Ventre: 1, Cuisses: 1},
@@ -499,7 +499,7 @@ func TestRessentiSansDefiNeCassePasEtNeMarqueRien(t *testing.T) {
 // NiveauMonte).
 func TestRessentiDefiReleveToutesLesSeancesActives(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	jour := aujourdhui()
 	semaine := semaineISODeDate(jour)
 	if err := EcrireProfil(racine, "test@example.com", Profil{
@@ -533,7 +533,7 @@ func TestRessentiDefiReleveToutesLesSeancesActives(t *testing.T) {
 
 func TestSupprimerProfil(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
 
 	w := poster(t, h, "DELETE", "/api/profil", "test@example.com", nil)
@@ -553,7 +553,7 @@ func TestSupprimerProfil(t *testing.T) {
 
 func TestSupprimerProfilIdempotent(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	// Aucun profil cree : la suppression ne doit pas echouer.
 	w := poster(t, h, "DELETE", "/api/profil", "test@example.com", nil)
 	if w.Code != http.StatusOK {
@@ -563,7 +563,7 @@ func TestSupprimerProfilIdempotent(t *testing.T) {
 
 func TestSupprimerProfilNeTouchePasUnAutreCompte(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	poster(t, h, "POST", "/api/profil", "elle@example.com", reponsesDeTest())
 	poster(t, h, "POST", "/api/profil", "vous@example.com", reponsesDeTest())
 
@@ -575,7 +575,7 @@ func TestSupprimerProfilNeTouchePasUnAutreCompte(t *testing.T) {
 }
 
 func TestPersonnelAbsent(t *testing.T) {
-	w := poster(t, routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir()), "GET", "/api/personnel", "test@example.com", nil)
+	w := poster(t, routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), ""), "GET", "/api/personnel", "test@example.com", nil)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("profil absent: %d, attendu 404", w.Code)
 	}
@@ -588,7 +588,7 @@ func TestPersonnelAbsent(t *testing.T) {
 // verifie par ailleurs, en lancant test.sh et --check).
 func TestPersonnel(t *testing.T) {
 	racine := t.TempDir()
-	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine)
+	h := routes(chargerDictionnaireDeTest(t), messagesDeTest(), defisDeTest(), racine, "")
 	profil := Profil{
 		Reponses:   Reponses{JoursActifs: []string{"lundi"}},
 		Niveaux:    Niveaux{Ventre: 2, Cuisses: 3},

@@ -385,6 +385,10 @@ services:
     networks: [apps_net]
     volumes:
       - pilabelle-donnees:/var/lib/pilabelle
+    environment:
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_CONTACT=${VAPID_CONTACT:-}
   # <<< pilabelle
 
   # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh

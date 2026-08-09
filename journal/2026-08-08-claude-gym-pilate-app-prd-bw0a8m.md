@@ -249,6 +249,23 @@ PRP 06, écrite après cette table, qui n'avait pas été recalée. `Detecte par
 (l'artisan de PRP 07, cherchant où brancher sa propre route) — `Action` — `contrat` :
 la table est corrigée pour dire ce qui existe réellement.
 
+---
+
+Capacité neuve demandée en conversation, sans PRP : notifications push pour rappeler la
+séance et envoyer des mots doux au hasard. Décisions écrites dans
+`PRODUCT.md` (§ « Notifications : rappel de séance et mots doux »), dans le même commit
+que le code (`memory/produit.md`) plutôt qu'ici : opt-in explicite, un abonnement par
+profil, rappel une fois par jour actif et seulement si la séance n'est pas déjà faite,
+mots doux jusqu'à trois par semaine à une heure aléatoire de la journée, fuseau
+Europe/Paris assumé faute d'un réglage dédié. L'extension du contenu des mots doux
+(au-delà de la réserve de `PRODUCT.md` §12) est couverte par la demande explicite de
+cette conversation, comme précédent le 8 août pour les piques et les premiers mots doux.
+
+Secret nouveau : une paire de clés VAPID, nécessaire pour signer les envois push.
+Conformément à `memory/perimetre.md`, seul le *nom* des variables entre dans `app.yml`
+et `README.md` — la valeur ne passe jamais par ce dépôt ni par cette conversation ;
+la commande pour la générer est donnée à l'utilisateur directement, hors du dépôt.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
