@@ -341,7 +341,7 @@ services:
 
   # >>> pilabelle — apps/pilabelle/app.yml — https://pilabelle.apps.billbob.ovh
   pilabelle:
-    image: ghcr.io/billbob-space/hello-world/pilabelle:49fa5d80cd6682f93c56df27473c9e6bd796077a
+    image: ghcr.io/billbob-space/hello-world/pilabelle:23852cdaef103b746fc9c2eae1f883eeb03ed4d8
     container_name: pilabelle
     restart: unless-stopped
     mem_limit: 128m
