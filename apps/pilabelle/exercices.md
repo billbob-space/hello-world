@@ -52,11 +52,11 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 |---|---|---|---|
 | Respiration profonde debout | Debout, pieds écartés largeur de hanche : inspirer en levant les bras, expirer en les redescendant, lentement. | aucune | [Overhead Arm Swings: Simple Exercise to Boost Circulation & Energy](https://www.youtube.com/shorts/ZKVqUCwsMPs) |
 | Mobilisation épaules et nuque | Cercles d'épaules lents vers l'arrière, puis inclinaisons douces de la tête d'un côté puis l'autre. | épaule (réduire l'amplitude) | [5 Gentle Neck & Shoulder Exercises for Elderly to Ease Tension](https://www.youtube.com/shorts/8j_WvtamM_U) |
-| Mobilisation du bassin | Debout ou assise : cercles doux du bassin, dans un sens puis l'autre. | dos (réduire l'amplitude) | [STANDING HIP CIRCLES improve hip mobility (exercise demo)](https://www.youtube.com/shorts/OqR7Tl6SPLQ) ⚠️ à valider |
+| Mobilisation du bassin | Debout ou assise : cercles doux du bassin, dans un sens puis l'autre. | dos (réduire l'amplitude) | [STANDING HIP CIRCLES improve hip mobility (exercise demo)](https://www.youtube.com/shorts/OqR7Tl6SPLQ) |
 | Marche sur place douce | Marcher sur place lentement, genoux modérément levés, bras qui balancent naturellement. | genou (réduire la hauteur des genoux) | [One-Minute Marching in Place Exercise for Beginners](https://www.youtube.com/shorts/5l-A5_-BPUg) |
 | Extension douce des bras et du dos | Debout, bras tendus devant soi, arrondir doucement le dos en expirant, revenir en inspirant. | épaule | [STANDING Modified Cat Cow Stretch](https://www.youtube.com/shorts/QrGWR7Ic3_8) |
 | Rotation des poignets et des chevilles | Debout ou assise : cercles lents des poignets, puis des chevilles, un côté puis l'autre. | aucune | [Mobility: Ankle/Wrist Circles](https://www.youtube.com/watch?v=QzgRg7HTGmg) |
-| Balancement latéral du buste | Debout, pieds écartés largeur de hanche, bras relâchés : balancer doucement le buste d'un côté puis l'autre. | dos (réduire l'amplitude) | à rechercher (miniature de ["Weight Shifts for Balance"](https://www.youtube.com/shorts/nsfwycOd27c) vue et écartée : c'est un transfert de poids latéral en fente contre un mur, pas un balancement du buste) |
+| Étirement latéral debout | Debout, pieds légèrement écartés : lever un bras au-dessus de la tête et incliner doucement le buste sur le côté opposé, sentir l'étirement, puis l'autre côté. | dos, épaule | [How to do a standing side bend.](https://www.youtube.com/shorts/Vko-SJok-fk) — Cleveland Clinic |
 | Montée sur pointes de pieds | Debout, se hisser doucement sur la pointe des pieds, tenir un instant, redescendre. | cheville, équilibre (appui sur un meuble si besoin) | [Standing Calf Raise](https://www.youtube.com/shorts/fZYTVO9-Ggk) |
 
 ## Bloc ventre
@@ -197,8 +197,14 @@ transfert de poids latéral en fente contre un mur, pas un balancement du
 buste debout — et est repassée en « à rechercher » plutôt que d'être
 laissée en ligne avec un doute.
 
-Deux entrées du dictionnaire (56 exercices) demandent encore une
-intervention avant la mise en ligne du lot 1 (§ 6 de `PRODUCT.md`) :
-`Mobilisation du bassin` (vrai visionnage à faire) et `Balancement latéral
-du buste` (vidéo encore
-à trouver).
+**Les deux entrées ci-dessus sont résolues.** `Mobilisation du bassin` est
+confirmée par le titre de sa vidéo (« STANDING HIP CIRCLES improve hip
+mobility ») — décrit exactement des cercles de hanche/bassin, chaîne Human
+2.0 Fitness. `Balancement latéral du buste` n'avait pas de bon remplaçant
+trouvable (toutes les vidéos de « sway » latéral gentil trouvées montraient
+soit un transfert de poids en fente, soit une danse) : l'exercice est
+renommé en **`Étirement latéral debout`**, avec une nouvelle consigne
+(« lever un bras au-dessus de la tête et incliner doucement le buste sur le
+côté opposé ») et une vidéo réelle, vérifiée, de la Cleveland Clinic
+(source médicale, geste net, silencieuse). Contre-indication `épaule`
+ajoutée en conséquence (bras levé).

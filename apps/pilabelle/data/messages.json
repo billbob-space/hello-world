@@ -1,19 +1,38 @@
 {
   "piques": {
     "un_jour": [
-      "Bah alors, on ne s'est pas vu hier 😙. Tu m'as manqué."
+      "Bah alors, on ne s'est pas vu hier 😙. Tu m'as manqué.",
+      "Alors, on sèche déjà ? 😏 Allez, je t'attendais.",
+      "Une pause d'un jour, ça compte à peine. Mais je l'ai quand même remarqué.",
+      "Tiens, te revoilà. Vingt-quatre heures sans toi, c'est déjà long."
     ],
     "quelques_jours": [
-      "Ça fait quelques jours dis donc. On la reprend doucement ?"
+      "Ça fait quelques jours dis donc. On la reprend doucement ?",
+      "Ah, tu es vivante ! Je commençais à me poser des questions 😄.",
+      "Bon retour. On ne va pas se mentir, tu m'as un peu manqué.",
+      "Quelques jours de silence radio... la vie a dû être trépidante. Raconte-moi ça en t'étirant."
     ],
     "une_semaine_ou_plus": [
-      "Une semaine sans nouvelles... je commençais à croire que tu m'avais remplacée 😏."
+      "Une semaine sans nouvelles... je commençais à croire que tu m'avais remplacée 😏.",
+      "Ça alors, une revenante ! Je te croyais partie faire du yoga ailleurs.",
+      "Une semaine, peut-être plus. J'ai eu le temps de m'ennuyer, tu sais.",
+      "Te revoilà enfin. On ne juge pas ici — on est juste ravie de te revoir."
     ]
   },
   "encouragements": [
-    "Bravo, séance faite !"
+    "Bravo, séance faite !",
+    "Séance terminée, bravo à toi !",
+    "Encore une de faite. Tu tiens le rythme.",
+    "Bien joué, tu peux être fière.",
+    "Séance dans la poche. À demain — ou pas, on ne culpabilise pas ici.",
+    "Ça, c'est fait. Bravo !"
   ],
   "mots_doux": [
-    "Je suis fière de toi, tu sais."
+    "Je suis fière de toi, tu sais.",
+    "Tu fais ça pour toi, et ça se voit déjà.",
+    "Chaque petite séance compte plus que tu ne le crois.",
+    "J'aime te voir prendre soin de toi comme ça.",
+    "Tu es plus forte que tu ne le penses.",
+    "Continue comme ça, tu es sur la bonne voie."
   ]
 }
