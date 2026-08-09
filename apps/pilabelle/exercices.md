@@ -157,7 +157,7 @@ Un exercice qui perdrait sa vidéo (lien mort, contenu changé) redevient
 
 | Nom | Consigne | Contre-indications | Vidéo |
 |---|---|---|---|
-| Étirement chat-vache | À quatre pattes : alterner dos rond et dos creux, doucement, au rythme de la respiration. | genou (variante assise), poignet | [Cat Cow Stretch for Spine Mobility \| Beginner Yoga for Back Flexibility](https://www.youtube.com/shorts/33DU2FHxxDw) |
+| Étirement chat-vache | À quatre pattes : alterner dos rond et dos creux, doucement, au rythme de la respiration. | genou (variante assise), poignet | [How to do a cat-cow yoga pose.](https://www.youtube.com/shorts/WHUevrqeKIg) — Cleveland Clinic |
 | Étirement des ischio-jambiers assise | Assise, une jambe tendue devant, on se penche doucement vers l'avant sans forcer. | dos | [Head to Knee Pose \| Janu Sirsasana](https://www.youtube.com/shorts/CYX6ie7RmHo) |
 | Étirement des hanches allongée | Allongée sur le dos, on ramène un genou vers la poitrine, doucement, puis l'autre. | genou | [Single Knee to Chest](https://www.youtube.com/shorts/muv4W1mjYyQ) |
 | Torsion du dos allongée | Allongée, genoux pliés, on les laisse basculer doucement d'un côté, bras en croix, quelques respirations, puis l'autre côté. | dos, hanche | [Supine Spinal Twist](https://www.youtube.com/shorts/lyhWPzuGUHc) |

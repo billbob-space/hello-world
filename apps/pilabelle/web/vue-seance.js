@@ -53,6 +53,10 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 		const minutage = exercice.minutage || { effort_s: 20, repos_s: 15, tours: 1 };
 		const minuteur = creerMinuteur(minutage);
 
+		const labelPhase = document.createElement('p');
+		labelPhase.className = 'phase';
+		carte.appendChild(labelPhase);
+
 		const etatAffiche = document.createElement('p');
 		etatAffiche.className = 'minuteur';
 		carte.appendChild(etatAffiche);
@@ -64,12 +68,15 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 
 		minuteur.abonner(({ etat, phase, restant }) => {
 			if (etat === 'attente') {
+				labelPhase.textContent = '';
 				etatAffiche.textContent = '';
 				etatAffiche.classList.remove('repos');
 			} else if (etat === 'en_cours') {
+				labelPhase.textContent = phase === 'effort' ? '💪 Effort' : '😮‍💨 Repos';
+				labelPhase.classList.toggle('repos', phase === 'repos');
 				etatAffiche.textContent = `${restant}`;
 				etatAffiche.classList.toggle('repos', phase === 'repos');
-				boutonPrincipal.textContent = phase === 'effort' ? 'Pause' : 'Pause (repos)';
+				boutonPrincipal.textContent = 'Pause';
 			} else if (etat === 'pause') {
 				boutonPrincipal.textContent = 'Reprendre';
 			} else if (etat === 'termine') {
