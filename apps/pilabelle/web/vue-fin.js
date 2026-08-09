@@ -3,6 +3,14 @@
 // declenchee — le passage de niveau. Une serie remise a zero n'affiche
 // aucune penalite : le fait, jamais un jugement.
 
+// Le texte de recompense du defi de la semaine (PRD §9, §10 ; PRP 06) :
+// fonction pure, testee independamment du DOM. `defi_releve` n'arrive dans
+// `Recap` que sur la transition non-releve -> releve — jamais d'etat
+// "manque" a afficher, donc jamais de cas negatif ici.
+export function texteRecompenseDefi(recap) {
+	return recap && recap.defi_releve ? '🏆 Défi de la semaine relevé !' : null;
+}
+
 export function vueFin(conteneur, { recap }) {
 	conteneur.textContent = '';
 
@@ -37,6 +45,16 @@ export function vueFin(conteneur, { recap }) {
 			const p = document.createElement('p');
 			p.className = 'niveau-monte';
 			p.textContent = `🎉 Niveau supérieur débloqué : ${zones.join(' et ')} !`;
+			carte.appendChild(p);
+		}
+
+		// Recompense du defi de la semaine : s'ajoute a l'encouragement, ne le
+		// remplace jamais ; absente si le defi n'est pas releve (PRP 06).
+		const recompenseDefi = texteRecompenseDefi(recap);
+		if (recompenseDefi) {
+			const p = document.createElement('p');
+			p.className = 'defi-recompense';
+			p.textContent = recompenseDefi;
 			carte.appendChild(p);
 		}
 	}

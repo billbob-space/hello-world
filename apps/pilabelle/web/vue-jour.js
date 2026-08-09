@@ -32,15 +32,49 @@ function lienReglages(onReglages) {
 	return lien;
 }
 
-export function vueJour(conteneur, { jour, onCommencer, onReglages }) {
+// Point d'entree vers l'ecran personnel (PRP 07) : serie, calendrier et
+// niveaux, en lecture seule. A cote du lien Reglages, meme patron de
+// navigation (bouton discret, pas de menu).
+function lienPersonnel(onPersonnel) {
+	const lien = document.createElement('button');
+	lien.type = 'button';
+	lien.className = 'lien-discret';
+	lien.textContent = 'Mon activité';
+	lien.addEventListener('click', onPersonnel);
+	return lien;
+}
+
+// Le defi de la semaine (PRD §6 item 10, §9) : un petit objectif optionnel a
+// cote de la seance calculee. Fonction pure, testee independamment du DOM —
+// l'absence de defi ou un defi pas encore releve ne produisent jamais de
+// texte d'echec, seulement rien ou le titre (PRP 06, « aucun ecran ni
+// notification qui rappelle un defi manque »).
+export function libelleDefi(defi) {
+	if (!defi) return null;
+	return defi.releve ? `✓ Défi relevé : ${defi.titre}` : `Défi de la semaine : ${defi.titre}`;
+}
+
+export function vueJour(conteneur, { jour, onCommencer, onReglages, onPersonnel }) {
 	conteneur.textContent = '';
-	conteneur.appendChild(lienReglages(onReglages));
+
+	const barreNav = document.createElement('div');
+	barreNav.className = 'barre-nav';
+	barreNav.appendChild(lienPersonnel(onPersonnel));
+	barreNav.appendChild(lienReglages(onReglages));
+	conteneur.appendChild(barreNav);
 
 	// La pique se montre une seule fois au premier rendu de cet ecran, jamais
 	// relue au re-rendu (PRD §7.2 : « s'affiche une fois puis laisse place a
 	// la seance »).
 	if (jour.pique) {
 		conteneur.appendChild(paragraphe(jour.pique, 'pique'));
+	}
+
+	// Le defi de la semaine s'affiche a cote de la seance, qu'il soit encore a
+	// relever ou deja relevé — jamais un etat "manque" (regle du PRP 06).
+	const libelle = libelleDefi(jour.defi);
+	if (libelle) {
+		conteneur.appendChild(paragraphe(libelle, jour.defi.releve ? 'defi defi-releve' : 'defi'));
 	}
 
 	const carte = document.createElement('div');

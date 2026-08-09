@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sort"
 	"testing"
+	"time"
 )
 
 func chargerDictionnaireDeTest(t *testing.T) Dictionnaire {
@@ -270,6 +271,202 @@ func TestJourActif(t *testing.T) {
 	}
 }
 
+func chargerDefisDeTest(t *testing.T) []DefiCatalogue {
+	t.Helper()
+	brut, err := os.ReadFile("data/defis.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defis, err := ChargerDefis(brut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return defis
+}
+
+func TestDefisComplet(t *testing.T) {
+	defis := chargerDefisDeTest(t)
+	compte := map[DefiType]int{}
+	for _, d := range defis {
+		compte[d.Type]++
+	}
+	if compte[DefiToutesLesSeancesActives] != 3 || compte[DefiRessentiFacileX2] != 3 {
+		t.Fatalf("repartition par type = %v, attendu 3/3 (verrou du 9 aout 2026)", compte)
+	}
+}
+
+func TestChargerDefisRefuseIDDuplique(t *testing.T) {
+	_, err := ChargerDefis([]byte(`{"defis":[
+		{"id":"x","titre":"a","type":"toutes_les_seances_actives"},
+		{"id":"x","titre":"b","type":"ressenti_facile_x2"}
+	]}`))
+	if err == nil {
+		t.Fatal("attendu une erreur sur id duplique")
+	}
+}
+
+func TestChargerDefisRefuseTypeInconnu(t *testing.T) {
+	_, err := ChargerDefis([]byte(`{"defis":[
+		{"id":"x","titre":"a","type":"toutes_les_seances_du_mois"}
+	]}`))
+	if err == nil {
+		t.Fatal("attendu une erreur sur type de defi inconnu")
+	}
+}
+
+func TestChargerDefisRefuseUnSeulTypeRepresente(t *testing.T) {
+	_, err := ChargerDefis([]byte(`{"defis":[
+		{"id":"x","titre":"a","type":"toutes_les_seances_actives"},
+		{"id":"y","titre":"b","type":"toutes_les_seances_actives"}
+	]}`))
+	if err == nil {
+		t.Fatal("attendu une erreur : ressenti_facile_x2 n'a aucun defi")
+	}
+}
+
+func TestChargerDefisRefuseTitreVide(t *testing.T) {
+	_, err := ChargerDefis([]byte(`{"defis":[
+		{"id":"x","titre":"","type":"toutes_les_seances_actives"},
+		{"id":"y","titre":"b","type":"ressenti_facile_x2"}
+	]}`))
+	if err == nil {
+		t.Fatal("attendu une erreur sur titre vide")
+	}
+}
+
+func TestDefiDeLaSemaineIdempotentPourLeMemeSel(t *testing.T) {
+	defis := chargerDefisDeTest(t)
+	a := DefiDeLaSemaine(defis, "", "2026-W33|test@example.com", "2026-W33")
+	b := DefiDeLaSemaine(defis, "", "2026-W33|test@example.com", "2026-W33")
+	if a.ID != b.ID {
+		t.Fatalf("deux tirages du meme sel rendent %s puis %s", a.ID, b.ID)
+	}
+	if a.Semaine != "2026-W33" {
+		t.Fatalf("semaine = %s, attendu 2026-W33", a.Semaine)
+	}
+	if a.Titre == "" || a.Type == "" {
+		t.Fatalf("defi tire incomplet: %+v", a)
+	}
+}
+
+// TestDefiDeLaSemaineEviteLaRepetitionSiPossible couvre le critere
+// d'acceptation 4 : le tirage hebdomadaire ne repete pas un defi avant
+// d'avoir epuise le stock, meme mecanique que les piques (PRP 04).
+func TestDefiDeLaSemaineEviteLaRepetitionSiPossible(t *testing.T) {
+	defis := chargerDefisDeTest(t)
+	premier := DefiDeLaSemaine(defis, "", "2026-W33|test@example.com", "2026-W33")
+	second := DefiDeLaSemaine(defis, premier.ID, "2026-W34|test@example.com", "2026-W34")
+	if second.ID == premier.ID {
+		t.Fatalf("meme defi deux semaines de suite alors qu'une alternative existe")
+	}
+}
+
+func TestSemaineISORoundTrip(t *testing.T) {
+	cas := []string{"2026-01-01", "2026-08-03", "2026-08-08", "2026-08-09", "2026-08-10", "2026-12-31", "2027-01-04"}
+	for _, dateISO := range cas {
+		sem := semaineISODeDate(dateISO)
+		dates := datesDeLaSemaineISO(sem)
+		if len(dates) != 7 {
+			t.Fatalf("%s: %d dates dans la semaine %s, attendu 7", dateISO, len(dates), sem)
+		}
+		if !slices.Contains(dates, dateISO) {
+			t.Fatalf("%s (semaine %s) absente des dates calculees %v", dateISO, sem, dates)
+		}
+		// Verification independante : le premier jour rendu doit etre le
+		// lundi de dateISO, calcule ici par simple arithmetique de jour de
+		// semaine plutot que par le meme algorithme que le code teste.
+		d, err := time.Parse("2006-01-02", dateISO)
+		if err != nil {
+			t.Fatal(err)
+		}
+		delta := (int(d.Weekday()) + 6) % 7
+		lundiAttendu := d.AddDate(0, 0, -delta).Format("2006-01-02")
+		if dates[0] != lundiAttendu {
+			t.Fatalf("%s: lundi calcule %s, attendu %s", dateISO, dates[0], lundiAttendu)
+		}
+	}
+}
+
+// Semaine ISO 2026-W32 : lundi 2026-08-03 a dimanche 2026-08-09 (verifie
+// independamment via `date -d 2026-08-03 +%G-W%V`).
+
+func TestEvaluerDefiToutesLesSeancesActivesVrai(t *testing.T) {
+	profil := Profil{
+		Reponses: Reponses{JoursActifs: []string{"lundi", "mercredi", "vendredi"}},
+		Historique: []HistoriqueEntree{
+			{Date: "2026-08-03", Ressenti: RessentiCorrect}, // lundi
+			{Date: "2026-08-05", Ressenti: RessentiCorrect}, // mercredi
+			{Date: "2026-08-07", Ressenti: RessentiFacile},  // vendredi
+		},
+	}
+	defi := DefiSemaine{Type: DefiToutesLesSeancesActives, Semaine: "2026-W32"}
+	if !EvaluerDefi(defi, profil, "2026-08-09") {
+		t.Fatal("attendu rempli : les trois jours actifs ont chacun une seance")
+	}
+}
+
+func TestEvaluerDefiToutesLesSeancesActivesFaux(t *testing.T) {
+	profil := Profil{
+		Reponses: Reponses{JoursActifs: []string{"lundi", "mercredi", "vendredi"}},
+		Historique: []HistoriqueEntree{
+			{Date: "2026-08-03", Ressenti: RessentiCorrect},
+			{Date: "2026-08-05", Ressenti: RessentiCorrect},
+			// vendredi 2026-08-07 manque : rate le defi, casse rien d'autre.
+		},
+	}
+	defi := DefiSemaine{Type: DefiToutesLesSeancesActives, Semaine: "2026-W32"}
+	if EvaluerDefi(defi, profil, "2026-08-09") {
+		t.Fatal("attendu non rempli : vendredi manque")
+	}
+}
+
+func TestEvaluerDefiToutesLesSeancesActivesSansJourActifJamaisRempli(t *testing.T) {
+	profil := Profil{Reponses: Reponses{JoursActifs: nil}}
+	defi := DefiSemaine{Type: DefiToutesLesSeancesActives, Semaine: "2026-W32"}
+	if EvaluerDefi(defi, profil, "2026-08-09") {
+		t.Fatal("aucun jour actif declare : rien a relever, jamais rempli")
+	}
+}
+
+func TestEvaluerDefiFacileX2Vrai(t *testing.T) {
+	profil := Profil{
+		Historique: []HistoriqueEntree{
+			{Date: "2026-08-03", Ressenti: RessentiFacile},
+			{Date: "2026-08-05", Ressenti: RessentiFacile},
+			{Date: "2026-08-06", Ressenti: RessentiDifficile},
+		},
+	}
+	defi := DefiSemaine{Type: DefiRessentiFacileX2, Semaine: "2026-W32"}
+	if !EvaluerDefi(defi, profil, "2026-08-09") {
+		t.Fatal("attendu rempli : deux 'facile' dans la semaine")
+	}
+}
+
+func TestEvaluerDefiFacileX2Faux(t *testing.T) {
+	profil := Profil{
+		Historique: []HistoriqueEntree{
+			{Date: "2026-08-03", Ressenti: RessentiFacile},
+		},
+	}
+	defi := DefiSemaine{Type: DefiRessentiFacileX2, Semaine: "2026-W32"}
+	if EvaluerDefi(defi, profil, "2026-08-09") {
+		t.Fatal("attendu non rempli : un seul 'facile' cette semaine")
+	}
+}
+
+func TestEvaluerDefiFacileX2IgnoreLesAutresSemaines(t *testing.T) {
+	profil := Profil{
+		Historique: []HistoriqueEntree{
+			{Date: "2026-07-27", Ressenti: RessentiFacile}, // semaine 2026-W31
+			{Date: "2026-08-03", Ressenti: RessentiFacile}, // semaine 2026-W32
+		},
+	}
+	defi := DefiSemaine{Type: DefiRessentiFacileX2, Semaine: "2026-W32"}
+	if EvaluerDefi(defi, profil, "2026-08-09") {
+		t.Fatal("un 'facile' d'une autre semaine ne doit pas compter")
+	}
+}
+
 func TestNiveauInitial(t *testing.T) {
 	n := NiveauInitial(Reponses{NiveauDepart: "debutante"})
 	if n.Ventre != 1 || n.Cuisses != 1 {
@@ -278,5 +475,101 @@ func TestNiveauInitial(t *testing.T) {
 	n = NiveauInitial(Reponses{NiveauDepart: "a_deja_pratique"})
 	if n.Ventre != 2 || n.Cuisses != 2 {
 		t.Fatalf("a_deja_pratique: %+v, attendu 2/2", n)
+	}
+}
+
+// TestCalendrier couvre les 5 criteres d'acceptation de PRP 07, un par cas
+// (le critere 5 — --check et test.sh verts — se verifie en lancant les deux,
+// pas par une assertion).
+func TestCalendrier(t *testing.T) {
+	casTest := []struct {
+		nom        string
+		profil     Profil
+		aujourdhui string
+		date       string
+		attendu    StatutJour
+	}{
+		{
+			nom:        "critere 1 : jour de repos declare jamais manque, meme dans le passe",
+			profil:     Profil{Reponses: Reponses{JoursActifs: []string{"lundi"}}},
+			aujourdhui: "2026-08-08", // samedi
+			date:       "2026-08-04", // mardi, non actif, passe
+			attendu:    StatutRepos,
+		},
+		{
+			nom:        "critere 2 : jour futur jamais manque",
+			profil:     Profil{Reponses: Reponses{JoursActifs: []string{"lundi"}}},
+			aujourdhui: "2026-08-08", // samedi
+			date:       "2026-08-10", // lundi suivant, futur
+			attendu:    StatutAVenir,
+		},
+		{
+			nom: "jour actif passe sans historique -> manque",
+			profil: Profil{
+				Reponses: Reponses{JoursActifs: []string{"lundi"}},
+			},
+			aujourdhui: "2026-08-08",
+			date:       "2026-08-03", // lundi passe, aucune entree
+			attendu:    StatutManque,
+		},
+		{
+			nom: "jour actif passe avec entree d'historique -> fait",
+			profil: Profil{
+				Reponses:   Reponses{JoursActifs: []string{"lundi"}},
+				Historique: []HistoriqueEntree{{Date: "2026-08-03", Ressenti: RessentiCorrect}},
+			},
+			aujourdhui: "2026-08-08",
+			date:       "2026-08-03",
+			attendu:    StatutFait,
+		},
+		{
+			nom:        "aujourd'hui actif sans entree -> manque, pas avenir",
+			profil:     Profil{Reponses: Reponses{JoursActifs: []string{"samedi"}}},
+			aujourdhui: "2026-08-08", // samedi
+			date:       "2026-08-08",
+			attendu:    StatutManque,
+		},
+	}
+	for _, c := range casTest {
+		t.Run(c.nom, func(t *testing.T) {
+			jours := Calendrier(c.profil, c.date, c.date, c.aujourdhui)
+			if len(jours) != 1 {
+				t.Fatalf("%d jours, attendu 1", len(jours))
+			}
+			if jours[0].Statut != c.attendu {
+				t.Fatalf("statut = %s, attendu %s", jours[0].Statut, c.attendu)
+			}
+		})
+	}
+}
+
+// TestCalendrierSansTrou verifie que l'intervalle est couvert entierement,
+// jour par jour, sans en sauter aucun (PRP 07 : "sans trou").
+func TestCalendrierSansTrou(t *testing.T) {
+	profil := Profil{Reponses: Reponses{JoursActifs: []string{"lundi", "mercredi"}}}
+	jours := Calendrier(profil, "2026-08-01", "2026-08-10", "2026-08-08")
+	if len(jours) != 10 {
+		t.Fatalf("%d jours, attendu 10 (1er au 10 aout inclus)", len(jours))
+	}
+	for i, j := range jours {
+		attendu := time.Date(2026, 8, 1+i, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		if j.Date != attendu {
+			t.Fatalf("jour %d: date = %s, attendu %s", i, j.Date, attendu)
+		}
+	}
+}
+
+// TestCalendrierNiveauxIndependants (critere 3 est verifie cote route,
+// TestPersonnel) documente ici que Calendrier lui-meme ne touche jamais aux
+// niveaux — il ne s'appuie que sur JoursActifs et Historique.
+func TestFenetreCalendrierQuatreSemainesEcouleesPlusSemaineEnCours(t *testing.T) {
+	// 2026-08-08 est un samedi de la semaine ISO 2026-W32, dont le lundi est
+	// le 2026-08-03 et le dimanche le 2026-08-09.
+	debut, fin := fenetreCalendrier("2026-08-08")
+	if debut != "2026-07-06" {
+		t.Fatalf("debut = %s, attendu 2026-07-06 (lundi - 28 jours)", debut)
+	}
+	if fin != "2026-08-09" {
+		t.Fatalf("fin = %s, attendu 2026-08-09 (dimanche de la semaine en cours)", fin)
 	}
 }

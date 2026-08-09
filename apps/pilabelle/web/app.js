@@ -1,10 +1,11 @@
-import { lireProfil, lireJour, envoyerRessenti } from './api.js';
+import { lireProfil, lireJour, envoyerRessenti, lirePersonnel } from './api.js';
 import { vueQuestionnaire } from './vue-questionnaire.js';
 import { vueJour } from './vue-jour.js';
 import { vueSeance } from './vue-seance.js';
 import { vueRessenti } from './vue-ressenti.js';
 import { vueFin } from './vue-fin.js';
 import { vueReglages } from './vue-reglages.js';
+import { vuePersonnel } from './vue-personnel.js';
 
 const app = document.querySelector('#app');
 
@@ -23,6 +24,10 @@ async function afficherJour() {
 			onEnregistre: afficherJour,
 			onReinitialise: amorcer,
 		}),
+		onPersonnel: async () => {
+			const donnees = await lirePersonnel();
+			monter(vuePersonnel, { donnees, onRetour: afficherJour });
+		},
 		onCommencer: (seance) => monter(vueSeance, {
 			seance,
 			onSeanceTerminee: () => monter(vueRessenti, {

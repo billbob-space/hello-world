@@ -406,8 +406,12 @@ deux à côté de lui.
 | `GET /api/jour` | l'état du jour : `cas`, et si `a-faire`, la séance résolue — PRP 04 |
 | `POST /api/ressenti` | referme la séance du jour, renvoie le récap — PRP 05 |
 | `GET /api/personnel` | série, calendrier, niveaux — PRP 07, lot 2 |
-| `GET /api/defi` | le défi de la semaine — PRP 06, lot 2 |
 | tout le reste | `404` |
+
+Pas de route `GET /api/defi` séparée : le défi de la semaine voyage dans la réponse de
+`GET /api/jour` (champ `defi`), et sa transition relevée dans `Recap.defi_releve` — décidé
+dans le verrou de `06-defi-semaine.md`, après l'écriture de cette table, qui promettait à
+tort une route dédiée jamais construite.
 
 Toutes les réponses portent `X-App-Version` (SHA du commit, comme dans
 `hello-world`) : un déploiement se vérifie sans ouvrir la page.

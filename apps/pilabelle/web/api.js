@@ -47,3 +47,7 @@ export function envoyerRessenti(ressenti) {
 export function supprimerProfil() {
 	return appeler('/api/profil', { method: 'DELETE' });
 }
+
+export function lirePersonnel() {
+	return appeler('/api/personnel');
+}

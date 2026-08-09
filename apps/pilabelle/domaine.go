@@ -183,13 +183,16 @@ type DerniersMessages struct {
 	MotDoux       string `json:"mot_doux"`
 }
 
-// DefiSemaine est reserve nil jusqu'au lot 2 (PRP 06) — le contrat de ce PRP
-// n'est pas encore tranche (voir prp/06-defi-semaine.md).
+// DefiSemaine porte le defi tire pour une semaine ISO donnee (PRP 06). Le
+// champ Type voyage avec le defi tire (recopie de DefiCatalogue) pour
+// qu'EvaluerDefi reste pur : profil + jour suffisent, sans reconsulter le
+// catalogue.
 type DefiSemaine struct {
-	ID      string `json:"id"`
-	Titre   string `json:"titre"`
-	Releve  bool   `json:"releve"`
-	Semaine string `json:"semaine"`
+	ID      string   `json:"id"`
+	Titre   string   `json:"titre"`
+	Type    DefiType `json:"type"`
+	Releve  bool     `json:"releve"`
+	Semaine string   `json:"semaine"` // "2026-W33", ISO
 }
 
 type Profil struct {
@@ -520,4 +523,245 @@ func motDouxDeTempsEnTemps(sel string) bool {
 
 func ressentiValide(r Ressenti) bool {
 	return r == RessentiFacile || r == RessentiCorrect || r == RessentiDifficile
+}
+
+// DefiType est le petit vocabulaire ferme du PRP 06 (verrou du 9 aout 2026) :
+// deux types, pas plus pour ce lot, chacun verifiable depuis
+// profil.Historique et profil.Reponses.JoursActifs seuls.
+type DefiType string
+
+const (
+	// Chaque jour actif de la semaine ISO a une entree dans l'historique a
+	// cette date.
+	DefiToutesLesSeancesActives DefiType = "toutes_les_seances_actives"
+	// Au moins deux entrees ressenti "facile" dans la semaine ISO.
+	DefiRessentiFacileX2 DefiType = "ressenti_facile_x2"
+)
+
+// DefiCatalogue est une entree de data/defis.json — le stock hand-ecrit
+// (verrou §"Le verrou, tranche le 9 aout 2026") : six defis, trois par type.
+type DefiCatalogue struct {
+	ID    string   `json:"id"`
+	Titre string   `json:"titre"`
+	Type  DefiType `json:"type"`
+}
+
+type defisFichier struct {
+	Defis []DefiCatalogue `json:"defis"`
+}
+
+// ChargerDefis valide le catalogue au chargement, sur le meme principe que
+// ChargerMessages : un id duplique ou un type hors du vocabulaire ferme sont
+// fatals au demarrage, jamais absorbes en silence.
+func ChargerDefis(brut []byte) ([]DefiCatalogue, error) {
+	var f defisFichier
+	if err := json.Unmarshal(brut, &f); err != nil {
+		return nil, fmt.Errorf("defis illisibles: %w", err)
+	}
+	vus := map[string]bool{}
+	parType := map[DefiType]int{}
+	for _, d := range f.Defis {
+		if d.ID == "" {
+			return nil, fmt.Errorf("defi sans id")
+		}
+		if vus[d.ID] {
+			return nil, fmt.Errorf("id de defi duplique: %s", d.ID)
+		}
+		vus[d.ID] = true
+		if d.Titre == "" {
+			return nil, fmt.Errorf("%s: titre vide", d.ID)
+		}
+		switch d.Type {
+		case DefiToutesLesSeancesActives, DefiRessentiFacileX2:
+		default:
+			return nil, fmt.Errorf("%s: type de defi inconnu: %s", d.ID, d.Type)
+		}
+		parType[d.Type]++
+	}
+	if parType[DefiToutesLesSeancesActives] == 0 || parType[DefiRessentiFacileX2] == 0 {
+		return nil, fmt.Errorf("chaque type de defi doit porter au moins un defi")
+	}
+	return f.Defis, nil
+}
+
+// DefiDeLaSemaine tire le defi d'une semaine ISO donnee (verrou du 9 aout
+// 2026) : reutilise tirerMessage telle quelle, meme mecanique et meme
+// garantie de non-repetition que les piques (PRP 04). dernier est l'ID du
+// defi de la semaine precedente ("" s'il n'y en a pas encore) ; sel doit
+// valoir semaineISO + "|" + email pour que le tirage varie par semaine et
+// par compte, comme prescrit par le verrou.
+func DefiDeLaSemaine(catalogue []DefiCatalogue, dernier, sel, semaineISO string) DefiSemaine {
+	ids := make([]string, len(catalogue))
+	for i, d := range catalogue {
+		ids[i] = d.ID
+	}
+	choisi := tirerMessage(ids, dernier, sel)
+	for _, d := range catalogue {
+		if d.ID == choisi {
+			return DefiSemaine{ID: d.ID, Titre: d.Titre, Type: d.Type, Semaine: semaineISO}
+		}
+	}
+	return DefiSemaine{} // inatteignable : ChargerDefis garantit un catalogue non vide
+}
+
+// EvaluerDefi dit si le defi vient d'etre rempli (verrou du 9 aout 2026) :
+// une fonction pure, sans acces disque ni horloge implicite, verifiee
+// entierement depuis profil.Historique et profil.Reponses.JoursActifs.
+// jour borne les entrees prises en compte a celles qui ne sont pas
+// posterieures a aujourd'hui, par precaution defensive. Appelee apres
+// chaque POST /api/ressenti ; rater un defi ne fait jamais rendre vrai un
+// echec explicite, cette fonction ne renvoie que "rempli" ou "pas encore".
+func EvaluerDefi(defi DefiSemaine, profil Profil, jour string) bool {
+	switch defi.Type {
+	case DefiToutesLesSeancesActives:
+		return toutesLesSeancesActivesFaites(profil, defi.Semaine, jour)
+	case DefiRessentiFacileX2:
+		return auMoinsDeuxFacilesDansLaSemaine(profil, defi.Semaine, jour)
+	default:
+		return false
+	}
+}
+
+// semaineISODeDate rend l'identifiant de semaine ISO ("2026-W33") de
+// dateISO, ou "" si dateISO est illisible.
+func semaineISODeDate(dateISO string) string {
+	d, err := time.Parse("2006-01-02", dateISO)
+	if err != nil {
+		return ""
+	}
+	annee, semaine := d.ISOWeek()
+	return fmt.Sprintf("%04d-W%02d", annee, semaine)
+}
+
+// lundiDeLaSemaineISO inverse semaineISODeDate : le lundi qui ouvre la
+// semaine ISO donnee. Le 4 janvier appartient toujours a la semaine ISO 1
+// (regle ISO 8601), ce qui donne un point de depart fiable pour compter les
+// semaines suivantes.
+func lundiDeLaSemaineISO(semaineISO string) (time.Time, bool) {
+	var annee, semaine int
+	if _, err := fmt.Sscanf(semaineISO, "%d-W%d", &annee, &semaine); err != nil {
+		return time.Time{}, false
+	}
+	jan4 := time.Date(annee, 1, 4, 0, 0, 0, 0, time.UTC)
+	joursDepuisLundi := (int(jan4.Weekday()) + 6) % 7 // dimanche=0 -> 6, lundi=1 -> 0
+	lundiSemaine1 := jan4.AddDate(0, 0, -joursDepuisLundi)
+	return lundiSemaine1.AddDate(0, 0, (semaine-1)*7), true
+}
+
+// datesDeLaSemaineISO rend les sept dates YYYY-MM-DD (lundi a dimanche) de
+// la semaine ISO donnee.
+func datesDeLaSemaineISO(semaineISO string) []string {
+	lundi, ok := lundiDeLaSemaineISO(semaineISO)
+	if !ok {
+		return nil
+	}
+	dates := make([]string, 7)
+	for i := range dates {
+		dates[i] = lundi.AddDate(0, 0, i).Format("2006-01-02")
+	}
+	return dates
+}
+
+// toutesLesSeancesActivesFaites verifie le type toutes_les_seances_actives :
+// chaque jour actif de la semaine ISO porte une entree dans l'historique a
+// cette date. Aucun jour actif declare -> rien a relever, jamais rempli.
+func toutesLesSeancesActivesFaites(profil Profil, semaineISO, jour string) bool {
+	var attendues []string
+	for _, d := range datesDeLaSemaineISO(semaineISO) {
+		if d <= jour && JourActif(profil.Reponses.JoursActifs, d) {
+			attendues = append(attendues, d)
+		}
+	}
+	if len(attendues) == 0 {
+		return false
+	}
+	faites := map[string]bool{}
+	for _, h := range profil.Historique {
+		faites[h.Date] = true
+	}
+	for _, d := range attendues {
+		if !faites[d] {
+			return false
+		}
+	}
+	return true
+}
+
+// auMoinsDeuxFacilesDansLaSemaine verifie le type ressenti_facile_x2 : au
+// moins deux entrees "facile" dans la semaine ISO donnee.
+func auMoinsDeuxFacilesDansLaSemaine(profil Profil, semaineISO, jour string) bool {
+	n := 0
+	for _, h := range profil.Historique {
+		if h.Date <= jour && h.Ressenti == RessentiFacile && semaineISODeDate(h.Date) == semaineISO {
+			n++
+		}
+	}
+	return n >= 2
+}
+
+// StatutJour est l'etat d'un jour dans le calendrier de l'ecran personnel
+// (PRP 07).
+type StatutJour string
+
+const (
+	StatutFait   StatutJour = "fait"
+	StatutManque StatutJour = "manque"
+	StatutRepos  StatutJour = "repos"
+	StatutAVenir StatutJour = "avenir"
+)
+
+type JourCalendrier struct {
+	Date   string     `json:"date"`
+	Statut StatutJour `json:"statut"`
+}
+
+// Calendrier couvre [debut, fin], inclusif, sans trou (PRP 07). Un jour non
+// actif (JourActif faux) est toujours repos, jamais manque. Un jour actif
+// qui n'est pas apres aujourdhui sans entree d'historique a cette date est
+// manque ; un jour actif apres aujourdhui est avenir, jamais manque — le
+// calendrier ne pretend jamais qu'un jour qui n'est pas encore arrive a ete
+// rate. debut, fin et aujourdhui sont des YYYY-MM-DD, comparables comme des
+// chaines.
+func Calendrier(profil Profil, debut, fin, aujourdhui string) []JourCalendrier {
+	d, errD := time.Parse("2006-01-02", debut)
+	f, errF := time.Parse("2006-01-02", fin)
+	if errD != nil || errF != nil {
+		return nil
+	}
+	faites := map[string]bool{}
+	for _, h := range profil.Historique {
+		faites[h.Date] = true
+	}
+	var jours []JourCalendrier
+	for cur := d; !cur.After(f); cur = cur.AddDate(0, 0, 1) {
+		date := cur.Format("2006-01-02")
+		var statut StatutJour
+		switch {
+		case !JourActif(profil.Reponses.JoursActifs, date):
+			statut = StatutRepos
+		case date > aujourdhui:
+			statut = StatutAVenir
+		case faites[date]:
+			statut = StatutFait
+		default:
+			statut = StatutManque
+		}
+		jours = append(jours, JourCalendrier{Date: date, Statut: statut})
+	}
+	return jours
+}
+
+// fenetreCalendrier calcule la fenetre par defaut de l'ecran personnel (PRP
+// 07, "a ajuster a l'usage plutot qu'a figer ici") : les quatre semaines
+// ecoulees plus la semaine en cours, du lundi de la semaine courante moins
+// 28 jours au dimanche de la semaine courante — ce qui montre aussi les
+// jours a venir de la semaine en cours (statut "avenir").
+func fenetreCalendrier(aujourdhui string) (debut, fin string) {
+	d, err := time.Parse("2006-01-02", aujourdhui)
+	if err != nil {
+		return "", ""
+	}
+	joursDepuisLundi := (int(d.Weekday()) + 6) % 7 // dimanche=0 -> 6, lundi=1 -> 0
+	lundi := d.AddDate(0, 0, -joursDepuisLundi)
+	return lundi.AddDate(0, 0, -28).Format("2006-01-02"), lundi.AddDate(0, 0, 6).Format("2006-01-02")
 }
