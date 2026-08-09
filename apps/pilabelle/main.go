@@ -49,7 +49,7 @@ func aujourdhui() string {
 	return time.Now().In(parisTZ).Format("2006-01-02")
 }
 
-func routes(dico Dictionnaire, messages Messages, defis []DefiCatalogue, racineProfils string) http.Handler {
+func routes(dico Dictionnaire, messages Messages, defis []DefiCatalogue, racineProfils string, clePubliqueVAPID string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -304,6 +304,77 @@ func routes(dico Dictionnaire, messages Messages, defis []DefiCatalogue, racineP
 		})
 	})
 
+	// Ajoute apres les PRP (PRODUIT.md, "Notifications : rappel de seance et
+	// mots doux", 9 aout 2026) : la cle publique VAPID n'est pas un secret —
+	// c'est elle que le navigateur transmet a PushManager.subscribe(). Vide si
+	// les cles VAPID sont absentes de l'environnement (nouveauNotifieur) : le
+	// bouton d'activation des reglages reste alors inoperant, sans planter.
+	mux.HandleFunc("GET /api/notifications/cle-publique", func(w http.ResponseWriter, r *http.Request) {
+		repondreJSON(w, map[string]string{"cle": clePubliqueVAPID})
+	})
+
+	// Opt-in, un seul abonnement par profil (PRODUIT) : cree ou remplace
+	// l'abonnement du compte appelant, et accessoirement son heure de rappel.
+	mux.HandleFunc("PUT /api/notifications", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		profil, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		var corps struct {
+			Abonnement  *AbonnementPush `json:"abonnement"`
+			HeureRappel string          `json:"heure_rappel"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&corps); err != nil || corps.Abonnement == nil ||
+			corps.Abonnement.Endpoint == "" || corps.Abonnement.P256dh == "" || corps.Abonnement.Auth == "" {
+			http.Error(w, `{"erreur":"abonnement invalide"}`, http.StatusBadRequest)
+			return
+		}
+		if corps.HeureRappel != "" && !heureValide(corps.HeureRappel) {
+			http.Error(w, `{"erreur":"heure invalide"}`, http.StatusBadRequest)
+			return
+		}
+		profil.Notifications.Abonnement = corps.Abonnement
+		if corps.HeureRappel != "" {
+			profil.Notifications.HeureRappel = corps.HeureRappel
+		}
+		if err := EcrireProfil(racineProfils, email, profil); err != nil {
+			log.Printf("ecriture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, map[string]string{"heure_rappel": heureRappelEffective(profil.Notifications)})
+	})
+
+	// Revoquer arrete tout (PRODUIT : "permission retiree ou geste inverse dans
+	// les reglages"). Idempotent, sur le meme modele que DELETE /api/profil.
+	mux.HandleFunc("DELETE /api/notifications", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		profil, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		profil.Notifications.Abonnement = nil
+		if err := EcrireProfil(racineProfils, email, profil); err != nil {
+			log.Printf("ecriture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, map[string]bool{"desabonne": true})
+	})
+
 	return withIdentiteExigeeSurAPI(mux)
 }
 
@@ -346,6 +417,86 @@ func reponsesValides(r Reponses) bool {
 		}
 	}
 	return true
+}
+
+// lancerPlanificateurNotifications demarre, en arriere-plan, la verification
+// des rappels et mots doux dus (PRODUIT "Notifications : rappel de seance et
+// mots doux", 9 aout 2026) : un time.Ticker verifie tous les profils
+// enregistres une fois par minute. Ne fait rien si notifieur est nil (cles
+// VAPID absentes de l'environnement) — deja logue par l'appelant, main().
+func lancerPlanificateurNotifications(dico Dictionnaire, messages Messages, racine string, notifieur Notifieur) {
+	if notifieur == nil {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			verifierNotifications(dico, messages, racine, notifieur, time.Now().In(parisTZ))
+		}
+	}()
+}
+
+// verifierNotifications examine chaque profil abonne et declenche l'envoi des
+// notifications dues (PRODUIT "Notifications"). Prend maintenant en
+// parametre — jamais time.Now() directement — pour rester appelable depuis
+// les tests sans dependre de l'horloge reelle ni d'un vrai appel reseau
+// (notifieur y est un mock dans notifications_test.go).
+func verifierNotifications(dico Dictionnaire, messages Messages, racine string, notifieur Notifieur, maintenant time.Time) {
+	ids, err := ListerProfils(racine)
+	if err != nil {
+		log.Printf("planificateur notifications: lecture %s: %v", racine, err)
+		return
+	}
+	jour := maintenant.Format("2006-01-02")
+	for _, id := range ids {
+		profil, err := LireProfilParID(racine, id)
+		if err != nil {
+			log.Printf("planificateur notifications: profil %s illisible: %v", id, err)
+			continue
+		}
+		if profil.Notifications.Abonnement == nil {
+			continue // opt-in : jamais de notification implicite
+		}
+		modifie := false
+
+		_, cas, err := SeanceDuJour(dico, profil, jour)
+		if err != nil {
+			log.Printf("planificateur notifications: seance du jour pour %s: %v", id, err)
+		} else if RappelDu(profil, cas, maintenant) {
+			if err := notifieur.Envoyer(*profil.Notifications.Abonnement, "C'est l'heure de ta séance", "Ta séance du jour t'attend, quand tu veux."); err != nil {
+				log.Printf("planificateur notifications: rappel %s: %v", id, err)
+				if errors.Is(err, ErrAbonnementExpire) {
+					profil.Notifications.Abonnement = nil
+					modifie = true
+				}
+			} else {
+				profil.Notifications.DernierRappel = jour
+				modifie = true
+			}
+		}
+
+		if profil.Notifications.Abonnement != nil && MotDouxDu(id, profil, maintenant) {
+			motDoux := tirerMessage(messages.MotsDoux, profil.DerniersMessages.MotDoux, id+"|"+jour+"|push-doux")
+			if err := notifieur.Envoyer(*profil.Notifications.Abonnement, "Petit mot doux", motDoux); err != nil {
+				log.Printf("planificateur notifications: mot doux %s: %v", id, err)
+				if errors.Is(err, ErrAbonnementExpire) {
+					profil.Notifications.Abonnement = nil
+					modifie = true
+				}
+			} else {
+				profil.Notifications.DernierMotDoux = jour
+				profil.DerniersMessages.MotDoux = motDoux
+				modifie = true
+			}
+		}
+
+		if modifie {
+			if err := EcrireProfilParID(racine, id, profil); err != nil {
+				log.Printf("planificateur notifications: ecriture %s: %v", id, err)
+			}
+		}
+	}
 }
 
 // withIdentiteExigeeSurAPI refuse toute route /api/* sans X-Forwarded-User,
@@ -411,7 +562,18 @@ func main() {
 		log.Fatalf("defis invalides : %v", err)
 	}
 
-	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, defis, racine)}
+	// Ajoute apres les PRP (PRODUIT.md, "Notifications : rappel de seance et
+	// mots doux", 9 aout 2026) : absence de VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+	// ou VAPID_CONTACT desactive silencieusement l'envoi, jamais le demarrage
+	// (regle imperative "l'app demarre sans intervention").
+	notifieur, clePubliqueVAPID := nouveauNotifieur()
+	if notifieur == nil {
+		log.Print("VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY ou VAPID_CONTACT absent(e) : notifications push desactivees")
+	}
+
+	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, defis, racine, clePubliqueVAPID)}
+
+	lancerPlanificateurNotifications(dico, messages, racine, notifieur)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

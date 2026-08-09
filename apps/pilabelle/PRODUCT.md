@@ -586,3 +586,40 @@ activité » sur l'écran du jour (§ 7.2 du PRD principal).
 Alimenté par une route `GET /api/personnel` qui retourne l'historique et la
 progression du compte authentifié. Contraint à son propre compte (`X-Forwarded-User`) :
 personne ne peut consulter un profil qui n'est pas le sien.
+
+### Notifications : rappel de séance et mots doux
+
+Demandée le 9 août 2026 : des notifications push, pour rappeler la séance du
+jour et, indépendamment, envoyer des mots doux au hasard. Le PRD ne prévoyait
+aucun canal hors de l'application ouverte ; ce n'était pas écarté, seulement
+absent — la mécanique de mots doux existante (§ 10.1) restait cantonnée à
+l'écran de fin de séance.
+
+**Web Push, opt-in, un seul abonnement par profil.** Un geste dans les
+réglages demande la permission du navigateur puis enregistre l'abonnement
+push ; le révoquer (permission retirée ou geste inverse dans les réglages)
+arrête tout. Aucune notification n'est envoyée sans ce geste explicite.
+
+**Rappel de séance** — envoyé au plus une fois par jour actif (§6 item 1),
+à une heure choisie dans les réglages (défaut 18:00), et seulement si la
+séance du jour n'est pas déjà faite à cette heure-là. Un jour de repos
+n'envoie rien — même règle que le calendrier de l'écran personnel (§7 :
+« un jour non actif est repos, jamais manqué ») : ce canal ne doit jamais
+devenir une pression, seulement une aide à ne pas oublier.
+
+**Mots doux** — indépendants de la séance, jusqu'à trois par semaine, à un
+moment aléatoire de la journée (fenêtre 9h–21h, pour ne jamais réveiller
+personne) ; jamais deux la même semaine si moins de trois envoyés. Le stock
+de `messages.json.mots_doux` est étoffé pour ce canal : ce n'est plus un
+contenu réservé à vous (§12 le réservait aux seuls piques et mots doux
+d'origine — l'extension a été explicitement demandée en conversation le
+9 août 2026, comme les piques et les autres mots doux l'avaient été le
+8 août).
+
+**Fuseau horaire** : l'application n'en demande aucun — elle assume
+Europe/Paris pour tout calcul d'heure liée aux notifications, cohérent avec
+une app en français pour un seul foyer. À revoir si l'usage le contredit.
+
+**Secret requis** : une paire de clés VAPID (identité de l'app auprès des
+services de push des navigateurs) — nom des variables dans `README.md`,
+valeurs à générer et à injecter côté infrastructure, jamais dans ce dépôt.

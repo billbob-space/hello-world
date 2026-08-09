@@ -35,7 +35,10 @@ volumes:
 # NOMS des variables d'environnement a passer depuis l'hote. JAMAIS de valeurs :
 # un element contenant un « = » est refuse a la generation. L'infrastructure
 # injecte la valeur cote serveur ; declare le nom attendu dans le README.
-# env: [LASTFM_API_KEY]
+# Notifications push (PRODUCT.md, "Notifications : rappel de seance et mots
+# doux", 9 aout 2026) : paire de cles VAPID + contact. Absentes au demarrage,
+# l'app continue de tourner sans envoyer de notifications (voir README.md).
+env: [VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_CONTACT]
 
 # Services partages de la fabrique dont cette app depend (shared_services dans
 # fabrique.yml). Verifie a la generation : un nom non declare la-bas est une

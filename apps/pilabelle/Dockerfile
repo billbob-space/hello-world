@@ -6,8 +6,10 @@
 FROM golang:1.24-alpine AS build
 WORKDIR /src
 
-# Aucune dependance externe : pas de go.sum a resoudre.
-COPY go.mod ./
+# Une dependance externe (github.com/SherClockHolmes/webpush-go, pour les
+# notifications push) depuis le 9 aout 2026 : go.sum resout desormais quelque
+# chose.
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
