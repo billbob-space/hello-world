@@ -116,6 +116,13 @@ On pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ens
 cohérent. Le raisonnement détaillé va dans les **messages de commit**, où il survit à la
 fusion.
 
+**Le code d'une app se délègue à `artisan`, l'enregistrement git au `greffier`** — pas à
+toi directement. Leur contexte réduit (une seule app pour l'un, aucun outil d'édition pour
+l'autre, modèle moins cher) évite de charger le tien de diffs et de fichiers relus à
+chaque tour qui suit. Toi, tu écris ce qui est partagé (`.claude/`, `scripts/`,
+`fabrique.yml`, `init.sh`) et ce qui demande un dialogue déjà eu avec l'utilisateur (PRD,
+PRP) ; l'artisan ne fait ni l'un ni l'autre. Détail : `memory/travail.md`.
+
 **Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
 entrée de journal. Non relevé avant la fusion, il est perdu.
 
