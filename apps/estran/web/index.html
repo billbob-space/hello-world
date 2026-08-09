@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>estran — Le Touquet-Paris-Plage</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23123043'/%3E%3Cpath d='M3 14c2 -2 4 -2 6 0s4 2 6 0 4 -2 6 0' stroke='%234fb3a9' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='17' cy='7' r='3' fill='%23f2b155'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="fond"></div>
+
+  <header class="entete">
+    <div class="entete-titre">
+      <h1>estran</h1>
+      <p class="lieu">Le Touquet-Paris-Plage · Étaples</p>
+    </div>
+    <p class="horloge" id="horloge" aria-live="off"></p>
+  </header>
+
+  <main>
+    <section class="jauge-section" aria-labelledby="titre-jauge">
+      <h2 id="titre-jauge" class="titre-section">Marée</h2>
+      <div class="jauge-carte" id="jauge-carte">
+        <div class="jauge-chargement" id="jauge-etat">chargement…</div>
+      </div>
+    </section>
+
+    <section class="previsions-section" aria-labelledby="titre-previsions">
+      <h2 id="titre-previsions" class="titre-section">Les 5 prochaines heures</h2>
+      <div class="heures-rangee" id="heures-rangee">
+        <p class="etat-attente">chargement…</p>
+      </div>
+    </section>
+
+    <section class="tendance-section" aria-labelledby="titre-tendance">
+      <h2 id="titre-tendance" class="titre-section">Tendance à 7 jours</h2>
+      <div class="jours-rangee" id="jours-rangee">
+        <p class="etat-attente">chargement…</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pied">
+    <p id="pied-source">Open-Meteo · api-maree.fr</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

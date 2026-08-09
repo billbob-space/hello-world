@@ -1,0 +1,417 @@
+/* estran — un seul lieu, tout de suite lisible (PRODUCT.md, principe 1).
+   Palette : nuit sur la Manche — encre bleu-vert profond, sable chaud pour le
+   texte, un seul signal (l'ambre) reservé à la marée : sa position actuelle
+   et rien d'autre. Les vagues restent dans des bleus/verts d'eau, jamais
+   dans la couleur de signal — c'est ce qui la garde repérable d'un coup
+   d'oeil (principe 2 : la jauge de marée est aussi centrale que la météo). */
+
+:root {
+  --encre-900: #071620;
+  --encre-800: #0b2130;
+  --encre-700: #123043;
+  --encre-600: #1a4257;
+  --sable-100: #f4ecd8;
+  --sable-200: #e4d7b8;
+  --sable-300: #c9bb96;
+  --eau-400: #4fb3a9;
+  --eau-500: #2f8f8c;
+  --eau-600: #1f6b6f;
+  --ambre-400: #f2b155;
+  --ambre-500: #e79a2e;
+  --rouge-400: #e8785f;
+  --ombre: rgba(3, 12, 18, 0.45);
+  --rayon: 18px;
+  --rayon-petit: 10px;
+  --espace-1: 0.25rem;
+  --espace-2: 0.5rem;
+  --espace-3: 0.875rem;
+  --espace-4: 1.25rem;
+  --espace-5: 2rem;
+  --espace-6: 3rem;
+  --police: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--police);
+  color: var(--sable-100);
+  background: var(--encre-900);
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+.fond {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, var(--encre-700) 0%, transparent 60%),
+    linear-gradient(180deg, var(--encre-800) 0%, var(--encre-900) 55%, #04101a 100%);
+}
+
+a {
+  color: var(--eau-400);
+}
+
+::selection {
+  background: var(--ambre-400);
+  color: var(--encre-900);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ambre-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 var(--espace-4) var(--espace-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-5);
+}
+
+/* ---------- en-tete ---------- */
+
+.entete {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--espace-5) var(--espace-4) var(--espace-4);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espace-3);
+  flex-wrap: wrap;
+}
+
+.entete-titre h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.lieu {
+  margin: var(--espace-1) 0 0;
+  font-size: 0.9rem;
+  color: var(--sable-300);
+}
+
+.horloge {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  color: var(--sable-300);
+}
+
+.titre-section {
+  margin: 0 0 var(--espace-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sable-300);
+}
+
+.etat-attente {
+  color: var(--sable-300);
+  font-size: 0.9rem;
+}
+
+/* ---------- jauge de maree ---------- */
+
+.jauge-carte {
+  background: linear-gradient(165deg, var(--encre-700), var(--encre-800));
+  border: 1px solid rgba(244, 236, 216, 0.08);
+  border-radius: var(--rayon);
+  padding: var(--espace-4);
+  box-shadow: 0 12px 28px var(--ombre);
+}
+
+.jauge-chargement {
+  color: var(--sable-300);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: var(--espace-4) 0;
+}
+
+.jauge-non-configuree {
+  text-align: center;
+  padding: var(--espace-3) 0;
+  color: var(--sable-300);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.jauge-non-configuree strong {
+  display: block;
+  color: var(--sable-100);
+  font-size: 1rem;
+  margin-bottom: var(--espace-1);
+}
+
+.jauge-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--espace-4);
+}
+
+.jauge-hauteur {
+  font-size: 2.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.jauge-hauteur small {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--sable-300);
+  margin-left: var(--espace-1);
+}
+
+.jauge-sens {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-2);
+  font-size: 0.95rem;
+  color: var(--ambre-400);
+  font-weight: 600;
+}
+
+.jauge-sens svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.jauge-piste {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--encre-600), var(--eau-600) 45%, var(--eau-500) 100%);
+  overflow: visible;
+  margin: var(--espace-5) 0 var(--espace-3);
+}
+
+.jauge-remplissage {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--eau-500), var(--eau-400));
+  transform-origin: left center;
+  transition: transform 0.6s ease;
+}
+
+.jauge-marqueur {
+  position: absolute;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ambre-400);
+  border: 3px solid var(--encre-800);
+  box-shadow: 0 0 0 3px rgba(242, 177, 85, 0.35);
+  transform: translate(-50%, -50%);
+  transition: left 0.6s ease;
+}
+
+.jauge-reperes {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--sable-300);
+}
+
+.jauge-repere strong {
+  display: block;
+  color: var(--sable-100);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.jauge-repere.a-droite {
+  text-align: right;
+}
+
+.jauge-prochaine {
+  margin-top: var(--espace-4);
+  padding-top: var(--espace-3);
+  border-top: 1px solid rgba(244, 236, 216, 0.1);
+  font-size: 0.92rem;
+  color: var(--sable-200);
+  text-align: center;
+}
+
+.jauge-prochaine strong {
+  color: var(--ambre-400);
+}
+
+.jauge-perimee {
+  margin-top: var(--espace-3);
+  font-size: 0.78rem;
+  color: var(--rouge-400);
+  text-align: center;
+}
+
+/* ---------- prevision a 5 heures ---------- */
+
+.heures-rangee {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--espace-2);
+}
+
+.heure-carte {
+  background: var(--encre-700);
+  border: 1px solid rgba(244, 236, 216, 0.06);
+  border-radius: var(--rayon-petit);
+  padding: var(--espace-3) var(--espace-2);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espace-1);
+}
+
+.heure-carte .heure {
+  font-size: 0.82rem;
+  color: var(--sable-300);
+  font-variant-numeric: tabular-nums;
+}
+
+.heure-carte .icone {
+  width: 30px;
+  height: 30px;
+  margin: var(--espace-1) 0;
+}
+
+.heure-carte .temperature {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.heure-carte .detail {
+  font-size: 0.72rem;
+  color: var(--sable-300);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.heure-carte .detail svg {
+  width: 0.9em;
+  height: 0.9em;
+  flex-shrink: 0;
+}
+
+/* ---------- tendance 7 jours ---------- */
+
+.jours-rangee {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--rayon);
+  overflow: hidden;
+  border: 1px solid rgba(244, 236, 216, 0.06);
+}
+
+.jour-ligne {
+  display: grid;
+  grid-template-columns: 5.5em auto 1fr auto;
+  align-items: center;
+  gap: var(--espace-3);
+  padding: var(--espace-2) var(--espace-3);
+  background: var(--encre-700);
+}
+
+.jour-ligne:nth-child(even) {
+  background: var(--encre-800);
+}
+
+.jour-ligne .jour-nom {
+  font-size: 0.88rem;
+  color: var(--sable-200);
+  text-transform: capitalize;
+}
+
+.jour-ligne .icone {
+  width: 24px;
+  height: 24px;
+}
+
+.jour-ligne .pluie {
+  font-size: 0.8rem;
+  color: var(--eau-400);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-self: start;
+}
+
+.jour-ligne .pluie svg {
+  width: 0.95em;
+  height: 0.95em;
+}
+
+.jour-ligne .temps {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.jour-ligne .temps .max {
+  color: var(--sable-100);
+  font-weight: 600;
+}
+
+.jour-ligne .temps .min {
+  color: var(--sable-300);
+}
+
+/* ---------- pied ---------- */
+
+.pied {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 var(--espace-4) var(--espace-5);
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--sable-300);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 480px) {
+  .heures-rangee {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--espace-1);
+  }
+  .heure-carte {
+    padding: var(--espace-2) var(--espace-1);
+  }
+  .heure-carte .temperature {
+    font-size: 1rem;
+  }
+  .jour-ligne {
+    grid-template-columns: 4.5em auto 1fr auto;
+    gap: var(--espace-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jauge-remplissage,
+  .jauge-marqueur {
+    transition: none;
+  }
+}
