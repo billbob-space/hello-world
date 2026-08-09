@@ -507,14 +507,15 @@ func idsDeLaSeance(s Seance) []string {
 	return ids
 }
 
-// motDouxDeTempsEnTemps rend vrai environ une fois sur trois (PRD §10.1 :
+// motDouxDeTempsEnTemps rend vrai environ une fois sur deux (PRD §10.1 :
 // « pas a chaque fois »). La cadence n'est pas prescrite par le PRD ; ce
 // tirage se resserre ou se desserre depuis ce seul point si l'usage reel
-// montre une frequence mal calibree.
+// montre une frequence mal calibree — resserree le 9 aout 2026, retour
+// d'usage : la frequence a 1/3 la rendait trop rare.
 func motDouxDeTempsEnTemps(sel string) bool {
 	h := fnv.New32a()
 	h.Write([]byte(sel))
-	return h.Sum32()%3 == 0
+	return h.Sum32()%2 == 0
 }
 
 func ressentiValide(r Ressenti) bool {
