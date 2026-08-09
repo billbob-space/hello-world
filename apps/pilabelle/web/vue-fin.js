@@ -16,32 +16,33 @@ export function vueFin(conteneur, { recap }) {
 			className: 'sous-titre',
 			textContent: 'Séance déjà comptée pour aujourd\'hui — merci d\'être revenue.',
 		}));
-		return;
+	} else {
+		const encouragement = document.createElement('p');
+		encouragement.className = 'encouragement';
+		encouragement.textContent = recap.encouragement;
+		carte.appendChild(encouragement);
+
+		const serie = document.createElement('p');
+		serie.className = 'serie';
+		serie.append('Série : ');
+		const fort = document.createElement('strong');
+		fort.textContent = `${recap.serie.actuelle} jour${recap.serie.actuelle > 1 ? 's' : ''}`;
+		serie.append(fort, ` — record ${recap.serie.record}`);
+		carte.appendChild(serie);
+
+		if (recap.niveau_monte && (recap.niveau_monte.ventre || recap.niveau_monte.cuisses)) {
+			const zones = [];
+			if (recap.niveau_monte.ventre) zones.push('ventre');
+			if (recap.niveau_monte.cuisses) zones.push('cuisses');
+			const p = document.createElement('p');
+			p.className = 'niveau-monte';
+			p.textContent = `🎉 Niveau supérieur débloqué : ${zones.join(' et ')} !`;
+			carte.appendChild(p);
+		}
 	}
 
-	const encouragement = document.createElement('p');
-	encouragement.className = 'encouragement';
-	encouragement.textContent = recap.encouragement;
-	carte.appendChild(encouragement);
-
-	const serie = document.createElement('p');
-	serie.className = 'serie';
-	serie.append('Série : ');
-	const fort = document.createElement('strong');
-	fort.textContent = `${recap.serie.actuelle} jour${recap.serie.actuelle > 1 ? 's' : ''}`;
-	serie.append(fort, ` — record ${recap.serie.record}`);
-	carte.appendChild(serie);
-
-	if (recap.niveau_monte && (recap.niveau_monte.ventre || recap.niveau_monte.cuisses)) {
-		const zones = [];
-		if (recap.niveau_monte.ventre) zones.push('ventre');
-		if (recap.niveau_monte.cuisses) zones.push('cuisses');
-		const p = document.createElement('p');
-		p.className = 'niveau-monte';
-		p.textContent = `🎉 Niveau supérieur débloqué : ${zones.join(' et ')} !`;
-		carte.appendChild(p);
-	}
-
+	// Le mot doux se montre aussi sur une reprise libre (PRD §10.1) : le
+	// serveur en tire un dans les deux cas, le taire ici l'aurait gaspille.
 	if (recap.mot_doux) {
 		const p = document.createElement('p');
 		p.className = 'mot-doux';
