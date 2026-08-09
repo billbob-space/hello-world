@@ -34,6 +34,23 @@
   --espace-5: 2rem;
   --espace-6: 3rem;
   --police: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Largeur du contenu (entete, main, pied) : une seule colonne etroite en
+     mobile, un peu plus large en tablette, et une largeur nettement plus
+     genereuse en grand desktop ou main passe en deux colonnes (voir plus
+     bas) — sinon le contenu reste un bloc etroit flottant dans du vide. */
+  --largeur-contenu: 640px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --largeur-contenu: 760px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --largeur-contenu: 1200px;
+  }
 }
 
 * {
@@ -47,8 +64,6 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
   font-family: var(--police);
   color: var(--sable-100);
   background: var(--encre-900);
@@ -80,22 +95,54 @@ a {
   border-radius: 4px;
 }
 
+/* La page s'ecoule normalement de haut en bas (entete, main, pied en flux de
+   bloc ordinaire) : pas de centrage vertical, pour que le contenu ne saute
+   pas visuellement entre l'etat "chargement…" et l'etat charge, qui n'ont
+   pas la meme hauteur. */
 main {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--largeur-contenu);
   margin: 0 auto;
   padding: 0 var(--espace-4) var(--espace-6);
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
-  justify-content: center;
   gap: 2.5rem;
+}
+
+/* A partir de ~1024px, le contenu passe en deux colonnes pour vraiment
+   utiliser la largeur de l'ecran plutot que de rester une colonne etroite
+   recentree dans du vide : la jauge de maree (principe 2 du produit, aussi
+   centrale que la meteo) occupe sa propre colonne, la prevision a 5 heures
+   et la tendance a 7 jours partagent l'autre. */
+@media (min-width: 1024px) {
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-areas:
+      "jauge previsions"
+      "jauge tendance";
+    align-items: start;
+    row-gap: var(--espace-5);
+    column-gap: var(--espace-6);
+  }
+
+  .jauge-section {
+    grid-area: jauge;
+  }
+
+  .previsions-section {
+    grid-area: previsions;
+  }
+
+  .tendance-section {
+    grid-area: tendance;
+  }
 }
 
 /* ---------- en-tete ---------- */
 
 .entete {
-  max-width: 640px;
+  max-width: var(--largeur-contenu);
   margin: 0 auto;
   padding: var(--espace-5) var(--espace-4) var(--espace-4);
   display: flex;
@@ -449,7 +496,7 @@ main {
 /* ---------- pied ---------- */
 
 .pied {
-  max-width: 640px;
+  max-width: var(--largeur-contenu);
   margin: 0 auto;
   padding: 0 var(--espace-4) var(--espace-5);
   text-align: center;
