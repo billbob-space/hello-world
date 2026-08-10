@@ -266,6 +266,18 @@ Conformément à `memory/perimetre.md`, seul le *nom* des variables entre dans `
 et `README.md` — la valeur ne passe jamais par ce dépôt ni par cette conversation ;
 la commande pour la générer est donnée à l'utilisateur directement, hors du dépôt.
 
+Les clés VAPID posées côté infrastructure par l'utilisateur, `./scripts/prod.sh
+inspecter pilabelle` confirme le conteneur redémarré avec les trois variables — géré
+par `dockhand` seul, aucune action de ma part (accès en lecture seule à la
+production).
+
+---
+
+Retour d'usage immédiat : l'opt-in notifications, caché dans les réglages, ne serait
+jamais découvert. Décision documentée dans `PRODUCT.md` (§ Notifications, paragraphe
+« Proposée une fois ») : proposer l'activation juste après le questionnaire initial,
+une seule fois par profil, sans jamais relancer automatiquement si refusée.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 

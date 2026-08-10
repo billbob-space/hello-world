@@ -352,6 +352,32 @@ func routes(dico Dictionnaire, messages Messages, defis []DefiCatalogue, racineP
 		repondreJSON(w, map[string]string{"heure_rappel": heureRappelEffective(profil.Notifications)})
 	})
 
+	// Marque que la proposition initiale de notifications a ete faite (PRODUIT
+	// "Proposee une fois, a la creation du profil", 10 aout 2026), qu'elle ait
+	// ete acceptee ou remise a plus tard : ne redeclenche jamais l'ecran aux
+	// ouvertures suivantes. Idempotent, sur le meme modele que DELETE
+	// /api/notifications.
+	mux.HandleFunc("PUT /api/notifications/proposee-initiale", func(w http.ResponseWriter, r *http.Request) {
+		email, _ := identite(r)
+		profil, err := LireProfil(racineProfils, email)
+		if errors.Is(err, ErrProfilAbsent) {
+			http.Error(w, `{"erreur":"absent"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("lecture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		profil.Notifications.ProposeeInitiale = true
+		if err := EcrireProfil(racineProfils, email, profil); err != nil {
+			log.Printf("ecriture profil %s: %v", identifiantFichier(email), err)
+			http.Error(w, `{"erreur":"interne"}`, http.StatusInternalServerError)
+			return
+		}
+		repondreJSON(w, map[string]bool{"proposee_initiale": true})
+	})
+
 	// Revoquer arrete tout (PRODUIT : "permission retiree ou geste inverse dans
 	// les reglages"). Idempotent, sur le meme modele que DELETE /api/profil.
 	mux.HandleFunc("DELETE /api/notifications", func(w http.ResponseWriter, r *http.Request) {

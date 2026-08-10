@@ -6,6 +6,7 @@ import { vueRessenti } from './vue-ressenti.js';
 import { vueFin } from './vue-fin.js';
 import { vueReglages } from './vue-reglages.js';
 import { vuePersonnel } from './vue-personnel.js';
+import { vuePropositionNotifications, fautIlProposer } from './vue-proposition-notifications.js';
 
 const app = document.querySelector('#app');
 
@@ -40,10 +41,23 @@ async function afficherJour() {
 	});
 }
 
+// apresCreationProfil enchaine sur la proposition initiale de notifications
+// une seule fois, juste apres le questionnaire (PRODUIT, "Proposee une fois,
+// a la creation du profil", 10 aout 2026) — jamais aux ouvertures suivantes,
+// ou pour un profil deja marque propose (double onglet, cf.
+// web/vue-questionnaire.js).
+function apresCreationProfil(profil) {
+	if (fautIlProposer(profil)) {
+		monter(vuePropositionNotifications, { onSuivant: afficherJour });
+	} else {
+		afficherJour();
+	}
+}
+
 async function amorcer() {
 	const profil = await lireProfil();
 	if (profil === null) {
-		monter(vueQuestionnaire, { onCree: afficherJour });
+		monter(vueQuestionnaire, { onCree: apresCreationProfil });
 	} else {
 		afficherJour();
 	}
