@@ -219,6 +219,13 @@ type Notifications struct {
 	// planificateur (main.go), jamais recalculees a la volee.
 	DernierRappel  string `json:"dernier_rappel,omitempty"`
 	DernierMotDoux string `json:"dernier_mot_doux,omitempty"`
+	// ProposeeInitiale dit si l'ecran "Active les rappels et les mots doux ?"
+	// a deja ete propose sur ce profil, juste apres la creation (PRODUIT
+	// "Proposee une fois, a la creation du profil", 10 aout 2026). Vrai qu'elle
+	// ait accepte ou remis a plus tard : ne redeclenche jamais l'ecran aux
+	// ouvertures suivantes. Sur le profil, jamais dans le navigateur, pour
+	// rester valable d'un appareil a l'autre.
+	ProposeeInitiale bool `json:"proposee_initiale"`
 }
 
 type Profil struct {

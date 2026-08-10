@@ -70,3 +70,11 @@ export function activerNotifications(abonnement, heureRappel) {
 export function desactiverNotifications() {
 	return appeler('/api/notifications', { method: 'DELETE' });
 }
+
+// marquerPropositionInitiale enregistre qu'on a deja propose l'activation des
+// notifications une fois sur ce profil (PRODUIT "Proposee une fois, a la
+// creation du profil", 10 aout 2026) : jamais reproposee automatiquement aux
+// ouvertures suivantes, qu'elle ait accepte ou remis a plus tard.
+export function marquerPropositionInitiale() {
+	return appeler('/api/notifications/proposee-initiale', { method: 'PUT' });
+}

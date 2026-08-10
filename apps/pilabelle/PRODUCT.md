@@ -623,3 +623,11 @@ une app en français pour un seul foyer. À revoir si l'usage le contredit.
 **Secret requis** : une paire de clés VAPID (identité de l'app auprès des
 services de push des navigateurs) — nom des variables dans `README.md`,
 valeurs à générer et à injecter côté infrastructure, jamais dans ce dépôt.
+
+**Proposée une fois, à la création du profil** — demandé le 10 août 2026 : plutôt
+que de laisser l'opt-in caché dans les réglages, l'app le propose juste après le
+questionnaire initial (avant le premier écran du jour), avec un geste pour
+accepter et un pour remettre à plus tard. Se remémore l'avoir déjà proposé (sur
+le profil, pas dans le navigateur) pour ne jamais redemander automatiquement à
+chaque ouverture — refuser une fois n'est pas nier pour toujours, seulement ne
+pas relancer : le geste reste accessible dans les réglages, comme avant.

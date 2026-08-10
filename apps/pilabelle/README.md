@@ -36,6 +36,7 @@ jamais l'adresse en clair), écrit atomiquement.
 | `GET /api/notifications/cle-publique` | la clé publique VAPID (pas un secret : c'est elle que le navigateur transmet à `PushManager.subscribe()`), vide si les clés VAPID sont absentes de l'environnement |
 | `PUT /api/notifications` | crée ou remplace l'abonnement push du compte appelant, et éventuellement son heure de rappel |
 | `DELETE /api/notifications` | révoque l'abonnement push du compte appelant — idempotent |
+| `PUT /api/notifications/proposee-initiale` | marque que la proposition initiale de notifications a été faite sur ce profil (acceptée ou non) — idempotent |
 
 Le dictionnaire d'exercices (`data/dictionnaire.json`, dérivé d'`exercices.md`)
 et les stocks de messages (`data/messages.json`) sont des données embarquées,

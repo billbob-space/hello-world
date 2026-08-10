@@ -574,6 +574,57 @@ func TestSupprimerProfilNeTouchePasUnAutreCompte(t *testing.T) {
 	}
 }
 
+// TestCreerProfilProposeeInitialeFalseParDefaut couvre le point de depart de
+// PRODUIT "Proposee une fois, a la creation du profil" : un profil fraichement
+// cree n'a jamais encore ete propose.
+func TestCreerProfilProposeeInitialeFalseParDefaut(t *testing.T) {
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "")
+	w := poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
+	var p Profil
+	if err := json.Unmarshal(w.Body.Bytes(), &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Notifications.ProposeeInitiale {
+		t.Fatal("proposee_initiale = true sur un profil qui vient d'etre cree")
+	}
+}
+
+// TestMarquerPropositionInitiale verifie que PUT
+// /api/notifications/proposee-initiale persiste le marqueur (PRODUIT
+// "Proposee une fois, a la creation du profil", 10 aout 2026), qu'il y ait eu
+// activation ou non — cette route ne touche jamais a Abonnement.
+func TestMarquerPropositionInitiale(t *testing.T) {
+	racine := t.TempDir()
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), racine, "")
+	poster(t, h, "POST", "/api/profil", "test@example.com", reponsesDeTest())
+
+	w := poster(t, h, "PUT", "/api/notifications/proposee-initiale", "test@example.com", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("PUT proposee-initiale: %d, attendu 200 — corps: %s", w.Code, w.Body.String())
+	}
+
+	apres, err := LireProfil(racine, "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !apres.Notifications.ProposeeInitiale {
+		t.Fatal("proposee_initiale non persiste sur le profil")
+	}
+	if apres.Notifications.Abonnement != nil {
+		t.Fatalf("marquer la proposition initiale ne doit jamais creer d'abonnement: %+v", apres.Notifications.Abonnement)
+	}
+}
+
+// TestMarquerPropositionInitialeSansProfil verifie le meme comportement 404
+// que les autres routes de notification quand le profil n'existe pas.
+func TestMarquerPropositionInitialeSansProfil(t *testing.T) {
+	h := routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), "")
+	w := poster(t, h, "PUT", "/api/notifications/proposee-initiale", "test@example.com", nil)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("PUT proposee-initiale sans profil: %d, attendu 404", w.Code)
+	}
+}
+
 func TestPersonnelAbsent(t *testing.T) {
 	w := poster(t, routes(Dictionnaire{}, messagesDeTest(), defisDeTest(), t.TempDir(), ""), "GET", "/api/personnel", "test@example.com", nil)
 	if w.Code != http.StatusNotFound {

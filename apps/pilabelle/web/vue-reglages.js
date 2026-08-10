@@ -3,25 +3,22 @@ import {
 	mettreAJourProfil,
 	supprimerProfil,
 	lireProfil,
-	lireClePubliqueVAPID,
-	activerNotifications,
 	desactiverNotifications,
 } from './api.js';
+import { notificationsSupportees, demanderActivationNotifications } from './notifications-push.js';
 
-// urlBase64VersUint8Array convertit la cle publique VAPID (base64url, telle
-// que rendue par le serveur) au format attendu par
-// PushManager.subscribe({ applicationServerKey }).
-function urlBase64VersUint8Array(base64Url) {
-	const rembourrage = '='.repeat((4 - (base64Url.length % 4)) % 4);
-	const base64 = (base64Url + rembourrage).replace(/-/g, '+').replace(/_/g, '/');
-	const brut = window.atob(base64);
-	return Uint8Array.from(brut, (c) => c.charCodeAt(0));
-}
-
-// notificationsSupportees dit si ce navigateur peut recevoir des notifications
-// push (PRODUIT : opt-in, jamais un bouton qui echoue silencieusement).
-function notificationsSupportees() {
-	return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+// messageEchecActivation traduit le motif d'echec de
+// demanderActivationNotifications en un texte pour messageEtat, sans jamais
+// un ton pressant (PRODUIT).
+function messageEchecActivation(motif) {
+	switch (motif) {
+		case 'refuse':
+			return 'Permission refusée : aucune notification ne sera envoyée.';
+		case 'indisponible':
+			return 'Notifications indisponibles pour le moment.';
+		default:
+			return "L'activation a échoué. Réessaie plus tard.";
+	}
 }
 
 // construireCarteNotifications ajoute la section "Notifications" des reglages
@@ -68,38 +65,13 @@ function construireCarteNotifications(conteneur, profil) {
 	boutonActiver.textContent = abonne ? 'Enregistrer' : 'Activer les rappels';
 	boutonActiver.addEventListener('click', async () => {
 		messageEtat.hidden = true;
-		try {
-			const permission = await Notification.requestPermission();
-			if (permission !== 'granted') {
-				messageEtat.textContent = 'Permission refusée : aucune notification ne sera envoyée.';
-				messageEtat.hidden = false;
-				return;
-			}
-			const enregistrement = await navigator.serviceWorker.register('/sw.js');
-			await navigator.serviceWorker.ready;
-			const clePublique = (await lireClePubliqueVAPID()).cle;
-			if (!clePublique) {
-				messageEtat.textContent = 'Notifications indisponibles pour le moment.';
-				messageEtat.hidden = false;
-				return;
-			}
-			let abonnement = await enregistrement.pushManager.getSubscription();
-			if (!abonnement) {
-				abonnement = await enregistrement.pushManager.subscribe({
-					userVisibleOnly: true,
-					applicationServerKey: urlBase64VersUint8Array(clePublique),
-				});
-			}
-			const json = abonnement.toJSON();
-			await activerNotifications(
-				{ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
-				saisieHeure.value,
-			);
-			onNotificationsChangees();
-		} catch {
-			messageEtat.textContent = "L'activation a échoué. Réessaie plus tard.";
+		const resultat = await demanderActivationNotifications(saisieHeure.value);
+		if (!resultat.ok) {
+			messageEtat.textContent = messageEchecActivation(resultat.motif);
 			messageEtat.hidden = false;
+			return;
 		}
+		onNotificationsChangees();
 	});
 	carte.appendChild(boutonActiver);
 
