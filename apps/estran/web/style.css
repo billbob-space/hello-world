@@ -53,6 +53,186 @@
   }
 }
 
+/* Echelle typographique : au-dela de 640px puis de 1024px, les cartes ont
+   plus d'espace (voir --largeur-contenu et la grille deux colonnes plus
+   bas) mais le texte et les icones restaient a taille mobile, ce qui les
+   faisait lire comme du vide plutot que comme une interface qui remplit
+   son espace. Le chiffre de hauteur de maree (.jauge-hauteur) grossit le
+   plus des deux paliers pour rester la piece la plus visible de l'ecran
+   (PRODUCT.md, principe 2) ; le reste suit dans une mesure plus mesuree,
+   en gardant les mêmes rapports de hierarchie qu'en mobile. */
+@media (min-width: 640px) {
+  .entete-titre h1 {
+    font-size: 2rem;
+  }
+
+  .lieu {
+    font-size: 1.05rem;
+  }
+
+  .horloge {
+    font-size: 1.1rem;
+  }
+
+  .titre-section {
+    font-size: 1rem;
+  }
+
+  .jauge-carte {
+    padding: var(--espace-5);
+  }
+
+  .jauge-hauteur {
+    font-size: 2.6rem;
+  }
+
+  .jauge-hauteur small {
+    font-size: 1.3rem;
+  }
+
+  .jauge-sens {
+    font-size: 1.15rem;
+  }
+
+  .jauge-reperes {
+    font-size: 1rem;
+  }
+
+  .jauge-repere strong {
+    font-size: 1.15rem;
+  }
+
+  .jauge-prochaine {
+    font-size: 1.1rem;
+  }
+
+  .heure-carte {
+    padding: var(--espace-4) var(--espace-2);
+  }
+
+  .heure-carte .heure {
+    font-size: 1rem;
+  }
+
+  .heure-carte .icone {
+    width: 38px;
+    height: 38px;
+  }
+
+  .heure-carte .temperature {
+    font-size: 1.5rem;
+  }
+
+  .heure-carte .detail {
+    font-size: 1rem;
+  }
+
+  .jour-ligne {
+    padding: var(--espace-3) var(--espace-4);
+  }
+
+  .jour-ligne .jour-nom {
+    font-size: 1.05rem;
+  }
+
+  .jour-ligne .icone {
+    width: 30px;
+    height: 30px;
+  }
+
+  .jour-maree {
+    font-size: 0.95rem;
+  }
+
+  .jour-ligne .pluie {
+    font-size: 1rem;
+  }
+
+  .jour-ligne .temps {
+    font-size: 1.1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .entete-titre h1 {
+    font-size: 2.5rem;
+  }
+
+  .lieu {
+    font-size: 1.15rem;
+  }
+
+  .horloge {
+    font-size: 1.2rem;
+  }
+
+  .titre-section {
+    font-size: 1.1rem;
+  }
+
+  .jauge-hauteur {
+    font-size: 3.4rem;
+  }
+
+  .jauge-hauteur small {
+    font-size: 1.6rem;
+  }
+
+  .jauge-sens {
+    font-size: 1.3rem;
+  }
+
+  .jauge-reperes {
+    font-size: 1.1rem;
+  }
+
+  .jauge-repere strong {
+    font-size: 1.3rem;
+  }
+
+  .jauge-prochaine {
+    font-size: 1.2rem;
+  }
+
+  .heure-carte .heure {
+    font-size: 1.05rem;
+  }
+
+  .heure-carte .icone {
+    width: 44px;
+    height: 44px;
+  }
+
+  .heure-carte .temperature {
+    font-size: 1.7rem;
+  }
+
+  .heure-carte .detail {
+    font-size: 1.1rem;
+  }
+
+  .jour-ligne .jour-nom {
+    font-size: 1.15rem;
+  }
+
+  .jour-ligne .icone {
+    width: 34px;
+    height: 34px;
+  }
+
+  .jour-maree {
+    font-size: 1rem;
+  }
+
+  .jour-ligne .pluie {
+    font-size: 1.05rem;
+  }
+
+  .jour-ligne .temps {
+    font-size: 1.2rem;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
