@@ -211,3 +211,171 @@ p { margin: 0; }
   padding: calc(var(--pas) * 2);
   font-size: var(--taille-texte);
 }
+
+/* --- PRP 03 : l'entree, PRP 04 : le jour et la seance ----------------------
+   Rien de nouveau au systeme visuel (ossature §5) : ces regles composent les
+   primitives ci-dessus (empiecement, passepoil, jersey, bouton, etiquette),
+   elles ne redefinissent aucun jeton. --- */
+
+.corps-entree,
+.corps-jour,
+.corps-seance,
+.corps-seance-fin {
+  padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 4);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 2);
+}
+
+.corps-entree label,
+.corps-entree input[type='text'] {
+  display: block;
+}
+
+.corps-entree input[type='text'],
+.saisie-code__case {
+  width: 100%;
+  min-height: var(--cible-min);
+  padding: 0 calc(var(--pas) * 1.5);
+  border: 2px solid var(--jersey-ombre);
+  border-radius: var(--angle);
+  background: var(--jersey);
+  color: var(--bleu-nuit);
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 500;
+  font-size: var(--taille-texte);
+}
+
+.corps-entree input[type='text']:focus,
+.saisie-code__case:focus {
+  border-color: var(--bleu-roi);
+  outline: none;
+}
+
+.erreur-champ {
+  color: var(--fuchsia);
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 600;
+  font-size: var(--taille-texte);
+  min-height: 1.4em;
+}
+
+.explication-code {
+  font-size: var(--taille-texte);
+  line-height: 1.5;
+}
+
+/* Six cases, jamais un champ unique : sur un telephone pose par terre, on
+   voit combien de chiffres il reste (PRP 03 chantier A). */
+.saisie-code__etiquette {
+  display: block;
+  margin-bottom: calc(var(--pas) * 0.5);
+}
+
+.saisie-code__cases {
+  display: flex;
+  gap: calc(var(--pas) * 0.75);
+}
+
+.saisie-code__case {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 110, 'wght' 700;
+  font-size: clamp(1.25rem, 6vw, 1.75rem);
+}
+
+/* Huit semaines, deux rangs de quatre, cibles de 56 px minimum. */
+.grille-semaines {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: calc(var(--pas) * 1);
+}
+
+.cible-semaine {
+  min-height: var(--cible-min);
+  border: 2px solid var(--jersey-ombre);
+  border-radius: var(--angle);
+  background: var(--jersey);
+  color: var(--bleu-nuit);
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 110, 'wght' 700;
+  font-size: var(--taille-texte);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cible-semaine.choisi {
+  border-color: var(--bleu-roi);
+  background: var(--bleu-roi);
+  color: var(--jersey);
+}
+
+.titre-jour,
+.nom-exercice {
+  font-family: var(--display);
+}
+
+.nom-exercice {
+  font-size: var(--taille-exercice);
+  font-variation-settings: 'wdth' 112, 'wght' 700;
+}
+
+.familles-jour {
+  font-size: var(--taille-texte);
+  color: var(--bleu-nuit);
+}
+
+/* La barre de couture : la progression de la seance, dans l'empiecement. */
+.barre-couture {
+  margin-top: calc(var(--pas) * 1);
+  height: 6px;
+  background: rgba(244, 241, 234, 0.35);
+  border-radius: var(--angle);
+  overflow: hidden;
+}
+
+.barre-couture__remplissage {
+  height: 100%;
+  background: var(--or);
+  border-radius: var(--angle);
+  transition: width 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barre-couture__remplissage {
+    transition: none;
+  }
+}
+
+/* L'objectif de la semaine, en tres grand : x16 ou le decompte (ossature
+   §5.2 : le decompte du minuteur, clamp(5rem, 28vw, 11rem)). */
+.objectif-seance {
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 125, 'wght' 800;
+  font-size: var(--taille-decompte);
+  font-variant-numeric: tabular-nums;
+  color: var(--bleu-nuit);
+}
+
+.objectif-seance--minuteur .decompte {
+  color: var(--fuchsia); /* ce qui est EN COURS (ossature §5.1) */
+}
+
+/* Le passage d'un exercice au suivant glisse selon l'angle de la couture
+   (ossature §5.5), jamais horizontalement. */
+@keyframes seance-glisse {
+  from { transform: translateX(-6vw) skewY(calc(var(--couture) * -1)); opacity: 0; }
+  to   { transform: translateX(0) skewY(0deg); opacity: 1; }
+}
+
+.corps-seance {
+  animation: seance-glisse 280ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .corps-seance {
+    animation: none;
+  }
+}

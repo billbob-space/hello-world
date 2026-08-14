@@ -173,3 +173,44 @@ un commit qui ne peut casser aucune autre application.
 **Action** — `rien` — le garde-fou prévu pour ce cas est en place et fait son
 travail. Le `Dockerfile` reprend le patron déjà en production de
 `marcq-handball`.
+
+### 9. Le routeur du lot 1 n'a jamais pu monter une sous-route
+
+**Symptome** — `app.js` cherchait `table[route]` avec la route **brute**
+(`#/seance/3`), alors que la table n'indexe que les routes de base
+(`#/seance`). Aucune sous-route n'aurait jamais pu se monter : « refaire une
+séance » et toute reprise sur un exercice précis restaient silencieusement
+inertes.
+
+**Cause** — le fichier portait un commentaire anticipant explicitement ce cas
+(`#/seance/2026-08-14`), et le code ne l'implémentait pas. Un commentaire qui
+décrit une intention non tenue est pire que pas de commentaire : il fait passer
+la relecture à côté. Aucun test du lot 1 ne montait de sous-route — le trou
+était dans les tests autant que dans le code.
+
+**Detecte par** — `relecture` — trouvé par l'artisan du lot suivant, au moment
+de brancher ses vues.
+
+**Action** — `rien` — corrigé en une ligne (`routeDeBase()`), et désormais
+couvert par les tests des vues. L'enseignement — « une route à paramètre se
+teste, sinon elle n'existe pas » — est trop spécifique pour mériter un
+garde-fou de fabrique.
+
+### 10. Un garde-fou du lot 1 se déclenche sur un commentaire
+
+**Symptome** — le test qui interdit d'écrire un objectif en dur dans une vue
+(PRD §8.1) est tombé sur un **commentaire** de `vue-entree.js` citant « 5 s,
+15 s, 45 s » — les délais de temporisation du PRD §7.5, qui ne sont pas des
+objectifs d'exercice.
+
+**Cause** — le test lit le fichier source comme du texte et ne distingue pas le
+code du commentaire. C'est ce qui le rend simple et robuste, et c'est aussi ce
+qui le rend faux au bord : n'importe quelle prose citant une durée le déclenche.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — un test de fidélité qui lit du texte brut doit dire
+dans son message d'échec qu'un commentaire suffit à le déclencher, faute de quoi
+le prochain qui le rencontre cherchera un bug dans son code. Contourné ici en
+reformulant le commentaire ; le test n'a pas été affaibli, et c'est le bon
+arbitrage — un garde-fou un peu trop large vaut mieux qu'un garde-fou troué.

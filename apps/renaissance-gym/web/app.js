@@ -3,6 +3,9 @@
 // `monterX(hote, contexte) -> demonter()`.
 
 import { lireEtat } from './etat.js';
+import { monterEntree } from './vue-entree.js';
+import { monterJour } from './vue-jour.js';
+import { monterSeance } from './vue-seance.js';
 
 // Les quatre ecrans du lot 1 (PRD §6). Une route hors de cette liste — et hors
 // de ses sous-routes, par exemple « #/seance/2026-08-14 » — n'est jamais
@@ -22,6 +25,16 @@ function normaliser(brute) {
 
 function correspondAUneRoute(route) {
   return ROUTES.some((motif) => route === motif || route.startsWith(`${motif}/`));
+}
+
+// La route DE BASE d'une sous-route : « #/seance/3 » -> « #/seance ». C'est
+// elle qui sert de cle dans `table`, jamais la route brute — sans quoi aucune
+// sous-route (l'exemple « #/seance/2026-08-14 » cite plus haut) ne
+// trouverait jamais son monteur, quelle que soit la table passee a
+// `router()`. Une route qui ne correspond a aucun motif (ex. ROUTE_ENTREE,
+// hors de `ROUTES`) se rend elle-meme.
+function routeDeBase(route) {
+  return ROUTES.find((motif) => route === motif || route.startsWith(`${motif}/`)) ?? route;
 }
 
 let programmeCharge = null;
@@ -71,7 +84,7 @@ export function router(hote, table) {
       route = '#/jour';
     }
 
-    const monter = table[route];
+    const monter = table[routeDeBase(route)];
     if (typeof monter === 'function') {
       demonterCourant = commeDemontage(monter(hote, ctx));
     }
@@ -123,11 +136,14 @@ async function chargerLeProgramme(hote) {
   }
 }
 
-// Ce PRP ne monte aucun ecran de produit (chantier D) : la table est vide, et
-// la page affiche un « main » habille mais vide, comme prevu par le PRP 02.
-// Les PRP suivants l'enrichissent en composant leur propre table et en
-// l'important ici.
-const TABLE = {};
+// PRP 03 et 04 : l'entree, l'ecran du jour et la seance. Les routes du lot 3
+// (grille, reglages) restent a la charge des PRP suivants, qui completent
+// cette table sans toucher a la mecanique du routeur ci-dessus.
+const TABLE = {
+  [ROUTE_ENTREE]: monterEntree,
+  '#/jour': monterJour,
+  '#/seance': monterSeance,
+};
 
 async function demarrer() {
   const hote = document.getElementById('ecran');
