@@ -180,7 +180,7 @@ un chevron, `acquis` porte aussi une coche.
 | Le nom de l'exercice en séance | `clamp(1.75rem, 7vw, 2.75rem)` | wdth 112, wght 700 |
 | Titre d'écran | `clamp(1.5rem, 6vw, 2.25rem)` | wdth 125, wght 800 |
 | Texte courant | `1.0625rem` minimum | wdth 100, wght 400 |
-| Étiquette de couture | `0.8125rem`, capitales, interlettrage `0.08em` | wdth 100, wght 600 |
+| Étiquette de couture | `1.0625rem`, capitales, interlettrage `0.08em` | wdth 100, wght 600 |
 
 **Le plancher est 17 px.** Le PRD §5 exige la lecture à un mètre : rien sous
 cette taille, jamais, y compris les mentions légères.

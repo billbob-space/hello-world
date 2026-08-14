@@ -378,7 +378,7 @@ quatre exercices de souplesse déjà vus dans la semaine — la souplesse est le
 seul domaine où la répétition dans la semaine est un gain, et c'est ainsi qu'on
 progresse en gymnastique.
 
-Chaque séance fait dix à onze exercices, soit quinze à vingt minutes minuteurs
+Chaque séance fait neuf à onze exercices, soit quinze à vingt minutes minuteurs
 compris. C'est la durée qu'une enfant de treize ans tient sans se forcer, quatre
 fois par semaine, pendant huit semaines.
 

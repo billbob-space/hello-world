@@ -9,7 +9,6 @@ cd "$(dirname "$0")"
 # non le repertoire : `node --test tests/` traiterait `tests` comme un fichier.
 node --test tests/*.test.js
 
-# Le serveur Go arrive au lot 2 (PRP 06). Ses deux lignes — go vet ./... et
-# go test ./... — s'ajoutent ici DANS LE MEME COMMIT que le premier fichier .go :
-# declarees plus tot, elles echouent sur « directory prefix . does not contain
-# modules », et la CI est rouge pour toute la fabrique.
+# Le serveur Go (PRP 06) : le magasin de fiches, l'API et le point d'entree.
+go vet ./...
+go test ./...
