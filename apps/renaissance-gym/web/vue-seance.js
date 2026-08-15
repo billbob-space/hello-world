@@ -7,6 +7,27 @@
 // LE MODE VIENT DE LA DONNÉE, JAMAIS DU LIBELLÉ : `ex.mesure === 'tenue'`
 // monte un minuteur, `'repetitions'` n'en monte pas — ce module ne lit
 // jamais `ex.libelle` pour décider quoi que ce soit.
+//
+// A3 bis (« Ajouté après les PRP ») : le même écran sert aussi à « Lancer »
+// un seul exercice depuis le détail d'une séance de la grille — jamais un
+// second écran réécrit. La sous-route « #/seance/<numero>/<exercice>/<semaine> »
+// (`cibleUniqueDepuisHash`) réduit la file à ce seul exercice, prend son
+// objectif dans LA SEMAINE DE LA CASE plutôt que la semaine courante, et
+// renvoie au détail de cette séance plutôt qu'à l'écran du jour une fois
+// validé — c'est de là qu'elle est venue, il lui en reste peut-être d'autres
+// à rattraper. « Passer » n'a pas de sens sur une file d'un seul exercice
+// choisi exprès : il ne se monte pas dans ce mode.
+//
+// A6 (« Ajouté après les PRP ») : le §7.3 promettait « elle peut quitter en
+// cours de séance » depuis le premier jour — la file gardée, la reprise
+// fonctionnelle — mais aucun bouton ne le permettait. « Sortir » l'ajoute :
+// discret (`.bouton--discret`, jamais le geste principal) et TOUJOURS visible
+// (jamais masqué par `hidden`, contrairement à « Passer » en mode cible
+// unique) sur l'écran d'un exercice en cours. Elle ramène à
+// `destinationRetour()` — l'écran du jour, ou le détail de la séance d'où
+// elle vient en mode cible unique, exactement comme la validation. Rien à
+// persister de plus : ce qui est validé l'est déjà (`ajouterFait`), et la
+// file n'a pas bougé depuis le dernier rendu.
 
 import { exercicesDeSeance, objectif, objectifTexte } from './programme.js';
 import {
@@ -27,12 +48,27 @@ function el(balise, classe, texte) {
 
 // Sous-route « #/seance/<numero> » : force la séance à rejouer (écran du
 // jour, « Refaire une séance », PRD §9.5). Sans suffixe valide, `null` — la
-// séance vient alors de `domaine.prochaineSeance`.
+// séance vient alors de `domaine.prochaineSeance`. Le numéro se lit aussi
+// quand la sous-route porte en plus une cible unique (voir
+// `cibleUniqueDepuisHash` juste en dessous) : le segment optionnel n'est
+// jamais capturé ici, seul le premier compte.
 export function numeroDepuisHash(hash) {
-  const trouve = /^#\/seance\/(\d+)$/.exec(String(hash ?? ''));
+  const trouve = /^#\/seance\/(\d+)(?:\/.*)?$/.exec(String(hash ?? ''));
   if (trouve === null) return null;
   const n = Number(trouve[1]);
   return n >= 1 && n <= 4 ? n : null;
+}
+
+// Sous-route « #/seance/<numero>/<exercice>/<semaine> » : A3 bis, « Lancer »
+// un seul exercice depuis le détail d'une séance de la grille. `null` quand
+// la route ne porte pas cette forme précise — c'est alors la file entière de
+// la séance qui se monte, comme avant.
+export function cibleUniqueDepuisHash(hash) {
+  const trouve = /^#\/seance\/\d+\/([^/]+)\/(\d+)$/.exec(String(hash ?? ''));
+  if (trouve === null) return null;
+  const semaine = Number(trouve[2]);
+  if (!Number.isInteger(semaine) || semaine < 1 || semaine > 8) return null;
+  return { exercice: trouve[1], semaine };
 }
 
 // PRD §9.1 : une séance interrompue à mi-parcours reprend au premier exercice
@@ -46,12 +82,21 @@ export function indexPremierNonFait(programme, faits, semaine, numero) {
 
 export function monterSeance(hote, ctx) {
   const { etat, programme, maintenant } = ctx;
-  const semaine = Math.min(semaineCourante(etat.debut, maintenant(), etat.semaineDeDepart), 8);
+  const semaineActuelle = Math.min(semaineCourante(etat.debut, maintenant(), etat.semaineDeDepart), 8);
   const hash = typeof location !== 'undefined' ? location.hash : '';
-  const numero = numeroDepuisHash(hash) ?? prochaineSeance(programme, etat.faits, semaine) ?? 1;
-  const exercices = exercicesDeSeance(programme, numero);
+  const cibleUnique = cibleUniqueDepuisHash(hash);
+  const numero = numeroDepuisHash(hash) ?? prochaineSeance(programme, etat.faits, semaineActuelle) ?? 1;
+  // A3 bis : « Lancer » un seul exercice prend l'objectif de LA SEMAINE DE LA
+  // CASE d'où il vient, jamais celle en cours (§4 du contrat qui a demandé
+  // cette vue).
+  const semaine = cibleUnique !== null ? cibleUnique.semaine : semaineActuelle;
+  const exercicesSeance = exercicesDeSeance(programme, numero);
+  const exercices = cibleUnique !== null
+    ? exercicesSeance.filter((ex) => ex.id === cibleUnique.exercice)
+    : exercicesSeance;
   const exParId = new Map(exercices.map((ex) => [ex.id, ex]));
   const total = exercices.length;
+  const modeUnique = cibleUnique !== null;
 
   // A1 (« Ajouté après les PRP ») : la file de la séance en cours — les
   // exercices non encore validés, dans leur ordre de présentation. Elle
@@ -62,20 +107,36 @@ export function monterSeance(hote, ctx) {
   // exercice restant de CETTE séance (correction faite depuis la grille
   // pendant que la séance était interrompue, par exemple) est écartée, et ce
   // qui manquerait à la file est ajouté à la fin, dans l'ordre naturel.
-  const faitsSet = faitsDeSeance(etat.faits, semaine, numero);
-  const enAttente = fileInitiale(exercices, faitsSet);
-  const gardee = etat.fileSeance;
-  const reprendCetteSeance = gardee !== null && gardee.semaine === semaine && gardee.numero === numero;
-  let file = reprendCetteSeance
-    ? [...gardee.file.filter((id) => enAttente.includes(id)), ...enAttente.filter((id) => !gardee.file.includes(id))]
-    : [...enAttente];
-  let passes = new Set(reprendCetteSeance ? gardee.passes.filter((id) => enAttente.includes(id)) : []);
+  //
+  // A3 bis : en mode « cible unique », la file ne porte que l'exercice
+  // choisi, DÉJÀ VALIDÉ OU NON — refaire un exercice déjà coché est permis
+  // (même règle que refaire une séance entière), et cette file-là n'est
+  // jamais écrite dans `etat.fileSeance` : c'est un aparté d'un seul geste,
+  // pas la file partagée d'une séance qui pourrait être en cours par
+  // ailleurs, à une autre semaine ou une autre séance.
+  let file;
+  let passes;
+  if (modeUnique) {
+    file = exercices.map((ex) => ex.id);
+    passes = new Set();
+  } else {
+    const faitsSet = faitsDeSeance(etat.faits, semaine, numero);
+    const enAttente = fileInitiale(exercices, faitsSet);
+    const gardee = etat.fileSeance;
+    const reprendCetteSeance = gardee !== null && gardee.semaine === semaine && gardee.numero === numero;
+    file = reprendCetteSeance
+      ? [...gardee.file.filter((id) => enAttente.includes(id)), ...enAttente.filter((id) => !gardee.file.includes(id))]
+      : [...enAttente];
+    passes = new Set(reprendCetteSeance ? gardee.passes.filter((id) => enAttente.includes(id)) : []);
+  }
 
   let chronoCourant = null; // pour l'arreter proprement au demontage (PRD §5)
   let audioDebloque = false;
   let avisMontre = false; // l'écran « il ne reste que des exercices passés » ne s'affiche qu'une fois
 
-  garderEcranAllume(true);
+  // A11 (« Ajouté après les PRP ») : l'option des réglages, active par
+  // défaut — coupée, aucun verrou n'est demandé du tout.
+  if (etat.ecranAllume !== false) garderEcranAllume(true);
 
   const section = el('section', 'ecran-seance zone-surete');
   hote.append(section);
@@ -87,6 +148,10 @@ export function monterSeance(hote, ctx) {
   }
 
   function persisterFile() {
+    // A3 bis : la file d'un aparté d'un seul exercice n'est jamais la file
+    // partagée d'`etat.js` — l'écrire écraserait sinon la reprise d'une
+    // séance en cours ailleurs, à une autre semaine ou une autre séance.
+    if (modeUnique) return;
     ecrireFileSeance(semaine, numero, file, passes);
   }
 
@@ -94,11 +159,19 @@ export function monterSeance(hote, ctx) {
     ajouterFait({ seance: numero, semaine, exercice: ex.id, a: maintenant().toISOString() });
   }
 
+  // A3 bis : le geste de retour ne ramène JAMAIS à l'écran du jour depuis un
+  // aparté lancé de la grille — elle y revient d'où elle est partie, le
+  // détail de CETTE séance, où il lui reste peut-être d'autres exercices à
+  // rattraper.
+  function destinationRetour() {
+    return modeUnique ? `#/grille/seance/${semaine}/${numero}` : '#/jour';
+  }
+
   function terminerSeance() {
     chronoCourant = null;
     section.replaceChildren();
     const empiecement = el('div', 'empiecement');
-    empiecement.append(el('h1', null, 'Séance terminée !'));
+    empiecement.append(el('h1', null, modeUnique ? 'Exercice terminé !' : 'Séance terminée !'));
     section.append(empiecement);
 
     const corps = el('div', 'jersey corps-seance-fin');
@@ -106,7 +179,7 @@ export function monterSeance(hote, ctx) {
     const retour = el('button', 'bouton', 'Retour');
     retour.type = 'button';
     retour.addEventListener('click', () => {
-      if (typeof location !== 'undefined') location.hash = '#/jour';
+      if (typeof location !== 'undefined') location.hash = destinationRetour();
     });
     corps.append(retour);
     section.append(corps);
@@ -130,7 +203,7 @@ export function monterSeance(hote, ctx) {
     const retour = el('button', 'bouton', 'Retour');
     retour.type = 'button';
     retour.addEventListener('click', () => {
-      if (typeof location !== 'undefined') location.hash = '#/jour';
+      if (typeof location !== 'undefined') location.hash = destinationRetour();
     });
     corps.append(retour);
     section.append(corps);
@@ -205,6 +278,14 @@ export function monterSeance(hote, ctx) {
   }
 
   function dessiner() {
+    // Garde-fou : une file vide dès l'entrée (refaire une séance déjà
+    // entièrement faite, ou — A3 bis — un exercice cible introuvable dans
+    // cette séance) n'a rien à montrer ; `avancer()` gère déjà ce cas une
+    // fois la séance en cours, mais le premier appel n'y passe jamais.
+    if (file.length === 0) {
+      terminerSeance();
+      return;
+    }
     if (!avisMontre && fileNeContientQueDesPasses(file, passes)) {
       avisMontre = true;
       dessinerAvis();
@@ -240,10 +321,21 @@ export function monterSeance(hote, ctx) {
     remise.hidden = true;
     // A1 : « Passer » est une action SECONDAIRE — `.bouton--discret`, jamais
     // un second bouton principal — disponible quel que soit le mode ou la
-    // phase de l'exercice courant.
+    // phase de l'exercice courant. A3 bis : elle n'a aucun sens sur une file
+    // d'un seul exercice choisi exprès depuis la grille — rien à passer,
+    // vers rien — et ne se monte donc jamais en mode cible unique.
     const passerBouton = el('button', 'bouton--discret', 'Passer');
     passerBouton.type = 'button';
+    passerBouton.hidden = modeUnique;
     passerBouton.addEventListener('click', () => passer());
+
+    // A6 : toujours visible, jamais masqué — à la différence de « Passer »
+    // ci-dessus, qui n'a pas de sens en mode cible unique.
+    const sortirBouton = el('button', 'bouton--discret', 'Sortir de la séance');
+    sortirBouton.type = 'button';
+    sortirBouton.addEventListener('click', () => {
+      if (typeof location !== 'undefined') location.hash = destinationRetour();
+    });
 
     if (ex.mesure === 'tenue') {
       objectifNoeud.classList.add('objectif-seance--minuteur');
@@ -323,7 +415,7 @@ export function monterSeance(hote, ctx) {
       });
     }
 
-    corps.append(objectifNoeud, remise, passerBouton, bouton);
+    corps.append(objectifNoeud, remise, passerBouton, sortirBouton, bouton);
     section.append(corps);
   }
 

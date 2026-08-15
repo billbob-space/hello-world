@@ -1799,3 +1799,36 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1238 agent claude-sonnet-5 192 247219 2
 -->
 <!-- /cout -->
+
+### 23. La grille ne montrait rien de ce qui avait été fait
+
+**Symptome** — « dans la vue grille aucun moyen de voir ce que j'ai déjà
+fait ». Exact, et trois défauts se cumulaient : une case était **tout ou
+rien** (dix exercices sur onze s'affichaient comme zéro) ; les cases de la
+**semaine en cours étaient `disabled`**, donc la semaine où elle vit était la
+plus opaque de la grille ; et rien ne descendait à l'exercice, alors que c'est
+la granularité de la feuille du club — trente-six lignes, une croix par ligne.
+
+**Cause** — le PRD §7.4 a décrit la grille comme « les huit semaines et les
+quatre séances de chacune », et le PRP 05 l'a implémentée fidèlement. Les deux
+ont raisonné en **séances** parce que l'application, elle, raisonne en séances.
+La feuille dont la grille est la transposition, elle, raisonne en **exercices**.
+La transposition a changé d'unité sans que personne le remarque, et la grille
+promettait « c'est la feuille du club, en mieux » en montrant autre chose.
+
+Le premier des trois défauts a été **aggravé par ma propre livraison
+précédente** : depuis que « Passer » existe, une séance se termine bien plus
+souvent incomplète — donc invisible.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — quand une application transpose un artefact
+existant, vérifier que l'**unité** de l'original survit à la transposition.
+Ici la feuille compte des exercices et l'app comptait des séances ; les deux
+documents qui devaient l'attraper — PRD et PRP — ont hérité de l'unité du code
+au lieu de celle de la source.
+
+Corollaire, valable au-delà de cette app : un ajout qui rend un état plus
+fréquent (ici « séance incomplète ») **révèle** les endroits où cet état
+n'était pas représenté. Le livrer sans regarder ce qu'il rend visible, c'est
+livrer le défaut suivant avec.

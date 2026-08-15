@@ -72,9 +72,18 @@
     0 calc(100% - var(--angle)), 0 var(--angle)
   );
 
+  /* La saisie du code : des chiffres larges dans des cases etroites. C'est
+     du texte, et sa taille est une marche a part entiere du gabarit — elle
+     est donc nommee ici plutot que posee en litteral au fond du fichier. */
+  --taille-code: clamp(1.25rem, 6vw, 1.75rem);
+
   /* --- 5.4 Espacement et cibles --- */
   --pas: 0.5rem; /* toute marge est un multiple : 0.5 1 1.5 2 3 4 6 */
   --cible-min: 56px;
+  /* Une icone n'est pas du texte : elle se dimensionne en largeur et en
+     hauteur, jamais par `font-size`. Ce jeton est une DIMENSION, il n'a rien
+     a faire dans le gabarit typographique. */
+  --taille-icone: 1.25rem;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -374,6 +383,7 @@ p { margin: 0; }
 .corps-seance,
 .corps-seance-fin,
 .corps-grille,
+.corps-detail-seance,
 .corps-reglages {
   padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 4);
   display: flex;
@@ -478,7 +488,7 @@ input[type='text']:focus,
   text-align: center;
   font-family: var(--display);
   font-variation-settings: 'wdth' 110, 'wght' 700;
-  font-size: clamp(1.25rem, 6vw, 1.75rem);
+  font-size: var(--taille-code);
 }
 
 /* Huit semaines, deux rangs de quatre, cibles de 56 px minimum. */
@@ -674,6 +684,7 @@ input[type='text']:focus,
 }
 
 .case-seance {
+  position: relative;
   min-height: var(--cible-min);
   min-width: 0;
   border: 2px solid var(--jersey-ombre);
@@ -684,6 +695,18 @@ input[type='text']:focus,
   justify-content: center;
   padding: 0;
   touch-action: manipulation;
+}
+
+/* A3 : la case porte son avancement — un remplissage d'or, jamais un chiffre
+   (PRD §4, §14). `clip-path` sur `.case-seance` recoupe deja ce calque a son
+   biseau, comme un `overflow: hidden` : aucune decoupe supplementaire n'est
+   necessaire ici. Anime par transform, jamais par width (meme raison qu'a la
+   barre de couture : ce telephone n'est pas le plus recent de la maison). */
+.case-seance__remplissage {
+  position: absolute;
+  inset: 0;
+  background: var(--or);
+  transform-origin: left center;
 }
 
 /* Seance faite : fond or, coche (PRP 05, table du chantier A). */
@@ -698,13 +721,29 @@ input[type='text']:focus,
    l'autre. `currentColor` reprend la couleur deja posee ici. */
 .case-seance__coche,
 .case-seance__chevron,
+.case-exercice__coche,
 .icone-fleche {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
   line-height: 1;
   vertical-align: middle;
+}
+
+/* Le trace SVG porte « width=1em height=1em » : le dimensionner par le
+   `font-size` du parent marcherait, mais reviendrait a faire passer une
+   dimension pour une taille de texte — et le detecteur de design a raison de
+   le relever. La largeur et la hauteur le disent directement. */
+.icone-fleche svg {
+  width: var(--taille-icone);
+  height: var(--taille-icone);
+}
+
+/* Au-dessus du remplissage d'avancement (A3), jamais dessous — une case
+   entamee de la semaine en cours porte les deux a la fois. */
+.case-seance__coche,
+.case-seance__chevron {
+  position: relative;
 }
 
 .case-seance__coche {
@@ -728,12 +767,13 @@ input[type='text']:focus,
   text-decoration: underline;
 }
 
-/* Seance a faire, semaine en cours : contour fuchsia, chevron — jamais
-   cliquable depuis la grille (PRD §13 : ce n'est pas un second parcours). */
+/* Seance a faire, semaine en cours : contour fuchsia, chevron. Ouvrable
+   comme toute autre case non future (A3) : l'appui mene au detail de la
+   seance, pas a un second parcours d'entrainement. */
 .case-seance--encours {
   border-color: var(--fuchsia);
   background: var(--jersey);
-  cursor: default;
+  cursor: pointer;
 }
 
 .case-seance__chevron {
@@ -827,6 +867,70 @@ input[type='text']:focus,
   font-size: var(--taille-texte);
 }
 
+/* --- A3 bis : le detail d'une seance, la liste de ses exercices -----------
+   Deux cibles bien separees par ligne (PRD §5 : rien ne depend d'un geste
+   precis) : cocher/decocher a gauche, lancer a droite, jamais l'une sur
+   l'autre. */
+
+.liste-exercices {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.ligne-exercice {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 1.5);
+}
+
+.ligne-exercice__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--taille-texte);
+}
+
+.case-exercice {
+  flex: 0 0 auto;
+  width: var(--cible-min);
+  height: var(--cible-min);
+  border: 2px solid var(--jersey-ombre);
+  clip-path: var(--biseau);
+  background: var(--jersey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Fait : fond or, coche — le meme visage que la case de la grille (A3), pour
+   qu'une seule grammaire visuelle dise « acquis » partout dans l'app. */
+.case-exercice--fait {
+  border-color: var(--or);
+  background: var(--or);
+}
+
+.case-exercice__coche {
+  color: var(--bleu-nuit);
+}
+
+.bouton-lancer {
+  flex: 0 0 auto;
+  min-height: var(--cible-min);
+  padding: 0 calc(var(--pas) * 2);
+  border: 0;
+  clip-path: var(--biseau);
+  background: var(--bleu-roi);
+  color: var(--jersey);
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 600;
+  font-size: var(--taille-texte);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
 /* --- PRP 05 : les reglages -------------------------------------------------- */
 
 .reglage-bloc {
@@ -861,4 +965,36 @@ input[type='text']:focus,
   font-size: var(--taille-texte);
   line-height: 1.35;
   text-align: center;
+}
+
+/* --- A7, « Ajoute apres les PRP » : le choix de sonnerie, dans les reglages.
+   Meme grammaire que `.cible-semaine` (biseau, bordure en jersey-ombre,
+   fond bleu roi une fois choisie) : c'est la meme famille de composant —
+   « une cible parmi plusieurs » — juste empilee plutot que mise en grille,
+   les libelles etant plus longs qu'un chiffre de semaine. */
+.liste-sonneries {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.choix-sonnerie {
+  min-height: var(--cible-min);
+  padding: 0 calc(var(--pas) * 2);
+  border: 2px solid var(--jersey-ombre);
+  clip-path: var(--biseau);
+  background: var(--jersey);
+  color: var(--bleu-nuit);
+  text-align: left;
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 600;
+  font-size: var(--taille-texte);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.choix-sonnerie--choisie {
+  border-color: var(--bleu-roi);
+  background: var(--bleu-roi);
+  color: var(--jersey);
 }

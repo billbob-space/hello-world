@@ -108,7 +108,7 @@ application ne demande rien à l'infrastructure.
 ## Développer
 
 ```bash
-./test.sh                                   # 152 tests JS + go vet + go test
+./test.sh                                   # 221 tests JS + go vet + go test
 GYM_DONNEES=/tmp/gym go run .               # http://localhost:8080
 ```
 
@@ -154,6 +154,27 @@ bouclée, **jamais pendant l'effort**.
 Le fond est clair et non sombre, et c'est la scène physique qui l'a tranché : une
 enfant sur un tapis en août, le téléphone **posé à plat par terre**, où un fond
 presque noir est un miroir.
+
+## Installable (PRD A12)
+
+`web/manifest.webmanifest` et `web/sw.js` rendent l'application installable sur
+l'écran d'accueil, en plein écran. Deux règles non négociables tiennent le
+piège classique du genre — une version en cache servie indéfiniment :
+
+1. Réseau d'abord, cache seulement en secours (`sw.js`, gestionnaire `fetch`) :
+   une correction livrée le matin doit être en place à la première ouverture
+   qui a du réseau.
+2. Une version qui change remplace l'ancienne sans attendre la fermeture des
+   onglets (`skipWaiting` + `clients.claim`), et l'ancien cache est effacé.
+
+**`sw.js` porte une constante `VERSION` à incrémenter à chaque livraison qui
+touche `web/`** — sans quoi le correctif suivant n'arrive jamais chez une
+gymnaste qui a déjà installé l'application.
+
+Aucune réponse de `/api/` n'est jamais mise en cache, sous aucune stratégie
+(`tests/pwa.test.js` l'échoue si `/api` apparaît dans la liste de
+préchargement). Aucune invite d'installation n'est faite par l'application :
+c'est un geste offert par le navigateur, jamais réclamé.
 
 ## Ce qui est hors périmètre, et pourquoi
 

@@ -432,6 +432,29 @@ mouvements du système (glisse, balayage de strass, transition de la barre).
 - **Don't** animer `width`, `height` ou toute propriété de mise en page ;
   passer par `transform`.
 
+## Deux jetons ajoutés après coup
+
+Le détecteur de design a relevé deux `font-size` littéraux hors gabarit. Les
+deux étaient réels, et de natures différentes — la distinction vaut d'être
+retenue.
+
+**`--taille-code` — `clamp(1.25rem, 6vw, 1.75rem)`.** Les six cases du code
+sont du **texte** : des chiffres larges dans des cases étroites, plus grands
+que le texte courant et plus petits qu'un titre. C'est une marche du gabarit
+à part entière ; elle est nommée ici plutôt que posée en littéral au fond de
+la feuille de style.
+
+**`--taille-icone` — `1.25rem`.** Le tracé SVG des flèches porte
+`width="1em" height="1em"`, et le dimensionner par le `font-size` du parent
+fonctionnait — en faisant passer une **dimension** pour une taille de texte.
+Il se pose désormais en largeur et en hauteur. Ce jeton n'appartient pas au
+gabarit typographique et ne doit jamais y entrer : **une icône n'est pas du
+texte.**
+
+La règle générale que ces deux cas donnent : un `font-size` littéral est soit
+une marche manquante du gabarit, qu'il faut nommer, soit un détournement pour
+dimensionner autre chose, qu'il faut corriger. Il n'y a pas de troisième cas.
+
 ## Point ouvert (non résolu, non canonisé)
 
 Au-delà de 640px, le plafond de mesure de 28rem s'applique aussi à

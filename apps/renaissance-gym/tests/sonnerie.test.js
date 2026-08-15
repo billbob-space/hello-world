@@ -58,6 +58,51 @@ test('A2 : le motif de vibration alterne au moins deux pulsations', () => {
   assert.ok(sonnerie.MOTIF_VIBRATION.filter((_, i) => i % 2 === 0).length > 1, 'au moins deux segments « vibre »');
 });
 
+// --- A7 : au moins trois sonneries, distinctes par le rythme et le timbre,
+// jamais par la gravité (le défaut qu'A2 a déjà corrigé une fois). ----------
+
+test('A7 : au moins trois sonneries, chacune avec un id unique et un nom', () => {
+  assert.ok(sonnerie.SONNERIES.length >= 3);
+  const ids = new Set();
+  for (const s of sonnerie.SONNERIES) {
+    assert.equal(typeof s.id, 'string');
+    assert.ok(s.id.length > 0);
+    assert.equal(ids.has(s.id), false, `id en double : ${s.id}`);
+    ids.add(s.id);
+    assert.equal(typeof s.nom, 'string');
+    assert.ok(s.nom.length > 0);
+  }
+});
+
+test('A7 : SONNERIE_PAR_DEFAUT désigne une sonnerie qui existe vraiment', () => {
+  assert.ok(sonnerie.SONNERIES.some((s) => s.id === sonnerie.SONNERIE_PAR_DEFAUT));
+});
+
+test('A7 : toutes les sonneries restent dans la bande efficace d’un petit haut-parleur, jamais plus bas que les bips', () => {
+  const plancher = Math.min(...sonnerie.FREQUENCES_BIP);
+  for (const s of sonnerie.SONNERIES) {
+    assert.ok(s.frequence >= plancher, `${s.id} : ${s.frequence} Hz descend sous les bips`);
+  }
+});
+
+test('A7 : les sonneries ne se distinguent jamais par la gravité — toutes dans la même octave', () => {
+  // Le défaut corrigé une première fois par A2 était une note BASSE pour
+  // distinguer un son d'un autre. Le choix de sonnerie ne doit pas le
+  // réintroduire par la bande : aucune ne doit être deux fois plus grave que
+  // la plus aiguë.
+  const frequences = sonnerie.SONNERIES.map((s) => s.frequence);
+  const min = Math.min(...frequences);
+  const max = Math.max(...frequences);
+  assert.ok(max / min < 2, `l’écart entre sonneries (${min} Hz à ${max} Hz) dépasse une octave`);
+});
+
+test('A7 : les sonneries se distinguent par le rythme (nombre d’impulsions) ou le timbre (forme d’onde)', () => {
+  const rythmes = new Set(sonnerie.SONNERIES.map((s) => `${s.nbImpulsions}:${s.dureeImpulsionMs}:${s.silenceMs}`));
+  const timbres = new Set(sonnerie.SONNERIES.map((s) => s.forme));
+  assert.ok(rythmes.size === sonnerie.SONNERIES.length || timbres.size > 1, 'aucune paire de sonneries ne devrait être identique en rythme ET en timbre');
+  assert.ok(timbres.size > 1, 'au moins deux timbres (formes d’onde) différents');
+});
+
 // --- avec un AudioContext factice : verifie le cablage, sans navigateur -----
 
 class GainFactice {
@@ -114,6 +159,23 @@ test('A2 : sonnerie() demarre NB_IMPULSIONS_SONNERIE oscillateurs, a des instant
   for (let i = 1; i < departs.length; i += 1) {
     assert.ok(departs[i] > departs[i - 1]);
   }
+
+  // A7 : une sonnerie CHOISIE joue exactement le nombre d’impulsions de SA
+  // fiche — jamais celui de la sonnerie par défaut. Le journal est cumulatif
+  // (le contexte factice est mis en cache pour tout le fichier, voir la note
+  // ci-dessus) : on compare avant/après plutôt que de recompter depuis zéro.
+  const trille = sonnerie.SONNERIES.find((s) => s.id === 'trille');
+  const avantTrille = ctx.journal.filter(([evt]) => evt === 'start').length;
+  sonnerie.sonnerie('trille');
+  const apresTrille = ctx.journal.filter(([evt]) => evt === 'start').length;
+  assert.equal(apresTrille - avantTrille, trille.nbImpulsions);
+
+  // Un id inconnu (réglage corrompu, ou jamais choisi) retombe sur la
+  // sonnerie par défaut plutôt que de rester muet.
+  const avantInconnue = ctx.journal.filter(([evt]) => evt === 'start').length;
+  sonnerie.sonnerie('ceci-n-existe-pas');
+  const apresInconnue = ctx.journal.filter(([evt]) => evt === 'start').length;
+  assert.equal(apresInconnue - avantInconnue, sonnerie.NB_IMPULSIONS_SONNERIE);
 });
 
 test('debloquerAudio relance un contexte suspendu, estDisponible le reflete', async () => {

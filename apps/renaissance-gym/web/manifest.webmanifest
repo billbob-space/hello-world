@@ -1,0 +1,26 @@
+{
+  "name": "Programme de vacances — La Renaissance Gymnastique",
+  "short_name": "Renaissance Gym",
+  "description": "Le programme de vacances de La Renaissance Gymnastique, huit semaines qui se déroulent toutes seules.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F1EA",
+  "theme_color": "#1B2FB5",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

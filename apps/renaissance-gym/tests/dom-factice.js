@@ -114,8 +114,33 @@ function correspond(noeud, selecteur) {
 // jamais `document.createElement` au chargement du module (seulement a
 // l'interieur des fonctions `monterX`) : poser le document APRES l'import
 // est donc sans risque.
+//
+// `addEventListener`/`removeEventListener`/`visibilityState` (A11, « Ajouté
+// après les PRP ») : le strict minimum pour simuler un `visibilitychange`
+// sans navigateur — le meme systeme de gestionnaires que `ElementFactice`,
+// pose directement sur l'objet document plutot que via une classe dediee.
 export function poserDocumentFactice() {
-  globalThis.document = { createElement: (balise) => new ElementFactice(balise) };
+  const gestionnaires = new Map();
+  globalThis.document = {
+    createElement: (balise) => new ElementFactice(balise),
+    visibilityState: 'visible',
+    addEventListener(nom, fn) {
+      if (!gestionnaires.has(nom)) gestionnaires.set(nom, []);
+      gestionnaires.get(nom).push(fn);
+    },
+    removeEventListener(nom, fn) {
+      const liste = gestionnaires.get(nom);
+      if (!liste) return;
+      const i = liste.indexOf(fn);
+      if (i !== -1) liste.splice(i, 1);
+    },
+    // Simule l'evenement, et fait passer `visibilityState` en meme temps
+    // quand on lui donne (c'est ainsi qu'un vrai navigateur l'articule).
+    declencher(nom, { visibilityState } = {}) {
+      if (typeof visibilityState === 'string') globalThis.document.visibilityState = visibilityState;
+      (gestionnaires.get(nom) ?? []).slice().forEach((fn) => fn({}));
+    },
+  };
 }
 
 export function creerHote() {

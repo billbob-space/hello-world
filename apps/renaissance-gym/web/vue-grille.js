@@ -1,23 +1,24 @@
-// vue-grille.js — les huit semaines, les corrections, les badges (PRP 05,
-// PRD §7.4, §9.3 à §9.7, §6 lot 3).
+// vue-grille.js — les huit semaines, les badges (PRP 05, PRD §7.4, §9.3 à
+// §9.7, §6 lot 3 ; A3 et A3 bis, « Ajouté après les PRP »).
 //
 // C'est la feuille du club, en mieux : huit rangs de quatre cases. AUCUN
 // TOTAL, AUCUN POURCENTAGE, AUCUNE MOYENNE n'est jamais rendu ici (PRD §4,
 // §14) — ce qui a été fait se CONSTATE en regardant la grille, ça ne
-// s'instrumente pas.
+// s'instrumente pas. La case se remplit d'or À PROPORTION des exercices
+// faits (A3) : ce n'est jamais un chiffre, seulement un remplissage.
 //
 // Une case future n'a AUCUN gestionnaire de clic (PRD §9.3) : ce n'est pas
 // une question de style desactive, la fonction qui la construit s'arrete
-// avant d'appeler `addEventListener`. Seules les semaines ECOULEES se
-// corrigent (PRD §9.4) — la semaine en cours se joue depuis l'ecran du jour,
-// jamais depuis la grille : ce n'est pas un second parcours d'entrainement
-// (PRD §13).
+// avant d'appeler `addEventListener`. TOUTE AUTRE case OUVRABLE s'ouvre — la
+// semaine en cours comme les semaines passées (A3, qui revient sur PRD §13) —
+// et l'appui mène au détail de la séance (`vue-detail-seance.js`), jamais à
+// un bandeau qui coche la séance entière d'un coup : la correction descend à
+// l'exercice, elle ne vit plus ici.
 
-import { exercicesDeSeance } from './programme.js';
 import {
-  semaineCourante, semaineEstFuture, semaineEstPassee, seanceEstFaite,
+  semaineCourante, semaineEstFuture, seanceEstFaite, avancementSeance,
 } from './domaine.js';
-import { ajouterFait, retirerFait, ecrireEtat } from './etat.js';
+import { ecrireEtat } from './etat.js';
 import { BADGES, nouveauxBadges } from './badges.js';
 
 const SEMAINES_DU_PROGRAMME = 8;
@@ -87,8 +88,9 @@ export function monterGrille(hote, ctx) {
     confirmation.replaceChildren();
   }
 
-  // Un appui sur une case corrigeable ouvre une confirmation COURTE, jamais
-  // un ecran a part (PRP 05 chantier B).
+  // Un geste explicite, confirme, jamais automatique (PRD §9.7) : ce
+  // bandeau ne sert plus qu'a « Recommencer a zero », depuis que la
+  // correction d'une case a migre vers le detail de la seance (A3).
   function ouvrirConfirmation(question, surOui) {
     confirmation.replaceChildren();
     confirmation.hidden = false;
@@ -117,40 +119,28 @@ export function monterGrille(hote, ctx) {
     return { etat: ecrireEtat({ badges }), nouveaux };
   }
 
-  // Cocher enregistre TOUS les exercices de la seance, a la date du jour, et
-  // marque `corrige: true` (PRP 05 chantier B) : la fusion §9.8 retient
-  // toujours la date la plus ancienne, donc un exercice deja fait pour de
-  // vrai n'est jamais ecrase par cette date de correction. Decocher retire
-  // les faits, sans egard a l'origine de la date.
-  function appliquerCorrection(semaine, numero, dejaFaite) {
-    const avant = etatCourant;
-    const exercicesSeance = exercicesDeSeance(programme, numero);
-    let dernierEtat = avant;
-    if (dejaFaite) {
-      for (const ex of exercicesSeance) {
-        dernierEtat = retirerFait({
-          seance: numero, semaine, exercice: ex.id, a: maintenant().toISOString(),
-        });
-      }
-    } else {
-      for (const ex of exercicesSeance) {
-        dernierEtat = ajouterFait({
-          seance: numero, semaine, exercice: ex.id, a: maintenant().toISOString(), corrige: true,
-        });
-      }
-    }
-    const { etat, nouveaux } = verifierBadges(avant, dernierEtat);
-    etatCourant = etat;
-    rendreTout(nouveaux);
-  }
-
+  // A3 : la case porte son avancement — remplie d'or à proportion des
+  // exercices faits, jamais en chiffre. Trois visages : vide, entamée (le
+  // remplissage), finie (la coche). `avancementSeance` et `seanceEstFaite`
+  // s'accordent toujours : la seconde est vraie exactement quand la première
+  // vaut 1 (domaine.js).
   function construireCase(semaine, numero, semaineCouranteActuelle) {
+    const avancement = avancementSeance(programme, etatCourant.faits, semaine, numero);
     const faite = seanceEstFaite(programme, etatCourant.faits, semaine, numero);
     const cas = classeDeCase({ faite, semaine, semaineCouranteActuelle });
+    const entamee = cas !== 'future' && cas !== 'faite' && avancement > 0;
 
-    const bouton = el('button', `case-seance case-seance--${cas}`);
+    const classes = ['case-seance', `case-seance--${cas}`];
+    if (entamee) classes.push('case-seance--entamee');
+    const bouton = el('button', classes.join(' '));
     bouton.type = 'button';
     bouton.setAttribute('aria-label', `Semaine ${semaine}, séance ${numero}`);
+
+    if (entamee) {
+      const remplissage = el('div', 'case-seance__remplissage');
+      remplissage.style.transform = `scaleX(${avancement})`;
+      bouton.append(remplissage);
+    }
 
     if (cas === 'faite') {
       bouton.append(icone('case-seance__coche', '5 13 10 18 19 7'));
@@ -158,23 +148,19 @@ export function monterGrille(hote, ctx) {
       bouton.append(icone('case-seance__chevron', '9 5 16 12 9 19'));
     }
 
-    // Semaine future OU semaine en cours : AUCUN gestionnaire de clic. Le
-    // test « une case future est inerte » lit exactement cette absence.
-    if (cas === 'future' || cas === 'encours') {
+    // Semaine future : AUCUN gestionnaire de clic. Le test « une case future
+    // est inerte » lit exactement cette absence (PRD §9.3).
+    if (cas === 'future') {
       bouton.disabled = true;
       return bouton;
     }
 
-    // Semaines ecoulees seulement : c'est la ou « le passe se corrige »
-    // (PRD §9.4).
-    if (semaineEstPassee(semaine, semaineCouranteActuelle)) {
-      bouton.addEventListener('click', () => {
-        const question = faite
-          ? `Tu n’as pas fait la séance ${numero} de la semaine ${semaine} ?`
-          : `Tu as fait la séance ${numero} de la semaine ${semaine} ?`;
-        ouvrirConfirmation(question, () => appliquerCorrection(semaine, numero, faite));
-      });
-    }
+    // Toute case ouvrable s'ouvre — la semaine en cours comme les semaines
+    // passées (A3) — sur le détail de la séance, jamais sur un bandeau qui
+    // coche tout d'un coup : la correction vit dans la liste, pas ici.
+    bouton.addEventListener('click', () => {
+      if (typeof location !== 'undefined') location.hash = `#/grille/seance/${semaine}/${numero}`;
+    });
     return bouton;
   }
 

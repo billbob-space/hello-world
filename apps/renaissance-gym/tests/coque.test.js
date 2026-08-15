@@ -114,8 +114,16 @@ test('aucune URL absolue vers un domaine tiers dans les sources', () => {
   }
 });
 
-test('aucune invite d’installation, aucun manifeste', () => {
+// A12 precise le PRD §11.3, il ne le contredit pas : ce qui reste interdit,
+// c'est l'invite faite PAR l'application (une banniere, un
+// `beforeinstallprompt` detourne en pop-up) — l'installation est un geste
+// offert par le navigateur, jamais reclame. Le manifeste, lui, est desormais
+// demande : le test cesse de l'interdire, PRD A12 « ce que cela retire du
+// contrat ».
+test('aucune invite d’installation faite par l’application ; le manifeste, lui, est demande', () => {
   const html = lire('index.html');
-  assert.doesNotMatch(html, /rel\s*=\s*["']manifest["']/i, 'PRD §11.3 : un lien qui s’ouvre, pas une installation');
-  assert.doesNotMatch(html, /beforeinstallprompt/i);
+  assert.match(html, /<link\s+rel="manifest"\s+href="\/manifest\.webmanifest">/, 'A12 : le manifeste doit etre declare depuis index.html');
+  for (const nom of readdirSync(web).filter((f) => extname(f) === '.js')) {
+    assert.doesNotMatch(lire(nom), /beforeinstallprompt/i, `${nom} : aucune invite d’installation faite par l’application`);
+  }
 });
