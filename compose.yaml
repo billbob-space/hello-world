@@ -487,7 +487,7 @@ services:
 
   # >>> renaissance-gym — apps/renaissance-gym/app.yml — https://renaissance-gym.apps.billbob.ovh
   renaissance-gym:
-    image: ghcr.io/billbob-space/hello-world/renaissance-gym:164c7b5e45f123bc13bfc2a926ce3b81b226e74a
+    image: ghcr.io/billbob-space/hello-world/renaissance-gym:f9010cd1092b819c21e08ae4613a75f892665520
     container_name: renaissance-gym
     restart: unless-stopped
     mem_limit: 128m
