@@ -1382,3 +1382,15 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 972 agent claude-sonnet-5 192 247219 2
 -->
 <!-- /cout -->
+
+---
+
+## Suite — l'activation (PR #118 fusionnée)
+
+La PR #118 a été fusionnée : la CI de `main` a construit et publié l'image, et
+inscrit `renaissance-gym: 164c7b5` dans `versions.yml`. La branche est donc
+repartie de `main` sous le même nom, conformément au harnais, et porte
+maintenant le second des deux commits de `memory/ajouter-une-app.md` :
+`enabled: true`, et l'app entre dans le compose avec son image épinglée.
+
+Aucune anomalie sur cette étape.
