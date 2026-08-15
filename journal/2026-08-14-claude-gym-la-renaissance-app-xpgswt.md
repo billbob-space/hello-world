@@ -214,3 +214,27 @@ dans son message d'échec qu'un commentaire suffit à le déclencher, faute de q
 le prochain qui le rencontre cherchera un bug dans son code. Contourné ici en
 reformulant le commentaire ; le test n'a pas été affaibli, et c'est le bon
 arbitrage — un garde-fou un peu trop large vaut mieux qu'un garde-fou troué.
+
+### 11. Un redémarrage de conteneur a emporté le rapport d'un artisan
+
+**Symptome** — le conteneur a redémarré alors que l'artisan des PRP 05 et 07
+venait de finir. Son code et ses tests avaient été écrits sur le disque et ont
+survécu — 152 tests JS au vert après redémarrage — mais **sa rubrique
+d'anomalies est perdue** : elle ne vivait que dans la réponse de l'agent, et
+cette réponse n'est jamais arrivée.
+
+**Cause** — le contrat pose que l'artisan « rapporte les anomalies rencontrées
+dans une rubrique dédiée, que tu recopies dans l'entrée de branche ». Ce canal
+est la conversation, c'est-à-dire la seule chose du travail d'un agent qui ne
+soit pas écrite dans le dépôt. Les trois artisans précédents ont chacun rapporté
+deux à six anomalies dont plusieurs ont changé le contrat ou le code : c'est un
+canal qui porte, et qui n'a aucune durabilité.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — faire écrire ses anomalies à l'artisan dans un
+fichier plutôt que dans sa réponse le rendrait durable, mais lui donnerait à
+écrire hors de `apps/<nom>/`, ce que son périmètre lui interdit précisément pour
+protéger le dépôt. Les deux règles sont bonnes et elles se contredisent ; la
+sortie n'est pas évidente et demande une décision humaine. Les garde-fous du lot
+perdu ont été revérifiés un par un, par leurs noms de test.

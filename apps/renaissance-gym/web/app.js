@@ -2,10 +2,13 @@
 // contrat d'ecran de l'ossature §6 : toute vue exporte
 // `monterX(hote, contexte) -> demonter()`.
 
-import { lireEtat } from './etat.js';
+import { lireEtat, ETAT_VIDE } from './etat.js';
 import { monterEntree } from './vue-entree.js';
 import { monterJour } from './vue-jour.js';
 import { monterSeance } from './vue-seance.js';
+import { monterGrille } from './vue-grille.js';
+import { monterReglages } from './vue-reglages.js';
+import * as synchro from './synchro.js';
 
 // Les quatre ecrans du lot 1 (PRD §6). Une route hors de cette liste — et hors
 // de ses sous-routes, par exemple « #/seance/2026-08-14 » — n'est jamais
@@ -42,11 +45,28 @@ let programmeCharge = null;
 // { etat, programme, maintenant() } — jamais Date.now() en dur dans une vue :
 // c'est ce qui permet aux tests de vues de faire avancer le temps sans figer
 // l'horloge globale (ossature §6, PRP 02 chantier D).
+//
+// `surCompteCree` et `reprendreCompte` sont les DEUX POINTS D'ACCROCHE que
+// vue-entree.js documente (PRP 03) : c'est ici, et nulle part dans
+// vue-entree.js, que le PRP 07 les raccorde a synchro.js.
 export function contexte() {
   return {
     etat: lireEtat(),
     programme: programmeCharge,
     maintenant: () => new Date(),
+    surCompteCree() {
+      // Tentative fixe, sans bloquer la navigation : le compte est deja
+      // ecrit localement (PRP 03), le reseau n'est jamais une dependance de
+      // fonctionnement (PRD §11.2).
+      synchro.creer(lireEtat(), {}).catch(() => {});
+    },
+    async reprendreCompte(pseudo, code) {
+      // « Lire et fusionner » du PRD §10.4 : un appareil neuf apporte des
+      // faits vides, et c'est bien une SYNCHRONISATION, pas une creation.
+      const resultat = await synchro.synchroniser({ ...ETAT_VIDE, pseudo, code }, {});
+      if (!resultat.ok) return { ok: false };
+      return { ok: true, fiche: resultat.fiche };
+    },
   };
 }
 
@@ -136,19 +156,25 @@ async function chargerLeProgramme(hote) {
   }
 }
 
-// PRP 03 et 04 : l'entree, l'ecran du jour et la seance. Les routes du lot 3
-// (grille, reglages) restent a la charge des PRP suivants, qui completent
-// cette table sans toucher a la mecanique du routeur ci-dessus.
+// Les six ecrans du produit (PRD §6) : entree, jour, seance, grille,
+// reglages — la table complete, PRP 05 comprise.
 const TABLE = {
   [ROUTE_ENTREE]: monterEntree,
   '#/jour': monterJour,
   '#/seance': monterSeance,
+  '#/grille': monterGrille,
+  '#/reglages': monterReglages,
 };
 
 async function demarrer() {
   const hote = document.getElementById('ecran');
   const prog = await chargerLeProgramme(hote);
-  if (prog !== null) definirProgramme(prog);
+  if (prog !== null) {
+    definirProgramme(prog);
+    // PRP 07 chantier B, declencheur 3 : « a l'ouverture de l'application »
+    // — brancher() tente elle-meme un premier envoi, sans attendre un geste.
+    synchro.brancher({ programme: prog, maintenant: () => new Date() });
+  }
   router(hote, TABLE);
 }
 

@@ -220,11 +220,20 @@ p { margin: 0; }
 .corps-entree,
 .corps-jour,
 .corps-seance,
-.corps-seance-fin {
+.corps-seance-fin,
+.corps-grille,
+.corps-reglages {
   padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 4);
   display: flex;
   flex-direction: column;
   gap: calc(var(--pas) * 2);
+}
+
+/* La variante compacte de l'empiecement (PRP 05) : la grille et les reglages
+   n'ont pas besoin du tiers d'ecran que prend l'accueil du jour — huit rangs
+   de quatre cases doivent tenir sous elle, sans defilement horizontal. */
+.empiecement--compact {
+  padding: calc(var(--pas) * 1.5) calc(var(--pas) * 2) calc(var(--pas) * 2.5);
 }
 
 .corps-entree label,
@@ -378,4 +387,188 @@ p { margin: 0; }
   .corps-seance {
     animation: none;
   }
+}
+
+/* --- PRP 05 : la grille des huit semaines ----------------------------------
+   Huit rangs de quatre cases, la feuille du club en mieux (PRD §7.4). Les
+   colonnes utilisent `1fr` — jamais un pixel fixe — pour tenir sans
+   defilement horizontal sur un ecran de 360px. */
+
+.grille-programme {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 0.75);
+}
+
+.rang-semaine {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 1);
+  padding: calc(var(--pas) * 0.5);
+  border-radius: var(--angle);
+}
+
+/* La semaine en cours porte un empiecement bleu sur toute sa largeur — le
+   seul repere dont elle a besoin pour se situer (PRP 05 chantier A). */
+.rang-semaine--courante {
+  background: var(--bleu-roi);
+  color: var(--jersey);
+}
+
+.rang-semaine__etiquette {
+  flex: 0 0 auto;
+  min-width: 2rem;
+}
+
+.rang-semaine__cases {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: calc(var(--pas) * 0.5);
+}
+
+.case-seance {
+  min-height: var(--cible-min);
+  min-width: 0;
+  border: 2px solid var(--jersey-ombre);
+  border-radius: var(--angle);
+  background: var(--jersey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+/* Seance faite : fond or, coche (PRP 05, table du chantier A). */
+.case-seance--faite {
+  border-color: var(--or);
+  background: var(--or);
+  cursor: pointer;
+}
+
+.case-seance__coche {
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 110, 'wght' 800;
+  font-size: var(--taille-texte);
+  color: var(--bleu-nuit);
+}
+
+/* Seance a faire, semaine en cours : contour fuchsia, chevron — jamais
+   cliquable depuis la grille (PRD §13 : ce n'est pas un second parcours). */
+.case-seance--encours {
+  border-color: var(--fuchsia);
+  background: var(--jersey);
+  cursor: default;
+}
+
+.case-seance__chevron {
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 110, 'wght' 800;
+  font-size: var(--taille-texte);
+  color: var(--fuchsia);
+}
+
+/* Seance a faire, semaine passee : vide, sans jugement (PRD §14). */
+.case-seance--passee-vide {
+  background: var(--jersey-ombre);
+  border-color: var(--jersey-ombre);
+  cursor: pointer;
+}
+
+/* Semaine future : lisible mais inerte (PRD §9.3) — AUCUN gestionnaire de
+   clic n'est jamais pose sur cette case, voir vue-grille.js. */
+.case-seance--future {
+  background: var(--jersey-ombre);
+  border-color: var(--jersey-ombre);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.case-seance:disabled {
+  cursor: default;
+}
+
+/* La confirmation courte des corrections (PRP 05 chantier B) : pas un
+   ecran, un bandeau qui s'ouvre a la place. */
+.confirmation-case {
+  padding: calc(var(--pas) * 1.5);
+  background: var(--jersey-ombre);
+  border-radius: var(--angle);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.confirmation-case__question {
+  font-size: var(--taille-texte);
+  line-height: 1.4;
+}
+
+.confirmation-case__boutons {
+  display: flex;
+  gap: calc(var(--pas) * 1);
+}
+
+.fin-programme {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.zone-badges {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.liste-badges {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.badge-carte {
+  padding: calc(var(--pas) * 1.5);
+  background: var(--jersey-ombre);
+  border-radius: var(--angle);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 0.5);
+}
+
+.badge-carte__nom {
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 112, 'wght' 800;
+  font-size: var(--taille-texte);
+}
+
+.badge-carte__phrase {
+  font-size: var(--taille-texte);
+}
+
+/* --- PRP 05 : les reglages -------------------------------------------------- */
+
+.reglage-bloc {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 0.75);
+  padding-bottom: calc(var(--pas) * 2);
+  border-bottom: 2px solid var(--jersey-ombre);
+}
+
+.reglage-bloc:last-child {
+  border-bottom: 0;
+}
+
+.reglage-pseudo {
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 112, 'wght' 800;
+  font-size: var(--taille-titre);
+}
+
+.etat-synchro {
+  font-size: var(--taille-texte);
+  line-height: 1.4;
 }

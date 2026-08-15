@@ -1,0 +1,151 @@
+// vue-reglages.js — prénom, pseudonyme, sauvegarde, effacement (PRP 05
+// chantier D, PRP 07 chantier D, PRD §7.5, §10, §11.2).
+//
+// C'est le SEUL endroit de l'application ou l'etat d'une synchronisation
+// s'affiche (PRP 07 chantier D) : l'ecran de seance est en gainage, l'etat
+// d'une requete HTTP ne le regarde pas.
+
+import {
+  lireEtat, ecrireEtat, effacerEtat, EVT_ETAT,
+} from './etat.js';
+import { effacer as effacerSurLeServeur, etatSynchro, EVT_SYNCHRO } from './synchro.js';
+import { EXPLICATION_CODE, validerPrenom } from './vue-entree.js';
+
+function el(balise, classe, texte) {
+  const noeud = document.createElement(balise);
+  if (classe) noeud.className = classe;
+  if (texte !== undefined) noeud.textContent = texte;
+  return noeud;
+}
+
+// La phrase exacte de ce qui part (PRP 05 chantier D) : la fiche du serveur
+// ET ce que garde le telephone, et c'est irreversible — dit comme tel.
+export const PHRASE_EFFACEMENT = 'Ta fiche sur le serveur, et tout ce que garde ce téléphone, vont disparaître. '
+  + 'C’est définitif : personne ne pourra te les rendre.';
+
+function estEnLigne() {
+  if (typeof navigator === 'undefined' || typeof navigator.onLine !== 'boolean') return true;
+  return navigator.onLine;
+}
+
+export function monterReglages(hote, ctx) {
+  const { maintenant } = ctx;
+
+  const section = el('section', 'ecran-reglages zone-surete');
+  const empiecement = el('div', 'empiecement empiecement--compact');
+  empiecement.append(el('h1', null, 'Réglages'));
+  section.append(empiecement, el('hr', 'passepoil'));
+
+  const corps = el('div', 'jersey corps-reglages');
+  const retour = document.createElement('a');
+  retour.className = 'bouton--discret';
+  retour.href = '#/jour';
+  retour.textContent = '← Aujourd’hui';
+  corps.append(retour);
+
+  // 1. Le prenom. Un champ, un bouton, AUCUNE confirmation : c'est
+  // reversible (PRP 05 chantier D).
+  const blocPrenom = el('div', 'reglage-bloc');
+  blocPrenom.append(el('span', 'etiquette', 'Ton prénom'));
+  const champPrenom = document.createElement('input');
+  champPrenom.type = 'text';
+  champPrenom.id = 'reglages-prenom';
+  champPrenom.autocomplete = 'given-name';
+  champPrenom.value = lireEtat().prenom ?? '';
+  const erreurPrenom = el('p', 'erreur-champ');
+  const boutonPrenom = el('button', 'bouton--discret', 'Enregistrer');
+  boutonPrenom.type = 'button';
+  boutonPrenom.addEventListener('click', () => {
+    const r = validerPrenom(champPrenom.value);
+    if (r.erreur !== null) {
+      erreurPrenom.textContent = r.erreur;
+      return;
+    }
+    erreurPrenom.textContent = '';
+    ecrireEtat({ prenom: r.valeur });
+  });
+  blocPrenom.append(champPrenom, erreurPrenom, boutonPrenom);
+
+  // 2. Le pseudonyme, affiche en clair. Le code, lui, n'est JAMAIS affiche
+  // (PRP 05 chantier D) : il vit sur l'appareil, le montrer n'aiderait qu'a
+  // le laisser trainer.
+  const blocPseudo = el('div', 'reglage-bloc');
+  blocPseudo.append(el('span', 'etiquette', 'Ton pseudo'));
+  blocPseudo.append(el('p', 'reglage-pseudo', lireEtat().pseudo ?? '—'));
+  blocPseudo.append(el('p', 'explication-code', EXPLICATION_CODE));
+
+  // 3. L'etat de la sauvegarde — la phrase du PRP 07, en francais, sans
+  // jargon, et qui ne bloque jamais rien.
+  const blocSynchro = el('div', 'reglage-bloc');
+  blocSynchro.append(el('span', 'etiquette', 'Ta sauvegarde'));
+  const phraseSynchro = el('p', 'etat-synchro');
+  blocSynchro.append(phraseSynchro);
+
+  function rafraichirSynchro() {
+    const info = etatSynchro(lireEtat(), maintenant, estEnLigne());
+    phraseSynchro.textContent = info.phrase;
+    phraseSynchro.className = `etat-synchro etat-synchro--${info.statut}`;
+  }
+  rafraichirSynchro();
+
+  // 4. Effacer la fiche — confirmation explicite, irreversible, dit comme
+  // tel (PRP 05 chantier D).
+  const blocEffacement = el('div', 'reglage-bloc');
+  const boutonEffacer = el('button', 'bouton--discret', 'Effacer ma fiche');
+  boutonEffacer.type = 'button';
+  const confirmation = el('div', 'confirmation-case');
+  confirmation.hidden = true;
+
+  function fermerConfirmation() {
+    confirmation.hidden = true;
+    confirmation.replaceChildren();
+  }
+
+  boutonEffacer.addEventListener('click', () => {
+    confirmation.replaceChildren();
+    confirmation.hidden = false;
+    confirmation.append(el('p', 'confirmation-case__question', PHRASE_EFFACEMENT));
+    const rangee = el('div', 'confirmation-case__boutons');
+    const oui = el('button', 'bouton', 'Oui, tout effacer');
+    oui.type = 'button';
+    const non = el('button', 'bouton--discret', 'Non');
+    non.type = 'button';
+    oui.addEventListener('click', () => {
+      const etatActuel = lireEtat();
+      // Un refus du code cote serveur n'empeche JAMAIS le geste d'aboutir
+      // cote appareil (PRP 05 chantier D) : `effacerEtat()` s'execute quoi
+      // qu'il arrive au reseau.
+      Promise.resolve(effacerSurLeServeur(etatActuel, {})).catch(() => {}).then(() => {
+        effacerEtat();
+        fermerConfirmation();
+        if (typeof location !== 'undefined') location.hash = '#/entree';
+      });
+    });
+    non.addEventListener('click', fermerConfirmation);
+    rangee.append(oui, non);
+    confirmation.append(rangee);
+  });
+  blocEffacement.append(boutonEffacer, confirmation);
+
+  corps.append(blocPrenom, blocPseudo, blocSynchro, blocEffacement);
+  section.append(corps);
+  hote.append(section);
+
+  function surEvenement() { rafraichirSynchro(); }
+  const cible = globalThis;
+  if (typeof cible.addEventListener === 'function') {
+    cible.addEventListener(EVT_SYNCHRO, surEvenement);
+    cible.addEventListener(EVT_ETAT, surEvenement);
+    cible.addEventListener('online', surEvenement);
+    cible.addEventListener('offline', surEvenement);
+  }
+
+  return function demonter() {
+    if (typeof cible.removeEventListener === 'function') {
+      cible.removeEventListener(EVT_SYNCHRO, surEvenement);
+      cible.removeEventListener(EVT_ETAT, surEvenement);
+      cible.removeEventListener('online', surEvenement);
+      cible.removeEventListener('offline', surEvenement);
+    }
+  };
+}

@@ -70,6 +70,25 @@ function construireStrass(nombreDeFacettes = 6) {
   return conteneur;
 }
 
+// L'accueil est le seul carrefour de l'application (PRP 05, PRP 07) : c'est
+// d'ici, et de nulle part d'autre en dehors d'un « Retour », qu'on rejoint la
+// grille et les reglages. Deux vrais liens (`<a>`), pas des boutons : le
+// bouton retour du telephone doit fonctionner, et un appui long doit pouvoir
+// les ouvrir dans un autre onglet.
+function construireNavigationSecondaire() {
+  const nav = el('div', 'nav-secondaire');
+  const versGrille = document.createElement('a');
+  versGrille.className = 'bouton--discret';
+  versGrille.href = '#/grille';
+  versGrille.textContent = 'Ta grille';
+  const versReglages = document.createElement('a');
+  versReglages.className = 'bouton--discret';
+  versReglages.href = '#/reglages';
+  versReglages.textContent = 'Réglages';
+  nav.append(versGrille, versReglages);
+  return nav;
+}
+
 export function monterJour(hote, ctx) {
   const m = modeleJour(ctx);
 
@@ -109,6 +128,8 @@ export function monterJour(hote, ctx) {
     });
     corps.append(bouton);
   }
+
+  corps.append(construireNavigationSecondaire());
 
   section.append(corps);
   hote.append(section);
