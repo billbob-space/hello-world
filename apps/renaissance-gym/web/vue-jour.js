@@ -64,6 +64,14 @@ export function modeleJour(ctx) {
   };
 }
 
+// Le mot le plus long de `nom`, sans espace (finition, correctif C) : la
+// taille d'affichage doit se plier a l'unite qui ne peut jamais se couper en
+// fin de ligne, pas a la longueur totale — sinon « Le socle », qui se replie
+// deja proprement sur deux lignes ("Le" / "socle"), ratatinerait pour rien.
+function plusLongMot(nom) {
+  return nom.split(/\s+/).reduce((max, mot) => Math.max(max, mot.length), 1);
+}
+
 function construireStrass(nombreDeFacettes = 6) {
   const conteneur = el('div', 'strass strass--balaie');
   for (let i = 0; i < nombreDeFacettes; i += 1) conteneur.append(el('span', 'strass__facette'));
@@ -93,9 +101,25 @@ export function monterJour(hote, ctx) {
   const m = modeleJour(ctx);
 
   const section = el('section', 'ecran-jour zone-surete');
+  // Le passepoil et la couture sont un seul element (style.css,
+  // `.empiecement::before`) : rien a monter ici a part l'empiecement
+  // lui-meme (finition, correctif 2).
   const empiecement = el('div', 'empiecement');
-  empiecement.append(el('span', 'etiquette', `Semaine ${m.semaine}`));
-  section.append(empiecement, el('hr', 'passepoil'));
+  // Les deux etiquettes vivent chacune sur sa ligne (finition, correctif A) :
+  // deux `span` inline-block juxtaposes sans texte entre eux se collent sans
+  // le moindre espace — semaine et seance venaient s'accoler tout court,
+  // sans espace ni separateur. Ce n'etait pas un probleme de contenu mais de
+  // mise en page, ce conteneur le tranche.
+  const etiquettes = el('div', 'empiecement__etiquettes');
+  etiquettes.append(el('span', 'etiquette', `Semaine ${m.semaine}`));
+  // « Séance X sur 4 » vit desormais dans l'empiecement, a cote de la
+  // semaine : ce n'est plus un surtitre pose au-dessus du nom de la seance
+  // (finition, correctifs 5 et 6) — seul le nom occupe le champ jersey.
+  if (m.cas === 'a-faire') {
+    etiquettes.append(el('span', 'etiquette', `Séance ${m.numero} sur 4`));
+  }
+  empiecement.append(etiquettes);
+  section.append(empiecement);
 
   const corps = el('div', 'jersey corps-jour');
 
@@ -118,9 +142,19 @@ export function monterJour(hote, ctx) {
     });
     corps.append(refaire);
   } else {
-    corps.append(el('span', 'etiquette', `Séance ${m.numero} sur 4`));
-    corps.append(el('h1', 'titre-jour', m.nom));
-    corps.append(el('p', 'familles-jour', m.familles.join(' · ')));
+    // Un seul objet focal (finition, correctif 5) : le nom de la séance,
+    // seul, à la taille d'affichage, dans l'emplacement que `.objectif-seance`
+    // occupe sur l'écran de séance — jamais un simple `h1.titre-jour`, bien
+    // plus petit que le plus grand texte de l'application.
+    const objectifNoeud = el('h1', 'objectif-seance');
+    const nomNoeud = el('span', 'objectif-seance__nom', m.nom);
+    // La taille d'affichage se plie au panneau (finition, correctif C) : sans
+    // borne derivee du mot le plus long, « L'équilibre » et « L'acrobatie »
+    // — plus longs que « Le socle » — debordent des deux cotes de l'ecran.
+    nomNoeud.style.setProperty('--plus-long-mot', String(plusLongMot(m.nom)));
+    objectifNoeud.append(nomNoeud);
+    objectifNoeud.append(el('span', 'familles-jour', m.familles.join(' · ')));
+    corps.append(objectifNoeud);
     const bouton = el('button', 'bouton', 'Commencer');
     bouton.type = 'button';
     bouton.addEventListener('click', () => {

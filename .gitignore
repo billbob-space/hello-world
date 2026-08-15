@@ -15,3 +15,4 @@ apps/*/.impeccable/hook.cache.json
 /apps/estran/estran
 /apps/renaissance-gym/renaissance-gym
 /.impeccable/
+.impeccable/

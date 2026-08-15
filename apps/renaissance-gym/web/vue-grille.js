@@ -30,6 +30,17 @@ function el(balise, classe, texte) {
   return noeud;
 }
 
+// Des icones en trait, jamais des glyphes de police (finition, correctif 8) :
+// un seul poids de trait, une seule taille optique (style.css). Le HTML est
+// analyse par le parseur HTML (innerHTML), qui bascule seul dans l'espace de
+// noms SVG : `xmlns` n'est donc pas necessaire ici, et sa presence litterale
+// casserait le test « aucune URL absolue » (tests/coque.test.js).
+function icone(classe, points) {
+  const span = el('span', classe);
+  span.innerHTML = `<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="${points}"/></svg>`;
+  return span;
+}
+
 function construireStrass(nombreDeFacettes, balaie) {
   const conteneur = el('div', balaie ? 'strass strass--balaie' : 'strass');
   for (let i = 0; i < nombreDeFacettes; i += 1) conteneur.append(el('span', 'strass__facette'));
@@ -54,13 +65,13 @@ export function monterGrille(hote, ctx) {
   const section = el('section', 'ecran-grille zone-surete');
   const empiecement = el('div', 'empiecement empiecement--compact');
   empiecement.append(el('h1', null, 'Ta grille'));
-  section.append(empiecement, el('hr', 'passepoil'));
+  section.append(empiecement);
 
   const corps = el('div', 'jersey corps-grille');
   const retour = document.createElement('a');
   retour.className = 'bouton--discret';
   retour.href = '#/jour';
-  retour.textContent = '← Aujourd’hui';
+  retour.append(icone('icone-fleche', '15 5 8 12 15 19'), ' Aujourd’hui');
   const grille = el('div', 'grille-programme');
   const confirmation = el('div', 'confirmation-case');
   confirmation.hidden = true;
@@ -142,9 +153,9 @@ export function monterGrille(hote, ctx) {
     bouton.setAttribute('aria-label', `Semaine ${semaine}, séance ${numero}`);
 
     if (cas === 'faite') {
-      bouton.append(el('span', 'case-seance__coche', '✓'));
+      bouton.append(icone('case-seance__coche', '5 13 10 18 19 7'));
     } else if (cas === 'encours') {
-      bouton.append(el('span', 'case-seance__chevron', '›'));
+      bouton.append(icone('case-seance__chevron', '9 5 16 12 9 19'));
     }
 
     // Semaine future OU semaine en cours : AUCUN gestionnaire de clic. Le

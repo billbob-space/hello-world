@@ -18,6 +18,18 @@ function el(balise, classe, texte) {
   return noeud;
 }
 
+// Une icone en trait, jamais un glyphe de police (finition, correctif 8) :
+// un seul poids de trait, une seule taille optique (`.icone-fleche`,
+// style.css). Le HTML est analyse par le parseur HTML (innerHTML), qui
+// bascule seul dans l'espace de noms SVG : `xmlns` n'est donc pas
+// necessaire ici, et sa presence litterale casserait le test « aucune URL
+// absolue » (tests/coque.test.js).
+function iconeFleche() {
+  const span = el('span', 'icone-fleche');
+  span.innerHTML = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg>';
+  return span;
+}
+
 // La phrase exacte de ce qui part (PRP 05 chantier D) : la fiche du serveur
 // ET ce que garde le telephone, et c'est irreversible — dit comme tel.
 export const PHRASE_EFFACEMENT = 'Ta fiche sur le serveur, et tout ce que garde ce téléphone, vont disparaître. '
@@ -34,13 +46,13 @@ export function monterReglages(hote, ctx) {
   const section = el('section', 'ecran-reglages zone-surete');
   const empiecement = el('div', 'empiecement empiecement--compact');
   empiecement.append(el('h1', null, 'Réglages'));
-  section.append(empiecement, el('hr', 'passepoil'));
+  section.append(empiecement);
 
   const corps = el('div', 'jersey corps-reglages');
   const retour = document.createElement('a');
   retour.className = 'bouton--discret';
   retour.href = '#/jour';
-  retour.textContent = '← Aujourd’hui';
+  retour.append(iconeFleche(), ' Aujourd’hui');
   corps.append(retour);
 
   // 1. Le prenom. Un champ, un bouton, AUCUNE confirmation : c'est
@@ -69,9 +81,13 @@ export function monterReglages(hote, ctx) {
   // 2. Le pseudonyme, affiche en clair. Le code, lui, n'est JAMAIS affiche
   // (PRP 05 chantier D) : il vit sur l'appareil, le montrer n'aiderait qu'a
   // le laisser trainer.
+  //
+  // « TON PSEUDO » en surtitre au-dessus du pseudonyme est banni par le
+  // plancher de qualite (finition, correctif 6) : ce n'est pas l'etiquette
+  // d'un champ de formulaire, contrairement a « Ton prenom » ci-dessus. Le
+  // mot reste, mais dans la phrase elle-meme, pas au-dessus d'elle.
   const blocPseudo = el('div', 'reglage-bloc');
-  blocPseudo.append(el('span', 'etiquette', 'Ton pseudo'));
-  blocPseudo.append(el('p', 'reglage-pseudo', lireEtat().pseudo ?? '—'));
+  blocPseudo.append(el('p', 'reglage-pseudo', `Ton pseudo : ${lireEtat().pseudo ?? '—'}`));
   blocPseudo.append(el('p', 'explication-code', EXPLICATION_CODE));
 
   // 3. L'etat de la sauvegarde — la phrase du PRP 07, en francais, sans

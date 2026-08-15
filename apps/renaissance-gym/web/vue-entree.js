@@ -170,7 +170,7 @@ export function monterReprise(hote, ctx) {
   const section = el('section', 'ecran-entree ecran-reprise zone-surete');
   const empiecement = el('div', 'empiecement');
   empiecement.append(el('h1', null, 'Retrouve ton pseudo'));
-  section.append(empiecement, el('hr', 'passepoil'));
+  section.append(empiecement);
 
   const corps = el('div', 'jersey corps-entree');
 
@@ -259,7 +259,7 @@ export function monterEntree(hote, ctx) {
     const section = el('section', 'ecran-entree zone-surete');
     const empiecement = el('div', 'empiecement');
     empiecement.append(el('h1', null, 'Salut, c’est quoi ton prénom ?'));
-    section.append(empiecement, el('hr', 'passepoil'));
+    section.append(empiecement);
 
     const corps = el('div', 'jersey corps-entree');
     const label = el('label', 'etiquette', 'Ton prénom');
@@ -295,7 +295,7 @@ export function monterEntree(hote, ctx) {
     const section = el('section', 'ecran-entree zone-surete');
     const empiecement = el('div', 'empiecement');
     empiecement.append(el('h1', null, 'Tu commences à quelle semaine ?'));
-    section.append(empiecement, el('hr', 'passepoil'));
+    section.append(empiecement);
 
     const corps = el('div', 'jersey corps-entree');
     const grille = el('div', 'grille-semaines');
@@ -335,7 +335,7 @@ export function monterEntree(hote, ctx) {
     const section = el('section', 'ecran-entree ecran-entree-compte zone-surete');
     const empiecement = el('div', 'empiecement');
     empiecement.append(el('h1', null, 'Pour te retrouver sur un autre téléphone'));
-    section.append(empiecement, el('hr', 'passepoil'));
+    section.append(empiecement);
 
     const corps = el('div', 'jersey corps-entree');
     corps.append(el('p', 'explication-code', EXPLICATION_CODE));

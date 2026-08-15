@@ -15,6 +15,19 @@
   src: url('/archivo.woff2') format('woff2');
 }
 
+/* `--chute` (la descente de la couture, tan(--couture) * 100cqw) doit etre
+   RESOLUE en longueur reelle, pas transmise comme simple suite de jetons
+   texte : sans ce typage, .empiecement et son ::before — deux boites
+   distinctes qui heritent la meme variable — peuvent recalculer `cqw`
+   independamment sous mise en page flex et tomber sur deux valeurs
+   differentes, ce qui decale le passepoil de la couture au lieu de le
+   longer (finition, correctif D — verifie au pixel, pas dans le DOM). */
+@property --chute {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
 :root {
   /* --- 5.1 Couleur : le bleu roi porte 30 a 60 % de la surface, ce ne sont
      pas des accents mais des regions entieres. Le champ de lecture reste
@@ -45,6 +58,15 @@
   /* --- 5.3 La grammaire du justaucorps --- */
   --couture: 12deg;
   --angle: 4px; /* un justaucorps se coud, il ne s'arrondit pas */
+  --passepoil: 2px; /* l'epaisseur du filet d'or qui suit chaque couture */
+
+  /* Le biseau de 4 px des angles coupes : consomme --angle, jamais un rayon.
+     Un seul jeton, pour que boutons, cibles et cases coupent le meme coin. */
+  --biseau: polygon(
+    var(--angle) 0, calc(100% - var(--angle)) 0, 100% var(--angle),
+    100% calc(100% - var(--angle)), calc(100% - var(--angle)) 100%, var(--angle) 100%,
+    0 calc(100% - var(--angle)), 0 var(--angle)
+  );
 
   /* --- 5.4 Espacement et cibles --- */
   --pas: 0.5rem; /* toute marge est un multiple : 0.5 1 1.5 2 3 4 6 */
@@ -100,6 +122,21 @@ p { margin: 0; }
   min-height: 0;
 }
 
+/* Le telephone est pose a plat par terre (5.1) : au-dela d'une largeur de
+   bureau, la coque reste bornee a la mesure d'un justaucorps tenu a bout de
+   bras, centree, plutot que de s'etaler — sans quoi un champ de saisie
+   depasse le millier de pixels et un titre se retrouve a 16 px du bord de la
+   fenetre (finition correctif 8). L'angle de la couture reste correct a
+   cette largeur : `.empiecement` lit SA propre taille via `cqw`, pas celle
+   du viewport (voir plus haut). */
+@media (min-width: 640px) {
+  #ecran > section {
+    max-width: 28rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+}
+
 /* La zone sure : le telephone est pose par terre et la barre d'accueil d'iOS
    mange le bas. A poser sur tout ecran qui porte le bouton principal. */
 .zone-surete {
@@ -108,24 +145,65 @@ p { margin: 0; }
 
 /* --- Les primitives (PRP 02 chantier B) : seulement elles, ici. --- */
 
-/* Region a couture diagonale 12°, fond bleu roi. Le clip-path — jamais une
-   image ni un pseudo-element incline — reste net a toute densite de pixels et
-   correct en portrait comme en paysage. */
+/* Region a couture diagonale --couture (12°), fond bleu roi. Le clip-path —
+   jamais une image ni un pseudo-element incline — reste net a toute densite
+   de pixels et correct en portrait comme en paysage.
+
+   La chute doit valoir tan(--couture) fois la largeur DU PANNEAU, jamais
+   celle du viewport (l'ancien `3.5vw` ne donnait 12° qu'a la largeur mesuree
+   au tirage, et 2° ailleurs) : `.empiecement` devient donc son propre repere
+   de largeur (container-type: inline-size) et `cqw` lit sa propre taille,
+   quelle que soit la largeur de l'ecran ou la borne de bureau (5.4). */
 .empiecement {
   position: relative;
-  background: var(--bleu-roi);
+  isolation: isolate;
+  container-type: inline-size;
+  /* La chute de la couture, calculee UNE fois et reutilisee partout ou elle
+     compte (clip-path du panneau, clip-path du passepoil, degagement du
+     texte) : deux evaluations independantes de `tan(var(--couture)) * 100cqw`
+     dans deux proprietes distinctes de deux boites differentes (celle-ci et
+     son ::before) ne sont pas garanties de tomber sur la meme valeur resolue
+     a chaque passe de mise en page (finition, correctif D) — la variable
+     partagee l'impose. */
+  --chute: calc(tan(var(--couture)) * 100cqw);
+  --chute-passepoil: calc(var(--chute) + (var(--passepoil) / cos(var(--couture))));
+  /* Le fond DIRECT du panneau est l'or : c'est le passepoil qui affleure.
+     Le velours bleu, ci-dessous, le recouvre en entier sauf sur --passepoil
+     le long de la meme diagonale — voir le pseudo-element juste apres. */
+  background: var(--or);
   color: var(--jersey);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3.5vw), 0 100%);
-  padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 6);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--chute)), 0 100%);
+  /* Le degagement sous le texte doit rester SUPERIEUR a la chute, avec une
+     marge de respiration (finition, correctif B) : une valeur en dur ne
+     suivrait pas l'angle si `--couture` changeait. */
+  padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--chute) + var(--pas) * 2);
 }
 
-/* Le seul filet de l'interface : le passepoil d'or de 2 px qui suit chaque
-   couture, sur toute sa longueur. Il n'existe pas d'autre bordure decorative. */
-.passepoil {
-  display: block;
-  height: 2px;
-  background: var(--or);
-  border: 0;
+/* Le passepoil et la couture, UN SEUL element (finition, correctif 2) : un
+   filet horizontal separe (l'ancien `<hr class="passepoil">`) ne peut pas
+   suivre une diagonale, et un flex de 2px dans une colonne s'ecrase a zero
+   sans flex-shrink: 0 — les deux bogues de la revue precedente. Ici le
+   velours de ce pseudo-element est decoupe par la MEME formule que
+   .empiecement, arretee `--passepoil` plus tot (mesure perpendiculaire a la
+   couture, via / cos(--couture)) : la bande d'or qui reste visible entre les
+   deux EST le passepoil, elle ne peut plus exister sans la couture qu'elle
+   borde. Le sens de fibre du velours (correctif 3, un SVG authore en
+   data:, jamais un degrade CSS) vit sur ce meme calque bleu. */
+.empiecement::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bleu-roi);
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZyBzdHJva2U9IiMzMzQ2OUUiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLW9wYWNpdHk9IjAuNCI+PGxpbmUgeDE9Ii02IiB5MT0iLTYiIHgyPSIzMCIgeTI9Ii0xMy42NSIvPjxsaW5lIHgxPSItNiIgeTE9IjAiIHgyPSIzMCIgeTI9Ii03LjY1Ii8+PGxpbmUgeDE9Ii02IiB5MT0iNiIgeDI9IjMwIiB5Mj0iLTEuNjUiLz48bGluZSB4MT0iLTYiIHkxPSIxMiIgeDI9IjMwIiB5Mj0iNC4zNSIvPjxsaW5lIHgxPSItNiIgeTE9IjE4IiB4Mj0iMzAiIHkyPSIxMC4zNSIvPjxsaW5lIHgxPSItNiIgeTE9IjI0IiB4Mj0iMzAiIHkyPSIxNi4zNSIvPjxsaW5lIHgxPSItNiIgeTE9IjMwIiB4Mj0iMzAiIHkyPSIyMi4zNSIvPjwvZz48L3N2Zz4=');
+  background-repeat: repeat;
+  background-size: 24px 24px;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--chute-passepoil)),
+    0 calc(100% - (var(--passepoil) / cos(var(--couture))))
+  );
 }
 
 /* Le champ de lecture. */
@@ -135,7 +213,8 @@ p { margin: 0; }
 }
 
 /* Le bouton principal : moitie de largeur au moins, 56 px de haut, angles
-   coupes a 4 px. */
+   coupes a 4 px (--biseau, jamais un rayon : « un justaucorps se coud, il ne
+   s'arrondit pas »). */
 .bouton {
   display: inline-flex;
   align-items: center;
@@ -144,7 +223,7 @@ p { margin: 0; }
   min-height: var(--cible-min);
   padding: 0 calc(var(--pas) * 3);
   border: 0;
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
   background: var(--bleu-roi);
   color: var(--jersey);
   font-family: var(--texte);
@@ -167,7 +246,7 @@ p { margin: 0; }
   min-height: var(--cible-min);
   padding: 0 calc(var(--pas) * 2);
   border: 0;
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
   background: transparent;
   color: var(--bleu-roi);
   font-family: var(--texte);
@@ -186,6 +265,17 @@ p { margin: 0; }
   font-size: var(--taille-etiquette);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* Deux etiquettes juxtaposees sans texte entre elles (elles sont ajoutees par
+   `append()`) n'ont aucun espace naturel : chacune sur sa ligne, avec un
+   veritable espacement entre les deux (finition, correctif A — « SEMAINE
+   1SÉANCE 1 SUR 4 » collees). */
+.empiecement__etiquettes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--pas) * 0.5);
 }
 
 /* Le rang de facettes d'or — reserve a la semaine bouclee et aux badges,
@@ -267,7 +357,7 @@ p { margin: 0; }
    n'ont pas besoin du tiers d'ecran que prend l'accueil du jour — huit rangs
    de quatre cases doivent tenir sous elle, sans defilement horizontal. */
 .empiecement--compact {
-  padding: calc(var(--pas) * 1.5) calc(var(--pas) * 2) calc(var(--pas) * 2.5);
+  padding: calc(var(--pas) * 1.5) calc(var(--pas) * 2) calc(var(--chute) + var(--pas) * 1.5);
 }
 
 .corps-entree label,
@@ -278,7 +368,10 @@ p { margin: 0; }
 /* Tout champ texte de l'application, pas seulement ceux de l'entree : sans
    quoi un champ hors de `.corps-entree` (le prenom des reglages, par
    exemple) tombe sur le style brut du navigateur — bordure noire, fond
-   blanc — en pleine rupture avec le monde du justaucorps. */
+   blanc — en pleine rupture avec le monde du justaucorps. Les cases de code
+   (`.saisie-code__case`) portent en plus le biseau des coins coupes (finition
+   correctif 4) ; le champ generique garde son rayon, deja au plancher de
+   4 px. */
 input[type='text'],
 .saisie-code__case {
   width: 100%;
@@ -293,10 +386,19 @@ input[type='text'],
   font-size: var(--taille-texte);
 }
 
+.saisie-code__case {
+  border-radius: 0;
+  clip-path: var(--biseau);
+}
+
+/* Un focus clavier visible : `outline: none` sans remplacement est une
+   regression d'accessibilite (finition correctif 8) — l'anneau reprend l'or,
+   seule couleur reservee a ce qui est acquis/mis en avant hors de l'effort. */
 input[type='text']:focus,
 .saisie-code__case:focus {
   border-color: var(--bleu-roi);
-  outline: none;
+  outline: 2px solid var(--or);
+  outline-offset: 2px;
 }
 
 .erreur-champ {
@@ -343,7 +445,7 @@ input[type='text']:focus,
 .cible-semaine {
   min-height: var(--cible-min);
   border: 2px solid var(--jersey-ombre);
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
   background: var(--jersey);
   color: var(--bleu-nuit);
   font-family: var(--display);
@@ -369,7 +471,13 @@ input[type='text']:focus,
   font-variation-settings: 'wdth' 112, 'wght' 700;
 }
 
+/* Legende, jamais un surtitre : capitales et interlettrage sont reserves a
+   `.etiquette` (finition correctif 6). Poids et chasse explicites : elle vit
+   maintenant dans `.objectif-seance` (finition correctif 5), qui porte le
+   `--display` tres large — sans ce reset elle heriterait ce poids-la. */
 .familles-jour {
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 500;
   font-size: var(--taille-texte);
   color: var(--bleu-nuit);
 }
@@ -405,7 +513,10 @@ input[type='text']:focus,
 /* L'objectif de la semaine, en tres grand : x16 ou le decompte (ossature
    §5.2 : le decompte du minuteur, clamp(5rem, 28vw, 11rem)). C'est ce qu'elle
    regarde a un metre : il grandit dans le champ jersey et s'y centre
-   verticalement, plutot que de rester colle sous le nom de l'exercice. */
+   verticalement, plutot que de rester colle sous le nom de l'exercice.
+   `flex-direction: column` : sur l'ecran du jour (finition correctif 5),
+   c'est ce meme emplacement qui porte le nom de la seance, seul objet focal
+   du champ, avec sa legende de familles empilee juste dessous. */
 .objectif-seance {
   font-family: var(--display);
   font-variation-settings: 'wdth' 125, 'wght' 800;
@@ -415,13 +526,34 @@ input[type='text']:focus,
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: calc(var(--pas) * 1);
   text-align: center;
+  /* Repere de largeur pour `.objectif-seance__nom` (finition, correctif C) :
+     le nom de la seance lit SA propre largeur disponible via cqw, jamais
+     celle du viewport — meme raison qu'a la note sur `.empiecement`. */
+  container-type: inline-size;
 }
 
-.objectif-seance--minuteur .decompte {
-  color: var(--fuchsia); /* ce qui est EN COURS (ossature §5.1) */
+/* Le nom de la seance garde la taille d'affichage tant qu'elle tient
+   (finition, correctif C) : « Le socle » reste a la taille du decompte, mais
+   « L'équilibre » et « L'acrobatie » — plus longs, sans espace ou se couper —
+   la reduisent plutot que de deborder du panneau. `--plus-long-mot` est ecrit
+   par vue-jour.js ; 0.72 est un multiplicateur de securite mesure au pixel
+   sur la police reelle (le mot le plus large observe avance a ~0.62 fois la
+   taille de police par caractere), pas une valeur en dur arbitraire. */
+.objectif-seance__nom {
+  font-size: clamp(1.75rem, calc(100cqw / (0.72 * var(--plus-long-mot, 8))), var(--taille-decompte));
+}
+
+/* Le fuchsia est reserve a ce qui est EN COURS, et rien d'autre (ossature
+   §5.1) : au repos (avant « Demarrer », ou une fois le decompte fini), le
+   chiffre reste --bleu-nuit — c'est le CHANGEMENT de couleur qui signale le
+   depart, pas une teinte posee avant l'effort (finition correctif 7). */
+.decompte--actif {
+  color: var(--fuchsia);
 }
 
 /* Le passage d'un exercice au suivant glisse selon l'angle de la couture
@@ -484,7 +616,7 @@ input[type='text']:focus,
   min-height: var(--cible-min);
   min-width: 0;
   border: 2px solid var(--jersey-ombre);
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
   background: var(--jersey);
   display: flex;
   align-items: center;
@@ -500,10 +632,21 @@ input[type='text']:focus,
   cursor: pointer;
 }
 
+/* Les icones (correctif 8) : un seul poids de trait, une seule taille
+   optique — plus de glyphe de police (✓, ›) qui varie d'un systeme a
+   l'autre. `currentColor` reprend la couleur deja posee ici. */
+.case-seance__coche,
+.case-seance__chevron,
+.icone-fleche {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
 .case-seance__coche {
-  font-family: var(--display);
-  font-variation-settings: 'wdth' 110, 'wght' 800;
-  font-size: var(--taille-texte);
   color: var(--bleu-nuit);
 }
 
@@ -516,9 +659,6 @@ input[type='text']:focus,
 }
 
 .case-seance__chevron {
-  font-family: var(--display);
-  font-variation-settings: 'wdth' 110, 'wght' 800;
-  font-size: var(--taille-texte);
   color: var(--fuchsia);
 }
 

@@ -72,7 +72,7 @@ export function monterSeance(hote, ctx) {
     section.replaceChildren();
     const empiecement = el('div', 'empiecement');
     empiecement.append(el('h1', null, 'Séance terminée !'));
-    section.append(empiecement, el('hr', 'passepoil'));
+    section.append(empiecement);
 
     const corps = el('div', 'jersey corps-seance-fin');
     corps.append(el('p', null, 'Bien joué. C’est noté dans ta grille.'));
@@ -109,7 +109,7 @@ export function monterSeance(hote, ctx) {
     remplissage.style.transform = `scaleX(${index / total})`;
     barre.append(remplissage);
     empiecement.append(barre);
-    section.append(empiecement, el('hr', 'passepoil'));
+    section.append(empiecement);
 
     const corps = el('div', 'jersey corps-seance');
     corps.append(el('h1', 'nom-exercice', ex.libelle));
@@ -148,6 +148,9 @@ export function monterSeance(hote, ctx) {
             sonnerie();
             valider(ex);
             phase = 'suivant';
+            // Le fuchsia ne dit plus « en cours » une fois l'effort fini
+            // (finition, correctif 7) : le décompte revient à --bleu-nuit.
+            decompte.classList.remove('decompte--actif');
             bouton.disabled = false;
             bouton.textContent = 'Suivant';
           }
@@ -163,6 +166,7 @@ export function monterSeance(hote, ctx) {
         derniereSecondeAnnoncee = null;
         zeroJoue = false;
         phase = 'attente';
+        decompte.classList.remove('decompte--actif');
         bouton.textContent = 'Démarrer';
         bouton.disabled = false;
         decompte.textContent = formater(chrono.restant());
@@ -172,6 +176,11 @@ export function monterSeance(hote, ctx) {
         debloquerAuPremierGeste();
         if (phase === 'attente') {
           phase = 'en-cours';
+          // Le fuchsia n'apparaît qu'ici, au moment ou le minuteur démarre
+          // vraiment (ossature §5.1 : « ce qui est EN COURS, et rien
+          // d'autre » — finition, correctif 7) : c'est CE changement de
+          // couleur qui signale le départ, jamais une teinte posée à l'arrêt.
+          decompte.classList.add('decompte--actif');
           bouton.disabled = true;
           bouton.textContent = 'Tiens bon…';
           chrono.demarrer();
