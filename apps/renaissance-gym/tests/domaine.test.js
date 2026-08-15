@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { chargerProgramme } from '../web/programme.js';
 import {
-  semaineCourante, debutDeSemaine, semaineEstPassee, semaineEstFuture,
+  semaineCourante, semaineVenantDetreBouclee, semaineEstPassee, semaineEstFuture,
   faitsDeSeance, seanceEstFaite, seancesFaites, prochaineSeance,
-  fusionner, progression, avancementSeance,
+  fusionner, progression, avancementSeance, exerciceFaitCetteSemaine,
   fileInitiale, passerEnFile, fileNeContientQueDesPasses,
 } from '../web/domaine.js';
 import { exercicesDeSeance } from '../web/programme.js';
@@ -17,41 +17,104 @@ import { exercicesDeSeance } from '../web/programme.js';
 const web = join(dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const prog = chargerProgramme(JSON.parse(readFileSync(join(web, 'programme.json'), 'utf8')));
 
-const DEBUT = '2026-08-03T08:00:00.000Z'; // un lundi, choisi arbitrairement
-
 function fait(exercice, semaine, seance, a) {
   return { exercice, semaine, seance, a };
 }
 
-// --- semaineCourante, debutDeSemaine ---------------------------------------
+// Tous les faits d'une semaine entiere, pour les 4 seances — le raccourci que
+// plusieurs tests ci-dessous partagent pour construire une semaine « faite ».
+function faitsSemaineComplete(semaine, a = '2026-08-03T09:00:00.000Z') {
+  return prog.seances.flatMap((s) => s.exercices.map((id) => fait(id, semaine, Number(s.id.slice(1)), a)));
+}
 
-test('semaineCourante avance de sept jours en sept jours (PRD §8.5)', () => {
-  assert.equal(semaineCourante(DEBUT, DEBUT, 1), 1, 'le premier jour est la semaine 1');
-  assert.equal(semaineCourante(DEBUT, '2026-08-09T08:00:00.000Z', 1), 1, 'six jours plus tard, encore la semaine 1');
-  assert.equal(semaineCourante(DEBUT, '2026-08-10T08:00:00.000Z', 1), 2, 'sept jours pile, la semaine 2');
-  assert.equal(semaineCourante(DEBUT, '2026-09-14T08:00:00.000Z', 1), 7, '6 semaines plus tard');
+// --- semaineCourante, semaineVenantDetreBouclee -----------------------------
+//
+// A5 (« Ajouté après les PRP ») a corrige le §8.5 et la regle §9.6 : la
+// semaine n'avance plus SUR LE CALENDRIER (les anciens tests faisaient
+// avancer l'horloge de sept jours en sept jours), elle avance quand ses
+// QUATRE SEANCES SONT FAITES — semaineCourante ne prend donc plus ni date de
+// debut ni horloge, seulement le programme, les faits et la semaine de
+// depart. Ces tests remplacent ceux qui faisaient tourner le calendrier.
+
+test('semaineCourante reste sur la semaine de depart tant qu’elle n’est pas entierement faite (PRD §8.5, A5)', () => {
+  assert.equal(semaineCourante(prog, [], 1), 1, 'rien de fait : elle reste en semaine 1');
+  const partielle = faitsSemaineComplete(1).slice(0, -1); // il manque un exercice
+  assert.equal(semaineCourante(prog, partielle, 1), 1, 'une semaine presque finie ne fait pas encore avancer');
 });
 
-test('semaineCourante part de la semaine de depart choisie, pas toujours de 1 (PRD §8.3)', () => {
-  assert.equal(semaineCourante(DEBUT, DEBUT, 5), 5, 'elle a choisi de commencer semaine 5');
-  assert.equal(semaineCourante(DEBUT, '2026-08-10T08:00:00.000Z', 5), 6);
+test('semaineCourante avance a la semaine suivante quand les quatre seances sont faites, jamais avant (A5)', () => {
+  const semaine1Complete = faitsSemaineComplete(1);
+  assert.equal(semaineCourante(prog, semaine1Complete, 1), 2, 'la semaine 1 est entierement faite : place a la 2');
+
+  const uneSeuleSeanceDeLaSemaine2 = prog.seances[0].exercices.map((id) => fait(id, 2, 1, '2026-08-10T09:00:00.000Z'));
+  assert.equal(
+    semaineCourante(prog, [...semaine1Complete, ...uneSeuleSeanceDeLaSemaine2], 1),
+    2,
+    'une seule seance faite en semaine 2 ne la fait pas encore boucler',
+  );
+});
+
+test('semaineCourante part de la semaine de depart choisie, pas toujours de 1 (PRD §8.3, A10)', () => {
+  assert.equal(semaineCourante(prog, [], 5), 5, 'elle a choisi de commencer semaine 5');
+  const semaine5Complete = faitsSemaineComplete(5);
+  assert.equal(semaineCourante(prog, semaine5Complete, 5), 6);
 });
 
 test('au-dela de la semaine 8, le programme est termine : semaineCourante rend 9 (PRD §9.7)', () => {
-  const treizeSemainesPlusTard = new Date(new Date(DEBUT).getTime() + 13 * 7 * 24 * 60 * 60 * 1000).toISOString();
-  assert.equal(semaineCourante(DEBUT, treizeSemainesPlusTard, 1), 9);
-  // meme partie d'une semaine de depart avancee : jamais au-dela de 9.
-  assert.equal(semaineCourante(DEBUT, treizeSemainesPlusTard, 8), 9);
+  const huitSemainesCompletes = Array.from({ length: 8 }, (_, i) => faitsSemaineComplete(i + 1)).flat();
+  assert.equal(semaineCourante(prog, huitSemainesCompletes, 1), 9);
+  // meme en partant d'une semaine de depart avancee : jamais au-dela de 9.
+  const semaine8Complete = faitsSemaineComplete(8);
+  assert.equal(semaineCourante(prog, semaine8Complete, 8), 9);
 });
 
-test('sans debut enregistre, semaineCourante rend la semaine de depart', () => {
-  assert.equal(semaineCourante(null, DEBUT, 3), 3);
+test('semaineCourante ne depend ni de l’horloge ni d’aucune date : deux jeux de faits identiques rendent la meme semaine (reprise sur un second telephone)', () => {
+  const semaine1Complete = faitsSemaineComplete(1, '2026-08-03T09:00:00.000Z');
+  // Un « second telephone » qui reçoit les memes faits, mais dates autrement
+  // (fusionner retient la plus ancienne, mais semaineCourante, elle, ne lit
+  // aucune date : peu importe laquelle est passee ici).
+  const memesFaitsAutrementDates = semaine1Complete.map((f) => ({ ...f, a: '2026-08-12T18:00:00.000Z' }));
+  assert.equal(semaineCourante(prog, semaine1Complete, 1), semaineCourante(prog, memesFaitsAutrementDates, 1));
 });
 
-test('debutDeSemaine rend le premier instant de chaque semaine, ancree sur le jour de depart', () => {
-  assert.equal(debutDeSemaine(DEBUT, 1, 1).toISOString(), DEBUT);
-  assert.equal(debutDeSemaine(DEBUT, 2, 1).toISOString(), '2026-08-10T08:00:00.000Z');
-  assert.equal(debutDeSemaine(DEBUT, 5, 5).toISOString(), DEBUT, 'commencer en semaine 5 : le debut EST la semaine 5');
+test('semaineVenantDetreBouclee est null tant qu’elle n’a jamais rien fini', () => {
+  assert.equal(semaineVenantDetreBouclee(prog, [], 1), null);
+  const partielle = faitsSemaineComplete(1).slice(0, -1);
+  assert.equal(semaineVenantDetreBouclee(prog, partielle, 1), null);
+});
+
+test('semaineVenantDetreBouclee rend la semaine qu’elle vient de finir tant qu’elle n’a RIEN commence de la suivante (A5)', () => {
+  const semaine1Complete = faitsSemaineComplete(1);
+  assert.equal(semaineVenantDetreBouclee(prog, semaine1Complete, 1), 1, 'elle vient de boucler la semaine 1');
+});
+
+test('semaineVenantDetreBouclee redevient null des qu’un seul exercice de la nouvelle semaine est valide', () => {
+  const semaine1Complete = faitsSemaineComplete(1);
+  const premierDeSemaine2 = fait(prog.seances[0].exercices[0], 2, 1, '2026-08-10T09:00:00.000Z');
+  assert.equal(semaineVenantDetreBouclee(prog, [...semaine1Complete, premierDeSemaine2], 1), null);
+});
+
+test('semaineVenantDetreBouclee est null une fois le programme entierement termine', () => {
+  const huitSemainesCompletes = Array.from({ length: 8 }, (_, i) => faitsSemaineComplete(i + 1)).flat();
+  assert.equal(semaineCourante(prog, huitSemainesCompletes, 1), 9, 'garde-fou : le programme est bien termine');
+  assert.equal(semaineVenantDetreBouclee(prog, huitSemainesCompletes, 1), null);
+});
+
+// --- exerciceFaitCetteSemaine, A8 -------------------------------------------
+
+test('exerciceFaitCetteSemaine est vrai des qu’un exercice est valide au moins une fois dans la semaine, quelle que soit la seance', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const id = s1.exercices[0];
+  assert.equal(exerciceFaitCetteSemaine([], 1, id), false);
+  assert.equal(exerciceFaitCetteSemaine([fait(id, 1, 1, '2026-08-03T09:00:00.000Z')], 1, id), true);
+  // Un exercice deja fait a une AUTRE semaine ne compte pas pour celle-ci.
+  assert.equal(exerciceFaitCetteSemaine([fait(id, 2, 1, '2026-08-10T09:00:00.000Z')], 1, id), false);
+});
+
+test('exerciceFaitCetteSemaine reconnait un exercice repris dans une autre seance de la meme semaine (PRD §8.4)', () => {
+  // e29 (« Écart jambe droite ») est a la fois dans la seance 1 et dans la
+  // seance 4 (PRD §8.4). Valide via la seance 4, il compte pour la semaine.
+  assert.equal(exerciceFaitCetteSemaine([fait('e29', 3, 4, '2026-08-17T09:00:00.000Z')], 3, 'e29'), true);
 });
 
 test('semaineEstPassee et semaineEstFuture, symetriques et exclusives de la semaine courante (PRD §9.3, §9.4)', () => {

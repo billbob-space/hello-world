@@ -82,7 +82,9 @@ export function indexPremierNonFait(programme, faits, semaine, numero) {
 
 export function monterSeance(hote, ctx) {
   const { etat, programme, maintenant } = ctx;
-  const semaineActuelle = Math.min(semaineCourante(etat.debut, maintenant(), etat.semaineDeDepart), 8);
+  // A5 (« Ajouté après les PRP ») : la semaine courante se déduit désormais
+  // des faits, jamais de l'horloge (voir domaine.js).
+  const semaineActuelle = Math.min(semaineCourante(programme, etat.faits, etat.semaineDeDepart), 8);
   const hash = typeof location !== 'undefined' ? location.hash : '';
   const cibleUnique = cibleUniqueDepuisHash(hash);
   const numero = numeroDepuisHash(hash) ?? prochaineSeance(programme, etat.faits, semaineActuelle) ?? 1;

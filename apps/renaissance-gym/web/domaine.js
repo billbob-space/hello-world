@@ -1,40 +1,65 @@
 // domaine.js — les regles metier du PRD §9, pures (ossature §6).
 //
-// Aucune fonction d'ici ne lit l'horloge : le moment courant est toujours
-// PASSE EN PARAMETRE, ce qui les rend testables sans figer le temps
-// (ossature §6, PRP 01 chantier C).
+// Aucune fonction d'ici ne lit l'horloge : ce module n'importe ni ne consulte
+// jamais Date.now() ni new Date() (ossature §6, PRP 01 chantier C).
+//
+// A5 (« Ajouté après les PRP ») corrige le §8.5 et la regle §9.6, qui
+// disaient l'inverse : une semaine n'avance plus SUR LE CALENDRIER, elle
+// avance quand ses QUATRE SEANCES SONT FAITES, et pas avant. `semaineCourante`
+// ne prend donc plus ni date de debut ni horloge — elle se DEDUIT DES FAITS
+// et de la semaine de depart, rien d'autre. C'est ce qui permet a une reprise
+// sur un second telephone de retrouver EXACTEMENT la meme semaine que le
+// premier des qu'ils partagent les memes faits : un compteur local qui
+// avancerait tout seul, lui, diverguerait d'un appareil a l'autre.
 //
 // L'avancement est stocke comme une liste de faits dates :
 //   { seance: 1..4, semaine: 1..8, exercice: 'e07', a: '2026-08-14T09:12:00.000Z' }
+// La date de chaque fait reste enregistree — elle sert toujours a la fusion
+// entre deux appareils (§9.8) — mais elle ne sert plus a faire avancer le
+// programme.
 
 import { exercicesDeSeance } from './programme.js';
 
-const SEMAINE_MS = 7 * 24 * 60 * 60 * 1000;
 const SEMAINES_DU_PROGRAMME = 8;
-
-function commeInstant(valeur) {
-  return valeur instanceof Date ? valeur : new Date(valeur);
-}
 
 // 1..8, ou 9 quand le programme est termine (PRD §9.7, regle 7 : au-dela de la
 // semaine 8, le programme est termine). `semaineDeDepart` est celle choisie a
-// l'entree (PRD §7.1) : une gymnaste qui commence en semaine 5 ne redemarre
-// pas a 1 (PRD §8.3).
-export function semaineCourante(debutISO, maintenant, semaineDeDepart) {
-  if (!debutISO) return semaineDeDepart;
-  const debut = commeInstant(debutISO).getTime();
-  const now = commeInstant(maintenant).getTime();
-  const semainesEcoulees = Math.max(0, Math.floor((now - debut) / SEMAINE_MS));
-  const semaine = semaineDeDepart + semainesEcoulees;
-  return semaine > SEMAINES_DU_PROGRAMME ? SEMAINES_DU_PROGRAMME + 1 : semaine;
+// l'entree (PRD §7.1) ou changee depuis les reglages (A10) : une gymnaste qui
+// commence en semaine 5 ne redemarre pas a 1 (PRD §8.3).
+//
+// A5 : la plus petite semaine, a partir de semaineDeDepart, dont les quatre
+// seances ne sont pas ENCORE TOUTES faites. Aucune notion de retard : une
+// semaine qui n'avance pas parce qu'elle n'a pas ete faite n'est pas une
+// semaine en retard, elle est simplement celle qui compte encore.
+export function semaineCourante(prog, faits, semaineDeDepart) {
+  let semaine = semaineDeDepart;
+  while (semaine <= SEMAINES_DU_PROGRAMME && seancesFaites(prog, faits, semaine) === 4) {
+    semaine += 1;
+  }
+  return semaine;
 }
 
-// Le premier instant d'une semaine donnee — PRD §8.5 : la semaine court sur
-// sept jours depuis le jour ou la gymnaste a demarre, jamais depuis le lundi.
-export function debutDeSemaine(debutISO, semaine, semaineDeDepart) {
-  const debut = commeInstant(debutISO).getTime();
-  const decalage = (semaine - semaineDeDepart) * SEMAINE_MS;
-  return new Date(debut + decalage);
+// A5 : la semaine qu'elle vient de boucler, si elle n'a ENCORE RIEN commence
+// de la suivante — c'est ce qui fait exister le palier « Ta semaine est
+// bouclee » (vue-jour.js) sans le moindre compteur local : tant qu'aucun
+// exercice de la nouvelle semaine courante n'est valide, on sait qu'elle
+// vient tout juste de finir celle d'avant. Des qu'elle valide quoi que ce
+// soit de la nouvelle semaine — meme un seul exercice — ce palier disparait
+// de lui-meme, rendu null : ce n'est jamais un etat a part qu'il faudrait
+// effacer explicitement, seulement ce que les faits disent a l'instant lu.
+// Rend null tant qu'elle n'a jamais rien fini (semaine === semaineDeDepart,
+// rien a celebrer) et une fois le programme termine (le palier « termine » de
+// vue-jour.js prend le relais).
+export function semaineVenantDetreBouclee(prog, faits, semaineDeDepart) {
+  const courante = semaineCourante(prog, faits, semaineDeDepart);
+  if (courante <= semaineDeDepart || courante > SEMAINES_DU_PROGRAMME) return null;
+  // Un seul exercice valide dans la nouvelle semaine suffit a faire
+  // disparaitre ce palier — pas seulement une seance entiere : `seancesFaites`
+  // ne compterait qu'une seance ACHEVEE, ce qui laisserait le palier affiche
+  // pendant toute une seance commencee mais pas finie.
+  const dejaCommencee = faits.some((f) => f.semaine === courante);
+  if (dejaCommencee) return null;
+  return courante - 1;
 }
 
 // PRD §9.3 : l'avenir ne se coche pas.
@@ -56,6 +81,15 @@ export function faitsDeSeance(faits, semaine, numero) {
     if (f.semaine === semaine && f.seance === numero) set.add(f.exercice);
   }
   return set;
+}
+
+// A8 (« Ajoute apres les PRP ») : vrai si l'exercice a ete valide au moins
+// une fois cette semaine, TOUTES SEANCES CONFONDUES — un exercice peut
+// apparaitre dans plusieurs seances de la meme semaine (PRD §8.4, la
+// souplesse reprise en fin de semaine), et une seule validation suffit a le
+// marquer fait pour la liste des trente-six.
+export function exerciceFaitCetteSemaine(faits, semaine, idExercice) {
+  return faits.some((f) => f.semaine === semaine && f.exercice === idExercice);
 }
 
 // PRD §9.1 : une seance est faite quand TOUS ses exercices sont valides.

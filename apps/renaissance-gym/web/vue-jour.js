@@ -10,7 +10,11 @@
 // pas été fait (PRD §14 : l'abandon est le risque principal).
 
 import { seance } from './programme.js';
-import { prochaineSeance, seancesFaites, semaineCourante } from './domaine.js';
+import {
+  prochaineSeance, semaineCourante, semaineVenantDetreBouclee,
+} from './domaine.js';
+
+const SEMAINES_DU_PROGRAMME = 8;
 
 function el(balise, classe, texte) {
   const noeud = document.createElement(balise);
@@ -37,23 +41,55 @@ function famillesDeSeance(programme, s) {
   return noms;
 }
 
-// Le modèle de l'écran, pur (ossature §6). `semaine` est celle qui compte
-// pour l'affichage — bornée à 8, le neuvième cas étant « terminé ».
-export function modeleJour(ctx) {
-  const { etat, programme, maintenant } = ctx;
-  const semaineBrute = semaineCourante(etat.debut, maintenant(), etat.semaineDeDepart);
+// A9 (« Ajouté après les PRP ») : une ligne discrète, jamais un chiffre ni une
+// promesse chiffrée — juste le nom de ce qui vient ensuite. Sur la dernière
+// séance de la semaine (numero 4), il n'y a plus de séance suivante DANS
+// cette semaine : la ligne annonce la semaine suivante, ou la fin du
+// programme si celle-ci est la huitième.
+function texteApres(programme, semaineActuelle, numero) {
+  if (numero < 4) {
+    const suivante = seance(programme, numero + 1);
+    return `Après, ce sera ${suivante.nom}.`;
+  }
+  if (semaineActuelle >= SEMAINES_DU_PROGRAMME) {
+    return 'Après, ton programme sera terminé.';
+  }
+  return `Après, ce sera la semaine ${semaineActuelle + 1}.`;
+}
 
-  if (semaineBrute > 8) {
-    return { cas: 'termine', semaine: 8 };
+// Le modèle de l'écran, pur (ossature §6). `semaine` est celle qui compte
+// pour l'affichage — bornée à huit, le cas au-delà étant « terminé ».
+//
+// A5 (« Ajouté après les PRP ») : la semaine ne se déduit plus de l'horloge —
+// `semaineCourante` ne lit que les faits et la semaine de départ. Un exercice
+// dont la séance venait de boucler la semaine n'atterrit donc plus jamais
+// directement dans la séance suivante : tant qu'elle n'a RIEN commencé de la
+// nouvelle semaine, `semaineVenantDetreBouclee` la retient sur le palier
+// « bouclée », qui ne se quitte que d'un geste explicite et confirmé
+// (vue-jour.js, cas « bouclee »).
+export function modeleJour(ctx) {
+  const { etat, programme } = ctx;
+  const semaineBrute = semaineCourante(programme, etat.faits, etat.semaineDeDepart);
+
+  if (semaineBrute > SEMAINES_DU_PROGRAMME) {
+    return { cas: 'termine', semaine: SEMAINES_DU_PROGRAMME };
+  }
+
+  const bouclee = semaineVenantDetreBouclee(programme, etat.faits, etat.semaineDeDepart);
+  if (bouclee !== null) {
+    const premiere = seance(programme, 1);
+    return {
+      cas: 'bouclee',
+      semaine: bouclee,
+      semaineSuivante: semaineBrute,
+      nomSuivant: premiere.nom,
+    };
   }
 
   const semaine = semaineBrute;
+  // Garanti non null : `semaine` est par construction une semaine dont les
+  // quatre séances ne sont pas toutes faites (voir `semaineCourante`).
   const numero = prochaineSeance(programme, etat.faits, semaine);
-
-  if (numero === null) {
-    return { cas: 'bouclee', semaine, seancesFaites: seancesFaites(programme, etat.faits, semaine) };
-  }
-
   const s = seance(programme, numero);
   return {
     cas: 'a-faire',
@@ -61,6 +97,7 @@ export function modeleJour(ctx) {
     numero,
     nom: s.nom,
     familles: famillesDeSeance(programme, s),
+    apres: texteApres(programme, semaine, numero),
   };
 }
 
@@ -143,16 +180,44 @@ export function monterJour(hote, ctx) {
     objectifNoeud.append(nomNoeud);
     objectifNoeud.append(construireStrass());
     corps.append(objectifNoeud);
-    // Discrète, et discrète pour de bon (PRD §9.5) : refaire une séance ne la
-    // compte pas deux fois, `etat.ajouterFait` ignorant les doublons. Elle
-    // suit `objectifNoeud`, qui occupe tout l'espace disponible (flex: 1) et
-    // la pousse donc en bas, a cote du bouton principal des autres ecrans.
-    const refaire = el('button', 'bouton--discret', 'Refaire une séance');
-    refaire.type = 'button';
-    refaire.addEventListener('click', () => {
-      if (typeof location !== 'undefined') location.hash = '#/seance/1';
+
+    // A5 : la semaine n'avance plus toute seule — elle avance quand elle le
+    // decide, d'un geste explicite ET confirme (le calendrier ne pousse
+    // plus rien). Tant qu'elle ne l'a pas fait, ce palier reste affiche
+    // indefiniment : rien ne la bouscule (PRD §14, l'abandon est le risque
+    // principal). Le nom de la semaine suivante (A9) est deja porte par le
+    // bouton lui-meme, pas besoin d'une ligne de plus qui le repeterait.
+    const continuerBouton = el('button', 'bouton', `Semaine suivante : ${m.nomSuivant}`);
+    continuerBouton.type = 'button';
+    const confirmationNoeud = el('div', 'confirmation-case');
+    confirmationNoeud.hidden = true;
+
+    function fermerConfirmation() {
+      confirmationNoeud.hidden = true;
+      confirmationNoeud.replaceChildren();
+    }
+
+    continuerBouton.addEventListener('click', () => {
+      confirmationNoeud.replaceChildren();
+      confirmationNoeud.hidden = false;
+      confirmationNoeud.append(el(
+        'p',
+        'confirmation-case__question',
+        `Passer à la semaine ${m.semaineSuivante} ? Elle commence par ${m.nomSuivant}.`,
+      ));
+      const rangee = el('div', 'confirmation-case__boutons');
+      const oui = el('button', 'bouton', 'Oui');
+      oui.type = 'button';
+      const non = el('button', 'bouton--discret', 'Non');
+      non.type = 'button';
+      oui.addEventListener('click', () => {
+        if (typeof location !== 'undefined') location.hash = '#/seance/1';
+      });
+      non.addEventListener('click', fermerConfirmation);
+      rangee.append(oui, non);
+      confirmationNoeud.append(rangee);
     });
-    corps.append(refaire);
+    corps.append(continuerBouton, confirmationNoeud);
   } else {
     // Un seul objet focal (finition, correctif 5) : le nom de la séance,
     // seul, à la taille d'affichage, dans l'emplacement que `.objectif-seance`
@@ -167,6 +232,9 @@ export function monterJour(hote, ctx) {
     objectifNoeud.append(nomNoeud);
     objectifNoeud.append(el('span', 'familles-jour', m.familles.join(' · ')));
     corps.append(objectifNoeud);
+    // A9 (« Ajouté après les PRP ») : une ligne discrète, elle ne concurrence
+    // pas l'objet focal ci-dessus.
+    corps.append(el('p', 'apres-jour', m.apres));
     const bouton = el('button', 'bouton', 'Commencer');
     bouton.type = 'button';
     bouton.addEventListener('click', () => {

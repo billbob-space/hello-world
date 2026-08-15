@@ -14,11 +14,28 @@ const web = join(dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const prog = chargerProgramme(JSON.parse(readFileSync(join(web, 'programme.json'), 'utf8')));
 const styleSource = readFileSync(join(web, 'style.css'), 'utf8');
 
-// Debut choisi pour que trois semaines soient deja passees, une soit en
-// cours, et quatre restent a venir : de quoi voir les quatre etats de la
-// table du chantier A dans le meme rendu.
+// A5 (« Ajouté après les PRP ») : la semaine courante ne se déduit plus de
+// l'horloge — MAINTENANT ne sert donc plus qu'à dater les faits construits
+// ci-dessous, jamais à faire avancer la semaine (voir domaine.js).
 const DEBUT = '2026-08-03T08:00:00.000Z';
-const MAINTENANT = new Date('2026-08-24T08:00:00.000Z'); // trois semaines plus tard : semaine 4
+const MAINTENANT = new Date('2026-08-24T08:00:00.000Z');
+
+// Trois semaines ENTIÈREMENT FAITES, une en cours (vide), quatre à venir : de
+// quoi voir les quatre états de la table du chantier A dans le même rendu.
+// Sous A5, une semaine « passée » l'est toujours parce qu'elle a été faite en
+// entier — plus jamais parce que le calendrier a tourné sans elle.
+function faitsSemainesCompletes(derniereSemaineComplete) {
+  const faits = [];
+  for (let semaine = 1; semaine <= derniereSemaineComplete; semaine += 1) {
+    for (const s of prog.seances) {
+      const numero = Number(s.id.slice(1));
+      for (const id of s.exercices) {
+        faits.push({ seance: numero, semaine, exercice: id, a: `2026-08-0${semaine}T09:00:00.000Z` });
+      }
+    }
+  }
+  return faits;
+}
 
 function poserMagasin(magasin) {
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: magasin });
@@ -73,8 +90,10 @@ test('une case de semaine future n’a AUCUN gestionnaire de clic', () => {
   const hote = creerHote();
   vueGrille.monterGrille(hote, ctxVide());
 
+  // Rien de fait : la semaine courante est la 1re (A5), les semaines 2 à 8
+  // sont donc toutes à venir.
   const futures = hote.querySelectorAll('.case-seance--future');
-  assert.ok(futures.length > 0, 'garde-fou : au moins une case future doit exister (semaine 4 en cours, 5 a 8 a venir)');
+  assert.ok(futures.length > 0, 'garde-fou : au moins une case future doit exister (semaine 1 en cours, 2 a 8 a venir)');
   for (const c of futures) {
     assert.equal(c._handlers.has('click'), false, 'une case future ne doit porter aucun gestionnaire de clic');
     assert.equal(c.disabled, true);
@@ -99,7 +118,9 @@ test('classeDeCase rend les quatre etats de la table du chantier A', () => {
 
 test('une case de la semaine en cours porte desormais un gestionnaire de clic, qui ouvre son detail', () => {
   const hote = creerHote();
-  vueGrille.monterGrille(hote, ctxVide());
+  // A5 : trois semaines entierement faites -> la semaine courante est la 4e,
+  // encore vide.
+  vueGrille.monterGrille(hote, demarrerAvec({ faits: faitsSemainesCompletes(3) }));
   globalThis.location = { hash: '#/grille' };
 
   const enCours = hote.querySelectorAll('.case-seance--encours');
@@ -113,12 +134,15 @@ test('une case de la semaine en cours porte desormais un gestionnaire de clic, q
 
 test('une case de semaine passee ouvre elle aussi son detail, jamais un bandeau de confirmation', () => {
   const hote = creerHote();
-  vueGrille.monterGrille(hote, ctxVide());
+  // A5 : une semaine « passee » est desormais toujours entierement FAITE —
+  // elle ne peut plus etre « passee-vide » qu'apres une correction depuis la
+  // grille (PRD §9.4), un cas couvert plus bas par les cases entamees.
+  vueGrille.monterGrille(hote, demarrerAvec({ faits: faitsSemainesCompletes(3) }));
   globalThis.location = { hash: '#/grille' };
 
-  const vide = hote.querySelectorAll('.case-seance--passee-vide')[0];
-  assert.ok(vide, 'garde-fou : au moins une case passee vide doit exister');
-  vide.declencher('click');
+  const passee = hote.querySelectorAll('.case-seance--faite')[0];
+  assert.ok(passee, 'garde-fou : au moins une case passee (faite) doit exister');
+  passee.declencher('click');
 
   assert.match(globalThis.location.hash, /^#\/grille\/seance\/\d\/\d$/);
   assert.equal(hote.querySelectorAll('.confirmation-case__question').length, 0, 'plus de bandeau de confirmation pour une case (A3)');
@@ -154,8 +178,13 @@ test('une seance entamee (certains exercices faits, pas tous) se distingue de la
 
 test('une seance dont aucun exercice n’est fait n’a pas de remplissage', () => {
   const hote = creerHote();
-  vueGrille.monterGrille(hote, ctxVide());
+  // A5 : une semaine de depart posterieure a 1 laisse les semaines qui la
+  // precedent « passees » et vides sans le moindre fait — un etat tout a
+  // fait normal (elle a choisi de commencer plus tard, PRD §7.1), qui sert
+  // ici a eprouver une case passee-vide sans avoir a construire de correction.
+  vueGrille.monterGrille(hote, demarrerAvec({ semaineDeDepart: 3 }));
   const videS = hote.querySelectorAll('.case-seance--passee-vide')[0];
+  assert.ok(videS, 'garde-fou : au moins une case passee-vide doit exister');
   assert.equal(hote.querySelectorAll('.case-seance--entamee').includes(videS), false);
   assert.equal(videS.querySelectorAll('.case-seance__remplissage').length, 0);
 });
@@ -197,11 +226,10 @@ test('les cases de la grille sont disposees en colonnes fractionnaires, jamais e
 
 test('« Ton programme est terminé » apparait au-dela de la semaine 8, avec un geste confirme pour recommencer', () => {
   const hote = creerHote();
-  const treizeSemainesPlusTard = new Date(new Date(DEBUT).getTime() + 13 * 7 * 24 * 60 * 60 * 1000);
-  vueGrille.monterGrille(hote, {
-    ...demarrerAvec(),
-    maintenant: () => treizeSemainesPlusTard,
-  });
+  // A5 : le programme se termine quand les huit semaines sont ENTIEREMENT
+  // FAITES — plus jamais parce que treize semaines de calendrier se sont
+  // ecoulees sans qu'elle ait rien fait.
+  vueGrille.monterGrille(hote, demarrerAvec({ faits: faitsSemainesCompletes(8) }));
 
   assert.match(texteDe(hote), /Ton programme est terminé/);
   const recommencer = boutonTexte(hote, 'Recommencer à zéro');
@@ -260,4 +288,13 @@ test('demonter() ne leve jamais', () => {
   const hote = creerHote();
   const demonter = vueGrille.monterGrille(hote, ctxVide());
   assert.doesNotThrow(() => demonter());
+});
+
+// --- A8 : la liste des trente-six exercices, aussi depuis la grille --------
+
+test('un lien mène à la liste des trente-six exercices', () => {
+  const hote = creerHote();
+  vueGrille.monterGrille(hote, ctxVide());
+  const lien = hote.querySelectorAll('a').find((a) => a.href === '#/liste');
+  assert.ok(lien, 'un lien vers « #/liste » doit exister depuis la grille');
 });

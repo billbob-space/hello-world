@@ -2385,3 +2385,67 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1790 agent claude-sonnet-5 192 247219 2
 -->
 <!-- /cout -->
+
+### 24. La semaine avançait sur le calendrier, et punissait les vacances
+
+**Symptome** — aucun symptôme rapporté : c'est une erreur trouvée en relisant
+le PRD, pas en utilisant l'app. Le §8.5 et la règle §9.6 faisaient avancer la
+semaine sept jours après son début, faite ou non.
+
+**Cause** — le PRD a modelé la semaine sur le calendrier parce que la feuille du
+club a huit colonnes et que huit colonnes ressemblent à huit semaines. Mais la
+feuille ne date rien : ses colonnes comptent des **paliers de travail**, pas des
+semaines de calendrier. La transposition a de nouveau changé d'unité, comme à
+l'anomalie 23 — et cette fois dans la dimension temps.
+
+Le coût était réel : cinq jours chez sa grand-mère consommaient une semaine
+entière du programme sans qu'elle ait rien fait. Trois absences de ce genre, et
+les huit semaines étaient épuisées à moitié remplies. Le §14 pose que l'abandon
+est le risque principal ; un programme qui file tout seul pendant qu'on a le dos
+tourné en est une fabrique.
+
+**Detecte par** — `relecture`
+
+**Action** — `contrat` — le §8.5 et la règle §9.6 sont corrigés par A5. La leçon
+dépasse cette app : **quand une transposition hérite d'une unité, vérifier aussi
+l'unité de temps**. Un artefact papier ne date presque jamais ce qu'il compte,
+et lui prêter un calendrier lui ajoute une contrainte que son auteur n'a pas
+écrite.
+
+### 25. Une correction du passé fait reculer la semaine courante
+
+**Symptome** — signalé par l'artisan, non corrigé. Sous A5, décocher un exercice
+d'une semaine déjà bouclée fait **redevenir** cette semaine la semaine courante,
+puisque la semaine se déduit désormais entièrement des faits et que rien ne
+mémorise qu'on l'avait dépassée.
+
+**Cause** — conséquence directe et logique du choix « la semaine se déduit des
+faits, jamais d'un compteur local », qui est lui-même ce qui rend deux téléphones
+cohérents. Mémoriser « cette semaine est dépassée » réintroduirait exactement
+l'état local que ce choix élimine, et deux appareils pourraient en diverger.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — le comportement est cohérent avec « le passé se corrige »
+et sans danger : rien n'est perdu, la semaine se reboucle en recochant. Consigné
+parce qu'il est surprenant, et que le corriger coûterait plus cher que ce qu'il
+gêne. À revoir seulement si l'usage le fait remonter.
+
+### 26. « Refaire une séance » a disparu de l'écran du jour
+
+**Symptome** — sous A5, le bouton « Refaire une séance » de l'écran « semaine
+bouclée » pointait vers une route qui vise désormais la semaine **suivante** :
+il faisait donc la même chose que « Semaine suivante », juste à côté. L'artisan
+l'a retiré plutôt que de livrer deux boutons identiques.
+
+**Cause** — la route `#/seance/<numero>` désigne une séance **sans sa semaine**.
+Tant que la semaine avançait sur le calendrier, l'ambiguïté ne se voyait pas ;
+dès que la semaine dépend des faits, la même route change de cible.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — le PRD §9.5 autorise explicitement de refaire une
+séance, et c'est désormais possible **depuis la grille seulement** (A3 bis), plus
+depuis l'écran du jour. C'est un rétrécissement d'une capacité écrite, décidé
+par défaut plutôt que choisi. Le rendre à l'écran du jour demande une route qui
+porte la semaine, comme celle d'un exercice unique en porte déjà une.
