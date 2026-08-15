@@ -434,10 +434,103 @@ en éprouvant l'API au `curl`, ce qui prouve le serveur et le volume mais pas le
 rendu. Pour une fabrique dont le point d'arrivée déclaré est « le site répond »,
 c'est un manque réel.
 
+
+---
+
+## Suite — les deux premiers retours d'usage
+
+L'application a servi une première fois. Deux remarques, dont une qui est un
+défaut livré et non une demande.
+
+### 19. La sonnerie de fin était inaudible, et la cause était physique
+
+**Symptome** — l'utilisatrice demande « une sonnerie à la fin des décomptes ».
+Elle existe pourtant : `sonnerie()` est appelée au bon moment, le code est
+correct, et un test le couvre.
+
+**Cause** — le PRP 04 avait choisi, pour distinguer la fin des trois bips qui la
+précèdent, un son « plus bas et plus long » : un sinus à 220 Hz. Or un
+haut-parleur de téléphone ne restitue presque rien sous 400 Hz. Les bips à
+440-659 Hz s'entendaient ; la seule note qui compte était sous le plancher du
+matériel qui la joue. La conception sonore a été faite sur une idée de la
+perception — grave contre aigu — sans tenir compte du transducteur.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `contrat` — aucun garde-fou ne peut entendre un son, et aucun test
+non plus : c'est le seul canal de cette application qu'on ne peut ni compiler,
+ni mesurer, ni capturer. Ce qui manquait n'est pas un test mais une **règle de
+conception** : sur un haut-parleur de téléphone, un signal se distingue par son
+**rythme**, jamais par sa hauteur, et rien sous 400 Hz ne doit porter une
+information. Elle mérite d'être écrite là où la prochaine app la lira.
+
+### 20. La séance était une file rigide, et rien ne l'avait signalé
+
+**Symptome** — « il n'est pas possible de sauter un exercice pour pouvoir le
+refaire plus tard ». Face à un ATR qui ne passe pas ou à un salon trop petit
+pour une roue, la gymnaste n'avait que deux issues : cocher sans avoir fait, ou
+abandonner la séance entière.
+
+**Cause** — le PRD a décrit le parcours nominal avec soin (§7.3) et n'a jamais
+posé la question « et si elle ne peut pas faire celui-là ? ». Les cinq questions
+de cadrage portaient sur le programme, le rythme et la sauvegarde ; aucune ne
+portait sur l'échec d'un exercice, qui est pourtant l'événement le plus
+ordinaire d'un entraînement.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — au cadrage d'un parcours, poser explicitement la
+question du **cas où l'utilisateur ne peut pas faire l'étape**. Elle ne s'est
+pas posée ici parce que le parcours nominal était limpide, et c'est précisément
+quand il l'est qu'on l'oublie.
+
+### 21. Ma correction d'alignement avait neutralisé l'attribut `hidden`
+
+**Symptome** — « Remettre à zéro » s'affichait sur les exercices qui se
+comptent, où il n'a aucun sens : on ne remet pas à zéro un compte de vingt
+fermetures. Le code posait pourtant bien `remise.hidden = true`.
+
+**Cause** — la mienne, et elle date de l'anomalie 16. En déclarant
+`display: inline-flex` sur `.bouton--discret` pour unifier les axes
+d'alignement, j'ai donné à une règle d'auteur la priorité sur le
+`display: none` que le navigateur applique à `[hidden]` : l'attribut a cessé
+de cacher quoi que ce soit. Exactement le même défaut que `.confirmation-case`
+plus tôt sur cette branche — **deuxième occurrence, même fichier, même cause**,
+et je ne l'ai pas vue en corrigeant la première.
+
+**Detecte par** — `relecture` — trouvé par l'artisan du lot suivant, capture
+d'écran à l'appui, alors que ce n'était pas son sujet.
+
+**Action** — `garde-fou` — une classe qui déclare `display` doit rendre
+l'attribut `hidden`. C'est une règle mécanique, vérifiable par un test qui
+lirait la feuille de style et exigerait, pour toute classe posant `display`,
+une règle `[hidden]` correspondante. Deux occurrences sur une seule branche
+suffisent à le justifier.
+
+### 22. J'ai appliqué une règle de design à un contenu qu'elle ne visait pas
+
+**Symptome** — `DESIGN.md` pose que le champ jersey porte un objet focal. J'ai
+appliqué la règle à l'écran des exercices passés, et obtenu une **phrase
+entière** de neuf mots à la taille d'affichage, occupant tout l'écran. Ça ne
+lisait plus, ça criait.
+
+**Cause** — la règle avait été écrite depuis des cas où l'objet focal était un
+nom court : « Le socle », « x16 », « 0:28 ». Elle ne disait pas que la brièveté
+en faisait partie, parce qu'aucun cas construit n'avait eu de phrase à placer.
+Une règle tirée d'exemples homogènes n'énonce pas ce que ces exemples avaient
+en commun sans le dire.
+
+**Detecte par** — `relecture` — vu sur capture, immédiatement.
+
+**Action** — `rien` — corrigé en séparant les deux : le **nombre** est l'objet
+focal, la phrase l'explique en dessous à la taille du texte courant. La leçon
+est déjà écrite dans le commentaire du code, à l'endroit où le prochain la
+lira.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-15 à 02:46 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-15 à 05:55 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -445,26 +538,26 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 13 117 | 0,04 $ |
-| Écriture de cache | 3 462 309 | 13,67 $ |
-| Lecture de cache | 179 769 168 | 70,20 $ |
-| Sortie | 252 402 | 5,31 $ |
-| **Total** | **183 496 996** | **89,21 $ — 77,47 €** |
+| Entrée | 22 493 | 0,06 $ |
+| Écriture de cache | 4 371 221 | 17,86 $ |
+| Lecture de cache | 226 665 327 | 89,67 $ |
+| Sortie | 287 796 | 6,03 $ |
+| **Total** | **231 346 837** | **113,62 $ — 98,67 €** |
 
 **Ce qui coûte**
 
-- **1056 appel(s) au modèle** — un par réponse, outils compris —, dont 732 par des sous-agents — 95 439 965 jetons, 37,41 $.
+- **1238 appel(s) au modèle** — un par réponse, outils compris —, dont 842 par des sous-agents — 113 742 971 jetons, 43,71 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   64 719 jetons, écrits une fois par session puis relus à chaque
-  échange : 20 904 237 jetons de relecture, 11 % de tout ce qui a été relu.
-- **Tours courts** — 788 des 1 056 tours (74 %) sortent
+  échange : 25 564 005 jetons de relecture, 11 % de tout ce qui a été relu.
+- **Tours courts** — 923 des 1 238 tours (74 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 60,50 $, soit 67 % de la facture.
+  une sortie de rien. Ils coûtent 75,68 $, soit 66 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 64 719 jetons relus au premier appel qui relise
-  quelque chose, 459 339 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 514 072 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 183496996 -->
+<!-- cout-total: 231346837 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 64719 0 106
 2 principal claude-opus-5 4054 64719 291
@@ -790,829 +883,919 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 322 principal claude-opus-5 333 458542 417
 323 principal claude-opus-5 464 458875 119
 324 principal claude-opus-5 486 459339 1120
-325 agent claude-haiku-4-5-20251001 11688 0 1
-326 agent claude-haiku-4-5-20251001 1278 11688 1
-327 agent claude-haiku-4-5-20251001 630 12966 2
-328 agent claude-haiku-4-5-20251001 2273 13596 2
-329 agent claude-haiku-4-5-20251001 752 15869 2
-330 agent claude-haiku-4-5-20251001 263 16621 5
-331 agent claude-opus-5 12380 0 1
-332 agent claude-opus-5 13012 12380 2
-333 agent claude-opus-5 18598 25392 3
-334 agent claude-opus-5 1200 43990 3
-335 agent claude-opus-5 3173 45190 2
-336 agent claude-opus-5 10030 48363 4
-337 agent claude-opus-5 9389 58393 1
-338 agent claude-haiku-4-5-20251001 11397 0 4
-339 agent claude-haiku-4-5-20251001 1308 11397 2
-340 agent claude-haiku-4-5-20251001 545 12705 2
-341 agent claude-haiku-4-5-20251001 590 13250 2
-342 agent claude-haiku-4-5-20251001 537 13840 4
-343 agent claude-haiku-4-5-20251001 362 14377 5
-344 agent claude-haiku-4-5-20251001 11883 0 1
-345 agent claude-haiku-4-5-20251001 1507 11883 2
-346 agent claude-haiku-4-5-20251001 502 13390 1
-347 agent claude-haiku-4-5-20251001 397 13892 2
-348 agent claude-haiku-4-5-20251001 230 14289 2
-349 agent claude-haiku-4-5-20251001 810 14519 2
-350 agent claude-haiku-4-5-20251001 930 15329 129
-351 agent claude-haiku-4-5-20251001 270 16259 2
-352 agent claude-haiku-4-5-20251001 12120 0 4
-353 agent claude-haiku-4-5-20251001 1232 12120 2
-354 agent claude-haiku-4-5-20251001 499 13352 2
-355 agent claude-haiku-4-5-20251001 1279 13851 2
-356 agent claude-haiku-4-5-20251001 1345 15130 4
-357 agent claude-haiku-4-5-20251001 271 16475 4
-358 agent claude-sonnet-5 17695 0 5
-359 agent claude-sonnet-5 2211 17695 4
-360 agent claude-sonnet-5 291 19906 20
-361 agent claude-sonnet-5 1911 20197 3
-362 agent claude-sonnet-5 271 22108 21
-363 agent claude-sonnet-5 2466 22379 2
-364 agent claude-sonnet-5 2998 24845 2
-365 agent claude-sonnet-5 12598 27843 8
-366 agent claude-sonnet-5 3518 40441 3
-367 agent claude-sonnet-5 7707 43959 2
-368 agent claude-sonnet-5 271 51666 59
-369 agent claude-sonnet-5 604 51937 9
-370 agent claude-sonnet-5 516 52541 17
-371 agent claude-sonnet-5 240 53057 2
-372 agent claude-sonnet-5 1163 53297 2
-373 agent claude-sonnet-5 464 54460 3
-374 agent claude-sonnet-5 213 54924 2
-375 agent claude-sonnet-5 1009 55137 3
-376 agent claude-sonnet-5 2865 56146 3
-377 agent claude-sonnet-5 4832 59011 2
-378 agent claude-sonnet-5 1056 63843 3
-379 agent claude-sonnet-5 1796 64899 2
-380 agent claude-sonnet-5 5722 66695 3
-381 agent claude-sonnet-5 295 72417 3
-382 agent claude-sonnet-5 814 72712 6
-383 agent claude-sonnet-5 451 73526 20
-384 agent claude-sonnet-5 1004 73977 17
-385 agent claude-sonnet-5 454 74981 2
-386 agent claude-sonnet-5 364 75435 4
-387 agent claude-sonnet-5 246 75799 3
-388 agent claude-sonnet-5 257 76045 3
-389 agent claude-sonnet-5 591 76302 2
-390 agent claude-sonnet-5 169 76893 3
-391 agent claude-sonnet-5 647 77062 4
-392 agent claude-sonnet-5 892 77709 3
-393 agent claude-sonnet-5 240 78601 3
-394 agent claude-sonnet-5 145 78841 8
-395 agent claude-sonnet-5 221 78986 20
-396 agent claude-sonnet-5 94 79207 2
-397 agent claude-sonnet-5 121 79301 2
-398 agent claude-sonnet-5 511 79422 7
-399 agent claude-sonnet-5 168 79933 2
-400 agent claude-sonnet-5 629 80101 5
-401 agent claude-sonnet-5 790 80730 3
-402 agent claude-sonnet-5 2160 81520 3
-403 agent claude-sonnet-5 468 83680 17
-404 agent claude-sonnet-5 343 84148 20
-405 agent claude-sonnet-5 83 84491 20
-406 agent claude-sonnet-5 90 84574 20
-407 agent claude-sonnet-5 145 84664 20
-408 agent claude-sonnet-5 500 84809 6
-409 agent claude-sonnet-5 1678 85309 2
-410 agent claude-sonnet-5 2707 86987 2
-411 agent claude-sonnet-5 860 89694 3
-412 agent claude-sonnet-5 695 90554 6
-413 agent claude-sonnet-5 569 91249 2
-414 agent claude-sonnet-5 101 91818 20
-415 agent claude-sonnet-5 188 91919 20
-416 agent claude-sonnet-5 105 92107 3
-417 agent claude-sonnet-5 678 92212 2
-418 agent claude-sonnet-5 353 92890 20
-419 agent claude-sonnet-5 577 93243 5
-420 agent claude-sonnet-5 333 93820 2
-421 agent claude-sonnet-5 600 94153 6
-422 agent claude-sonnet-5 434 94753 20
-423 agent claude-sonnet-5 2788 95187 7
-424 agent claude-sonnet-5 685 97975 2
-425 agent claude-sonnet-5 3764 98660 2
-426 agent claude-sonnet-5 502 102424 17
-427 agent claude-sonnet-5 604 102926 7
-428 agent claude-sonnet-5 3278 103530 2
-429 agent claude-sonnet-5 1072 106808 4
-430 agent claude-sonnet-5 762 107880 17
-431 agent claude-sonnet-5 608 108642 7
-432 agent claude-sonnet-5 6508 109250 2
-433 agent claude-sonnet-5 4992 115758 2
-434 agent claude-sonnet-5 3747 120750 20
-435 agent claude-sonnet-5 167 124497 9
-436 agent claude-sonnet-5 3166 124664 3
-437 agent claude-sonnet-5 1040 127830 3
-438 agent claude-sonnet-5 294 128870 2
-439 agent claude-sonnet-5 2439 129164 3
-440 agent claude-sonnet-5 859 131603 2
-441 agent claude-sonnet-5 555 132462 7
-442 agent claude-sonnet-5 372 133017 20
-443 agent claude-sonnet-5 414 133389 17
-444 agent claude-sonnet-5 689 133803 2
-445 agent claude-sonnet-5 734 134492 20
-446 agent claude-sonnet-5 475 135226 17
-447 agent claude-sonnet-5 947 135701 2
-448 agent claude-sonnet-5 102 136648 20
-449 agent claude-sonnet-5 80 136750 20
-450 agent claude-sonnet-5 144 136830 20
-451 agent claude-sonnet-5 1027 136974 3
-452 agent claude-sonnet-5 684 138001 1
-453 agent claude-sonnet-5 667 138685 1
-454 agent claude-sonnet-5 662 139352 2
-455 agent claude-sonnet-5 652 140014 20
-456 agent claude-sonnet-5 588 140666 2
-457 agent claude-sonnet-5 662 141254 5
-458 agent claude-sonnet-5 677 141916 2
-459 agent claude-sonnet-5 325 142593 9
-460 agent claude-sonnet-5 388 142918 5
-461 agent claude-sonnet-5 758 143306 3
-462 agent claude-sonnet-5 2088 144064 3
-463 agent claude-sonnet-5 1325 146152 17
-464 agent claude-sonnet-5 602 147477 3
-465 agent claude-sonnet-5 1365 148079 1
-466 agent claude-sonnet-5 207 149444 20
-467 agent claude-sonnet-5 180 149651 20
-468 agent claude-sonnet-5 767 149831 2
-469 agent claude-sonnet-5 528 150598 3
-470 agent claude-sonnet-5 220 151126 8
-471 agent claude-sonnet-5 1524 151346 17
-472 agent claude-sonnet-5 489 152870 2
-473 agent claude-sonnet-5 335 153359 2
-474 agent claude-sonnet-5 315 153694 5
-475 agent claude-sonnet-5 159 154009 20
-476 agent claude-sonnet-5 80 154168 20
-477 agent claude-sonnet-5 144 154248 20
-478 agent claude-sonnet-5 447 154392 17
-479 agent claude-sonnet-5 602 154839 2
-480 agent claude-sonnet-5 1074 155441 2
-481 agent claude-sonnet-5 122 156515 20
-482 agent claude-sonnet-5 99 156637 7
-483 agent claude-sonnet-5 301 156736 6
-484 agent claude-sonnet-5 532 157037 2
-485 agent claude-sonnet-5 1082 157569 5
-486 agent claude-sonnet-5 1850 158651 3
-487 agent claude-sonnet-5 7678 160501 2
-488 agent claude-sonnet-5 366 168179 2
-489 agent claude-haiku-4-5-20251001 11755 0 1
-490 agent claude-haiku-4-5-20251001 4143 11755 2
-491 agent claude-haiku-4-5-20251001 853 15898 2
-492 agent claude-haiku-4-5-20251001 1158 16751 3
-493 agent claude-haiku-4-5-20251001 323 17909 4
-494 agent claude-haiku-4-5-20251001 6777 5008 4
-495 agent claude-haiku-4-5-20251001 1386 11785 2
-496 agent claude-haiku-4-5-20251001 322 13171 2
-497 agent claude-haiku-4-5-20251001 1025 13493 2
-498 agent claude-haiku-4-5-20251001 1058 14518 3
-499 agent claude-haiku-4-5-20251001 325 15576 5
-500 agent claude-sonnet-5 9269 8117 5
-501 agent claude-sonnet-5 2206 17386 20
-502 agent claude-sonnet-5 10795 19592 14
-503 agent claude-sonnet-5 14992 30387 2
-504 agent claude-sonnet-5 5528 45379 4
-505 agent claude-sonnet-5 13854 50907 14
-506 agent claude-sonnet-5 4345 64761 7
-507 agent claude-sonnet-5 11937 69106 5
-508 agent claude-sonnet-5 13806 81043 7
-509 agent claude-sonnet-5 535 94849 20
-510 agent claude-sonnet-5 5027 95384 7
-511 agent claude-sonnet-5 562 100411 20
-512 agent claude-sonnet-5 1261 100973 3
-513 agent claude-sonnet-5 13627 102234 5
-514 agent claude-sonnet-5 9305 115861 5
-515 agent claude-sonnet-5 4032 125166 4
-516 agent claude-sonnet-5 178962 0 2
-517 agent claude-sonnet-5 28566 178962 6
-518 agent claude-sonnet-5 5851 207528 3
-519 agent claude-sonnet-5 465 213379 17
-520 agent claude-sonnet-5 346 213844 6
-521 agent claude-sonnet-5 4698 214190 4
-522 agent claude-sonnet-5 836 218888 5
-523 agent claude-sonnet-5 2889 219724 3
-524 agent claude-sonnet-5 290 222613 5
-525 agent claude-sonnet-5 3052 222903 6
-526 agent claude-sonnet-5 1954 225955 5
-527 agent claude-sonnet-5 505 227909 20
-528 agent claude-sonnet-5 880 228414 3
-529 agent claude-sonnet-5 914 229294 8
-530 agent claude-sonnet-5 545 230208 3
-531 agent claude-sonnet-5 1852 230753 5
-532 agent claude-sonnet-5 2290 232605 5
-533 agent claude-sonnet-5 10812 234895 3
-534 agent claude-sonnet-5 5034 245707 3
-535 agent claude-sonnet-5 1696 250741 3
-536 agent claude-sonnet-5 1200 252437 2
-537 agent claude-sonnet-5 1874 253637 3
-538 agent claude-sonnet-5 998 255511 2
-539 agent claude-sonnet-5 2239 256509 1
-540 agent claude-sonnet-5 589 258748 3
-541 agent claude-sonnet-5 1235 259337 20
-542 agent claude-sonnet-5 474 260572 5
-543 agent claude-sonnet-5 937 261046 5
-544 agent claude-sonnet-5 4291 261983 20
-545 agent claude-sonnet-5 1379 266274 2
-546 agent claude-sonnet-5 1054 267653 20
-547 agent claude-sonnet-5 301 268707 2
-548 agent claude-sonnet-5 6585 269008 2
-549 agent claude-sonnet-5 9392 275593 20
-550 agent claude-sonnet-5 2660 284985 3
-551 agent claude-sonnet-5 1282 287645 17
-552 agent claude-sonnet-5 592 288927 3
-553 agent claude-sonnet-5 454 289519 3
-554 agent claude-sonnet-5 327 289973 2
-555 agent claude-sonnet-5 2521 290300 2
-556 agent claude-sonnet-5 5686 292821 8
-557 agent claude-sonnet-5 1653 298507 2
-558 agent claude-sonnet-5 545 300160 6
-559 agent claude-sonnet-5 352 300705 3
-560 agent claude-sonnet-5 1599 301057 1
-561 agent claude-sonnet-5 336 302656 7
-562 agent claude-sonnet-5 816 302992 2
-563 agent claude-sonnet-5 948 303808 2
-564 agent claude-sonnet-5 1284 304756 2
-565 agent claude-sonnet-5 2532 306040 2
-566 agent claude-sonnet-5 483 308572 6
-567 agent claude-sonnet-5 524 309055 7
-568 agent claude-sonnet-5 2620 309579 3
-569 agent claude-sonnet-5 702 312199 20
-570 agent claude-sonnet-5 1395 312901 2
-571 agent claude-sonnet-5 1748 314296 10
-572 agent claude-sonnet-5 2119 316044 2
-573 agent claude-sonnet-5 1831 318163 17
-574 agent claude-sonnet-5 285 319994 3
-575 agent claude-sonnet-5 654 320279 16
-576 agent claude-sonnet-5 596 320933 3
-577 agent claude-sonnet-5 543 321529 20
-578 agent claude-haiku-4-5-20251001 4878 6686 4
-579 agent claude-haiku-4-5-20251001 3545 11564 2
-580 agent claude-haiku-4-5-20251001 781 15109 2
-581 agent claude-haiku-4-5-20251001 672 15890 2
-582 agent claude-haiku-4-5-20251001 268 16562 3
-583 agent claude-sonnet-5 17694 0 5
-584 agent claude-sonnet-5 2205 17694 2
-585 agent claude-sonnet-5 6042 19899 2
-586 agent claude-sonnet-5 8735 25941 3
-587 agent claude-sonnet-5 1488 34676 6
-588 agent claude-sonnet-5 8108 36164 3
-589 agent claude-sonnet-5 2899 44272 20
-590 agent claude-sonnet-5 3687 47171 4
-591 agent claude-sonnet-5 4829 50858 14
-592 agent claude-sonnet-5 3146 55687 7
-593 agent claude-sonnet-5 3592 58833 4
-594 agent claude-sonnet-5 17303 62425 2
-595 agent claude-sonnet-5 175 79728 3
-596 agent claude-sonnet-5 442 79903 20
-597 agent claude-sonnet-5 3084 80345 3
-598 agent claude-sonnet-5 6548 83429 2
-599 agent claude-sonnet-5 359 89977 14
-600 agent claude-sonnet-5 4592 90336 2
-601 agent claude-sonnet-5 382 94928 20
-602 agent claude-sonnet-5 901 95310 2
-603 agent claude-sonnet-5 999 96211 2
-604 agent claude-sonnet-5 583 97210 4
-605 agent claude-sonnet-5 852 97793 3
-606 agent claude-sonnet-5 1809 98645 6
-607 agent claude-sonnet-5 728 100454 2
-608 agent claude-sonnet-5 960 101182 3
-609 agent claude-sonnet-5 432 102142 4
-610 agent claude-sonnet-5 4227 102574 3
-611 agent claude-sonnet-5 413 106801 2
-612 agent claude-sonnet-5 880 107214 9
-613 agent claude-sonnet-5 1700 108094 6
-614 agent claude-sonnet-5 356 109794 2
-615 agent claude-sonnet-5 1344 110150 3
-616 agent claude-sonnet-5 1631 111494 1
-617 agent claude-sonnet-5 163 113125 5
-618 agent claude-sonnet-5 336 113288 2
-619 agent claude-sonnet-5 5061 113624 3
-620 agent claude-sonnet-5 1442 118685 2
-621 agent claude-sonnet-5 259 120127 2
-622 agent claude-haiku-4-5-20251001 11728 0 4
-623 agent claude-haiku-4-5-20251001 1428 11728 2
-624 agent claude-haiku-4-5-20251001 11936 0 1
-625 agent claude-haiku-4-5-20251001 2110 11936 2
-626 agent claude-haiku-4-5-20251001 1401 14046 2
-627 agent claude-haiku-4-5-20251001 1277 15447 2
-628 agent claude-haiku-4-5-20251001 297 16724 3
-629 agent claude-haiku-4-5-20251001 12104 0 4
-630 agent claude-haiku-4-5-20251001 4791 12104 2
-631 agent claude-haiku-4-5-20251001 549 16895 4
-632 agent claude-haiku-4-5-20251001 316 17444 1
-633 agent claude-haiku-4-5-20251001 2470 17760 3
-634 agent claude-haiku-4-5-20251001 384 20230 4
-635 agent claude-haiku-4-5-20251001 11908 0 4
-636 agent claude-haiku-4-5-20251001 1481 11908 2
-637 agent claude-haiku-4-5-20251001 550 13389 2
-638 agent claude-haiku-4-5-20251001 1077 13939 3
-639 agent claude-haiku-4-5-20251001 293 15016 4
-640 agent claude-opus-5 13872 0 1
-641 agent claude-opus-5 6262 13872 5
-642 agent claude-opus-5 7388 20134 3
-643 agent claude-opus-5 6992 27522 4
-644 agent claude-opus-5 10873 34514 4
-645 agent claude-opus-5 5888 45387 2
-646 agent claude-opus-5 1184 51275 2
-647 agent claude-opus-5 381 52459 3
-648 agent claude-opus-5 1152 52840 3
-649 agent claude-opus-5 2180 53992 3
-650 agent claude-opus-5 4879 56172 2
-651 agent claude-opus-5 4617 61051 6
-652 agent claude-opus-5 69496 0 6
-653 agent claude-opus-5 6466 69496 2
-654 agent claude-opus-5 4939 75962 3
-655 agent claude-opus-5 2133 80901 3
-656 agent claude-opus-5 9057 83034 3
-657 agent claude-opus-5 95590 0 3
-658 agent claude-opus-5 10613 95590 3
-659 agent claude-opus-5 3223 106203 3
-660 agent claude-opus-5 4113 109426 2
-661 agent claude-sonnet-5 18271 0 5
-662 agent claude-sonnet-5 2211 18271 5
-663 agent claude-sonnet-5 1767 20482 73
-664 agent claude-sonnet-5 1911 22249 4
-665 agent claude-sonnet-5 6043 24160 2
-666 agent claude-sonnet-5 9847 30203 2
-667 agent claude-sonnet-5 2604 40050 4
-668 agent claude-sonnet-5 3806 42654 4
-669 agent claude-sonnet-5 3400 46460 2
-670 agent claude-sonnet-5 8554 49860 3
-671 agent claude-sonnet-5 4853 58414 3
-672 agent claude-sonnet-5 400 63267 2
-673 agent claude-sonnet-5 3121 63667 3
-674 agent claude-sonnet-5 2338 66788 2
-675 agent claude-sonnet-5 4658 69126 2
-676 agent claude-sonnet-5 571 73784 9
-677 agent claude-sonnet-5 2825 74355 3
-678 agent claude-sonnet-5 239 77180 2
-679 agent claude-sonnet-5 439 77419 3
-680 agent claude-sonnet-5 472 77858 2
-681 agent claude-sonnet-5 3630 78330 2
-682 agent claude-sonnet-5 119027 0 3
-683 agent claude-sonnet-5 5521 119027 20
-684 agent claude-sonnet-5 1179 124548 5
-685 agent claude-sonnet-5 2430 125727 3
-686 agent claude-sonnet-5 9054 128157 6
-687 agent claude-sonnet-5 8910 137211 3
-688 agent claude-sonnet-5 6178 146121 2
-689 agent claude-sonnet-5 10022 152299 8
-690 agent claude-sonnet-5 773 162321 2
-691 agent claude-sonnet-5 2176 163094 6
-692 agent claude-sonnet-5 4181 165270 6
-693 agent claude-sonnet-5 588 169451 17
-694 agent claude-sonnet-5 361 170039 3
-695 agent claude-sonnet-5 1138 170400 3
-696 agent claude-sonnet-5 951 171538 17
-697 agent claude-sonnet-5 333 172489 2
-698 agent claude-sonnet-5 765 172822 1059
-699 agent claude-sonnet-5 1117 173587 3
-700 agent claude-sonnet-5 385 174704 20
-701 agent claude-sonnet-5 303 175089 4
-702 agent claude-sonnet-5 272 175392 20
-703 agent claude-sonnet-5 620 175664 17
-704 agent claude-sonnet-5 1097 176284 4
-705 agent claude-sonnet-5 199 177381 14
-706 agent claude-sonnet-5 237 177580 16
-707 agent claude-sonnet-5 442 177817 7
-708 agent claude-sonnet-5 536 178259 16
-709 agent claude-sonnet-5 732 178795 9
-710 agent claude-sonnet-5 13138 179527 3
-711 agent claude-sonnet-5 2391 192665 3
-712 agent claude-sonnet-5 669 195056 17
-713 agent claude-sonnet-5 289 195725 2
-714 agent claude-sonnet-5 495 196014 20
-715 agent claude-sonnet-5 888 196509 3
-716 agent claude-sonnet-5 454 197397 17
-717 agent claude-sonnet-5 205 197851 5
-718 agent claude-sonnet-5 343 198056 21
-719 agent claude-sonnet-5 191 198399 2
-720 agent claude-sonnet-5 1920 198590 2
-721 agent claude-sonnet-5 1033 200510 2
-722 agent claude-sonnet-5 442 201543 2
-723 agent claude-sonnet-5 815 201985 2
-724 agent claude-sonnet-5 868 202800 2
-725 agent claude-sonnet-5 1873 203668 20
-726 agent claude-sonnet-5 390 205541 2
-727 agent claude-sonnet-5 239 205931 20
-728 agent claude-sonnet-5 419 206170 17
-729 agent claude-sonnet-5 389 206589 6
-730 agent claude-sonnet-5 3025 206978 4
-731 agent claude-sonnet-5 6324 210003 6
-732 agent claude-sonnet-5 3809 216327 2
-733 agent claude-sonnet-5 5096 220136 3
-734 agent claude-sonnet-5 3472 225232 2
-735 agent claude-sonnet-5 1699 228704 2
-736 agent claude-sonnet-5 1642 230403 5
-737 agent claude-sonnet-5 285 232045 3
-738 agent claude-sonnet-5 1922 232330 3
-739 agent claude-sonnet-5 201 234252 6
-740 agent claude-sonnet-5 457 234453 6
-741 agent claude-sonnet-5 2005 234910 2
-742 agent claude-sonnet-5 306 236915 9
-743 agent claude-sonnet-5 1082 237221 3
-744 agent claude-sonnet-5 593 238303 17
-745 agent claude-sonnet-5 446 238896 3
-746 agent claude-sonnet-5 393 239342 4
-747 agent claude-sonnet-5 293 239735 9
-748 agent claude-sonnet-5 794 240028 2
-749 agent claude-sonnet-5 520 240822 1
-750 agent claude-haiku-4-5-20251001 12179 0 4
-751 agent claude-haiku-4-5-20251001 2011 12179 1
-752 agent claude-haiku-4-5-20251001 239 14190 2
-753 agent claude-haiku-4-5-20251001 1305 14429 3
-754 agent claude-haiku-4-5-20251001 260 15734 4
-755 agent claude-sonnet-5 9679 8117 7
-756 agent claude-sonnet-5 2205 17796 5
-757 agent claude-sonnet-5 597 20001 21
-758 agent claude-sonnet-5 13789 20598 8
-759 agent claude-sonnet-5 3589 34387 4
-760 agent claude-sonnet-5 2868 37976 3
-761 agent claude-sonnet-5 3656 40844 6
-762 agent claude-sonnet-5 375 44500 2
-763 agent claude-sonnet-5 8098 44875 7
-764 agent claude-sonnet-5 928 52973 14
-765 agent claude-sonnet-5 5062 53901 6
-766 agent claude-sonnet-5 1473 58963 20
-767 agent claude-sonnet-5 307 60436 6
-768 agent claude-sonnet-5 3139 60743 2
-769 agent claude-sonnet-5 898 63882 2
-770 agent claude-sonnet-5 1579 64780 2
-771 agent claude-sonnet-5 16184 66359 20
-772 agent claude-sonnet-5 865 82543 5
-773 agent claude-sonnet-5 697 83408 2
-774 agent claude-sonnet-5 2879 84105 3
-775 agent claude-sonnet-5 2787 86984 3
-776 agent claude-sonnet-5 697 89771 3
-777 agent claude-sonnet-5 229 90468 2
-778 agent claude-sonnet-5 482 90697 20
-779 agent claude-sonnet-5 1011 91179 17
-780 agent claude-sonnet-5 1752 92190 3
-781 agent claude-sonnet-5 1309 93942 2
-782 agent claude-sonnet-5 799 95251 3
-783 agent claude-sonnet-5 3199 96050 3
-784 agent claude-sonnet-5 1277 99249 3
-785 agent claude-sonnet-5 780 100526 2
-786 agent claude-sonnet-5 778 101306 20
-787 agent claude-sonnet-5 791 102084 2
-788 agent claude-sonnet-5 253 102875 20
-789 agent claude-sonnet-5 128 103128 10
-790 agent claude-sonnet-5 7445 103256 3
-791 agent claude-sonnet-5 270 110701 2
-792 agent claude-sonnet-5 226 110971 3
-793 agent claude-sonnet-5 421 111197 8
-794 agent claude-sonnet-5 175 111618 2
-795 agent claude-sonnet-5 161 111793 2
-796 agent claude-sonnet-5 192 111954 20
-797 agent claude-sonnet-5 191 112146 3
-798 agent claude-sonnet-5 208 112337 16
-799 agent claude-sonnet-5 1752 112545 4
-800 agent claude-sonnet-5 464 114297 17
-801 agent claude-sonnet-5 327 114761 17
-802 agent claude-sonnet-5 325 115088 4
-803 agent claude-sonnet-5 1351 115413 3
-804 agent claude-sonnet-5 487 116764 17
-805 agent claude-sonnet-5 779 117251 3
-806 agent claude-sonnet-5 543 118030 17
-807 agent claude-sonnet-5 488 118573 4
-808 agent claude-sonnet-5 487 119061 20
-809 agent claude-sonnet-5 446 119548 4
-810 agent claude-sonnet-5 2187 119994 3
-811 agent claude-sonnet-5 429 122181 17
-812 agent claude-sonnet-5 351 122610 20
-813 agent claude-sonnet-5 410 122961 17
-814 agent claude-sonnet-5 496 123371 4
-815 agent claude-sonnet-5 4553 123867 3
-816 agent claude-sonnet-5 1925 128420 17
-817 agent claude-sonnet-5 336 130345 7
-818 agent claude-sonnet-5 628 130681 2
-819 agent claude-sonnet-5 419 131309 17
-820 agent claude-sonnet-5 368 131728 3
-821 agent claude-sonnet-5 206 132096 3
-822 agent claude-sonnet-5 100 132302 20
-823 agent claude-sonnet-5 106 132402 20
-824 agent claude-sonnet-5 172 132508 2
-825 agent claude-sonnet-5 346 132680 2
-826 agent claude-sonnet-5 720 133026 8
-827 agent claude-sonnet-5 1790 133746 5
-828 agent claude-sonnet-5 3290 135536 3
-829 agent claude-sonnet-5 819 138826 2
-830 agent claude-sonnet-5 370 139645 2
-831 agent claude-sonnet-5 407 140015 2
-832 agent claude-sonnet-5 1182 140422 20
-833 agent claude-sonnet-5 928 141604 3
-834 agent claude-sonnet-5 981 142532 20
-835 agent claude-sonnet-5 273 143513 2
-836 agent claude-sonnet-5 1115 143786 17
-837 agent claude-sonnet-5 295 144901 3
-838 agent claude-sonnet-5 337 145196 3
-839 agent claude-sonnet-5 879 145533 2
-840 agent claude-sonnet-5 640 146412 2
-841 agent claude-sonnet-5 397 147052 3
-842 agent claude-sonnet-5 1408 147449 2
-843 agent claude-sonnet-5 869 148857 2
-844 agent claude-sonnet-5 1588 149726 2
-845 agent claude-sonnet-5 206 151314 4
-846 agent claude-sonnet-5 474 151520 8
-847 agent claude-sonnet-5 762 151994 20
-848 agent claude-sonnet-5 1742 152756 2
-849 agent claude-sonnet-5 353 154498 3
-850 agent claude-sonnet-5 104 154851 2
-851 agent claude-sonnet-5 17055 0 5
-852 agent claude-sonnet-5 2195 17055 5
-853 agent claude-sonnet-5 9313 19250 20
-854 agent claude-sonnet-5 17832 28563 9
-855 agent claude-sonnet-5 637 46395 20
-856 agent claude-sonnet-5 2723 47032 3
-857 agent claude-sonnet-5 2749 49755 3
-858 agent claude-sonnet-5 11943 52504 3
-859 agent claude-sonnet-5 3109 64447 2
-860 agent claude-sonnet-5 1093 67556 2
-861 agent claude-sonnet-5 105493 0 5
-862 agent claude-sonnet-5 18103 105493 2
-863 agent claude-sonnet-5 905 123596 5
-864 agent claude-sonnet-5 4082 124501 4
-865 agent claude-sonnet-5 2738 128583 2
-866 agent claude-sonnet-5 2304 131321 3
-867 agent claude-sonnet-5 4645 133625 3
-868 agent claude-sonnet-5 6279 138270 3
-869 agent claude-sonnet-5 2049 144549 6
-870 agent claude-sonnet-5 2570 146598 3
-871 agent claude-sonnet-5 3174 149168 3
-872 agent claude-sonnet-5 3149 152342 2
-873 agent claude-sonnet-5 1747 155491 3
-874 agent claude-sonnet-5 175 157238 20
-875 agent claude-sonnet-5 166 157413 2
-876 agent claude-sonnet-5 1511 157579 2
-877 agent claude-sonnet-5 3425 159090 10
-878 agent claude-sonnet-5 3345 162515 3
-879 agent claude-sonnet-5 1744 165860 9
-880 agent claude-sonnet-5 3082 167604 20
-881 agent claude-sonnet-5 752 170686 2
-882 agent claude-sonnet-5 590 171438 9
-883 agent claude-sonnet-5 170 172028 7
-884 agent claude-sonnet-5 342 172198 4
-885 agent claude-sonnet-5 417 172540 7
-886 agent claude-sonnet-5 406 172957 10
-887 agent claude-sonnet-5 498 173363 6
-888 agent claude-sonnet-5 787 173861 2
-889 agent claude-sonnet-5 626 174648 2
-890 agent claude-sonnet-5 203 175274 1
-891 agent claude-sonnet-5 9051 8117 3
-892 agent claude-sonnet-5 2194 17168 4
-893 agent claude-sonnet-5 9445 19362 4
-894 agent claude-sonnet-5 15017 28807 8
-895 agent claude-sonnet-5 2763 43824 3
-896 agent claude-sonnet-5 1438 46587 2
-897 agent claude-sonnet-5 1497 48025 2
-898 agent claude-sonnet-5 14608 49522 5
-899 agent claude-sonnet-5 5335 64130 2
-900 agent claude-sonnet-5 301 69465 3
-901 agent claude-sonnet-5 637 69766 5
-902 agent claude-sonnet-5 14119 70403 3
-903 agent claude-sonnet-5 6045 84522 7
-904 agent claude-sonnet-5 3589 90567 3
-905 agent claude-sonnet-5 20197 94156 3
-906 agent claude-sonnet-5 3483 114353 20
-907 agent claude-sonnet-5 161 117836 9
-908 agent claude-sonnet-5 9802 117997 3
-909 agent claude-sonnet-5 4307 127799 4
-910 agent claude-sonnet-5 2756 132106 3
-911 agent claude-sonnet-5 2100 134862 6
-912 agent claude-sonnet-5 1948 136962 2
-913 agent claude-sonnet-5 5614 138910 20
-914 agent claude-sonnet-5 9615 144524 3
-915 agent claude-sonnet-5 1350 154139 6
-916 agent claude-sonnet-5 4586 155489 8
-917 agent claude-sonnet-5 793 160075 2
-918 agent claude-sonnet-5 340 160868 6
-919 agent claude-sonnet-5 1751 161208 2
-920 agent claude-sonnet-5 1865 162959 4
-921 agent claude-sonnet-5 298 164824 4
-922 agent claude-sonnet-5 615 165122 2
-923 agent claude-sonnet-5 649 165737 2
-924 agent claude-sonnet-5 1360 166386 20
-925 agent claude-sonnet-5 14643 167746 2
-926 agent claude-sonnet-5 826 182389 2
-927 agent claude-sonnet-5 611 183215 20
-928 agent claude-sonnet-5 107 183826 2
-929 agent claude-sonnet-5 3426 183933 3
-930 agent claude-sonnet-5 490 187359 6
-931 agent claude-sonnet-5 521 187849 3
-932 agent claude-sonnet-5 455 188370 2
-933 agent claude-sonnet-5 290 188825 2
-934 agent claude-sonnet-5 551 189115 3
-935 agent claude-sonnet-5 983 189666 5
-936 agent claude-sonnet-5 5564 190649 2
-937 agent claude-sonnet-5 880 196213 6
-938 agent claude-sonnet-5 701 197093 5
-939 agent claude-sonnet-5 383 197794 7
-940 agent claude-sonnet-5 3288 198177 3
-941 agent claude-sonnet-5 1752 201465 17
-942 agent claude-sonnet-5 766 203217 20
-943 agent claude-sonnet-5 113 203983 2
-944 agent claude-sonnet-5 135 204096 8
-945 agent claude-sonnet-5 103 204231 20
-946 agent claude-sonnet-5 747 204334 20
-947 agent claude-sonnet-5 4160 205081 2
-948 agent claude-sonnet-5 134 209241 7
-949 agent claude-sonnet-5 516 209375 2
-950 agent claude-sonnet-5 408 209891 17
-951 agent claude-sonnet-5 528 210299 9
-952 agent claude-sonnet-5 160 210827 7
-953 agent claude-sonnet-5 1295 210987 2
-954 agent claude-sonnet-5 478 212282 17
-955 agent claude-sonnet-5 378 212760 4
-956 agent claude-sonnet-5 808 213138 8
-957 agent claude-sonnet-5 1148 213946 20
-958 agent claude-sonnet-5 170 215094 2
-959 agent claude-sonnet-5 1168 215264 8
-960 agent claude-sonnet-5 288 216432 9
-961 agent claude-sonnet-5 3975 216720 20
-962 agent claude-sonnet-5 459 220695 20
-963 agent claude-sonnet-5 357 221154 6
-964 agent claude-sonnet-5 640 221511 17
-965 agent claude-sonnet-5 396 222151 9
-966 agent claude-sonnet-5 455 222547 20
-967 agent claude-sonnet-5 669 223002 20
-968 agent claude-sonnet-5 127 223671 2
-969 agent claude-sonnet-5 229 223798 7
-970 agent claude-sonnet-5 311 224027 3
-971 agent claude-sonnet-5 385 224338 3
-972 agent claude-sonnet-5 980 224723 2
-973 agent claude-sonnet-5 4837 225703 3
-974 agent claude-sonnet-5 10745 230540 2
-975 agent claude-sonnet-5 577 241285 3
-976 agent claude-sonnet-5 177 241862 3
-977 agent claude-sonnet-5 142 242039 2
-978 agent claude-sonnet-5 2886 242181 10
-979 agent claude-sonnet-5 720 245067 3
-980 agent claude-sonnet-5 1805 245787 1
-981 agent claude-sonnet-5 409 247592 6
-982 agent claude-sonnet-5 324 248001 8
-983 agent claude-sonnet-5 17502 0 3
-984 agent claude-sonnet-5 2195 17502 20
-985 agent claude-sonnet-5 6024 19697 14
-986 agent claude-sonnet-5 2595 25721 20
-987 agent claude-sonnet-5 2590 28316 2
-988 agent claude-sonnet-5 15029 30906 2
-989 agent claude-sonnet-5 292 45935 20
-990 agent claude-sonnet-5 2944 46227 20
-991 agent claude-sonnet-5 2459 49171 20
-992 agent claude-sonnet-5 2788 51630 14
-993 agent claude-sonnet-5 2583 54418 2
-994 agent claude-sonnet-5 3742 57001 14
-995 agent claude-sonnet-5 1475 60743 2
-996 agent claude-sonnet-5 3149 62218 5
-997 agent claude-sonnet-5 3708 65367 6
-998 agent claude-sonnet-5 3608 69075 2
-999 agent claude-sonnet-5 4284 72683 8
-1000 agent claude-sonnet-5 1682 76967 5
-1001 agent claude-sonnet-5 19693 78649 20
-1002 agent claude-sonnet-5 726 98342 2
-1003 agent claude-sonnet-5 7426 99068 2
-1004 agent claude-sonnet-5 879 106494 8
-1005 agent claude-sonnet-5 816 107373 20
-1006 agent claude-sonnet-5 3200 108189 9
-1007 agent claude-sonnet-5 2714 111389 3
-1008 agent claude-sonnet-5 502 114103 4
-1009 agent claude-sonnet-5 430 114605 2
-1010 agent claude-sonnet-5 8857 115035 5
-1011 agent claude-sonnet-5 6330 123892 5
-1012 agent claude-sonnet-5 242 130222 5
-1013 agent claude-sonnet-5 27004 130464 5
-1014 agent claude-sonnet-5 436 157468 3
-1015 agent claude-sonnet-5 2144 157904 2
-1016 agent claude-sonnet-5 1696 160048 6
-1017 agent claude-sonnet-5 1991 161744 5
-1018 agent claude-sonnet-5 825 163735 17
-1019 agent claude-sonnet-5 602 164560 2
-1020 agent claude-sonnet-5 3345 165162 3
-1021 agent claude-sonnet-5 7685 168507 3
-1022 agent claude-sonnet-5 1166 176192 3
-1023 agent claude-sonnet-5 6303 177358 6
-1024 agent claude-sonnet-5 7851 183661 2
-1025 agent claude-sonnet-5 9678 191512 6
-1026 agent claude-sonnet-5 2410 201190 3
-1027 agent claude-sonnet-5 1893 203600 3
-1028 agent claude-sonnet-5 2319 205493 3
-1029 agent claude-sonnet-5 5577 207812 4
-1030 agent claude-sonnet-5 1452 213389 2
-1031 agent claude-sonnet-5 327 214841 4
-1032 agent claude-sonnet-5 507 215168 6
-1033 agent claude-sonnet-5 3457 215675 7
-1034 agent claude-sonnet-5 1961 219132 17
-1035 agent claude-sonnet-5 226 221093 3
-1036 agent claude-sonnet-5 3185 221319 5
-1037 agent claude-sonnet-5 1224 224504 1
-1038 agent claude-sonnet-5 830 225728 2
-1039 agent claude-sonnet-5 2284 226558 6
-1040 agent claude-sonnet-5 4024 228842 2
-1041 agent claude-sonnet-5 691 232866 3
-1042 agent claude-sonnet-5 1185 233557 2
-1043 agent claude-sonnet-5 381 234742 20
-1044 agent claude-sonnet-5 2321 235123 4
-1045 agent claude-sonnet-5 442 237444 20
-1046 agent claude-sonnet-5 1781 237886 3
-1047 agent claude-sonnet-5 1035 239667 6
-1048 agent claude-sonnet-5 340 240702 2
-1049 agent claude-sonnet-5 745 241042 20
-1050 agent claude-sonnet-5 335 241787 9
-1051 agent claude-sonnet-5 1118 242122 7
-1052 agent claude-sonnet-5 484 243240 2
-1053 agent claude-sonnet-5 2172 243724 2
-1054 agent claude-sonnet-5 395 245896 4
-1055 agent claude-sonnet-5 928 246291 2
-1056 agent claude-sonnet-5 192 247219 2
+325 principal claude-opus-5 1231 459825 1542
+326 principal claude-opus-4-7 12813 29200 184
+327 principal claude-opus-4-7 9829 42013 483
+328 principal claude-opus-5 1733 461056 1111
+329 principal claude-opus-5 1698 462789 155
+330 principal claude-opus-5 166 464487 137
+331 principal claude-opus-5 1101 464653 160
+332 principal claude-opus-5 201 465754 137
+333 principal claude-opus-5 662 465955 294
+334 principal claude-opus-5 689 466617 407
+335 principal claude-opus-5 699 467306 135
+336 principal claude-opus-5 180 468005 123
+337 principal claude-opus-5 135 468185 147
+338 principal claude-opus-5 227 468320 965
+339 principal claude-opus-5 463633 0 1511
+340 principal claude-opus-5 1571 463633 77
+341 principal claude-opus-5 2543 465204 138
+342 principal claude-opus-5 377 467747 119
+343 principal claude-opus-5 1411 468124 1248
+344 principal claude-opus-5 1615 469535 1600
+345 principal claude-opus-5 5460 471150 2221
+346 principal claude-opus-5 2885 476610 1130
+347 principal claude-opus-5 1138 479495 266
+348 principal claude-opus-5 286 480633 223
+349 principal claude-opus-5 254 480919 411
+350 principal claude-opus-5 443 481173 28
+351 principal claude-opus-5 77 481616 314
+352 principal claude-opus-5 2390 481693 505
+353 principal claude-opus-5 549 484083 117
+354 principal claude-opus-5 548 484632 573
+355 principal claude-opus-5 631 485180 127
+356 principal claude-opus-5 153 485811 172
+357 principal claude-opus-5 180 485964 1271
+358 principal claude-opus-5 1449 486144 244
+359 principal claude-opus-5 2048 487593 614
+360 principal claude-opus-5 700 489641 121
+361 principal claude-opus-5 543 490341 367
+362 principal claude-opus-5 429 490884 159
+363 principal claude-opus-5 481 491313 274
+364 principal claude-opus-5 420 491794 63
+365 principal claude-opus-5 1867 492214 1099
+366 principal claude-opus-5 1161 494081 289
+367 principal claude-opus-5 4288 495242 612
+368 principal claude-opus-5 1170 499530 793
+369 principal claude-opus-5 855 500700 418
+370 principal claude-opus-5 734 501555 213
+371 principal claude-opus-5 230 502289 237
+372 principal claude-opus-5 287 502519 151
+373 principal claude-opus-5 297 502806 63
+374 principal claude-opus-5 1867 503103 233
+375 principal claude-opus-5 682 504970 1351
+376 principal claude-opus-5 1416 505652 1594
+377 principal claude-opus-4-7 50785 0 238
+378 principal claude-opus-4-7 288 50785 130
+379 principal claude-opus-4-7 204 51073 79
+380 principal claude-opus-4-7 345 51277 90
+381 principal claude-opus-4-7 3513 51622 91
+382 principal claude-opus-4-7 3275 55135 93
+383 principal claude-opus-4-7 2958 58410 93
+384 principal claude-opus-5 1791 507068 1400
+385 principal claude-opus-5 2273 508859 175
+386 principal claude-opus-4-7 6618 61368 2022
+387 principal claude-opus-4-7 8516 67986 388
+388 principal claude-opus-4-7 764 76502 253
+389 principal claude-opus-4-7 1770 77266 2718
+390 principal claude-opus-5 186 511132 137
+391 principal claude-opus-5 1101 511318 158
+392 principal claude-opus-5 199 512419 137
+393 principal claude-opus-5 659 512618 153
+394 principal claude-opus-5 505 513277 163
+395 principal claude-opus-5 290 513782 395
+396 principal claude-opus-5 547 514072 130
+397 agent claude-haiku-4-5-20251001 11688 0 1
+398 agent claude-haiku-4-5-20251001 1278 11688 1
+399 agent claude-haiku-4-5-20251001 630 12966 2
+400 agent claude-haiku-4-5-20251001 2273 13596 2
+401 agent claude-haiku-4-5-20251001 752 15869 2
+402 agent claude-haiku-4-5-20251001 263 16621 5
+403 agent claude-opus-5 12380 0 1
+404 agent claude-opus-5 13012 12380 2
+405 agent claude-opus-5 18598 25392 3
+406 agent claude-opus-5 1200 43990 3
+407 agent claude-opus-5 3173 45190 2
+408 agent claude-opus-5 10030 48363 4
+409 agent claude-opus-5 9389 58393 1
+410 agent claude-haiku-4-5-20251001 11397 0 4
+411 agent claude-haiku-4-5-20251001 1308 11397 2
+412 agent claude-haiku-4-5-20251001 545 12705 2
+413 agent claude-haiku-4-5-20251001 590 13250 2
+414 agent claude-haiku-4-5-20251001 537 13840 4
+415 agent claude-haiku-4-5-20251001 362 14377 5
+416 agent claude-haiku-4-5-20251001 11883 0 1
+417 agent claude-haiku-4-5-20251001 1507 11883 2
+418 agent claude-haiku-4-5-20251001 502 13390 1
+419 agent claude-haiku-4-5-20251001 397 13892 2
+420 agent claude-haiku-4-5-20251001 230 14289 2
+421 agent claude-haiku-4-5-20251001 810 14519 2
+422 agent claude-haiku-4-5-20251001 930 15329 5
+423 agent claude-haiku-4-5-20251001 270 16259 2
+424 agent claude-haiku-4-5-20251001 12120 0 4
+425 agent claude-haiku-4-5-20251001 1232 12120 2
+426 agent claude-haiku-4-5-20251001 499 13352 2
+427 agent claude-haiku-4-5-20251001 1279 13851 2
+428 agent claude-haiku-4-5-20251001 1345 15130 4
+429 agent claude-haiku-4-5-20251001 271 16475 4
+430 agent claude-haiku-4-5-20251001 12034 0 4
+431 agent claude-haiku-4-5-20251001 1346 12034 2
+432 agent claude-haiku-4-5-20251001 3498 13380 2
+433 agent claude-haiku-4-5-20251001 1292 16878 3
+434 agent claude-haiku-4-5-20251001 357 18170 2
+435 agent claude-haiku-4-5-20251001 211 18527 2
+436 agent claude-sonnet-5 17695 0 5
+437 agent claude-sonnet-5 2211 17695 4
+438 agent claude-sonnet-5 291 19906 20
+439 agent claude-sonnet-5 1911 20197 3
+440 agent claude-sonnet-5 271 22108 21
+441 agent claude-sonnet-5 2466 22379 2
+442 agent claude-sonnet-5 2998 24845 2
+443 agent claude-sonnet-5 12598 27843 8
+444 agent claude-sonnet-5 3518 40441 3
+445 agent claude-sonnet-5 7707 43959 2
+446 agent claude-sonnet-5 271 51666 17
+447 agent claude-sonnet-5 604 51937 9
+448 agent claude-sonnet-5 516 52541 17
+449 agent claude-sonnet-5 240 53057 2
+450 agent claude-sonnet-5 1163 53297 2
+451 agent claude-sonnet-5 464 54460 3
+452 agent claude-sonnet-5 213 54924 2
+453 agent claude-sonnet-5 1009 55137 3
+454 agent claude-sonnet-5 2865 56146 3
+455 agent claude-sonnet-5 4832 59011 2
+456 agent claude-sonnet-5 1056 63843 3
+457 agent claude-sonnet-5 1796 64899 2
+458 agent claude-sonnet-5 5722 66695 3
+459 agent claude-sonnet-5 295 72417 3
+460 agent claude-sonnet-5 814 72712 6
+461 agent claude-sonnet-5 451 73526 20
+462 agent claude-sonnet-5 1004 73977 17
+463 agent claude-sonnet-5 454 74981 2
+464 agent claude-sonnet-5 364 75435 4
+465 agent claude-sonnet-5 246 75799 3
+466 agent claude-sonnet-5 257 76045 3
+467 agent claude-sonnet-5 591 76302 2
+468 agent claude-sonnet-5 169 76893 3
+469 agent claude-sonnet-5 647 77062 4
+470 agent claude-sonnet-5 892 77709 3
+471 agent claude-sonnet-5 240 78601 3
+472 agent claude-sonnet-5 145 78841 8
+473 agent claude-sonnet-5 221 78986 20
+474 agent claude-sonnet-5 94 79207 2
+475 agent claude-sonnet-5 121 79301 2
+476 agent claude-sonnet-5 511 79422 7
+477 agent claude-sonnet-5 168 79933 2
+478 agent claude-sonnet-5 629 80101 5
+479 agent claude-sonnet-5 790 80730 3
+480 agent claude-sonnet-5 2160 81520 3
+481 agent claude-sonnet-5 468 83680 17
+482 agent claude-sonnet-5 343 84148 20
+483 agent claude-sonnet-5 83 84491 20
+484 agent claude-sonnet-5 90 84574 20
+485 agent claude-sonnet-5 145 84664 20
+486 agent claude-sonnet-5 500 84809 6
+487 agent claude-sonnet-5 1678 85309 2
+488 agent claude-sonnet-5 2707 86987 2
+489 agent claude-sonnet-5 860 89694 3
+490 agent claude-sonnet-5 695 90554 6
+491 agent claude-sonnet-5 569 91249 2
+492 agent claude-sonnet-5 101 91818 20
+493 agent claude-sonnet-5 188 91919 20
+494 agent claude-sonnet-5 105 92107 3
+495 agent claude-sonnet-5 678 92212 2
+496 agent claude-sonnet-5 353 92890 20
+497 agent claude-sonnet-5 577 93243 5
+498 agent claude-sonnet-5 333 93820 2
+499 agent claude-sonnet-5 600 94153 6
+500 agent claude-sonnet-5 434 94753 20
+501 agent claude-sonnet-5 2788 95187 7
+502 agent claude-sonnet-5 685 97975 2
+503 agent claude-sonnet-5 3764 98660 2
+504 agent claude-sonnet-5 502 102424 17
+505 agent claude-sonnet-5 604 102926 7
+506 agent claude-sonnet-5 3278 103530 2
+507 agent claude-sonnet-5 1072 106808 4
+508 agent claude-sonnet-5 762 107880 17
+509 agent claude-sonnet-5 608 108642 7
+510 agent claude-sonnet-5 6508 109250 2
+511 agent claude-sonnet-5 4992 115758 2
+512 agent claude-sonnet-5 3747 120750 20
+513 agent claude-sonnet-5 167 124497 9
+514 agent claude-sonnet-5 3166 124664 3
+515 agent claude-sonnet-5 1040 127830 3
+516 agent claude-sonnet-5 294 128870 2
+517 agent claude-sonnet-5 2439 129164 3
+518 agent claude-sonnet-5 859 131603 2
+519 agent claude-sonnet-5 555 132462 7
+520 agent claude-sonnet-5 372 133017 20
+521 agent claude-sonnet-5 414 133389 17
+522 agent claude-sonnet-5 689 133803 2
+523 agent claude-sonnet-5 734 134492 20
+524 agent claude-sonnet-5 475 135226 17
+525 agent claude-sonnet-5 947 135701 2
+526 agent claude-sonnet-5 102 136648 20
+527 agent claude-sonnet-5 80 136750 20
+528 agent claude-sonnet-5 144 136830 20
+529 agent claude-sonnet-5 1027 136974 3
+530 agent claude-sonnet-5 684 138001 1
+531 agent claude-sonnet-5 667 138685 1
+532 agent claude-sonnet-5 662 139352 2
+533 agent claude-sonnet-5 652 140014 20
+534 agent claude-sonnet-5 588 140666 2
+535 agent claude-sonnet-5 662 141254 5
+536 agent claude-sonnet-5 677 141916 2
+537 agent claude-sonnet-5 325 142593 9
+538 agent claude-sonnet-5 388 142918 5
+539 agent claude-sonnet-5 758 143306 3
+540 agent claude-sonnet-5 2088 144064 3
+541 agent claude-sonnet-5 1325 146152 17
+542 agent claude-sonnet-5 602 147477 3
+543 agent claude-sonnet-5 1365 148079 1
+544 agent claude-sonnet-5 207 149444 20
+545 agent claude-sonnet-5 180 149651 20
+546 agent claude-sonnet-5 767 149831 2
+547 agent claude-sonnet-5 528 150598 3
+548 agent claude-sonnet-5 220 151126 8
+549 agent claude-sonnet-5 1524 151346 17
+550 agent claude-sonnet-5 489 152870 2
+551 agent claude-sonnet-5 335 153359 2
+552 agent claude-sonnet-5 315 153694 5
+553 agent claude-sonnet-5 159 154009 20
+554 agent claude-sonnet-5 80 154168 20
+555 agent claude-sonnet-5 144 154248 20
+556 agent claude-sonnet-5 447 154392 17
+557 agent claude-sonnet-5 602 154839 2
+558 agent claude-sonnet-5 1074 155441 2
+559 agent claude-sonnet-5 122 156515 20
+560 agent claude-sonnet-5 99 156637 7
+561 agent claude-sonnet-5 301 156736 6
+562 agent claude-sonnet-5 532 157037 2
+563 agent claude-sonnet-5 1082 157569 5
+564 agent claude-sonnet-5 1850 158651 3
+565 agent claude-sonnet-5 7678 160501 2
+566 agent claude-sonnet-5 366 168179 2
+567 agent claude-haiku-4-5-20251001 11755 0 1
+568 agent claude-haiku-4-5-20251001 4143 11755 2
+569 agent claude-haiku-4-5-20251001 853 15898 2
+570 agent claude-haiku-4-5-20251001 1158 16751 3
+571 agent claude-haiku-4-5-20251001 323 17909 4
+572 agent claude-haiku-4-5-20251001 6777 5008 4
+573 agent claude-haiku-4-5-20251001 1386 11785 2
+574 agent claude-haiku-4-5-20251001 322 13171 2
+575 agent claude-haiku-4-5-20251001 1025 13493 2
+576 agent claude-haiku-4-5-20251001 1058 14518 3
+577 agent claude-haiku-4-5-20251001 325 15576 5
+578 agent claude-sonnet-5 9269 8117 5
+579 agent claude-sonnet-5 2206 17386 20
+580 agent claude-sonnet-5 10795 19592 14
+581 agent claude-sonnet-5 14992 30387 2
+582 agent claude-sonnet-5 5528 45379 4
+583 agent claude-sonnet-5 13854 50907 14
+584 agent claude-sonnet-5 4345 64761 7
+585 agent claude-sonnet-5 11937 69106 5
+586 agent claude-sonnet-5 13806 81043 7
+587 agent claude-sonnet-5 535 94849 20
+588 agent claude-sonnet-5 5027 95384 7
+589 agent claude-sonnet-5 562 100411 20
+590 agent claude-sonnet-5 1261 100973 3
+591 agent claude-sonnet-5 13627 102234 5
+592 agent claude-sonnet-5 9305 115861 5
+593 agent claude-sonnet-5 4032 125166 4
+594 agent claude-sonnet-5 178962 0 2
+595 agent claude-sonnet-5 28566 178962 6
+596 agent claude-sonnet-5 5851 207528 3
+597 agent claude-sonnet-5 465 213379 17
+598 agent claude-sonnet-5 346 213844 6
+599 agent claude-sonnet-5 4698 214190 4
+600 agent claude-sonnet-5 836 218888 5
+601 agent claude-sonnet-5 2889 219724 3
+602 agent claude-sonnet-5 290 222613 5
+603 agent claude-sonnet-5 3052 222903 6
+604 agent claude-sonnet-5 1954 225955 5
+605 agent claude-sonnet-5 505 227909 20
+606 agent claude-sonnet-5 880 228414 3
+607 agent claude-sonnet-5 914 229294 8
+608 agent claude-sonnet-5 545 230208 3
+609 agent claude-sonnet-5 1852 230753 5
+610 agent claude-sonnet-5 2290 232605 5
+611 agent claude-sonnet-5 10812 234895 3
+612 agent claude-sonnet-5 5034 245707 3
+613 agent claude-sonnet-5 1696 250741 3
+614 agent claude-sonnet-5 1200 252437 2
+615 agent claude-sonnet-5 1874 253637 3
+616 agent claude-sonnet-5 998 255511 2
+617 agent claude-sonnet-5 2239 256509 1
+618 agent claude-sonnet-5 589 258748 3
+619 agent claude-sonnet-5 1235 259337 20
+620 agent claude-sonnet-5 474 260572 5
+621 agent claude-sonnet-5 937 261046 5
+622 agent claude-sonnet-5 4291 261983 20
+623 agent claude-sonnet-5 1379 266274 2
+624 agent claude-sonnet-5 1054 267653 20
+625 agent claude-sonnet-5 301 268707 2
+626 agent claude-sonnet-5 6585 269008 2
+627 agent claude-sonnet-5 9392 275593 20
+628 agent claude-sonnet-5 2660 284985 3
+629 agent claude-sonnet-5 1282 287645 17
+630 agent claude-sonnet-5 592 288927 3
+631 agent claude-sonnet-5 454 289519 3
+632 agent claude-sonnet-5 327 289973 2
+633 agent claude-sonnet-5 2521 290300 2
+634 agent claude-sonnet-5 5686 292821 8
+635 agent claude-sonnet-5 1653 298507 2
+636 agent claude-sonnet-5 545 300160 6
+637 agent claude-sonnet-5 352 300705 3
+638 agent claude-sonnet-5 1599 301057 1
+639 agent claude-sonnet-5 336 302656 7
+640 agent claude-sonnet-5 816 302992 2
+641 agent claude-sonnet-5 948 303808 2
+642 agent claude-sonnet-5 1284 304756 2
+643 agent claude-sonnet-5 2532 306040 2
+644 agent claude-sonnet-5 483 308572 6
+645 agent claude-sonnet-5 524 309055 7
+646 agent claude-sonnet-5 2620 309579 3
+647 agent claude-sonnet-5 702 312199 20
+648 agent claude-sonnet-5 1395 312901 2
+649 agent claude-sonnet-5 1748 314296 10
+650 agent claude-sonnet-5 2119 316044 2
+651 agent claude-sonnet-5 1831 318163 17
+652 agent claude-sonnet-5 285 319994 3
+653 agent claude-sonnet-5 654 320279 16
+654 agent claude-sonnet-5 596 320933 3
+655 agent claude-sonnet-5 543 321529 20
+656 agent claude-haiku-4-5-20251001 4878 6686 4
+657 agent claude-haiku-4-5-20251001 3545 11564 2
+658 agent claude-haiku-4-5-20251001 781 15109 2
+659 agent claude-haiku-4-5-20251001 672 15890 2
+660 agent claude-haiku-4-5-20251001 268 16562 3
+661 agent claude-sonnet-5 17694 0 5
+662 agent claude-sonnet-5 2205 17694 2
+663 agent claude-sonnet-5 6042 19899 2
+664 agent claude-sonnet-5 8735 25941 3
+665 agent claude-sonnet-5 1488 34676 6
+666 agent claude-sonnet-5 8108 36164 3
+667 agent claude-sonnet-5 2899 44272 20
+668 agent claude-sonnet-5 3687 47171 4
+669 agent claude-sonnet-5 4829 50858 14
+670 agent claude-sonnet-5 3146 55687 7
+671 agent claude-sonnet-5 3592 58833 4
+672 agent claude-sonnet-5 17303 62425 2
+673 agent claude-sonnet-5 175 79728 3
+674 agent claude-sonnet-5 442 79903 20
+675 agent claude-sonnet-5 3084 80345 3
+676 agent claude-sonnet-5 6548 83429 2
+677 agent claude-sonnet-5 359 89977 14
+678 agent claude-sonnet-5 4592 90336 2
+679 agent claude-sonnet-5 382 94928 20
+680 agent claude-sonnet-5 901 95310 2
+681 agent claude-sonnet-5 999 96211 2
+682 agent claude-sonnet-5 583 97210 4
+683 agent claude-sonnet-5 852 97793 3
+684 agent claude-sonnet-5 1809 98645 6
+685 agent claude-sonnet-5 728 100454 2
+686 agent claude-sonnet-5 960 101182 3
+687 agent claude-sonnet-5 432 102142 4
+688 agent claude-sonnet-5 4227 102574 3
+689 agent claude-sonnet-5 413 106801 2
+690 agent claude-sonnet-5 880 107214 9
+691 agent claude-sonnet-5 1700 108094 6
+692 agent claude-sonnet-5 356 109794 2
+693 agent claude-sonnet-5 1344 110150 3
+694 agent claude-sonnet-5 1631 111494 1
+695 agent claude-sonnet-5 163 113125 5
+696 agent claude-sonnet-5 336 113288 2
+697 agent claude-sonnet-5 5061 113624 3
+698 agent claude-sonnet-5 1442 118685 2
+699 agent claude-sonnet-5 259 120127 2
+700 agent claude-haiku-4-5-20251001 11728 0 4
+701 agent claude-haiku-4-5-20251001 1428 11728 2
+702 agent claude-haiku-4-5-20251001 11936 0 1
+703 agent claude-haiku-4-5-20251001 2110 11936 2
+704 agent claude-haiku-4-5-20251001 1401 14046 2
+705 agent claude-haiku-4-5-20251001 1277 15447 2
+706 agent claude-haiku-4-5-20251001 297 16724 3
+707 agent claude-haiku-4-5-20251001 12104 0 4
+708 agent claude-haiku-4-5-20251001 4791 12104 2
+709 agent claude-haiku-4-5-20251001 549 16895 4
+710 agent claude-haiku-4-5-20251001 316 17444 1
+711 agent claude-haiku-4-5-20251001 2470 17760 3
+712 agent claude-haiku-4-5-20251001 384 20230 4
+713 agent claude-haiku-4-5-20251001 11908 0 4
+714 agent claude-haiku-4-5-20251001 1481 11908 2
+715 agent claude-haiku-4-5-20251001 550 13389 2
+716 agent claude-haiku-4-5-20251001 1077 13939 3
+717 agent claude-haiku-4-5-20251001 293 15016 4
+718 agent claude-opus-5 13872 0 1
+719 agent claude-opus-5 6262 13872 5
+720 agent claude-opus-5 7388 20134 3
+721 agent claude-opus-5 6992 27522 4
+722 agent claude-opus-5 10873 34514 4
+723 agent claude-opus-5 5888 45387 2
+724 agent claude-opus-5 1184 51275 2
+725 agent claude-opus-5 381 52459 3
+726 agent claude-opus-5 1152 52840 3
+727 agent claude-opus-5 2180 53992 3
+728 agent claude-opus-5 4879 56172 2
+729 agent claude-opus-5 4617 61051 6
+730 agent claude-opus-5 69496 0 6
+731 agent claude-opus-5 6466 69496 2
+732 agent claude-opus-5 4939 75962 3
+733 agent claude-opus-5 2133 80901 3
+734 agent claude-opus-5 9057 83034 3
+735 agent claude-opus-5 95590 0 3
+736 agent claude-opus-5 10613 95590 3
+737 agent claude-opus-5 3223 106203 3
+738 agent claude-opus-5 4113 109426 2
+739 agent claude-sonnet-5 18271 0 5
+740 agent claude-sonnet-5 2211 18271 5
+741 agent claude-sonnet-5 1767 20482 20
+742 agent claude-sonnet-5 1911 22249 4
+743 agent claude-sonnet-5 6043 24160 2
+744 agent claude-sonnet-5 9847 30203 2
+745 agent claude-sonnet-5 2604 40050 4
+746 agent claude-sonnet-5 3806 42654 4
+747 agent claude-sonnet-5 3400 46460 2
+748 agent claude-sonnet-5 8554 49860 3
+749 agent claude-sonnet-5 4853 58414 3
+750 agent claude-sonnet-5 400 63267 2
+751 agent claude-sonnet-5 3121 63667 3
+752 agent claude-sonnet-5 2338 66788 2
+753 agent claude-sonnet-5 4658 69126 2
+754 agent claude-sonnet-5 571 73784 9
+755 agent claude-sonnet-5 2825 74355 3
+756 agent claude-sonnet-5 239 77180 2
+757 agent claude-sonnet-5 439 77419 3
+758 agent claude-sonnet-5 472 77858 2
+759 agent claude-sonnet-5 3630 78330 2
+760 agent claude-sonnet-5 119027 0 3
+761 agent claude-sonnet-5 5521 119027 20
+762 agent claude-sonnet-5 1179 124548 5
+763 agent claude-sonnet-5 2430 125727 3
+764 agent claude-sonnet-5 9054 128157 6
+765 agent claude-sonnet-5 8910 137211 3
+766 agent claude-sonnet-5 6178 146121 2
+767 agent claude-sonnet-5 10022 152299 8
+768 agent claude-sonnet-5 773 162321 2
+769 agent claude-sonnet-5 2176 163094 6
+770 agent claude-sonnet-5 4181 165270 6
+771 agent claude-sonnet-5 588 169451 17
+772 agent claude-sonnet-5 361 170039 3
+773 agent claude-sonnet-5 1138 170400 3
+774 agent claude-sonnet-5 951 171538 17
+775 agent claude-sonnet-5 333 172489 2
+776 agent claude-sonnet-5 765 172822 20
+777 agent claude-sonnet-5 1117 173587 3
+778 agent claude-sonnet-5 385 174704 20
+779 agent claude-sonnet-5 303 175089 4
+780 agent claude-sonnet-5 272 175392 20
+781 agent claude-sonnet-5 620 175664 17
+782 agent claude-sonnet-5 1097 176284 4
+783 agent claude-sonnet-5 199 177381 14
+784 agent claude-sonnet-5 237 177580 16
+785 agent claude-sonnet-5 442 177817 7
+786 agent claude-sonnet-5 536 178259 16
+787 agent claude-sonnet-5 732 178795 9
+788 agent claude-sonnet-5 13138 179527 3
+789 agent claude-sonnet-5 2391 192665 3
+790 agent claude-sonnet-5 669 195056 17
+791 agent claude-sonnet-5 289 195725 2
+792 agent claude-sonnet-5 495 196014 20
+793 agent claude-sonnet-5 888 196509 3
+794 agent claude-sonnet-5 454 197397 17
+795 agent claude-sonnet-5 205 197851 5
+796 agent claude-sonnet-5 343 198056 21
+797 agent claude-sonnet-5 191 198399 2
+798 agent claude-sonnet-5 1920 198590 2
+799 agent claude-sonnet-5 1033 200510 2
+800 agent claude-sonnet-5 442 201543 2
+801 agent claude-sonnet-5 815 201985 2
+802 agent claude-sonnet-5 868 202800 2
+803 agent claude-sonnet-5 1873 203668 20
+804 agent claude-sonnet-5 390 205541 2
+805 agent claude-sonnet-5 239 205931 20
+806 agent claude-sonnet-5 419 206170 17
+807 agent claude-sonnet-5 389 206589 6
+808 agent claude-sonnet-5 3025 206978 4
+809 agent claude-sonnet-5 6324 210003 6
+810 agent claude-sonnet-5 3809 216327 2
+811 agent claude-sonnet-5 5096 220136 3
+812 agent claude-sonnet-5 3472 225232 2
+813 agent claude-sonnet-5 1699 228704 2
+814 agent claude-sonnet-5 1642 230403 5
+815 agent claude-sonnet-5 285 232045 3
+816 agent claude-sonnet-5 1922 232330 3
+817 agent claude-sonnet-5 201 234252 6
+818 agent claude-sonnet-5 457 234453 6
+819 agent claude-sonnet-5 2005 234910 2
+820 agent claude-sonnet-5 306 236915 9
+821 agent claude-sonnet-5 1082 237221 3
+822 agent claude-sonnet-5 593 238303 17
+823 agent claude-sonnet-5 446 238896 3
+824 agent claude-sonnet-5 393 239342 4
+825 agent claude-sonnet-5 293 239735 9
+826 agent claude-sonnet-5 794 240028 2
+827 agent claude-sonnet-5 520 240822 1
+828 agent claude-haiku-4-5-20251001 12003 0 1
+829 agent claude-haiku-4-5-20251001 5434 12003 2
+830 agent claude-haiku-4-5-20251001 853 17437 2
+831 agent claude-haiku-4-5-20251001 1139 18290 4
+832 agent claude-haiku-4-5-20251001 382 19429 4
+833 agent claude-haiku-4-5-20251001 12179 0 4
+834 agent claude-haiku-4-5-20251001 2011 12179 1
+835 agent claude-haiku-4-5-20251001 239 14190 2
+836 agent claude-haiku-4-5-20251001 1305 14429 3
+837 agent claude-haiku-4-5-20251001 260 15734 4
+838 agent claude-sonnet-5 17918 0 3
+839 agent claude-sonnet-5 18818 17918 5
+840 agent claude-sonnet-5 770 36736 2
+841 agent claude-sonnet-5 16625 37506 2
+842 agent claude-sonnet-5 10249 54131 4
+843 agent claude-sonnet-5 6090 64380 8
+844 agent claude-sonnet-5 19133 70470 3
+845 agent claude-sonnet-5 6837 89603 3
+846 agent claude-sonnet-5 3132 96440 3
+847 agent claude-sonnet-5 818 99572 20
+848 agent claude-sonnet-5 7372 100390 3
+849 agent claude-sonnet-5 11293 107762 3
+850 agent claude-sonnet-5 5079 119055 3
+851 agent claude-sonnet-5 1314 124134 6
+852 agent claude-sonnet-5 8345 125448 3
+853 agent claude-sonnet-5 1261 133793 3
+854 agent claude-sonnet-5 667 135054 2
+855 agent claude-sonnet-5 535 135721 5
+856 agent claude-sonnet-5 535 136256 2
+857 agent claude-sonnet-5 506 136791 3
+858 agent claude-sonnet-5 8131 137297 3
+859 agent claude-sonnet-5 487 145428 6
+860 agent claude-sonnet-5 1512 145915 3
+861 agent claude-sonnet-5 1641 147427 17
+862 agent claude-sonnet-5 1963 149068 3
+863 agent claude-sonnet-5 607 151031 4
+864 agent claude-sonnet-5 3482 151638 3
+865 agent claude-sonnet-5 524 155120 5
+866 agent claude-sonnet-5 155 155644 3
+867 agent claude-sonnet-5 1431 155799 3
+868 agent claude-sonnet-5 2110 157230 3
+869 agent claude-sonnet-5 1558 159340 10
+870 agent claude-sonnet-5 1630 160898 3
+871 agent claude-sonnet-5 1182 162528 2
+872 agent claude-sonnet-5 6305 163710 1
+873 agent claude-sonnet-5 1965 170015 3
+874 agent claude-sonnet-5 739 171980 20
+875 agent claude-sonnet-5 181 172719 5
+876 agent claude-sonnet-5 1298 172900 20
+877 agent claude-sonnet-5 311 174198 5
+878 agent claude-sonnet-5 621 174509 8
+879 agent claude-sonnet-5 4035 175130 4
+880 agent claude-sonnet-5 4363 179165 7
+881 agent claude-sonnet-5 2351 183528 14
+882 agent claude-sonnet-5 585 185879 8
+883 agent claude-sonnet-5 1058 186464 17
+884 agent claude-sonnet-5 280 187522 3
+885 agent claude-sonnet-5 6365 187802 3
+886 agent claude-sonnet-5 2309 194167 5
+887 agent claude-sonnet-5 595 196476 5
+888 agent claude-sonnet-5 901 197071 20
+889 agent claude-sonnet-5 1763 197972 3
+890 agent claude-sonnet-5 825 199735 9
+891 agent claude-sonnet-5 1365 200560 20
+892 agent claude-sonnet-5 963 201925 2
+893 agent claude-sonnet-5 1505 202888 3
+894 agent claude-sonnet-5 4059 204393 3
+895 agent claude-sonnet-5 1136 208452 20
+896 agent claude-sonnet-5 294 209588 2
+897 agent claude-sonnet-5 2572 209882 2
+898 agent claude-sonnet-5 480 212454 17
+899 agent claude-sonnet-5 474 212934 3
+900 agent claude-sonnet-5 1852 213408 3
+901 agent claude-sonnet-5 2671 215260 20
+902 agent claude-sonnet-5 991 217931 8
+903 agent claude-sonnet-5 1035 218922 9
+904 agent claude-sonnet-5 331 219957 2
+905 agent claude-sonnet-5 2206 220288 1
+906 agent claude-sonnet-5 143 222494 20
+907 agent claude-sonnet-5 183 222637 5
+908 agent claude-sonnet-5 795 222820 17
+909 agent claude-sonnet-5 649 223615 8
+910 agent claude-sonnet-5 898 224264 17
+911 agent claude-sonnet-5 655 225162 3
+912 agent claude-sonnet-5 736 225817 3
+913 agent claude-sonnet-5 1011 226553 21
+914 agent claude-sonnet-5 1342 227564 7
+915 agent claude-sonnet-5 1137 228906 3
+916 agent claude-sonnet-5 1018 230043 7
+917 agent claude-sonnet-5 476 231061 3
+918 agent claude-sonnet-5 1040 231537 6
+919 agent claude-sonnet-5 861 232577 8
+920 agent claude-sonnet-5 1697 233438 3
+921 agent claude-sonnet-5 1398 235135 4
+922 agent claude-sonnet-5 1980 236533 3
+923 agent claude-sonnet-5 815 238513 14
+924 agent claude-sonnet-5 651 239328 10
+925 agent claude-sonnet-5 1242 239979 3
+926 agent claude-sonnet-5 157 241221 2
+927 agent claude-sonnet-5 402 241378 3
+928 agent claude-sonnet-5 108 241780 2
+929 agent claude-sonnet-5 469 241888 9
+930 agent claude-sonnet-5 526 242357 2
+931 agent claude-sonnet-5 224 242883 9
+932 agent claude-sonnet-5 411 243107 2
+933 agent claude-sonnet-5 272 243518 20
+934 agent claude-sonnet-5 277 243790 9
+935 agent claude-sonnet-5 965 244067 2
+936 agent claude-sonnet-5 312 245032 1
+937 agent claude-sonnet-5 9679 8117 7
+938 agent claude-sonnet-5 2205 17796 5
+939 agent claude-sonnet-5 597 20001 21
+940 agent claude-sonnet-5 13789 20598 8
+941 agent claude-sonnet-5 3589 34387 4
+942 agent claude-sonnet-5 2868 37976 3
+943 agent claude-sonnet-5 3656 40844 6
+944 agent claude-sonnet-5 375 44500 2
+945 agent claude-sonnet-5 8098 44875 7
+946 agent claude-sonnet-5 928 52973 14
+947 agent claude-sonnet-5 5062 53901 6
+948 agent claude-sonnet-5 1473 58963 20
+949 agent claude-sonnet-5 307 60436 6
+950 agent claude-sonnet-5 3139 60743 2
+951 agent claude-sonnet-5 898 63882 2
+952 agent claude-sonnet-5 1579 64780 2
+953 agent claude-sonnet-5 16184 66359 20
+954 agent claude-sonnet-5 865 82543 5
+955 agent claude-sonnet-5 697 83408 2
+956 agent claude-sonnet-5 2879 84105 3
+957 agent claude-sonnet-5 2787 86984 3
+958 agent claude-sonnet-5 697 89771 3
+959 agent claude-sonnet-5 229 90468 2
+960 agent claude-sonnet-5 482 90697 20
+961 agent claude-sonnet-5 1011 91179 17
+962 agent claude-sonnet-5 1752 92190 3
+963 agent claude-sonnet-5 1309 93942 2
+964 agent claude-sonnet-5 799 95251 3
+965 agent claude-sonnet-5 3199 96050 3
+966 agent claude-sonnet-5 1277 99249 3
+967 agent claude-sonnet-5 780 100526 2
+968 agent claude-sonnet-5 778 101306 20
+969 agent claude-sonnet-5 791 102084 2
+970 agent claude-sonnet-5 253 102875 20
+971 agent claude-sonnet-5 128 103128 10
+972 agent claude-sonnet-5 7445 103256 3
+973 agent claude-sonnet-5 270 110701 2
+974 agent claude-sonnet-5 226 110971 3
+975 agent claude-sonnet-5 421 111197 8
+976 agent claude-sonnet-5 175 111618 2
+977 agent claude-sonnet-5 161 111793 2
+978 agent claude-sonnet-5 192 111954 20
+979 agent claude-sonnet-5 191 112146 3
+980 agent claude-sonnet-5 208 112337 16
+981 agent claude-sonnet-5 1752 112545 4
+982 agent claude-sonnet-5 464 114297 17
+983 agent claude-sonnet-5 327 114761 17
+984 agent claude-sonnet-5 325 115088 4
+985 agent claude-sonnet-5 1351 115413 3
+986 agent claude-sonnet-5 487 116764 17
+987 agent claude-sonnet-5 779 117251 3
+988 agent claude-sonnet-5 543 118030 17
+989 agent claude-sonnet-5 488 118573 4
+990 agent claude-sonnet-5 487 119061 20
+991 agent claude-sonnet-5 446 119548 4
+992 agent claude-sonnet-5 2187 119994 3
+993 agent claude-sonnet-5 429 122181 17
+994 agent claude-sonnet-5 351 122610 20
+995 agent claude-sonnet-5 410 122961 17
+996 agent claude-sonnet-5 496 123371 4
+997 agent claude-sonnet-5 4553 123867 3
+998 agent claude-sonnet-5 1925 128420 17
+999 agent claude-sonnet-5 336 130345 7
+1000 agent claude-sonnet-5 628 130681 2
+1001 agent claude-sonnet-5 419 131309 17
+1002 agent claude-sonnet-5 368 131728 3
+1003 agent claude-sonnet-5 206 132096 3
+1004 agent claude-sonnet-5 100 132302 20
+1005 agent claude-sonnet-5 106 132402 20
+1006 agent claude-sonnet-5 172 132508 2
+1007 agent claude-sonnet-5 346 132680 2
+1008 agent claude-sonnet-5 720 133026 8
+1009 agent claude-sonnet-5 1790 133746 5
+1010 agent claude-sonnet-5 3290 135536 3
+1011 agent claude-sonnet-5 819 138826 2
+1012 agent claude-sonnet-5 370 139645 2
+1013 agent claude-sonnet-5 407 140015 2
+1014 agent claude-sonnet-5 1182 140422 20
+1015 agent claude-sonnet-5 928 141604 3
+1016 agent claude-sonnet-5 981 142532 20
+1017 agent claude-sonnet-5 273 143513 2
+1018 agent claude-sonnet-5 1115 143786 17
+1019 agent claude-sonnet-5 295 144901 3
+1020 agent claude-sonnet-5 337 145196 3
+1021 agent claude-sonnet-5 879 145533 2
+1022 agent claude-sonnet-5 640 146412 2
+1023 agent claude-sonnet-5 397 147052 3
+1024 agent claude-sonnet-5 1408 147449 2
+1025 agent claude-sonnet-5 869 148857 2
+1026 agent claude-sonnet-5 1588 149726 2
+1027 agent claude-sonnet-5 206 151314 4
+1028 agent claude-sonnet-5 474 151520 8
+1029 agent claude-sonnet-5 762 151994 20
+1030 agent claude-sonnet-5 1742 152756 2
+1031 agent claude-sonnet-5 353 154498 3
+1032 agent claude-sonnet-5 104 154851 2
+1033 agent claude-sonnet-5 17055 0 5
+1034 agent claude-sonnet-5 2195 17055 5
+1035 agent claude-sonnet-5 9313 19250 20
+1036 agent claude-sonnet-5 17832 28563 9
+1037 agent claude-sonnet-5 637 46395 20
+1038 agent claude-sonnet-5 2723 47032 3
+1039 agent claude-sonnet-5 2749 49755 3
+1040 agent claude-sonnet-5 11943 52504 3
+1041 agent claude-sonnet-5 3109 64447 2
+1042 agent claude-sonnet-5 1093 67556 2
+1043 agent claude-sonnet-5 105493 0 5
+1044 agent claude-sonnet-5 18103 105493 2
+1045 agent claude-sonnet-5 905 123596 5
+1046 agent claude-sonnet-5 4082 124501 4
+1047 agent claude-sonnet-5 2738 128583 2
+1048 agent claude-sonnet-5 2304 131321 3
+1049 agent claude-sonnet-5 4645 133625 3
+1050 agent claude-sonnet-5 6279 138270 3
+1051 agent claude-sonnet-5 2049 144549 6
+1052 agent claude-sonnet-5 2570 146598 3
+1053 agent claude-sonnet-5 3174 149168 3
+1054 agent claude-sonnet-5 3149 152342 2
+1055 agent claude-sonnet-5 1747 155491 3
+1056 agent claude-sonnet-5 175 157238 20
+1057 agent claude-sonnet-5 166 157413 2
+1058 agent claude-sonnet-5 1511 157579 2
+1059 agent claude-sonnet-5 3425 159090 10
+1060 agent claude-sonnet-5 3345 162515 3
+1061 agent claude-sonnet-5 1744 165860 9
+1062 agent claude-sonnet-5 3082 167604 20
+1063 agent claude-sonnet-5 752 170686 2
+1064 agent claude-sonnet-5 590 171438 9
+1065 agent claude-sonnet-5 170 172028 7
+1066 agent claude-sonnet-5 342 172198 4
+1067 agent claude-sonnet-5 417 172540 7
+1068 agent claude-sonnet-5 406 172957 10
+1069 agent claude-sonnet-5 498 173363 6
+1070 agent claude-sonnet-5 787 173861 2
+1071 agent claude-sonnet-5 626 174648 2
+1072 agent claude-sonnet-5 203 175274 1
+1073 agent claude-sonnet-5 9051 8117 3
+1074 agent claude-sonnet-5 2194 17168 4
+1075 agent claude-sonnet-5 9445 19362 4
+1076 agent claude-sonnet-5 15017 28807 8
+1077 agent claude-sonnet-5 2763 43824 3
+1078 agent claude-sonnet-5 1438 46587 2
+1079 agent claude-sonnet-5 1497 48025 2
+1080 agent claude-sonnet-5 14608 49522 5
+1081 agent claude-sonnet-5 5335 64130 2
+1082 agent claude-sonnet-5 301 69465 3
+1083 agent claude-sonnet-5 637 69766 5
+1084 agent claude-sonnet-5 14119 70403 3
+1085 agent claude-sonnet-5 6045 84522 7
+1086 agent claude-sonnet-5 3589 90567 3
+1087 agent claude-sonnet-5 20197 94156 3
+1088 agent claude-sonnet-5 3483 114353 20
+1089 agent claude-sonnet-5 161 117836 9
+1090 agent claude-sonnet-5 9802 117997 3
+1091 agent claude-sonnet-5 4307 127799 4
+1092 agent claude-sonnet-5 2756 132106 3
+1093 agent claude-sonnet-5 2100 134862 6
+1094 agent claude-sonnet-5 1948 136962 2
+1095 agent claude-sonnet-5 5614 138910 20
+1096 agent claude-sonnet-5 9615 144524 3
+1097 agent claude-sonnet-5 1350 154139 6
+1098 agent claude-sonnet-5 4586 155489 8
+1099 agent claude-sonnet-5 793 160075 2
+1100 agent claude-sonnet-5 340 160868 6
+1101 agent claude-sonnet-5 1751 161208 2
+1102 agent claude-sonnet-5 1865 162959 4
+1103 agent claude-sonnet-5 298 164824 4
+1104 agent claude-sonnet-5 615 165122 2
+1105 agent claude-sonnet-5 649 165737 2
+1106 agent claude-sonnet-5 1360 166386 20
+1107 agent claude-sonnet-5 14643 167746 2
+1108 agent claude-sonnet-5 826 182389 2
+1109 agent claude-sonnet-5 611 183215 20
+1110 agent claude-sonnet-5 107 183826 2
+1111 agent claude-sonnet-5 3426 183933 3
+1112 agent claude-sonnet-5 490 187359 6
+1113 agent claude-sonnet-5 521 187849 3
+1114 agent claude-sonnet-5 455 188370 2
+1115 agent claude-sonnet-5 290 188825 2
+1116 agent claude-sonnet-5 551 189115 3
+1117 agent claude-sonnet-5 983 189666 5
+1118 agent claude-sonnet-5 5564 190649 2
+1119 agent claude-sonnet-5 880 196213 6
+1120 agent claude-sonnet-5 701 197093 5
+1121 agent claude-sonnet-5 383 197794 7
+1122 agent claude-sonnet-5 3288 198177 3
+1123 agent claude-sonnet-5 1752 201465 17
+1124 agent claude-sonnet-5 766 203217 20
+1125 agent claude-sonnet-5 113 203983 2
+1126 agent claude-sonnet-5 135 204096 8
+1127 agent claude-sonnet-5 103 204231 20
+1128 agent claude-sonnet-5 747 204334 20
+1129 agent claude-sonnet-5 4160 205081 2
+1130 agent claude-sonnet-5 134 209241 7
+1131 agent claude-sonnet-5 516 209375 2
+1132 agent claude-sonnet-5 408 209891 17
+1133 agent claude-sonnet-5 528 210299 9
+1134 agent claude-sonnet-5 160 210827 7
+1135 agent claude-sonnet-5 1295 210987 2
+1136 agent claude-sonnet-5 478 212282 17
+1137 agent claude-sonnet-5 378 212760 4
+1138 agent claude-sonnet-5 808 213138 8
+1139 agent claude-sonnet-5 1148 213946 20
+1140 agent claude-sonnet-5 170 215094 2
+1141 agent claude-sonnet-5 1168 215264 8
+1142 agent claude-sonnet-5 288 216432 9
+1143 agent claude-sonnet-5 3975 216720 20
+1144 agent claude-sonnet-5 459 220695 20
+1145 agent claude-sonnet-5 357 221154 6
+1146 agent claude-sonnet-5 640 221511 17
+1147 agent claude-sonnet-5 396 222151 9
+1148 agent claude-sonnet-5 455 222547 20
+1149 agent claude-sonnet-5 669 223002 20
+1150 agent claude-sonnet-5 127 223671 2
+1151 agent claude-sonnet-5 229 223798 7
+1152 agent claude-sonnet-5 311 224027 3
+1153 agent claude-sonnet-5 385 224338 3
+1154 agent claude-sonnet-5 980 224723 2
+1155 agent claude-sonnet-5 4837 225703 3
+1156 agent claude-sonnet-5 10745 230540 2
+1157 agent claude-sonnet-5 577 241285 3
+1158 agent claude-sonnet-5 177 241862 3
+1159 agent claude-sonnet-5 142 242039 2
+1160 agent claude-sonnet-5 2886 242181 10
+1161 agent claude-sonnet-5 720 245067 3
+1162 agent claude-sonnet-5 1805 245787 1
+1163 agent claude-sonnet-5 409 247592 6
+1164 agent claude-sonnet-5 324 248001 8
+1165 agent claude-sonnet-5 17502 0 3
+1166 agent claude-sonnet-5 2195 17502 20
+1167 agent claude-sonnet-5 6024 19697 14
+1168 agent claude-sonnet-5 2595 25721 20
+1169 agent claude-sonnet-5 2590 28316 2
+1170 agent claude-sonnet-5 15029 30906 2
+1171 agent claude-sonnet-5 292 45935 20
+1172 agent claude-sonnet-5 2944 46227 20
+1173 agent claude-sonnet-5 2459 49171 20
+1174 agent claude-sonnet-5 2788 51630 14
+1175 agent claude-sonnet-5 2583 54418 2
+1176 agent claude-sonnet-5 3742 57001 14
+1177 agent claude-sonnet-5 1475 60743 2
+1178 agent claude-sonnet-5 3149 62218 5
+1179 agent claude-sonnet-5 3708 65367 6
+1180 agent claude-sonnet-5 3608 69075 2
+1181 agent claude-sonnet-5 4284 72683 8
+1182 agent claude-sonnet-5 1682 76967 5
+1183 agent claude-sonnet-5 19693 78649 20
+1184 agent claude-sonnet-5 726 98342 2
+1185 agent claude-sonnet-5 7426 99068 2
+1186 agent claude-sonnet-5 879 106494 8
+1187 agent claude-sonnet-5 816 107373 20
+1188 agent claude-sonnet-5 3200 108189 9
+1189 agent claude-sonnet-5 2714 111389 3
+1190 agent claude-sonnet-5 502 114103 4
+1191 agent claude-sonnet-5 430 114605 2
+1192 agent claude-sonnet-5 8857 115035 5
+1193 agent claude-sonnet-5 6330 123892 5
+1194 agent claude-sonnet-5 242 130222 5
+1195 agent claude-sonnet-5 27004 130464 5
+1196 agent claude-sonnet-5 436 157468 3
+1197 agent claude-sonnet-5 2144 157904 2
+1198 agent claude-sonnet-5 1696 160048 6
+1199 agent claude-sonnet-5 1991 161744 5
+1200 agent claude-sonnet-5 825 163735 17
+1201 agent claude-sonnet-5 602 164560 2
+1202 agent claude-sonnet-5 3345 165162 3
+1203 agent claude-sonnet-5 7685 168507 3
+1204 agent claude-sonnet-5 1166 176192 3
+1205 agent claude-sonnet-5 6303 177358 6
+1206 agent claude-sonnet-5 7851 183661 2
+1207 agent claude-sonnet-5 9678 191512 6
+1208 agent claude-sonnet-5 2410 201190 3
+1209 agent claude-sonnet-5 1893 203600 3
+1210 agent claude-sonnet-5 2319 205493 3
+1211 agent claude-sonnet-5 5577 207812 4
+1212 agent claude-sonnet-5 1452 213389 2
+1213 agent claude-sonnet-5 327 214841 4
+1214 agent claude-sonnet-5 507 215168 6
+1215 agent claude-sonnet-5 3457 215675 7
+1216 agent claude-sonnet-5 1961 219132 17
+1217 agent claude-sonnet-5 226 221093 3
+1218 agent claude-sonnet-5 3185 221319 5
+1219 agent claude-sonnet-5 1224 224504 1
+1220 agent claude-sonnet-5 830 225728 2
+1221 agent claude-sonnet-5 2284 226558 6
+1222 agent claude-sonnet-5 4024 228842 2
+1223 agent claude-sonnet-5 691 232866 3
+1224 agent claude-sonnet-5 1185 233557 2
+1225 agent claude-sonnet-5 381 234742 20
+1226 agent claude-sonnet-5 2321 235123 4
+1227 agent claude-sonnet-5 442 237444 20
+1228 agent claude-sonnet-5 1781 237886 3
+1229 agent claude-sonnet-5 1035 239667 6
+1230 agent claude-sonnet-5 340 240702 2
+1231 agent claude-sonnet-5 745 241042 20
+1232 agent claude-sonnet-5 335 241787 9
+1233 agent claude-sonnet-5 1118 242122 7
+1234 agent claude-sonnet-5 484 243240 2
+1235 agent claude-sonnet-5 2172 243724 2
+1236 agent claude-sonnet-5 395 245896 4
+1237 agent claude-sonnet-5 928 246291 2
+1238 agent claude-sonnet-5 192 247219 2
 -->
 <!-- /cout -->
-
----
-
-## Suite — les deux premiers retours d'usage
-
-L'application a servi une première fois. Deux remarques, dont une qui est un
-défaut livré et non une demande.
-
-### 19. La sonnerie de fin était inaudible, et la cause était physique
-
-**Symptome** — l'utilisatrice demande « une sonnerie à la fin des décomptes ».
-Elle existe pourtant : `sonnerie()` est appelée au bon moment, le code est
-correct, et un test le couvre.
-
-**Cause** — le PRP 04 avait choisi, pour distinguer la fin des trois bips qui la
-précèdent, un son « plus bas et plus long » : un sinus à 220 Hz. Or un
-haut-parleur de téléphone ne restitue presque rien sous 400 Hz. Les bips à
-440-659 Hz s'entendaient ; la seule note qui compte était sous le plancher du
-matériel qui la joue. La conception sonore a été faite sur une idée de la
-perception — grave contre aigu — sans tenir compte du transducteur.
-
-**Detecte par** — `utilisateur`
-
-**Action** — `contrat` — aucun garde-fou ne peut entendre un son, et aucun test
-non plus : c'est le seul canal de cette application qu'on ne peut ni compiler,
-ni mesurer, ni capturer. Ce qui manquait n'est pas un test mais une **règle de
-conception** : sur un haut-parleur de téléphone, un signal se distingue par son
-**rythme**, jamais par sa hauteur, et rien sous 400 Hz ne doit porter une
-information. Elle mérite d'être écrite là où la prochaine app la lira.
-
-### 20. La séance était une file rigide, et rien ne l'avait signalé
-
-**Symptome** — « il n'est pas possible de sauter un exercice pour pouvoir le
-refaire plus tard ». Face à un ATR qui ne passe pas ou à un salon trop petit
-pour une roue, la gymnaste n'avait que deux issues : cocher sans avoir fait, ou
-abandonner la séance entière.
-
-**Cause** — le PRD a décrit le parcours nominal avec soin (§7.3) et n'a jamais
-posé la question « et si elle ne peut pas faire celui-là ? ». Les cinq questions
-de cadrage portaient sur le programme, le rythme et la sauvegarde ; aucune ne
-portait sur l'échec d'un exercice, qui est pourtant l'événement le plus
-ordinaire d'un entraînement.
-
-**Detecte par** — `utilisateur`
-
-**Action** — `comportement` — au cadrage d'un parcours, poser explicitement la
-question du **cas où l'utilisateur ne peut pas faire l'étape**. Elle ne s'est
-pas posée ici parce que le parcours nominal était limpide, et c'est précisément
-quand il l'est qu'on l'oublie.
-
-### 21. Ma correction d'alignement avait neutralisé l'attribut `hidden`
-
-**Symptome** — « Remettre à zéro » s'affichait sur les exercices qui se
-comptent, où il n'a aucun sens : on ne remet pas à zéro un compte de vingt
-fermetures. Le code posait pourtant bien `remise.hidden = true`.
-
-**Cause** — la mienne, et elle date de l'anomalie 16. En déclarant
-`display: inline-flex` sur `.bouton--discret` pour unifier les axes
-d'alignement, j'ai donné à une règle d'auteur la priorité sur le
-`display: none` que le navigateur applique à `[hidden]` : l'attribut a cessé
-de cacher quoi que ce soit. Exactement le même défaut que `.confirmation-case`
-plus tôt sur cette branche — **deuxième occurrence, même fichier, même cause**,
-et je ne l'ai pas vue en corrigeant la première.
-
-**Detecte par** — `relecture` — trouvé par l'artisan du lot suivant, capture
-d'écran à l'appui, alors que ce n'était pas son sujet.
-
-**Action** — `garde-fou` — une classe qui déclare `display` doit rendre
-l'attribut `hidden`. C'est une règle mécanique, vérifiable par un test qui
-lirait la feuille de style et exigerait, pour toute classe posant `display`,
-une règle `[hidden]` correspondante. Deux occurrences sur une seule branche
-suffisent à le justifier.
-
-### 22. J'ai appliqué une règle de design à un contenu qu'elle ne visait pas
-
-**Symptome** — `DESIGN.md` pose que le champ jersey porte un objet focal. J'ai
-appliqué la règle à l'écran des exercices passés, et obtenu une **phrase
-entière** de neuf mots à la taille d'affichage, occupant tout l'écran. Ça ne
-lisait plus, ça criait.
-
-**Cause** — la règle avait été écrite depuis des cas où l'objet focal était un
-nom court : « Le socle », « x16 », « 0:28 ». Elle ne disait pas que la brièveté
-en faisait partie, parce qu'aucun cas construit n'avait eu de phrase à placer.
-Une règle tirée d'exemples homogènes n'énonce pas ce que ces exemples avaient
-en commun sans le dire.
-
-**Detecte par** — `relecture` — vu sur capture, immédiatement.
-
-**Action** — `rien` — corrigé en séparant les deux : le **nombre** est l'objet
-focal, la phrase l'explique en dessous à la taille du texte courant. La leçon
-est déjà écrite dans le commentaire du code, à l'endroit où le prochain la
-lira.
