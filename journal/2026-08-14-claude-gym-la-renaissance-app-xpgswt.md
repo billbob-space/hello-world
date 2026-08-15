@@ -1524,3 +1524,95 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1056 agent claude-sonnet-5 192 247219 2
 -->
 <!-- /cout -->
+
+---
+
+## Suite — les deux premiers retours d'usage
+
+L'application a servi une première fois. Deux remarques, dont une qui est un
+défaut livré et non une demande.
+
+### 19. La sonnerie de fin était inaudible, et la cause était physique
+
+**Symptome** — l'utilisatrice demande « une sonnerie à la fin des décomptes ».
+Elle existe pourtant : `sonnerie()` est appelée au bon moment, le code est
+correct, et un test le couvre.
+
+**Cause** — le PRP 04 avait choisi, pour distinguer la fin des trois bips qui la
+précèdent, un son « plus bas et plus long » : un sinus à 220 Hz. Or un
+haut-parleur de téléphone ne restitue presque rien sous 400 Hz. Les bips à
+440-659 Hz s'entendaient ; la seule note qui compte était sous le plancher du
+matériel qui la joue. La conception sonore a été faite sur une idée de la
+perception — grave contre aigu — sans tenir compte du transducteur.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `contrat` — aucun garde-fou ne peut entendre un son, et aucun test
+non plus : c'est le seul canal de cette application qu'on ne peut ni compiler,
+ni mesurer, ni capturer. Ce qui manquait n'est pas un test mais une **règle de
+conception** : sur un haut-parleur de téléphone, un signal se distingue par son
+**rythme**, jamais par sa hauteur, et rien sous 400 Hz ne doit porter une
+information. Elle mérite d'être écrite là où la prochaine app la lira.
+
+### 20. La séance était une file rigide, et rien ne l'avait signalé
+
+**Symptome** — « il n'est pas possible de sauter un exercice pour pouvoir le
+refaire plus tard ». Face à un ATR qui ne passe pas ou à un salon trop petit
+pour une roue, la gymnaste n'avait que deux issues : cocher sans avoir fait, ou
+abandonner la séance entière.
+
+**Cause** — le PRD a décrit le parcours nominal avec soin (§7.3) et n'a jamais
+posé la question « et si elle ne peut pas faire celui-là ? ». Les cinq questions
+de cadrage portaient sur le programme, le rythme et la sauvegarde ; aucune ne
+portait sur l'échec d'un exercice, qui est pourtant l'événement le plus
+ordinaire d'un entraînement.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — au cadrage d'un parcours, poser explicitement la
+question du **cas où l'utilisateur ne peut pas faire l'étape**. Elle ne s'est
+pas posée ici parce que le parcours nominal était limpide, et c'est précisément
+quand il l'est qu'on l'oublie.
+
+### 21. Ma correction d'alignement avait neutralisé l'attribut `hidden`
+
+**Symptome** — « Remettre à zéro » s'affichait sur les exercices qui se
+comptent, où il n'a aucun sens : on ne remet pas à zéro un compte de vingt
+fermetures. Le code posait pourtant bien `remise.hidden = true`.
+
+**Cause** — la mienne, et elle date de l'anomalie 16. En déclarant
+`display: inline-flex` sur `.bouton--discret` pour unifier les axes
+d'alignement, j'ai donné à une règle d'auteur la priorité sur le
+`display: none` que le navigateur applique à `[hidden]` : l'attribut a cessé
+de cacher quoi que ce soit. Exactement le même défaut que `.confirmation-case`
+plus tôt sur cette branche — **deuxième occurrence, même fichier, même cause**,
+et je ne l'ai pas vue en corrigeant la première.
+
+**Detecte par** — `relecture` — trouvé par l'artisan du lot suivant, capture
+d'écran à l'appui, alors que ce n'était pas son sujet.
+
+**Action** — `garde-fou` — une classe qui déclare `display` doit rendre
+l'attribut `hidden`. C'est une règle mécanique, vérifiable par un test qui
+lirait la feuille de style et exigerait, pour toute classe posant `display`,
+une règle `[hidden]` correspondante. Deux occurrences sur une seule branche
+suffisent à le justifier.
+
+### 22. J'ai appliqué une règle de design à un contenu qu'elle ne visait pas
+
+**Symptome** — `DESIGN.md` pose que le champ jersey porte un objet focal. J'ai
+appliqué la règle à l'écran des exercices passés, et obtenu une **phrase
+entière** de neuf mots à la taille d'affichage, occupant tout l'écran. Ça ne
+lisait plus, ça criait.
+
+**Cause** — la règle avait été écrite depuis des cas où l'objet focal était un
+nom court : « Le socle », « x16 », « 0:28 ». Elle ne disait pas que la brièveté
+en faisait partie, parce qu'aucun cas construit n'avait eu de phrase à placer.
+Une règle tirée d'exemples homogènes n'énonce pas ce que ces exemples avaient
+en commun sans le dire.
+
+**Detecte par** — `relecture` — vu sur capture, immédiatement.
+
+**Action** — `rien` — corrigé en séparant les deux : le **nombre** est l'objet
+focal, la phrase l'explique en dessous à la taille du texte courant. La leçon
+est déjà écrite dans le commentaire du code, à l'endroit où le prochain la
+lira.

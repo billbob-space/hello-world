@@ -14,12 +14,25 @@
 
 // Les trois dernières secondes, en montant (3 s, 2 s, 1 s avant la fin).
 export const FREQUENCES_BIP = [440, 554.37, 659.25];
-// Le zéro : plus bas que le plus grave des bips — « elle distingue deux sons,
-// pas trois nuances ».
-export const FREQUENCE_ZERO = 220;
 export const DUREE_BIP_MS = 120;
-// Plus long que le bip, pour que le zéro se reconnaisse sans le voir.
-export const DUREE_ZERO_MS = 500;
+export const GAIN_BIP = 0.2;
+
+// Le zéro : ANCIENNEMENT une note grave unique, sous le plancher qu'un
+// haut-parleur de téléphone restitue — remonté après coup (« Ajouté après
+// les PRP », A2) : elle distingue les deux sons par le RYTHME, jamais par la
+// hauteur, seul critère qu'un petit haut-parleur transmet fidèlement. La
+// sonnerie reprend donc une fréquence de la même bande que les bips, mais en
+// impulsions répétées et sensiblement plus fortes.
+export const FREQUENCE_SONNERIE = 1046.5; // dans la bande efficace d'un petit haut-parleur
+export const NB_IMPULSIONS_SONNERIE = 4;
+export const DUREE_IMPULSION_SONNERIE_MS = 140;
+export const SILENCE_ENTRE_IMPULSIONS_MS = 90;
+export const GAIN_SONNERIE = 0.55; // sensiblement plus fort que GAIN_BIP
+
+// Le second canal (A2) : le seul qui traverse un téléphone en silencieux.
+// Le motif alterne vibration et repos, au rythme de la sonnerie plutôt qu'en
+// un seul long buzz indifférencié.
+export const MOTIF_VIBRATION = [160, 90, 160, 90, 160, 90, 160];
 
 let contexteAudio = null;
 
@@ -57,7 +70,11 @@ export function estDisponible() {
   return ctx !== null && ctx.state === 'running';
 }
 
-function jouer(frequence, dureeMs) {
+// `gainMax` porte le volume perçu (A2 : la sonnerie doit être sensiblement
+// plus forte que les bips, pas seulement plus longue) ; `depart` permet de
+// planifier plusieurs impulsions à l'avance sur la même horloge audio,
+// plutôt que de les faire toutes partir au même instant.
+function jouer(frequence, dureeMs, gainMax, depart) {
   const ctx = obtenirContexte();
   if (ctx === null) return;
   try {
@@ -67,16 +84,29 @@ function jouer(frequence, dureeMs) {
     oscillateur.connect(gain);
     gain.connect(ctx.destination);
 
-    const depart = ctx.currentTime;
-    const fin = depart + dureeMs / 1000;
-    gain.gain.setValueAtTime(0.0001, depart);
-    gain.gain.exponentialRampToValueAtTime(0.2, depart + 0.01);
+    const debut = depart ?? ctx.currentTime;
+    const fin = debut + dureeMs / 1000;
+    gain.gain.setValueAtTime(0.0001, debut);
+    gain.gain.exponentialRampToValueAtTime(gainMax, debut + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, fin);
 
-    oscillateur.start(depart);
+    oscillateur.start(debut);
     oscillateur.stop(fin + 0.02);
   } catch (err) {
     console.warn('renaissance-gym : son indisponible', err);
+  }
+}
+
+// Le second canal (A2) : le seul qui traverse un téléphone en silencieux.
+// Ne lève jamais et ne lance rien si l'interface manque — un navigateur qui
+// ne connaît pas `navigator.vibrate` doit se taire, pas échouer.
+function vibrer() {
+  if (typeof navigator === 'undefined') return;
+  if (typeof navigator.vibrate !== 'function') return;
+  try {
+    navigator.vibrate(MOTIF_VIBRATION);
+  } catch (err) {
+    console.warn('renaissance-gym : vibration indisponible', err);
   }
 }
 
@@ -85,10 +115,22 @@ function jouer(frequence, dureeMs) {
 // le nombre de secondes restantes — ce module ne devine jamais le mode d'un
 // exercice, il ne fait que jouer la note qu'on lui donne.
 export function bip(hauteur) {
-  jouer(hauteur, DUREE_BIP_MS);
+  jouer(hauteur, DUREE_BIP_MS, GAIN_BIP);
 }
 
-// Le zéro : plus bas et plus long.
+// Le zéro (A2) : elle se distingue des bips par le RYTHME — une série
+// d'impulsions dans la bande où un petit haut-parleur reste efficace,
+// nettement plus fortes — jamais par la hauteur, que le haut-parleur visé ne
+// restitue pas fidèlement en dessous de cette bande. La vibration l'accompagne
+// systématiquement, en second canal, sans jamais devenir une condition pour
+// que le son lui-même joue.
 export function sonnerie() {
-  jouer(FREQUENCE_ZERO, DUREE_ZERO_MS);
+  const ctx = obtenirContexte();
+  if (ctx !== null) {
+    for (let i = 0; i < NB_IMPULSIONS_SONNERIE; i += 1) {
+      const ecart = i * (DUREE_IMPULSION_SONNERIE_MS + SILENCE_ENTRE_IMPULSIONS_MS) / 1000;
+      jouer(FREQUENCE_SONNERIE, DUREE_IMPULSION_SONNERIE_MS, GAIN_SONNERIE, ctx.currentTime + ecart);
+    }
+  }
+  vibrer();
 }

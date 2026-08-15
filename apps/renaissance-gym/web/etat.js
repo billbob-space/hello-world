@@ -17,6 +17,12 @@ export const ETAT_VIDE = {
   dernierEnvoi: null,
   dernierSucces: null,
   badges: [],
+  // A1 (« Ajouté après les PRP ») : la file de la seance en cours, pour
+  // qu'une seance interrompue puis reprise retrouve son ordre — y compris
+  // les exercices passes. Jamais envoyee au serveur (voir synchro.js) : ce
+  // n'est pas un fait, seulement l'ordre local d'une seance qui n'est pas
+  // finie.
+  fileSeance: null, // { semaine, numero, file: [id...], passes: [id...] }
 };
 
 export const EVT_ETAT = 'gym:etat-maj';
@@ -89,6 +95,20 @@ function memeFait(a, b) {
   return a.seance === b.seance && a.semaine === b.semaine && a.exercice === b.exercice;
 }
 
+function estListeIdentifiants(v) {
+  return Array.isArray(v) && v.every((id) => typeof id === 'string' && id !== '');
+}
+
+function estFileSeanceValide(f) {
+  return (
+    f !== null && typeof f === 'object'
+    && Number.isInteger(f.semaine) && f.semaine >= 1 && f.semaine <= 8
+    && Number.isInteger(f.numero) && f.numero >= 1 && f.numero <= 4
+    && estListeIdentifiants(f.file)
+    && estListeIdentifiants(f.passes)
+  );
+}
+
 // Ne rend JAMAIS null et ne lance jamais : un stockage indisponible degrade
 // vers l'etat en memoire, il ne casse jamais l'application (PRP 02).
 export function lireEtat() {
@@ -108,7 +128,8 @@ export function lireEtat() {
 
   const faits = Array.isArray(valeur.faits) ? valeur.faits.filter(estFaitValide) : [];
   const badges = Array.isArray(valeur.badges) ? valeur.badges.filter((b) => typeof b === 'string' && b !== '') : [];
-  return { ...ETAT_VIDE, ...valeur, faits, badges };
+  const fileSeance = estFileSeanceValide(valeur.fileSeance) ? valeur.fileSeance : null;
+  return { ...ETAT_VIDE, ...valeur, faits, badges, fileSeance };
 }
 
 // FUSIONNE puis ecrit -> l'etat a jour. Un remplacement complet serait le
@@ -140,6 +161,16 @@ export function retirerFait(f) {
   const faits = actuel.faits.filter((existant) => !memeFait(existant, f));
   if (faits.length === actuel.faits.length) return actuel;
   return ecrireEtat({ faits });
+}
+
+// A1 : ecrit la file d'une seance en cours (et les exercices deja passes au
+// moins une fois) — c'est ce qui permet a une seance interrompue de
+// retrouver son ordre au rechargement. Un fichier vide (plus rien a valider)
+// efface l'entree plutot que de garder une file finie qui generait une
+// future relecture de cette meme seance.
+export function ecrireFileSeance(semaine, numero, file, passes) {
+  const valeur = file.length === 0 ? null : { semaine, numero, file: [...file], passes: [...passes] };
+  return ecrireEtat({ fileSeance: valeur });
 }
 
 // Rend true si la cle existait avant l'effacement.

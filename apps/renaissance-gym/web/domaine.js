@@ -97,6 +97,41 @@ export function fusionner(faitsA, faitsB) {
   return [...carte.values()].sort((a, b) => cle(a).localeCompare(cle(b)));
 }
 
+// --- « Ajouté après les PRP », A1 : « Passer » un exercice -----------------
+//
+// La file d'une seance en cours : les identifiants des exercices non encore
+// valides, dans leur ordre de presentation. « Passer » ne valide rien et ne
+// retire rien de la seance — c'est un changement d'ORDRE dans cette file,
+// jamais une reduction, jamais un fait. Aucune de ces fonctions ne touche
+// `faits` : un exercice passe ne compte ni comme fait ni comme manque, et la
+// regle §9.1 (une seance est faite quand TOUS ses exercices sont valides)
+// n'a besoin de rien savoir de plus.
+
+// La file initiale d'une seance : ses exercices, dans l'ordre du programme,
+// moins ceux deja valides — la meme reprise que `indexPremierNonFait`, mais
+// rendue comme une file entiere plutot qu'un seul index, pour que la suite
+// puisse la reordonner.
+export function fileInitiale(exercicesSeance, faitsSet) {
+  return exercicesSeance.filter((ex) => !faitsSet.has(ex.id)).map((ex) => ex.id);
+}
+
+// Renvoie l'exercice en tete de file A LA FIN de la file : ni valide, ni
+// perdu, seulement reordonne. Elle peut le passer autant de fois qu'elle
+// veut : il revient toujours, puisque rien ici ne le retire jamais de la
+// file. Une file d'un seul exercice (ou vide) est rendue inchangee.
+export function passerEnFile(file) {
+  if (file.length <= 1) return [...file];
+  const [tete, ...reste] = file;
+  return [...reste, tete];
+}
+
+// Vrai quand tout ce qui reste dans la file a deja ete passe au moins une
+// fois : le signal qui declenche « il ne reste que des exercices que tu as
+// passes » a l'ecran.
+export function fileNeContientQueDesPasses(file, idsPasses) {
+  return file.length > 0 && file.every((id) => idsPasses.has(id));
+}
+
 // Un instantane de la progression, pour la grille et les badges (lot 3) :
 // combien de seances faites au total, combien de semaines entierement
 // bouclees, combien d'exercices distincts deja vus au moins une fois.

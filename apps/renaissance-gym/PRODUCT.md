@@ -594,3 +594,74 @@ Les décisions qui viennent de ce document, et qu'il faut donc contester ici et
 non ailleurs : la progression des objectifs sur les huit semaines (§ 8.3), la
 composition des quatre séances (§ 8.4), le code à six chiffres (§ 10.2), la
 semaine glissante de sept jours (§ 8.5), et les six exclusions du § 6.
+
+---
+
+# Ajouté après les PRP
+
+Ce que l'usage réel a produit, et qu'aucun PRP n'avait prévu. Chaque entrée est
+écrite dans le même commit que son code : un PRD qui décrit une application qui
+n'existe plus ment, et rien ne le signale.
+
+## A1. Passer un exercice, et le retrouver plus tard
+
+**Remonté par le demandeur après la première utilisation**, le 15 août 2026 :
+« il n'est pas possible de sauter un exercice pour pouvoir le refaire plus
+tard ».
+
+Le PRP 04 avait fait de la séance une file rigide : un exercice se valide, ou
+la séance s'arrête. Or une gymnaste qui bute sur un ATR, qui n'a pas la place
+pour une roue dans son salon, ou qui doit céder le tapis à son frère, n'a que
+deux issues — mentir en cochant, ou abandonner la séance. Les deux sont pires
+que le problème.
+
+**Ce qui est ajouté** : sur l'écran de séance, une action discrète « Passer ».
+L'exercice passé n'est **ni validé ni perdu** : il retourne **à la fin de la
+file**, et la séance le represente quand les autres sont faits.
+
+- Elle peut le passer autant de fois qu'elle veut : il revient toujours.
+- Quand il ne reste que des exercices passés, l'écran le dit — le **nombre**
+  en grand, et sous lui « exercices que tu as passés, et qui t'attendent » —
+  et les propose à nouveau. Le nombre porte parce qu'une phrase entière à la
+  taille d'affichage crie au lieu d'informer.
+- Elle peut **terminer la séance sans eux**. Ce qu'elle a fait est conservé ;
+  la séance n'est simplement pas cochée dans la grille, parce que la règle §9.1
+  ne bouge pas : une séance est faite quand tous ses exercices le sont.
+- La grille reste corrigible (§9.4) : une séance finie sans le téléphone se
+  coche à la main.
+
+**Ce qui n'est pas fait, et pourquoi** : passer un exercice n'est **jamais
+compté ni affiché** comme un manquement. Pas de compteur d'exercices passés,
+pas de couleur d'alerte, aucune mention dans la grille. Le §14 le pose :
+l'abandon est le risque principal de cette application, et un écran qui tient
+le décompte de ce qu'on a évité est une raison de plus de ne pas rouvrir l'app.
+
+## A2. La sonnerie de fin s'entend
+
+**Remonté par le demandeur en même temps** : « j'aimerais aussi avoir une
+sonnerie à la fin des décomptes ». Elle existait pourtant, et le code
+l'appelait bien au bon moment.
+
+**La cause est physique, pas logique.** Le PRP 04 avait choisi, pour distinguer
+la fin des trois bips qui la précèdent, un son « plus bas et plus long » — un
+sinus à 220 Hz pendant une demi-seconde. Or un haut-parleur de téléphone ne
+restitue presque rien sous 400 Hz : les bips aigus s'entendaient, et la seule
+note qui compte — celle qui dit que le gainage est fini — était inaudible.
+C'était une décision de conception sonore prise sans tenir compte du matériel
+qui la joue.
+
+**Ce qui change** :
+
+- la fin n'est plus une note grave mais une **sonnerie répétée**, dans la bande
+  où un haut-parleur de téléphone est efficace, et sensiblement plus forte que
+  les bips ;
+- elle se distingue des bips par le **rythme et la répétition**, non par la
+  hauteur — c'est le seul critère qu'un petit haut-parleur transmet fidèlement ;
+- une **vibration** l'accompagne quand l'appareil en est capable. C'est le
+  second canal, et le seul qui traverse un téléphone en mode silencieux.
+
+**Ce qui ne change pas** : le §15.3 tient toujours. Le visuel porte l'information
+complète, le son ne fait que l'ajouter, et aucun test ne dépend de lui. Sur un
+iPhone dont l'interrupteur latéral est sur silence, le son du navigateur est
+coupé par le système et **aucune page web ne peut passer outre** : la vibration
+et l'écran sont alors les seuls signaux, et c'est assumé.
