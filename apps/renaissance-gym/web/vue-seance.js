@@ -106,7 +106,7 @@ export function monterSeance(hote, ctx) {
     empiecement.append(el('span', 'etiquette', `${index + 1} / ${total}`));
     const barre = el('div', 'barre-couture');
     const remplissage = el('div', 'barre-couture__remplissage');
-    remplissage.style.width = `${Math.round((index / total) * 100)}%`;
+    remplissage.style.transform = `scaleX(${index / total})`;
     barre.append(remplissage);
     empiecement.append(barre);
     section.append(empiecement, el('hr', 'passepoil'));
@@ -173,6 +173,7 @@ export function monterSeance(hote, ctx) {
         if (phase === 'attente') {
           phase = 'en-cours';
           bouton.disabled = true;
+          bouton.textContent = 'Tiens bon…';
           chrono.demarrer();
         } else if (phase === 'suivant') {
           avancer();

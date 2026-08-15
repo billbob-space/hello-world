@@ -79,9 +79,25 @@ h1, h2, h3 {
 
 p { margin: 0; }
 
+/* La coque : une colonne pleine hauteur. #ecran ne porte jamais qu'un seul
+   ecran a la fois (le routeur vide et remplace), qui doit donc occuper toute
+   la hauteur visible pour que chaque vue puisse coller son action en bas
+   (repli 100vh pour les navigateurs sans dvh). */
 #ecran {
-  display: block;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Chaque ecran monte est une <section> unique, enfant direct de #ecran : elle
+   grandit pour occuper toute la coque, en colonne, pour porter les trois
+   zones (empiecement en haut, champ jersey qui grandit, action en bas). */
+#ecran > section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* La zone sure : le telephone est pose par terre et la barre d'accueil d'iOS
@@ -227,6 +243,24 @@ p { margin: 0; }
   display: flex;
   flex-direction: column;
   gap: calc(var(--pas) * 2);
+  /* Le champ jersey grandit pour occuper ce que l'empiecement ne prend pas
+     (ossature §4, FIRST VIEWPORT) : c'est cet espace qui pousse l'action
+     principale vers le bas plutot que de la laisser flotter au milieu. */
+  flex: 1;
+  min-height: 0;
+}
+
+/* Le geste principal d'un ecran colle en bas, a portee de pouce (ossature §4,
+   §5.4) : dans une colonne flex, une marge haute automatique consomme tout
+   l'espace libre au-dessus de l'element qui la porte. Seuls les boutons
+   ENFANTS DIRECTS du champ jersey sont vises : ceux qui vivent dans une
+   confirmation ou une saisie ne bougent pas. */
+.corps-entree > .bouton,
+.corps-jour > .bouton,
+.corps-seance-fin > .bouton,
+.corps-grille > .bouton,
+.corps-reglages > .bouton {
+  margin-top: auto;
 }
 
 /* La variante compacte de l'empiecement (PRP 05) : la grille et les reglages
@@ -241,7 +275,11 @@ p { margin: 0; }
   display: block;
 }
 
-.corps-entree input[type='text'],
+/* Tout champ texte de l'application, pas seulement ceux de l'entree : sans
+   quoi un champ hors de `.corps-entree` (le prenom des reglages, par
+   exemple) tombe sur le style brut du navigateur — bordure noire, fond
+   blanc — en pleine rupture avec le monde du justaucorps. */
+input[type='text'],
 .saisie-code__case {
   width: 100%;
   min-height: var(--cible-min);
@@ -255,7 +293,7 @@ p { margin: 0; }
   font-size: var(--taille-texte);
 }
 
-.corps-entree input[type='text']:focus,
+input[type='text']:focus,
 .saisie-code__case:focus {
   border-color: var(--bleu-roi);
   outline: none;
@@ -345,11 +383,17 @@ p { margin: 0; }
   overflow: hidden;
 }
 
+/* La progression s'anime par transform et non par width : animer une
+   propriete de mise en page fait recalculer la page a chaque image, et ce
+   telephone n'est pas le plus recent de la maison. L'element occupe donc
+   toute la largeur et se met a l'echelle depuis son bord gauche. */
 .barre-couture__remplissage {
   height: 100%;
+  width: 100%;
+  transform-origin: left center;
   background: var(--or);
   border-radius: var(--angle);
-  transition: width 200ms ease-out;
+  transition: transform 200ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -359,13 +403,21 @@ p { margin: 0; }
 }
 
 /* L'objectif de la semaine, en tres grand : x16 ou le decompte (ossature
-   §5.2 : le decompte du minuteur, clamp(5rem, 28vw, 11rem)). */
+   §5.2 : le decompte du minuteur, clamp(5rem, 28vw, 11rem)). C'est ce qu'elle
+   regarde a un metre : il grandit dans le champ jersey et s'y centre
+   verticalement, plutot que de rester colle sous le nom de l'exercice. */
 .objectif-seance {
   font-family: var(--display);
   font-variation-settings: 'wdth' 125, 'wght' 800;
   font-size: var(--taille-decompte);
   font-variant-numeric: tabular-nums;
   color: var(--bleu-nuit);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .objectif-seance--minuteur .decompte {
@@ -499,6 +551,15 @@ p { margin: 0; }
   display: flex;
   flex-direction: column;
   gap: calc(var(--pas) * 1);
+}
+
+/* Un emplacement de confirmation vide (etat par defaut, ou referme) ne doit
+   ni occuper de place ni afficher de fond : sans cette regle, la regle
+   `display: flex` ci-dessus l'emporte sur le `display: none` que le
+   navigateur applique par defaut a `[hidden]`, et une barre grise vide traine
+   au bas de l'ecran. */
+.confirmation-case[hidden] {
+  display: none;
 }
 
 .confirmation-case__question {
