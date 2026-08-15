@@ -10,7 +10,9 @@ import {
   semaineCourante, debutDeSemaine, semaineEstPassee, semaineEstFuture,
   faitsDeSeance, seanceEstFaite, seancesFaites, prochaineSeance,
   fusionner, progression,
+  fileInitiale, passerEnFile, fileNeContientQueDesPasses,
 } from '../web/domaine.js';
+import { exercicesDeSeance } from '../web/programme.js';
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const prog = chargerProgramme(JSON.parse(readFileSync(join(web, 'programme.json'), 'utf8')));
@@ -188,6 +190,70 @@ test('progression compte les seances faites, les semaines completes, et les exer
   assert.equal(p.seancesFaites, 4);
   assert.equal(p.semainesCompletes, 1);
   assert.equal(p.exercicesVus, 36, 'la semaine 1 couvre exactement les 36 exercices (PRD §8.4)');
+});
+
+// --- « Ajouté après les PRP », A1 : la file de « Passer » ------------------
+
+test('fileInitiale rend les exercices non faits, dans l’ordre du programme', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const exs1 = exercicesDeSeance(prog, 1);
+  assert.deepEqual(fileInitiale(exs1, new Set()), s1.exercices, 'rien de fait : la file complète, dans l’ordre');
+
+  const premier = s1.exercices[0];
+  assert.deepEqual(
+    fileInitiale(exs1, new Set([premier])),
+    s1.exercices.slice(1),
+    'le premier déjà fait : il n’est plus dans la file',
+  );
+});
+
+test('passerEnFile renvoie la tête de file à la fin, sans rien perdre ni dupliquer', () => {
+  const file = ['e01', 'e02', 'e03'];
+  const apres = passerEnFile(file);
+  assert.deepEqual(apres, ['e02', 'e03', 'e01']);
+  assert.deepEqual(file, ['e01', 'e02', 'e03'], 'la file d’origine n’est pas mutée');
+});
+
+test('passerEnFile : elle revient TOUJOURS — passer indéfiniment ne le fait jamais disparaître', () => {
+  let file = ['e01', 'e02', 'e03'];
+  for (let i = 0; i < 20; i += 1) {
+    file = passerEnFile(file);
+    assert.ok(file.includes('e01'), `« e01 » a disparu après ${i + 1} passages`);
+  }
+  // Trois passages ramènent exactement à l’ordre de départ (une rotation
+  // complète d’une file de trois éléments).
+  assert.deepEqual(passerEnFile(passerEnFile(passerEnFile(['e01', 'e02', 'e03']))), ['e01', 'e02', 'e03']);
+});
+
+test('passerEnFile : une file d’un seul exercice (ou vide) est rendue inchangée', () => {
+  assert.deepEqual(passerEnFile(['e01']), ['e01']);
+  assert.deepEqual(passerEnFile([]), []);
+});
+
+test('fileNeContientQueDesPasses est vrai seulement quand TOUT ce qui reste a déjà été passé', () => {
+  const file = ['e01', 'e02'];
+  assert.equal(fileNeContientQueDesPasses(file, new Set()), false, 'rien n’a encore été passé');
+  assert.equal(fileNeContientQueDesPasses(file, new Set(['e01'])), false, 'un exercice « frais » reste dans la file');
+  assert.equal(fileNeContientQueDesPasses(file, new Set(['e01', 'e02'])), true, 'les deux ont déjà été passés');
+  assert.equal(fileNeContientQueDesPasses([], new Set(['e01'])), false, 'une file vide n’est plus « en cours »');
+});
+
+test('A1 : passer un exercice ne le valide jamais — une séance finie sans lui n’est pas comptée comme faite (PRD §9.1)', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const [premier, ...reste] = s1.exercices;
+
+  // Elle passe le premier exercice (il retourne en fin de file) puis valide
+  // tout le reste de la séance, sans jamais revenir sur celui qu’elle a
+  // passé.
+  const faits = reste.map((id) => fait(id, 1, 1, '2026-08-03T09:00:00.000Z'));
+  assert.equal(seanceEstFaite(prog, faits, 1, 1), false, 'l’exercice passé, jamais validé, manque toujours');
+
+  // La file elle-même le confirme : il reste exactement l’exercice passé,
+  // et rien d’autre — « il ne reste que des exercices que tu as passés ».
+  const exs1 = exercicesDeSeance(prog, 1);
+  const file = passerEnFile(fileInitiale(exs1, new Set()));
+  assert.deepEqual(new Set(faitsDeSeance(faits, 1, 1)), new Set(reste));
+  assert.equal(fileNeContientQueDesPasses(file.filter((id) => !faitsDeSeance(faits, 1, 1).has(id)), new Set([premier])), true);
 });
 
 // --- purete du module (ossature §6) -----------------------------------------

@@ -9,8 +9,11 @@
 // jamais `ex.libelle` pour décider quoi que ce soit.
 
 import { exercicesDeSeance, objectif, objectifTexte } from './programme.js';
-import { faitsDeSeance, prochaineSeance, semaineCourante } from './domaine.js';
-import { ajouterFait } from './etat.js';
+import {
+  faitsDeSeance, prochaineSeance, semaineCourante,
+  fileInitiale, passerEnFile, fileNeContientQueDesPasses,
+} from './domaine.js';
+import { ajouterFait, ecrireFileSeance } from './etat.js';
 import { creerChrono, formater } from './chrono.js';
 import { debloquerAudio, bip, FREQUENCES_BIP, sonnerie } from './sonnerie.js';
 import { garderEcranAllume } from './app.js';
@@ -47,10 +50,30 @@ export function monterSeance(hote, ctx) {
   const hash = typeof location !== 'undefined' ? location.hash : '';
   const numero = numeroDepuisHash(hash) ?? prochaineSeance(programme, etat.faits, semaine) ?? 1;
   const exercices = exercicesDeSeance(programme, numero);
+  const exParId = new Map(exercices.map((ex) => [ex.id, ex]));
+  const total = exercices.length;
 
-  let index = indexPremierNonFait(programme, etat.faits, semaine, numero);
+  // A1 (« Ajouté après les PRP ») : la file de la séance en cours — les
+  // exercices non encore validés, dans leur ordre de présentation. Elle
+  // reprend celle qu'`etat.js` a gardée SI elle correspond à cette même
+  // semaine et cette même séance ; sinon elle repart du programme, dans son
+  // ordre, moins ce qui est déjà validé (même reprise qu'`indexPremierNonFait`,
+  // sous forme de file entière). Toute entrée qui ne correspond plus à un
+  // exercice restant de CETTE séance (correction faite depuis la grille
+  // pendant que la séance était interrompue, par exemple) est écartée, et ce
+  // qui manquerait à la file est ajouté à la fin, dans l'ordre naturel.
+  const faitsSet = faitsDeSeance(etat.faits, semaine, numero);
+  const enAttente = fileInitiale(exercices, faitsSet);
+  const gardee = etat.fileSeance;
+  const reprendCetteSeance = gardee !== null && gardee.semaine === semaine && gardee.numero === numero;
+  let file = reprendCetteSeance
+    ? [...gardee.file.filter((id) => enAttente.includes(id)), ...enAttente.filter((id) => !gardee.file.includes(id))]
+    : [...enAttente];
+  let passes = new Set(reprendCetteSeance ? gardee.passes.filter((id) => enAttente.includes(id)) : []);
+
   let chronoCourant = null; // pour l'arreter proprement au demontage (PRD §5)
   let audioDebloque = false;
+  let avisMontre = false; // l'écran « il ne reste que des exercices passés » ne s'affiche qu'une fois
 
   garderEcranAllume(true);
 
@@ -61,6 +84,10 @@ export function monterSeance(hote, ctx) {
     if (audioDebloque) return;
     audioDebloque = true;
     debloquerAudio();
+  }
+
+  function persisterFile() {
+    ecrireFileSeance(semaine, numero, file, passes);
   }
 
   function valider(ex) {
@@ -85,28 +112,119 @@ export function monterSeance(hote, ctx) {
     section.append(corps);
   }
 
+  // A1 : elle a choisi de s'arrêter avec des exercices passés encore en
+  // file. Ce qui est fait reste fait ; la file — donc l'ordre où elle
+  // reprendra — reste gardée telle quelle, pour la fois suivante (PRD §7.3 :
+  // une séance interrompue reprend où elle en était). La séance n'est PAS
+  // « terminée » : la règle §9.1 ne bouge pas, elle ne se coche jamais tant
+  // que tous ses exercices ne sont pas validés.
+  function terminerSansEux() {
+    chronoCourant = null;
+    section.replaceChildren();
+    const empiecement = el('div', 'empiecement');
+    empiecement.append(el('h1', null, 'Séance arrêtée'));
+    section.append(empiecement);
+
+    const corps = el('div', 'jersey corps-seance-fin');
+    corps.append(el('p', null, 'Ce que tu as fait est gardé. Les exercices passés t’attendent la prochaine fois.'));
+    const retour = el('button', 'bouton', 'Retour');
+    retour.type = 'button';
+    retour.addEventListener('click', () => {
+      if (typeof location !== 'undefined') location.hash = '#/jour';
+    });
+    corps.append(retour);
+    section.append(corps);
+  }
+
+  // A1 : « il ne reste que des exercices passés » — affichée une seule fois,
+  // au moment où la file bascule dans cet état (elle y reste ensuite tant
+  // que la séance dure, puisque rien ne peut plus y faire entrer un exercice
+  // jamais passé). Elle propose de continuer — la file reprend son cours
+  // normal — ou de s'arrêter là, sans les exercices restants.
+  function dessinerAvis() {
+    section.replaceChildren();
+    const empiecement = el('div', 'empiecement');
+    empiecement.append(el('h1', null, 'Encore un peu'));
+    section.append(empiecement);
+
+    const corps = el('div', 'jersey corps-seance-fin');
+    const n = file.length;
+    // Le champ jersey porte un objet focal, jamais une ligne perdue en haut
+    // d'un grand vide : c'est la regle que DESIGN.md tire de l'ecran du jour.
+    // Mais l'objet focal est un NOM COURT, jamais une phrase — une phrase
+    // entiere a la taille d'affichage crie au lieu d'informer. C'est donc le
+    // NOMBRE qui porte, et la phrase qui l'explique en dessous, a la taille du
+    // texte courant.
+    const avis = el('div', 'objectif-seance');
+    avis.append(el('p', 'objectif-seance__nom', String(n)));
+    avis.append(el('p', 'avis-passes__phrase', n === 1
+      ? 'exercice que tu as passé, et qui t’attend'
+      : 'exercices que tu as passés, et qui t’attendent'));
+    corps.append(avis);
+
+    const continuer = el('button', 'bouton', 'Continuer');
+    continuer.type = 'button';
+    continuer.addEventListener('click', () => dessinerExercice());
+    corps.append(continuer);
+
+    const arreter = el('button', 'bouton--discret', 'Terminer la séance sans eux');
+    arreter.type = 'button';
+    arreter.addEventListener('click', () => terminerSansEux());
+    corps.append(arreter);
+
+    section.append(corps);
+  }
+
+  // A1 : « Passer » ne valide rien et ne retire rien — l'exercice courant
+  // repart à la fin de la file (domaine.js, `passerEnFile`). Un minuteur en
+  // cours est mis en pause avant, comme au démontage : sinon son battement
+  // continuerait sur un décompte qu'elle a quitté, jusqu'à sonner pour un
+  // exercice qu'elle n'est plus en train de faire.
+  function passer() {
+    if (chronoCourant !== null) {
+      chronoCourant.pause();
+      chronoCourant = null;
+    }
+    passes.add(file[0]);
+    file = passerEnFile(file);
+    persisterFile();
+    dessiner();
+  }
+
   function avancer() {
     chronoCourant = null;
-    index += 1;
-    if (index >= exercices.length) {
+    // L'exercice qui vient d'être validé quitte la file : ce n'est jamais un
+    // index qu'on avance, puisque « Passer » a pu réordonner ce qui reste.
+    file = file.slice(1);
+    persisterFile();
+    if (file.length === 0) {
       terminerSeance();
       return;
     }
     dessiner();
   }
 
+  function dessiner() {
+    if (!avisMontre && fileNeContientQueDesPasses(file, passes)) {
+      avisMontre = true;
+      dessinerAvis();
+      return;
+    }
+    dessinerExercice();
+  }
+
   // Composition de haut en bas (chantier C) : la progression, le libellé, le
   // grand objectif (x16 ou le décompte), le geste unique.
-  function dessiner() {
+  function dessinerExercice() {
     section.replaceChildren();
-    const ex = exercices[index];
-    const total = exercices.length;
+    const ex = exParId.get(file[0]);
+    const compteFait = total - file.length;
 
     const empiecement = el('div', 'empiecement empiecement-seance');
-    empiecement.append(el('span', 'etiquette', `${index + 1} / ${total}`));
+    empiecement.append(el('span', 'etiquette', `${compteFait + 1} / ${total}`));
     const barre = el('div', 'barre-couture');
     const remplissage = el('div', 'barre-couture__remplissage');
-    remplissage.style.transform = `scaleX(${index / total})`;
+    remplissage.style.transform = `scaleX(${compteFait / total})`;
     barre.append(remplissage);
     empiecement.append(barre);
     section.append(empiecement);
@@ -120,6 +238,12 @@ export function monterSeance(hote, ctx) {
     const remise = el('button', 'bouton--discret', 'Remettre à zéro');
     remise.type = 'button';
     remise.hidden = true;
+    // A1 : « Passer » est une action SECONDAIRE — `.bouton--discret`, jamais
+    // un second bouton principal — disponible quel que soit le mode ou la
+    // phase de l'exercice courant.
+    const passerBouton = el('button', 'bouton--discret', 'Passer');
+    passerBouton.type = 'button';
+    passerBouton.addEventListener('click', () => passer());
 
     if (ex.mesure === 'tenue') {
       objectifNoeud.classList.add('objectif-seance--minuteur');
@@ -199,7 +323,7 @@ export function monterSeance(hote, ctx) {
       });
     }
 
-    corps.append(objectifNoeud, remise, bouton);
+    corps.append(objectifNoeud, remise, passerBouton, bouton);
     section.append(corps);
   }
 

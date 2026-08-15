@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { chargerProgramme } from '../web/programme.js';
 import * as vueSeance from '../web/vue-seance.js';
 import * as etat from '../web/etat.js';
+import { seanceEstFaite } from '../web/domaine.js';
 import { poserDocumentFactice, creerHote } from './dom-factice.js';
 
 const progReel = chargerProgramme(JSON.parse(
@@ -54,12 +55,40 @@ beforeEach(() => {
   delete globalThis.navigator?.wakeLock;
 });
 
-function ctxAvec({ faits = [], debut = null, semaineDeDepart = 1 } = {}, programme = progSynthetique) {
+function ctxAvec({
+  faits = [], debut = null, semaineDeDepart = 1, fileSeance = null,
+} = {}, programme = progSynthetique) {
   return {
-    etat: { ...etat.ETAT_VIDE, faits, debut, semaineDeDepart },
+    etat: { ...etat.ETAT_VIDE, faits, debut, semaineDeDepart, fileSeance },
     programme,
     maintenant: () => new Date('2026-08-14T09:00:00.000Z'),
   };
+}
+
+// Un programme synthétique à trois exercices « repetitions », tous dans une
+// seule séance : suffisant pour observer la FILE (A1, « Ajouté après les
+// PRP ») sans les complications du minuteur, qui a ses propres tests.
+const progFile = chargerProgramme({
+  titre: 'Test file',
+  semaines: 8,
+  seances_par_semaine: 4,
+  familles: [{ id: 'f', nom: 'Famille' }],
+  exercices: [
+    { id: 'e1', libelle: 'Exercice un', famille: 'f', mesure: 'repetitions', paliers: [10, 13, 16, 20] },
+    { id: 'e2', libelle: 'Exercice deux', famille: 'f', mesure: 'repetitions', paliers: [10, 13, 16, 20] },
+    { id: 'e3', libelle: 'Exercice trois', famille: 'f', mesure: 'repetitions', paliers: [10, 13, 16, 20] },
+  ],
+  seances: [
+    { id: 's1', nom: 'Séance test', exercices: ['e1', 'e2', 'e3'] },
+    { id: 's2', nom: 'Séance 2', exercices: ['e1'] },
+    { id: 's3', nom: 'Séance 3', exercices: ['e1'] },
+    { id: 's4', nom: 'Séance 4', exercices: ['e1'] },
+  ],
+});
+
+function boutonAvecTexte(hote, texte) {
+  return [...hote.querySelectorAll('.bouton'), ...hote.querySelectorAll('.bouton--discret')]
+    .find((b) => b.textContent === texte) ?? null;
 }
 
 // --- fonctions pures ---------------------------------------------------------
@@ -205,4 +234,97 @@ test('demonter() n’explose jamais, même sans minuteur actif', () => {
     faits: [{ seance: 1, semaine: 1, exercice: 'e1', a: '2026-08-14T09:00:00.000Z' }],
   }, progSynthetique));
   assert.doesNotThrow(() => demonter());
+});
+
+// --- « Ajouté après les PRP », A1 : « Passer » un exercice ------------------
+
+test('« Passer » renvoie l’exercice courant à la fin de la file : le suivant s’affiche', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice un');
+  boutonAvecTexte(hote, 'Passer').declencher('click');
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice deux', 'le premier est passé : le deuxième vient');
+
+  // Aucun fait n’a été enregistré : passer n’est ni une validation ni une
+  // perte (PRD, A1).
+  assert.deepEqual(etat.lireEtat().faits, []);
+});
+
+test('« Passer » revient TOUJOURS : elle peut le repasser autant de fois qu’elle veut', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // e1 -> fin ; e2 affiché
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice deux');
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // e2 -> fin ; e3 affiché
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice trois');
+  // Elle a maintenant passé les trois : l’écran d’avis intervient une fois
+  // (elle-même testée plus bas), « Continuer » la ramène au premier — une
+  // rotation complète, jamais une disparition.
+  boutonAvecTexte(hote, 'Passer').declencher('click');
+  boutonAvecTexte(hote, 'Continuer').declencher('click');
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice un', 'rien ne disparaît jamais, même passé plusieurs fois');
+
+  // L’avis ne revient plus : elle peut continuer à passer indéfiniment.
+  boutonAvecTexte(hote, 'Passer').declencher('click');
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice deux');
+});
+
+test('la file d’une séance interrompue retrouve son ordre au rechargement', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // file : e2, e3, e1
+  const { fileSeance } = etat.lireEtat();
+  assert.deepEqual(fileSeance, { semaine: 1, numero: 1, file: ['e2', 'e3', 'e1'], passes: ['e1'] });
+
+  // Un « rechargement » : un nouveau montage, avec l’état tel que
+  // localStorage l’a gardé (comme les tests existants le font pour les
+  // faits validés).
+  const hote2 = creerHote();
+  vueSeance.monterSeance(hote2, ctxAvec({ fileSeance }, progFile));
+  assert.equal(hote2.querySelector('.nom-exercice').textContent, 'Exercice deux', 'la file reprend là où elle était');
+});
+
+test('quand il ne reste que des exercices passés, l’écran le dit et les repropose', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // passe e1 : file e2, e3, e1
+  boutonAvecTexte(hote, 'C’est fait').declencher('click'); // valide e2 : file e3, e1
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // passe e3 : file e1, e3
+
+  // Il ne reste que des exercices déjà passés (e1 et e3) : l’écran le dit,
+  // sans jamais les compter comme un manquement — juste un texte et une
+  // proposition de continuer.
+  assert.equal(hote.querySelector('.nom-exercice'), null, 'ce n’est plus l’écran d’un exercice');
+  // On lit l'ECRAN, pas un paragraphe en particulier : le nombre est l'objet
+  // focal et la phrase l'explique en dessous, donc l'information est portee
+  // par deux noeuds. Exiger qu'un seul les porte tous les deux contraindrait
+  // la mise en forme sans rien prouver de plus.
+  const paragraphes = hote.querySelectorAll('p').map((p) => p.textContent);
+  const ecran = paragraphes.join(' ');
+  assert.ok(ecran.includes('2') && ecran.includes('passés'), `l’écran ne mentionne pas les 2 exercices passés : ${paragraphes.join(' | ')}`);
+  assert.ok(boutonAvecTexte(hote, 'Continuer') !== null);
+  assert.ok(boutonAvecTexte(hote, 'Terminer la séance sans eux') !== null);
+
+  boutonAvecTexte(hote, 'Continuer').declencher('click');
+  assert.equal(hote.querySelector('.nom-exercice').textContent, 'Exercice un', 'elle reprend le premier des exercices passés');
+});
+
+test('« Terminer la séance sans eux » garde ce qui est fait et ne coche pas la séance (PRD §9.1)', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // passe e1
+  boutonAvecTexte(hote, 'C’est fait').declencher('click'); // valide e2
+  boutonAvecTexte(hote, 'Passer').declencher('click'); // passe e3 : n’en reste que des passés
+
+  boutonAvecTexte(hote, 'Terminer la séance sans eux').declencher('click');
+  assert.ok(boutonAvecTexte(hote, 'Retour') !== null);
+
+  const e = etat.lireEtat();
+  assert.deepEqual(e.faits.map((f) => f.exercice), ['e2'], 'seul ce qui a été validé est gardé');
+  assert.equal(seanceEstFaite(progFile, e.faits, 1, 1), false, 'des exercices passés restent : la séance n’est pas faite');
 });

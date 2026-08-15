@@ -288,6 +288,17 @@ p { margin: 0; }
   touch-action: manipulation;
 }
 
+/* Declarer `display` ci-dessus a un effet de bord qui ne se voit pas : une
+   regle d'auteur l'emporte toujours sur le `display: none` que le navigateur
+   applique a `[hidden]`, si bien que l'attribut cessait de cacher quoi que ce
+   soit. « Remettre a zero » restait donc affiche sur les exercices qui se
+   comptent, ou il n'a rien a faire. Toute classe qui pose `display` doit
+   rendre l'attribut : c'est le meme correctif que `.confirmation-case[hidden]`
+   plus bas, et la deuxieme fois qu'il se pose dans ce fichier. */
+.bouton--discret[hidden] {
+  display: none;
+}
+
 /* Capitales, interlettrage, taille de couture (plancher 17 px, voir la note
    sur --taille-etiquette ci-dessus). */
 .etiquette {
@@ -839,4 +850,15 @@ input[type='text']:focus,
 .etat-synchro {
   font-size: var(--taille-texte);
   line-height: 1.4;
+}
+
+/* La phrase qui explique le nombre de l'ecran des exercices passes : elle
+   accompagne l'objet focal, elle ne le concurrence pas. Taille du texte
+   courant, centree sous le nombre. */
+.avis-passes__phrase {
+  max-width: 22ch;
+  margin: calc(var(--pas) * 1.5) auto 0;
+  font-size: var(--taille-texte);
+  line-height: 1.35;
+  text-align: center;
 }

@@ -139,6 +139,44 @@ test('un quota plein n’empeche pas de finir la seance', () => {
   assert.equal(etat.lireEtat().prenom, 'Léa', 'garde en memoire, relu en priorite');
 });
 
+// --- « Ajouté après les PRP », A1 : la file de la séance en cours ----------
+
+test('ecrireFileSeance ecrit la file et les exercices passes, relus tels quels', () => {
+  const apres = etat.ecrireFileSeance(2, 3, ['e07', 'e08'], new Set(['e05']));
+  assert.deepEqual(apres.fileSeance, { semaine: 2, numero: 3, file: ['e07', 'e08'], passes: ['e05'] });
+  assert.deepEqual(etat.lireEtat().fileSeance, apres.fileSeance);
+});
+
+test('ecrireFileSeance FUSIONNE comme le reste : elle ne fait pas disparaitre le prenom ou le code', () => {
+  etat.ecrireEtat({ prenom: 'Léa', pseudo: 'Comète-7', code: '482913' });
+  const apres = etat.ecrireFileSeance(1, 1, ['e01'], new Set());
+  assert.equal(apres.prenom, 'Léa');
+  assert.equal(apres.pseudo, 'Comète-7');
+});
+
+test('ecrireFileSeance efface l’entree quand la file est vide, plutot que de garder une seance finie', () => {
+  etat.ecrireFileSeance(1, 1, ['e01'], new Set());
+  const apres = etat.ecrireFileSeance(1, 1, [], new Set(['e01']));
+  assert.equal(apres.fileSeance, null);
+});
+
+test('un fileSeance mal forme est ignore plutot que de casser lireEtat', () => {
+  poserMagasin(fauxMagasin({
+    'gym.v1.etat': JSON.stringify({ prenom: 'Léa', fileSeance: { semaine: 1, numero: 1, file: ['e01', 3], passes: [] } }),
+  }));
+  assert.equal(etat.lireEtat().fileSeance, null);
+
+  poserMagasin(fauxMagasin({
+    'gym.v1.etat': JSON.stringify({ prenom: 'Léa', fileSeance: { semaine: 9, numero: 1, file: [], passes: [] } }),
+  }));
+  assert.equal(etat.lireEtat().fileSeance, null, 'une semaine hors bornes (1..8) est refusee');
+
+  poserMagasin(fauxMagasin({
+    'gym.v1.etat': JSON.stringify({ prenom: 'Léa', fileSeance: { semaine: 1, numero: 1, file: ['e01'], passes: ['e01'] } }),
+  }));
+  assert.deepEqual(etat.lireEtat().fileSeance, { semaine: 1, numero: 1, file: ['e01'], passes: ['e01'] }, 'une forme valide survit');
+});
+
 test('EVT_ETAT est emis a chaque ecriture, quand la plateforme le permet', () => {
   assert.equal(etat.EVT_ETAT, 'gym:etat-maj');
   let recus = 0;
