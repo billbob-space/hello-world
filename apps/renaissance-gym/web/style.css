@@ -261,8 +261,19 @@ p { margin: 0; }
   cursor: not-allowed;
 }
 
-/* L'action secondaire, sans fond. */
+/* L'action secondaire, sans fond.
+
+   `display` est declare EXPLICITEMENT, et ce n'est pas cosmetique : sans lui,
+   un <button> est centre par la feuille de style du navigateur la ou un <a>
+   reste en flux en ligne et s'aligne a gauche. La meme classe produisait donc
+   deux axes selon la balise qui la portait, ce qui ne se lit nulle part dans
+   ce fichier. Un `inline-flex` aligne au debut du texte rend les deux balises
+   identiques, et l'ecran garde un seul axe. */
 .bouton--discret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-self: flex-start;
   min-width: auto;
   min-height: var(--cible-min);
   padding: 0 calc(var(--pas) * 2);
