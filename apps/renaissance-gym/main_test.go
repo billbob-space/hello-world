@@ -67,6 +67,30 @@ func TestPoliceServieAvecUnCacheLong(t *testing.T) {
 	}
 }
 
+// A12 : un manifeste servi en octet-stream fait refuser l'installation par
+// certains navigateurs.
+func TestManifesteServiAvecLeBonTypeMIME(t *testing.T) {
+	rec := get(t, newServeurSansMagasin(t), "/manifest.webmanifest")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code %d, attendu 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/manifest+json") {
+		t.Errorf("Content-Type %q, attendu application/manifest+json", ct)
+	}
+}
+
+// A12 : un cache long sur sw.js figerait le service worker lui-meme, et plus
+// rien ne se mettrait jamais a jour ensuite, corrections comprises.
+func TestServiceWorkerJamaisServiAvecUnCacheLong(t *testing.T) {
+	rec := get(t, newServeurSansMagasin(t), "/sw.js")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code %d, attendu 200", rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); strings.Contains(cc, "max-age=31536000") || strings.Contains(cc, "immutable") {
+		t.Errorf("Cache-Control de sw.js = %q, un cache long figerait le service worker", cc)
+	}
+}
+
 func TestProgrammeJSONEstServi(t *testing.T) {
 	rec := get(t, newServeurSansMagasin(t), "/programme.json")
 	if rec.Code != http.StatusOK {

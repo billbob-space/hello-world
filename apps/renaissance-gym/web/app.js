@@ -253,3 +253,16 @@ async function demarrer() {
 if (typeof document !== 'undefined') {
   demarrer().catch((err) => console.error('renaissance-gym : demarrage impossible', err));
 }
+
+// A12 : le service worker qui tient le hors-ligne pour de vrai (PRD §11.2).
+// L'enregistrement seul n'installe rien d'invasif — aucune invite, aucune
+// banniere : c'est le navigateur qui offre ensuite l'installation, jamais
+// cette app qui la reclame. `serviceWorker` manque sur certains navigateurs
+// (et sur tout environnement de test) : son absence ne doit rien casser.
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('renaissance-gym : service worker indisponible', err);
+    });
+  });
+}

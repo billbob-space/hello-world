@@ -31,13 +31,18 @@ import (
 //go:embed web
 var coque embed.FS
 
-// init declare le type MIME de la police : l'image finale est Alpine, qui
-// n'embarque aucune table /etc/mime.types, et celle que Go compile en dur ne
-// couvre pas .woff2. Sans cela le prechargement declare dans index.html
-// serait rejete.
+// init declare les types MIME que la table compilee en dur de Go ne couvre
+// pas : l'image finale est Alpine, qui n'embarque aucune table
+// /etc/mime.types. Sans .woff2, le prechargement declare dans index.html
+// serait rejete ; sans .webmanifest, le manifeste sortirait en
+// application/octet-stream et certains navigateurs refuseraient l'installation
+// (PRD A12).
 func init() {
 	if err := mime.AddExtensionType(".woff2", "font/woff2"); err != nil {
 		log.Printf("type .woff2 non declare, le fichier sera servi en octet-stream : %v", err)
+	}
+	if err := mime.AddExtensionType(".webmanifest", "application/manifest+json"); err != nil {
+		log.Printf("type .webmanifest non declare, le fichier sera servi en octet-stream : %v", err)
 	}
 }
 
@@ -115,10 +120,14 @@ func routes(web fs.FS, m *Magasin) http.Handler {
 // avecCache pose un Cache-Control court sur la coque et long sur la police
 // (PRP 06, chantier C) : la coque doit prendre la main au rechargement
 // suivant un deploiement, la police ne change jamais entre deux versions.
+//
+// sw.js recoit explicitement le meme traitement que la coque (PRD A12) : un
+// cache long fige le service worker lui-meme, et plus rien ne se met jamais
+// a jour ensuite, corrections comprises.
 func avecCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.URL.Path == "/" || r.URL.Path == "/index.html":
+		case r.URL.Path == "/" || r.URL.Path == "/index.html" || r.URL.Path == "/sw.js":
 			w.Header().Set("Cache-Control", "no-cache")
 		case len(r.URL.Path) > 6 && r.URL.Path[len(r.URL.Path)-6:] == ".woff2":
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
