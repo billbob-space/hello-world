@@ -69,9 +69,9 @@ export function monterGrille(hote, ctx) {
 
   const corps = el('div', 'jersey corps-grille');
   const retour = document.createElement('a');
-  retour.className = 'bouton--discret';
+  retour.className = 'bouton--discret lien-retour';
   retour.href = '#/jour';
-  retour.append(icone('icone-fleche', '15 5 8 12 15 19'), ' Aujourd’hui');
+  retour.append(icone('icone-fleche', '15 5 8 12 15 19'), el('span', 'lien-retour__libelle', 'Aujourd’hui'));
   const grille = el('div', 'grille-programme');
   const confirmation = el('div', 'confirmation-case');
   confirmation.hidden = true;

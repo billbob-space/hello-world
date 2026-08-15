@@ -131,10 +131,22 @@ export function monterJour(hote, ctx) {
       'Les huit semaines sont passées — bravo. Ta grille reste là pour la revoir.',
     ));
   } else if (m.cas === 'bouclee') {
-    corps.append(el('h1', 'titre-jour', 'Ta semaine est bouclée.'));
-    corps.append(construireStrass());
+    // Meme traitement que le cas « a-faire » (finition) : un seul objet
+    // focal, dans le meme emplacement — `.objectif-seance`, qui grandit et se
+    // centre dans le champ jersey — plutot qu'un simple `h1.titre-jour` suivi
+    // de ~900px de vide. Le rang de strass reste sous le titre : c'est le
+    // seul ecran, avec les badges, ou il est permis (ossature §5.3).
+    const objectifNoeud = el('h1', 'objectif-seance');
+    const texteBoucle = 'Ta semaine est bouclée.';
+    const nomNoeud = el('span', 'objectif-seance__nom', texteBoucle);
+    nomNoeud.style.setProperty('--plus-long-mot', String(plusLongMot(texteBoucle)));
+    objectifNoeud.append(nomNoeud);
+    objectifNoeud.append(construireStrass());
+    corps.append(objectifNoeud);
     // Discrète, et discrète pour de bon (PRD §9.5) : refaire une séance ne la
-    // compte pas deux fois, `etat.ajouterFait` ignorant les doublons.
+    // compte pas deux fois, `etat.ajouterFait` ignorant les doublons. Elle
+    // suit `objectifNoeud`, qui occupe tout l'espace disponible (flex: 1) et
+    // la pousse donc en bas, a cote du bouton principal des autres ecrans.
     const refaire = el('button', 'bouton--discret', 'Refaire une séance');
     refaire.type = 'button';
     refaire.addEventListener('click', () => {

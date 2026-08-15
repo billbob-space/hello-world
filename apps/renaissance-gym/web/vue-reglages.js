@@ -50,9 +50,9 @@ export function monterReglages(hote, ctx) {
 
   const corps = el('div', 'jersey corps-reglages');
   const retour = document.createElement('a');
-  retour.className = 'bouton--discret';
+  retour.className = 'bouton--discret lien-retour';
   retour.href = '#/jour';
-  retour.append(iconeFleche(), ' Aujourd’hui');
+  retour.append(iconeFleche(), el('span', 'lien-retour__libelle', 'Aujourd’hui'));
   corps.append(retour);
 
   // 1. Le prenom. Un champ, un bouton, AUCUNE confirmation : c'est

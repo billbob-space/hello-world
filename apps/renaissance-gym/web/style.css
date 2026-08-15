@@ -21,7 +21,11 @@
    distinctes qui heritent la meme variable — peuvent recalculer `cqw`
    independamment sous mise en page flex et tomber sur deux valeurs
    differentes, ce qui decale le passepoil de la couture au lieu de le
-   longer (finition, correctif D — verifie au pixel, pas dans le DOM). */
+   longer (finition, correctif D — verifie au pixel, pas dans le DOM).
+   Ce typage n'a plus le droit de RESOUDRE lui-meme `cqw` : cette resolution
+   doit se faire contre un ANCETRE conteneur (voir `#ecran > section` plus
+   bas), jamais contre l'element qui porte `--chute`, sans quoi elle retombe
+   sur le viewport (regression, finition — 31° mesures a 1280px). */
 @property --chute {
   syntax: '<length>';
   inherits: true;
@@ -137,6 +141,20 @@ p { margin: 0; }
   }
 }
 
+/* Le conteneur de requete du panneau (regression, finition) : `cqw` posee sur
+   l'element qui EST lui-meme le conteneur ne lit jamais sa propre taille —
+   la specification l'exclut expressement pour eviter une dependance
+   circulaire — elle retombe sur le prochain ancetre conteneur, ou a defaut
+   sur le viewport (d'ou les 31° mesures a 1280px : 100cqw lisait alors les
+   1280px de la fenetre, pas les 447px du panneau). `.empiecement` reste un
+   simple element inclus DANS ce conteneur : ses propres `cqw` visent
+   desormais cette section, dont la largeur EST celle du panneau a toute
+   largeur d'ecran (pleine largeur en mobile, bornee a 28rem au-dela) —
+   mesure au pixel a 390px et a 1280px, pas seulement devine. */
+#ecran > section {
+  container-type: inline-size;
+}
+
 /* La zone sure : le telephone est pose par terre et la barre d'accueil d'iOS
    mange le bas. A poser sur tout ecran qui porte le bouton principal. */
 .zone-surete {
@@ -151,13 +169,16 @@ p { margin: 0; }
 
    La chute doit valoir tan(--couture) fois la largeur DU PANNEAU, jamais
    celle du viewport (l'ancien `3.5vw` ne donnait 12° qu'a la largeur mesuree
-   au tirage, et 2° ailleurs) : `.empiecement` devient donc son propre repere
-   de largeur (container-type: inline-size) et `cqw` lit sa propre taille,
-   quelle que soit la largeur de l'ecran ou la borne de bureau (5.4). */
+   au tirage, et 2° ailleurs) : c'est `#ecran > section` — l'ANCETRE dont la
+   largeur EST celle du panneau, pleine largeur en mobile ou bornee a 28rem
+   au-dela — qui porte le conteneur de requete (voir plus haut). `cqw`, ici,
+   lit donc la taille de cet ancetre, jamais celle de `.empiecement`
+   lui-meme : un element ne peut pas etre son propre conteneur de requete
+   (dependance circulaire que la specification exclut), et le poser ici
+   ferait retomber `cqw` sur le viewport (regression, finition). */
 .empiecement {
   position: relative;
   isolation: isolate;
-  container-type: inline-size;
   /* La chute de la couture, calculee UNE fois et reutilisee partout ou elle
      compte (clip-path du panneau, clip-path du passepoil, degagement du
      texte) : deux evaluations independantes de `tan(var(--couture)) * 100cqw`
@@ -270,11 +291,14 @@ p { margin: 0; }
 /* Deux etiquettes juxtaposees sans texte entre elles (elles sont ajoutees par
    `append()`) n'ont aucun espace naturel : chacune sur sa ligne, avec un
    veritable espacement entre les deux (finition, correctif A — « SEMAINE
-   1SÉANCE 1 SUR 4 » collees). */
+   1SÉANCE 1 SUR 4 » collees). Centrees (finition) : l'ecran du jour ne tient
+   qu'un seul axe de lecture, celui du titre focal en dessous — les
+   etiquettes du panneau le rejoignent plutot que de rester a gauche pendant
+   que tout le reste du champ se centre. */
 .empiecement__etiquettes {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: calc(var(--pas) * 0.5);
 }
 
@@ -482,6 +506,15 @@ input[type='text']:focus,
   color: var(--bleu-nuit);
 }
 
+/* Les deux liens secondaires de l'ecran du jour (finition) : centres, comme
+   le reste de cet ecran — un seul axe de lecture, du panneau jusqu'ici,
+   plutot qu'un troisieme groupe cale a gauche pendant que le titre focal et
+   les etiquettes se centrent. */
+.nav-secondaire {
+  display: flex;
+  justify-content: center;
+}
+
 /* La barre de couture : la progression de la seance, dans l'empiecement. */
 .barre-couture {
   margin-top: calc(var(--pas) * 1);
@@ -546,6 +579,12 @@ input[type='text']:focus,
    taille de police par caractere), pas une valeur en dur arbitraire. */
 .objectif-seance__nom {
   font-size: clamp(1.75rem, calc(100cqw / (0.72 * var(--plus-long-mot, 8))), var(--taille-decompte));
+  /* A cette taille, l'interligne herite du corps de texte (1.4) ouvre un
+     ecart si large entre deux lignes qu'elles se lisent comme deux objets
+     separes (finition) — « Le » / « socle » cessait de se lire comme un seul
+     titre. Resserre au plus proche du corps de la lettre, sans coller les
+     lignes qui debordent (« L'équilibre »). */
+  line-height: 1.05;
 }
 
 /* Le fuchsia est reserve a ce qui est EN COURS, et rien d'autre (ossature
@@ -589,7 +628,7 @@ input[type='text']:focus,
   align-items: center;
   gap: calc(var(--pas) * 1);
   padding: calc(var(--pas) * 0.5);
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
 }
 
 /* La semaine en cours porte un empiecement bleu sur toute sa largeur — le
@@ -650,6 +689,23 @@ input[type='text']:focus,
   color: var(--bleu-nuit);
 }
 
+/* Le lien « retour », chevron + libelle (grille, reglages) : sans reset, un
+   `<a>` colle l'icone et le mot avec l'espace texte litteral qui les separe
+   dans le DOM, et son soulignement par defaut court sous CET espace comme
+   sous le mot lui-meme (finition). `display: inline-flex` + `gap` fixe
+   l'ecart independamment du texte source, et le soulignement se retire de
+   l'ancre pour ne plus vivre que sur `.lien-retour__libelle`. */
+.lien-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--pas) * 0.5);
+  text-decoration: none;
+}
+
+.lien-retour__libelle {
+  text-decoration: underline;
+}
+
 /* Seance a faire, semaine en cours : contour fuchsia, chevron — jamais
    cliquable depuis la grille (PRD §13 : ce n'est pas un second parcours). */
 .case-seance--encours {
@@ -687,7 +743,7 @@ input[type='text']:focus,
 .confirmation-case {
   padding: calc(var(--pas) * 1.5);
   background: var(--jersey-ombre);
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
   display: flex;
   flex-direction: column;
   gap: calc(var(--pas) * 1);
@@ -733,7 +789,7 @@ input[type='text']:focus,
 .badge-carte {
   padding: calc(var(--pas) * 1.5);
   background: var(--jersey-ombre);
-  border-radius: var(--angle);
+  clip-path: var(--biseau);
   display: flex;
   flex-direction: column;
   gap: calc(var(--pas) * 0.5);
