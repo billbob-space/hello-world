@@ -1142,3 +1142,31 @@ C'est « se déconnecter » qui est proposé en premier et présenté normalemen
 L'effacement définitif reste possible — c'est sa donnée, elle doit pouvoir la
 retirer — mais il cesse d'être le seul chemin, et cesse d'être ce qu'on trouve
 quand on cherche à quitter un appareil.
+
+## A20. Le justaucorps se complète, quelle que soit la semaine de départ
+
+A13 comptait le **nombre** de semaines bouclées et donnait une parure par
+semaine. Croisé avec le §7.1 — qui laisse choisir sa semaine de départ — cela
+donnait un justaucorps que certaines ne pouvaient **jamais** compléter : celle
+qui démarre en semaine 6 n'a que trois semaines devant elle, donc trois parures
+sur huit, et un bilan qui montre un vêtement à moitié nu sans que ce soit sa
+faute.
+
+Deux sections du même document se contredisaient sur un point que ni l'une ni
+l'autre ne mentionnait.
+
+**La règle devient** : les huit éléments de parure sont **répartis sur les
+semaines qu'elle a réellement devant elle**.
+
+- Huit semaines devant elle : un élément par semaine.
+- Trois semaines devant elle : les huit éléments se répartissent en trois
+  étapes — environ trois, trois, puis deux.
+- Dans tous les cas, **la dernière semaine bouclée achève le justaucorps.**
+
+Ce que cela dit, et qui est le fond de l'affaire : la récompense mesure
+**l'assiduité au programme qu'elle a**, jamais un idéal de huit semaines qu'elle
+n'a pas choisi. Une gymnaste qui boucle ses trois semaines a tout fait — son
+justaucorps le montre.
+
+**Ce qui ne change pas** : une parure acquise le reste, même si la semaine de
+départ change ensuite (§A10). On ne perd rien.

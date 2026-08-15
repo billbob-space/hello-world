@@ -22,8 +22,10 @@ function faitsSemaineComplete(semaine) {
   return [1, 2, 3, 4].flatMap((n) => faitsDeSeance(n, semaine));
 }
 
-function etatDe(faits, parures = []) {
-  return { faits, parures };
+function etatDe(faits, parures = [], semaineDeDepart) {
+  return semaineDeDepart === undefined
+    ? { faits, parures }
+    : { faits, parures, semaineDeDepart };
 }
 
 test('PARURES porte exactement huit parures, chacune avec un id, un nom, une partie, une phrase et une condition', () => {
@@ -70,6 +72,63 @@ test('trois séances sur quatre ne suffisent pas à gagner la première parure',
 test('le nombre de semaines bouclées compte, pas LESQUELLES : semaines 5 à 8 bouclées donnent quatre parures', () => {
   const faits = [5, 6, 7, 8].flatMap((semaine) => faitsSemaineComplete(semaine));
   assert.equal(paruresAcquises(prog, etatDe(faits)).length, 4);
+});
+
+// --- A20 : la répartition suit les semaines réellement devant elle ----------
+
+test('huit semaines devant elle (semaine de départ 1) : un élément par semaine, comme avant A20', () => {
+  for (let n = 1; n <= 8; n += 1) {
+    const faits = Array.from({ length: n }, (_, i) => faitsSemaineComplete(i + 1)).flat();
+    const acquises = paruresAcquises(prog, etatDe(faits, [], 1));
+    assert.equal(acquises.length, n);
+    assert.deepEqual(acquises, PARURES.slice(0, n).map((p) => p.id));
+  }
+});
+
+test('trois semaines devant elle (semaine de départ 6) : les huit parures se répartissent en trois étapes, 3 puis 3 puis 2', () => {
+  const etat1 = etatDe(faitsSemaineComplete(6), [], 6);
+  assert.equal(paruresAcquises(prog, etat1).length, 3, 'première semaine bouclée : trois parures');
+
+  const etat2 = etatDe([...faitsSemaineComplete(6), ...faitsSemaineComplete(7)], [], 6);
+  assert.equal(paruresAcquises(prog, etat2).length, 6, 'deux semaines bouclées : six parures');
+
+  const etat3 = etatDe(
+    [...faitsSemaineComplete(6), ...faitsSemaineComplete(7), ...faitsSemaineComplete(8)],
+    [],
+    6,
+  );
+  assert.equal(paruresAcquises(prog, etat3).length, 8, 'trois semaines bouclées (toutes) : le justaucorps est complet');
+});
+
+test('une seule semaine devant elle (semaine de départ 8) : la boucler complète le justaucorps d’un coup', () => {
+  const sansRien = etatDe([], [], 8);
+  assert.deepEqual(paruresAcquises(prog, sansRien), [], 'rien avant de boucler sa seule semaine');
+
+  const bouclee = etatDe(faitsSemaineComplete(8), [], 8);
+  assert.equal(paruresAcquises(prog, bouclee).length, 8, 'la dernière (et unique) semaine bouclée achève toujours le justaucorps');
+});
+
+test('A20 : une parure déjà acquise le reste, même si un changement de semaine de départ ferait recalculer moins en direct', () => {
+  // Elle démarre en semaine 6 (trois semaines devant elle) et boucle les deux
+  // premières : le §A20 répartit 8 en trois étapes (3, 3, 2), donc six
+  // parures — persistées, comme le ferait vue-justaucorps.js.
+  const faitsDeuxSemaines = [6, 7].flatMap((s) => faitsSemaineComplete(s));
+  const acquisesInitiales = paruresAcquises(prog, etatDe(faitsDeuxSemaines, [], 6));
+  assert.equal(acquisesInitiales.length, 6);
+  const avant = etatDe(faitsDeuxSemaines, acquisesInitiales, 6);
+
+  // Elle revient ensuite sur sa semaine de départ (A10, réglages) et la
+  // remet à 1, sans que ses faits ne bougent : recalculé EN DIRECT avec huit
+  // semaines devant elle, ces deux mêmes semaines bouclées ne valent plus que
+  // deux parures — MOINS que les six déjà acquises. `nouvellesParures`
+  // n'enlève jamais rien : le merge (comme dans vue-justaucorps.js) doit
+  // conserver l'intégralité des six.
+  const apres = etatDe(faitsDeuxSemaines, acquisesInitiales, 1);
+  assert.equal(paruresAcquises(prog, apres).length, 2, 'le calcul en direct, seul, en vaudrait moins');
+  const nouvelles = nouvellesParures(prog, avant, apres);
+  assert.deepEqual(nouvelles, [], 'aucune parure ne se retire jamais');
+  const conservees = new Set([...(avant.parures ?? []), ...nouvelles]);
+  assert.equal(conservees.size, 6, 'elle garde les six qu’elle avait déjà, elle n’en perd aucune');
 });
 
 // --- nouvellesParures : ce qu'il faut annoncer, jamais ce qu'il faut retirer -
