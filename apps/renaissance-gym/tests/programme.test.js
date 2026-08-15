@@ -85,24 +85,64 @@ test('couvertureComplete detecte une couverture cassee', () => {
   assert.equal(couvertureComplete(chargerProgramme(casse)), false);
 });
 
-test('palierDeSemaine associe deux semaines a chaque palier (PRD §8.3)', () => {
-  assert.deepEqual([1, 2].map(palierDeSemaine), [0, 0]);
-  assert.deepEqual([3, 4].map(palierDeSemaine), [1, 1]);
-  assert.deepEqual([5, 6].map(palierDeSemaine), [2, 2]);
-  assert.deepEqual([7, 8].map(palierDeSemaine), [3, 3]);
+// A4 (« Ajoute apres les PRP ») : le §8.3 d'origine coupait toujours les huit
+// semaines en quatre blocs de deux. Ce n'est plus vrai que pour un exercice a
+// quatre valeurs — il n'y en a plus dans programme.json, mais la fonction
+// reste generale. Ce test fixe le comportement pour 1, 2 et 3 paliers, la
+// forme que porte reellement la feuille.
+test('palierDeSemaine repartit les huit semaines aussi egalement que possible, le reste aux premiers blocs (A4)', () => {
+  // Une valeur unique : un seul bloc, elle ne bouge jamais.
+  for (let semaine = 1; semaine <= 8; semaine += 1) {
+    assert.equal(palierDeSemaine(1, semaine), 0, `semaine ${semaine}`);
+  }
+
+  // Deux valeurs : S1-S4 / S5-S8 (A4, table a deux colonnes).
+  assert.deepEqual([1, 2, 3, 4].map((s) => palierDeSemaine(2, s)), [0, 0, 0, 0]);
+  assert.deepEqual([5, 6, 7, 8].map((s) => palierDeSemaine(2, s)), [1, 1, 1, 1]);
+
+  // Trois valeurs : S1-S3 / S4-S6 / S7-S8 (A4, table a trois colonnes) — le
+  // reste (huit n'est pas un multiple de trois) va aux DEUX PREMIERS blocs,
+  // jamais au dernier : c'est ce qui laisse S7-S8 a deux semaines seulement.
+  assert.deepEqual([1, 2, 3].map((s) => palierDeSemaine(3, s)), [0, 0, 0]);
+  assert.deepEqual([4, 5, 6].map((s) => palierDeSemaine(3, s)), [1, 1, 1]);
+  assert.deepEqual([7, 8].map((s) => palierDeSemaine(3, s)), [2, 2]);
 });
 
-// PRP 01 : objectif(ex, 1) rend la valeur basse de la feuille et objectif(ex, 8)
-// sa valeur haute, pour les 36 exercices.
+test('palierDeSemaine ramene une semaine hors bornes a la borne la plus proche', () => {
+  assert.equal(palierDeSemaine(2, 0), palierDeSemaine(2, 1));
+  assert.equal(palierDeSemaine(2, 9), palierDeSemaine(2, 8));
+});
+
+// PRP 01, corrige par A4 : objectif(ex, 1) rend la valeur basse de la feuille
+// et objectif(ex, 8) sa valeur haute, pour les 36 exercices — quel que soit
+// le nombre de valeurs que la feuille porte pour cet exercice.
 test('objectif(ex, 1) est la valeur basse et objectif(ex, 8) la valeur haute, pour les 36 exercices', () => {
   for (const ex of exercices(prog)) {
     const bas = objectif(ex, 1);
     const haut = objectif(ex, 8);
     assert.equal(bas.valeur, ex.paliers[0], `${ex.id} : valeur basse`);
-    assert.equal(haut.valeur, ex.paliers[3], `${ex.id} : valeur haute`);
+    assert.equal(haut.valeur, ex.paliers[ex.paliers.length - 1], `${ex.id} : valeur haute`);
     const uniteAttendue = ex.mesure === 'tenue' ? 'secondes' : 'repetitions';
     assert.equal(bas.unite, uniteAttendue, `${ex.id} : unite`);
     assert.equal(haut.unite, uniteAttendue, `${ex.id} : unite`);
+  }
+});
+
+// A4 : « une transposition peut interpoler ce qu'elle affiche EN INTERNE,
+// jamais ce qu'elle presente comme la consigne d'un tiers ». Ce test est la
+// preuve mecanique de cette phrase : pour les 36 exercices et les huit
+// semaines, la valeur affichee est TOUJOURS l'une des valeurs ecrites sur la
+// feuille (ex.paliers), jamais une marche fabriquee entre deux d'entre elles.
+test('aucune valeur d’objectif affichee n’est absente de la feuille (A4)', () => {
+  for (const ex of exercices(prog)) {
+    const valeursDeLaFeuille = new Set(ex.paliers);
+    for (let semaine = 1; semaine <= 8; semaine += 1) {
+      const { valeur } = objectif(ex, semaine);
+      assert.ok(
+        valeursDeLaFeuille.has(valeur),
+        `${ex.id}, semaine ${semaine} : ${valeur} n’est pas une valeur de la feuille (${ex.paliers.join(' / ')})`,
+      );
+    }
   }
 });
 
@@ -113,7 +153,9 @@ test('objectifTexte ecrit « 1 min » et jamais « 60 s », lit la feuille en x 
 
   const fermetures = exercice(prog, 'e01'); // x10 / x20
   assert.equal(objectifTexte(fermetures, 1), 'x10');
-  assert.equal(objectifTexte(fermetures, 5), 'x16');
+  // A4 : deux valeurs -> S1-S4 / S5-S8, plus de marche fabriquee au milieu.
+  assert.equal(objectifTexte(fermetures, 4), 'x10');
+  assert.equal(objectifTexte(fermetures, 5), 'x20');
   assert.equal(objectifTexte(fermetures, 8), 'x20');
 
   const roue = exercice(prog, 'e21'); // x10, valeur unique

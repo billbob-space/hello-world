@@ -29,6 +29,53 @@ export const DUREE_IMPULSION_SONNERIE_MS = 140;
 export const SILENCE_ENTRE_IMPULSIONS_MS = 90;
 export const GAIN_SONNERIE = 0.55; // sensiblement plus fort que GAIN_BIP
 
+// A7 (« Ajouté après les PRP ») : remonté deux fois par le demandeur, la
+// sonnerie ne s'entend toujours pas — sur Android, le son d'une page web suit
+// le VOLUME MÉDIA, souvent à zéro sans que rien ne le trahisse tant qu'aucun
+// média n'a joué. Aucune page web ne peut lever ça, mais elle peut le rendre
+// CONSTATABLE : un choix de sonnerie, dans les réglages, avec un bouton pour
+// l'écouter sans lancer de séance. Les trois timbres se distinguent par le
+// RYTHME (nombre et durée des impulsions) et le TIMBRE (forme d'onde) —
+// JAMAIS par la hauteur : toutes les fréquences restent dans la bande
+// efficace d'un petit haut-parleur, à moins d'une octave de FREQUENCE_SONNERIE
+// (A2 : distinguer par la gravité est précisément le défaut déjà corrigé une
+// fois, il ne doit pas revenir par la porte du choix).
+export const SONNERIES = [
+  {
+    id: 'classique',
+    nom: 'Classique',
+    frequence: FREQUENCE_SONNERIE,
+    forme: 'sine',
+    nbImpulsions: NB_IMPULSIONS_SONNERIE,
+    dureeImpulsionMs: DUREE_IMPULSION_SONNERIE_MS,
+    silenceMs: SILENCE_ENTRE_IMPULSIONS_MS,
+  },
+  {
+    id: 'trille',
+    nom: 'Trille',
+    frequence: 1318.5, // E6 : meme bande que la classique, jamais plus grave
+    forme: 'square',
+    nbImpulsions: 7,
+    dureeImpulsionMs: 70,
+    silenceMs: 40,
+  },
+  {
+    id: 'longue',
+    nom: 'Longue',
+    frequence: 1174.7, // D6 : meme bande, jamais plus grave
+    forme: 'triangle',
+    nbImpulsions: 2,
+    dureeImpulsionMs: 320,
+    silenceMs: 220,
+  },
+];
+
+export const SONNERIE_PAR_DEFAUT = SONNERIES[0].id;
+
+function sonnerieParId(id) {
+  return SONNERIES.find((s) => s.id === id) ?? SONNERIES[0];
+}
+
 // Le second canal (A2) : le seul qui traverse un téléphone en silencieux.
 // Le motif alterne vibration et repos, au rythme de la sonnerie plutôt qu'en
 // un seul long buzz indifférencié.
@@ -73,14 +120,17 @@ export function estDisponible() {
 // `gainMax` porte le volume perçu (A2 : la sonnerie doit être sensiblement
 // plus forte que les bips, pas seulement plus longue) ; `depart` permet de
 // planifier plusieurs impulsions à l'avance sur la même horloge audio,
-// plutôt que de les faire toutes partir au même instant.
-function jouer(frequence, dureeMs, gainMax, depart) {
+// plutôt que de les faire toutes partir au même instant. `forme` (A7) porte
+// le TIMBRE d'une sonnerie choisie dans les réglages — jamais sa hauteur,
+// qui reste dans `frequence`.
+function jouer(frequence, dureeMs, gainMax, depart, forme) {
   const ctx = obtenirContexte();
   if (ctx === null) return;
   try {
     const oscillateur = ctx.createOscillator();
     const gain = ctx.createGain();
     oscillateur.frequency.value = frequence;
+    if (typeof forme === 'string') oscillateur.type = forme;
     oscillateur.connect(gain);
     gain.connect(ctx.destination);
 
@@ -118,18 +168,22 @@ export function bip(hauteur) {
   jouer(hauteur, DUREE_BIP_MS, GAIN_BIP);
 }
 
-// Le zéro (A2) : elle se distingue des bips par le RYTHME — une série
-// d'impulsions dans la bande où un petit haut-parleur reste efficace,
-// nettement plus fortes — jamais par la hauteur, que le haut-parleur visé ne
-// restitue pas fidèlement en dessous de cette bande. La vibration l'accompagne
+// Le zéro (A2, généralisé par A7) : elle se distingue des bips — et les
+// sonneries entre elles — par le RYTHME et le TIMBRE, une série d'impulsions
+// dans la bande où un petit haut-parleur reste efficace, nettement plus
+// fortes — JAMAIS par la hauteur, que le haut-parleur visé ne restitue pas
+// fidèlement en dessous de cette bande. La vibration l'accompagne
 // systématiquement, en second canal, sans jamais devenir une condition pour
-// que le son lui-même joue.
-export function sonnerie() {
+// que le son lui-même joue. `id` inconnu ou absent retombe sur la sonnerie
+// par défaut (`sonnerieParId`) : un réglage corrompu ou jamais choisi ne doit
+// jamais faire taire le minuteur.
+export function sonnerie(id) {
+  const s = sonnerieParId(id);
   const ctx = obtenirContexte();
   if (ctx !== null) {
-    for (let i = 0; i < NB_IMPULSIONS_SONNERIE; i += 1) {
-      const ecart = i * (DUREE_IMPULSION_SONNERIE_MS + SILENCE_ENTRE_IMPULSIONS_MS) / 1000;
-      jouer(FREQUENCE_SONNERIE, DUREE_IMPULSION_SONNERIE_MS, GAIN_SONNERIE, ctx.currentTime + ecart);
+    for (let i = 0; i < s.nbImpulsions; i += 1) {
+      const ecart = i * (s.dureeImpulsionMs + s.silenceMs) / 1000;
+      jouer(s.frequence, s.dureeImpulsionMs, GAIN_SONNERIE, ctx.currentTime + ecart, s.forme);
     }
   }
   vibrer();

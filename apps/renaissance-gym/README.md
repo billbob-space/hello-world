@@ -108,7 +108,7 @@ application ne demande rien à l'infrastructure.
 ## Développer
 
 ```bash
-./test.sh                                   # 152 tests JS + go vet + go test
+./test.sh                                   # 215 tests JS + go vet + go test
 GYM_DONNEES=/tmp/gym go run .               # http://localhost:8080
 ```
 

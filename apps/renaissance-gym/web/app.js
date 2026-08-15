@@ -124,24 +124,89 @@ export function router(hote, table) {
   };
 }
 
-// PRD §5 : l'ecran ne s'eteint pas pendant une seance, et seulement pendant
-// une seance. L'interface Wake Lock manque sur plusieurs navigateurs — son
-// absence ne doit rien casser (PRP 02 chantier D) : le PRP 04 l'appelle, il ne
-// l'implemente pas ici.
+// PRD §5, A11 (« Ajouté après les PRP ») : l'ecran ne s'eteint pas pendant une
+// seance, et SEULEMENT pendant une seance. L'interface Wake Lock manque sur
+// plusieurs navigateurs — son absence ne doit rien casser (PRP 02 chantier D)
+// : le PRP 04 l'appelle, il ne l'implemente pas ici.
+//
+// A11 corrige un defaut, pas seulement une demande : le navigateur relache ce
+// verrou DE LUI-MEME des que la page passe en arriere-plan (message recu,
+// bascule d'application, ecran eteint une seule fois) et rien ne le reprenait
+// au retour — la promesse du §5 tenait a la premiere seconde d'une seance et
+// plus ensuite. `verrouVoulu` porte l'etat VOULU (une seance en cours ET
+// l'option des reglages activee), independant du verrou REEL (`verrouEcran`,
+// qui peut disparaitre a tout moment sans prevenir autrement que par son
+// propre evenement `release`) : un `visibilitychange` retente l'acquisition
+// des que la page redevient visible tant que le premier est vrai et le
+// second absent.
+let verrouVoulu = false;
 let verrouEcran = null;
+let ecouteVisibiliteBranchee = false;
 
-export async function garderEcranAllume(actif) {
-  if (!('wakeLock' in navigator)) return;
+// A11 : « l'ecran dit ce qui est vrai » — vue-reglages.js s'en sert pour ne
+// JAMAIS laisser croire que l'option marche sur un navigateur qui ne sait pas
+// tenir l'ecran allume. Une promesse non tenue est pire que pas de promesse :
+// elle fait poser le telephone loin, en confiance.
+export function verrouEcranDisponible() {
+  return typeof navigator !== 'undefined' && navigator !== null && 'wakeLock' in navigator;
+}
+
+function surRelachementVerrou() {
+  // Le navigateur a repris le verrou lui-meme (arriere-plan, bascule
+  // d'application, etc.) : on ne le redemande PAS ici — `surVisibilite()` le
+  // fera au retour, le seul moment ou `navigator.wakeLock.request()` est de
+  // nouveau autorise sur la plupart des navigateurs.
+  verrouEcran = null;
+}
+
+async function acquerirVerrou() {
+  if (!verrouEcranDisponible() || verrouEcran !== null) return;
   try {
-    if (actif) {
-      if (verrouEcran === null) verrouEcran = await navigator.wakeLock.request('screen');
-    } else if (verrouEcran !== null) {
-      const v = verrouEcran;
-      verrouEcran = null;
-      await v.release();
+    const v = await navigator.wakeLock.request('screen');
+    if (!verrouVoulu) {
+      // `garderEcranAllume(false)` est arrivee pendant la requete (sortie de
+      // seance juste apres son lancement) : rien a tenir.
+      Promise.resolve(v.release()).catch(() => {});
+      return;
     }
+    verrouEcran = v;
+    if (typeof v.addEventListener === 'function') v.addEventListener('release', surRelachementVerrou);
   } catch (err) {
     console.warn('renaissance-gym : verrou d’écran indisponible', err);
+  }
+}
+
+function surVisibilite() {
+  if (verrouVoulu && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    acquerirVerrou().catch(() => {});
+  }
+}
+
+export async function garderEcranAllume(actif) {
+  verrouVoulu = Boolean(actif);
+
+  if (verrouVoulu) {
+    if (!ecouteVisibiliteBranchee && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', surVisibilite);
+      ecouteVisibiliteBranchee = true;
+    }
+    await acquerirVerrou();
+    return;
+  }
+
+  if (ecouteVisibiliteBranchee && typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+    document.removeEventListener('visibilitychange', surVisibilite);
+    ecouteVisibiliteBranchee = false;
+  }
+  if (verrouEcran !== null) {
+    const v = verrouEcran;
+    verrouEcran = null;
+    if (typeof v.removeEventListener === 'function') v.removeEventListener('release', surRelachementVerrou);
+    try {
+      await v.release();
+    } catch (err) {
+      console.warn('renaissance-gym : relâchement du verrou d’écran refusé', err);
+    }
   }
 }
 

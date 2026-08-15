@@ -230,6 +230,144 @@ test('garderEcranAllume est demandé au montage et relâché au démontage, y co
   delete globalThis.navigator.wakeLock;
 });
 
+// --- A11 (« Ajouté après les PRP ») : le verrou d’écran se reprend au retour
+// de la page, honore l’option des réglages, et ne lève jamais sans wakeLock.
+
+// Un verrou factice capable d’émettre son propre événement « release »
+// (le navigateur le fait quand il reprend le verrou lui-même) : le strict
+// nécessaire pour simuler une bascule d’application, sans réinventer un
+// EventTarget complet.
+function creerVerrouFactice() {
+  const gestionnaires = new Map();
+  return {
+    addEventListener(nom, fn) {
+      if (!gestionnaires.has(nom)) gestionnaires.set(nom, []);
+      gestionnaires.get(nom).push(fn);
+    },
+    removeEventListener(nom, fn) {
+      const liste = gestionnaires.get(nom);
+      if (!liste) return;
+      const i = liste.indexOf(fn);
+      if (i !== -1) liste.splice(i, 1);
+    },
+    async release() {},
+    declencherRelachement() {
+      (gestionnaires.get('release') ?? []).slice().forEach((fn) => fn({}));
+    },
+  };
+}
+
+test('A11 : le verrou d’écran est repris quand la page redevient visible après l’avoir perdu', async () => {
+  const appels = [];
+  const verrous = [];
+  Object.defineProperty(globalThis.navigator, 'wakeLock', {
+    configurable: true,
+    value: {
+      request: async (type) => {
+        appels.push(`request:${type}`);
+        const v = creerVerrouFactice();
+        verrous.push(v);
+        return v;
+      },
+    },
+  });
+
+  const hote = creerHote();
+  const demonter = vueSeance.monterSeance(hote, ctxAvec({}, progSynthetique));
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(appels, ['request:screen']);
+
+  // Le navigateur reprend le verrou lui-même (bascule d’application) : la
+  // page passe invisible, puis redevient visible.
+  verrous[0].declencherRelachement();
+  globalThis.document.declencher('visibilitychange', { visibilityState: 'hidden' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(appels, ['request:screen'], 'rien ne se redemande tant que la page reste cachée');
+
+  globalThis.document.declencher('visibilitychange', { visibilityState: 'visible' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(appels, ['request:screen', 'request:screen'], 'le retour à la visibilité reprend le verrou');
+
+  demonter();
+  await Promise.resolve();
+  await Promise.resolve();
+  delete globalThis.navigator.wakeLock;
+});
+
+test('A11 : l’option « écran allumé » coupée dans les réglages, aucun verrou n’est demandé', async () => {
+  const appels = [];
+  Object.defineProperty(globalThis.navigator, 'wakeLock', {
+    configurable: true,
+    value: { request: async (type) => { appels.push(`request:${type}`); return creerVerrouFactice(); } },
+  });
+
+  const hote = creerHote();
+  const ctx = ctxAvec({}, progSynthetique);
+  ctx.etat.ecranAllume = false;
+  const demonter = vueSeance.monterSeance(hote, ctx);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.deepEqual(appels, [], 'l’option coupée : aucune demande de verrou');
+
+  demonter();
+  await Promise.resolve();
+  await Promise.resolve();
+  delete globalThis.navigator.wakeLock;
+});
+
+test('A11 : le verrou est relâché au démontage, y compris après une reprise', async () => {
+  const appels = [];
+  const verrous = [];
+  Object.defineProperty(globalThis.navigator, 'wakeLock', {
+    configurable: true,
+    value: {
+      request: async (type) => {
+        appels.push(`request:${type}`);
+        const v = creerVerrouFactice();
+        v.release = async () => { appels.push('release'); };
+        verrous.push(v);
+        return v;
+      },
+    },
+  });
+
+  const hote = creerHote();
+  const demonter = vueSeance.monterSeance(hote, ctxAvec({}, progSynthetique));
+  await Promise.resolve();
+  await Promise.resolve();
+
+  verrous[0].declencherRelachement();
+  globalThis.document.declencher('visibilitychange', { visibilityState: 'visible' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(appels.filter((a) => a === 'request:screen').length, 2);
+
+  demonter();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(appels.slice(-1), ['release'], 'le second verrou, tenu au démontage, est bien relâché');
+
+  delete globalThis.navigator.wakeLock;
+});
+
+test('A11 : sans wakeLock du tout dans ce navigateur, rien ne lève jamais', async () => {
+  delete globalThis.navigator.wakeLock;
+  const hote = creerHote();
+  let demonter;
+  assert.doesNotThrow(() => {
+    demonter = vueSeance.monterSeance(hote, ctxAvec({}, progSynthetique));
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.doesNotThrow(() => demonter());
+  await Promise.resolve();
+  await Promise.resolve();
+});
+
 test('demonter() n’explose jamais, même sans minuteur actif', () => {
   const hote = creerHote();
   const demonter = vueSeance.monterSeance(hote, ctxAvec({
@@ -417,4 +555,48 @@ test('en mode cible unique, la file d’un aparté n’écrase jamais la file pa
 
   // La file de la séance normale, en cours ailleurs, n’a pas bougé.
   assert.deepEqual(etat.lireEtat().fileSeance, fileAvant);
+});
+
+// --- A6 : sortir d’une séance en cours ---------------------------------------
+
+test('« Sortir de la séance » est toujours visible, jamais masqué (A6)', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+  const sortir = boutonAvecTexte(hote, 'Sortir de la séance');
+  assert.ok(sortir, 'le bouton doit exister');
+  assert.equal(sortir.hidden, false);
+});
+
+test('« Sortir de la séance » ramène à l’écran du jour et ne valide ni ne passe rien', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  boutonAvecTexte(hote, 'Sortir de la séance').declencher('click');
+
+  assert.equal(globalThis.location.hash, '#/jour');
+  assert.deepEqual(etat.lireEtat().faits, [], 'sortir ne valide rien');
+  // La file n’a pas bougé : rien n’a été « passé » par ce geste.
+  assert.equal(etat.lireEtat().fileSeance, null);
+});
+
+test('« Sortir de la séance » garde ce qui a déjà été validé', () => {
+  const hote = creerHote();
+  vueSeance.monterSeance(hote, ctxAvec({}, progFile));
+
+  boutonAvecTexte(hote, 'C’est fait').declencher('click'); // valide e1
+  boutonAvecTexte(hote, 'Sortir de la séance').declencher('click');
+
+  assert.deepEqual(etat.lireEtat().faits.map((f) => f.exercice), ['e1']);
+});
+
+test('en mode cible unique, « Sortir de la séance » ramène au détail d’où elle vient, jamais à l’écran du jour', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/2/e1/3' };
+  vueSeance.monterSeance(hote, ctxAvec({ debut: null, semaineDeDepart: 1 }, progFile));
+
+  const sortir = boutonAvecTexte(hote, 'Sortir de la séance');
+  assert.ok(sortir, 'toujours visible, y compris en mode cible unique');
+  sortir.declencher('click');
+
+  assert.equal(globalThis.location.hash, '#/grille/seance/3/2');
 });

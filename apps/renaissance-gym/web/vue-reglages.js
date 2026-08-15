@@ -10,6 +10,10 @@ import {
 } from './etat.js';
 import { effacer as effacerSurLeServeur, etatSynchro, EVT_SYNCHRO } from './synchro.js';
 import { EXPLICATION_CODE, validerPrenom } from './vue-entree.js';
+import {
+  SONNERIES, SONNERIE_PAR_DEFAUT, debloquerAudio, sonnerie as jouerSonnerie,
+} from './sonnerie.js';
+import { verrouEcranDisponible } from './app.js';
 
 function el(balise, classe, texte) {
   const noeud = document.createElement(balise);
@@ -34,6 +38,20 @@ function iconeFleche() {
 // ET ce que garde le telephone, et c'est irreversible — dit comme tel.
 export const PHRASE_EFFACEMENT = 'Ta fiche sur le serveur, et tout ce que garde ce téléphone, vont disparaître. '
   + 'C’est définitif : personne ne pourra te les rendre.';
+
+// A7 (« Ajouté après les PRP ») : ce qui dit QUOI FAIRE si l'écoute ne sort
+// aucun son. Sur Android, le son d'une page web suit le volume MÉDIA, qui ne
+// bouge avec les boutons de volume que pendant qu'un son joue — le seul
+// moment où ils règlent le bon canal. Aucune page web ne peut lever ça ;
+// cette phrase la rend au moins constatable.
+export const PHRASE_VOLUME_MEDIA = 'Tu n’entends rien ? Appuie sur les boutons de volume du téléphone PENDANT '
+  + 'que le son joue : c’est le seul moment où ils règlent le bon volume.';
+
+// A11 (« Ajouté après les PRP ») : dit franchement ce que ce navigateur sait
+// tenir. Une promesse qu'on ne tient pas est pire que pas de promesse — elle
+// fait poser le téléphone loin, en confiance.
+export const PHRASE_ECRAN_INDISPONIBLE = 'Ce téléphone ne sait pas garder l’écran allumé automatiquement : '
+  + 'pense à vérifier qu’il ne s’éteint pas tout seul pendant une séance.';
 
 function estEnLigne() {
   if (typeof navigator === 'undefined' || typeof navigator.onLine !== 'boolean') return true;
@@ -90,6 +108,78 @@ export function monterReglages(hote, ctx) {
   blocPseudo.append(el('p', 'reglage-pseudo', `Ton pseudo : ${lireEtat().pseudo ?? '—'}`));
   blocPseudo.append(el('p', 'explication-code', EXPLICATION_CODE));
 
+  // 2 bis. La sonnerie (A7, « Ajouté après les PRP ») : un choix parmi
+  // plusieurs timbres, et un bouton pour l'écouter TOUT DE SUITE, sans lancer
+  // de séance — c'est l'essentiel du correctif, on découvre en trois
+  // secondes que le téléphone est muet, au lieu de le découvrir en plein
+  // gainage.
+  const blocSonnerie = el('div', 'reglage-bloc');
+  blocSonnerie.append(el('span', 'etiquette', 'Ta sonnerie'));
+
+  const listeSonneries = el('div', 'liste-sonneries');
+  const boutonsSonnerie = [];
+  let sonnerieChoisie = SONNERIES.some((s) => s.id === lireEtat().sonnerie)
+    ? lireEtat().sonnerie
+    : SONNERIE_PAR_DEFAUT;
+
+  for (const s of SONNERIES) {
+    const choix = el('button', 'choix-sonnerie', s.nom);
+    choix.type = 'button';
+    choix.setAttribute('aria-pressed', String(s.id === sonnerieChoisie));
+    choix.classList.toggle('choix-sonnerie--choisie', s.id === sonnerieChoisie);
+    choix.addEventListener('click', () => {
+      sonnerieChoisie = s.id;
+      ecrireEtat({ sonnerie: s.id });
+      boutonsSonnerie.forEach(({ bouton, id }) => {
+        const choisie = id === sonnerieChoisie;
+        bouton.setAttribute('aria-pressed', String(choisie));
+        bouton.classList.toggle('choix-sonnerie--choisie', choisie);
+      });
+    });
+    boutonsSonnerie.push({ bouton: choix, id: s.id });
+    listeSonneries.append(choix);
+  }
+  blocSonnerie.append(listeSonneries);
+
+  const boutonEcouter = el('button', 'bouton--discret', 'L’écouter maintenant');
+  boutonEcouter.type = 'button';
+  boutonEcouter.addEventListener('click', () => {
+    debloquerAudio();
+    jouerSonnerie(sonnerieChoisie);
+  });
+  blocSonnerie.append(boutonEcouter);
+  blocSonnerie.append(el('p', null, PHRASE_VOLUME_MEDIA));
+
+  // 2 ter. L'écran allumé pendant les séances (A11, « Ajouté après les
+  // PRP ») : active par défaut (PRD §5). Coupée, aucun verrou n'est demandé
+  // (vue-seance.js lit `etat.ecranAllume` au montage). Si ce navigateur ne
+  // sait pas tenir l'écran allumé, l'écran le dit franchement plutôt que de
+  // laisser croire que l'option marche.
+  const blocEcran = el('div', 'reglage-bloc');
+  blocEcran.append(el('span', 'etiquette', 'Pendant les séances'));
+  const boutonEcran = el('button', 'bouton--discret', '');
+  boutonEcran.type = 'button';
+
+  function libelleEcran(actif) {
+    return actif ? 'Garder l’écran allumé : activé' : 'Garder l’écran allumé : désactivé';
+  }
+
+  function rafraichirEcran() {
+    const actif = lireEtat().ecranAllume !== false;
+    boutonEcran.textContent = libelleEcran(actif);
+    boutonEcran.setAttribute('aria-pressed', String(actif));
+  }
+  rafraichirEcran();
+
+  boutonEcran.addEventListener('click', () => {
+    ecrireEtat({ ecranAllume: !(lireEtat().ecranAllume !== false) });
+    rafraichirEcran();
+  });
+  blocEcran.append(boutonEcran);
+  if (!verrouEcranDisponible()) {
+    blocEcran.append(el('p', null, PHRASE_ECRAN_INDISPONIBLE));
+  }
+
   // 3. L'etat de la sauvegarde — la phrase du PRP 07, en francais, sans
   // jargon, et qui ne bloque jamais rien.
   const blocSynchro = el('div', 'reglage-bloc');
@@ -143,7 +233,7 @@ export function monterReglages(hote, ctx) {
   });
   blocEffacement.append(boutonEffacer, confirmation);
 
-  corps.append(blocPrenom, blocPseudo, blocSynchro, blocEffacement);
+  corps.append(blocPrenom, blocPseudo, blocSonnerie, blocEcran, blocSynchro, blocEffacement);
   section.append(corps);
   hote.append(section);
 

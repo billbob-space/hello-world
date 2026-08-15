@@ -17,6 +17,17 @@
 // validé — c'est de là qu'elle est venue, il lui en reste peut-être d'autres
 // à rattraper. « Passer » n'a pas de sens sur une file d'un seul exercice
 // choisi exprès : il ne se monte pas dans ce mode.
+//
+// A6 (« Ajouté après les PRP ») : le §7.3 promettait « elle peut quitter en
+// cours de séance » depuis le premier jour — la file gardée, la reprise
+// fonctionnelle — mais aucun bouton ne le permettait. « Sortir » l'ajoute :
+// discret (`.bouton--discret`, jamais le geste principal) et TOUJOURS visible
+// (jamais masqué par `hidden`, contrairement à « Passer » en mode cible
+// unique) sur l'écran d'un exercice en cours. Elle ramène à
+// `destinationRetour()` — l'écran du jour, ou le détail de la séance d'où
+// elle vient en mode cible unique, exactement comme la validation. Rien à
+// persister de plus : ce qui est validé l'est déjà (`ajouterFait`), et la
+// file n'a pas bougé depuis le dernier rendu.
 
 import { exercicesDeSeance, objectif, objectifTexte } from './programme.js';
 import {
@@ -123,7 +134,9 @@ export function monterSeance(hote, ctx) {
   let audioDebloque = false;
   let avisMontre = false; // l'écran « il ne reste que des exercices passés » ne s'affiche qu'une fois
 
-  garderEcranAllume(true);
+  // A11 (« Ajouté après les PRP ») : l'option des réglages, active par
+  // défaut — coupée, aucun verrou n'est demandé du tout.
+  if (etat.ecranAllume !== false) garderEcranAllume(true);
 
   const section = el('section', 'ecran-seance zone-surete');
   hote.append(section);
@@ -316,6 +329,14 @@ export function monterSeance(hote, ctx) {
     passerBouton.hidden = modeUnique;
     passerBouton.addEventListener('click', () => passer());
 
+    // A6 : toujours visible, jamais masqué — à la différence de « Passer »
+    // ci-dessus, qui n'a pas de sens en mode cible unique.
+    const sortirBouton = el('button', 'bouton--discret', 'Sortir de la séance');
+    sortirBouton.type = 'button';
+    sortirBouton.addEventListener('click', () => {
+      if (typeof location !== 'undefined') location.hash = destinationRetour();
+    });
+
     if (ex.mesure === 'tenue') {
       objectifNoeud.classList.add('objectif-seance--minuteur');
       const decompte = el('span', 'decompte');
@@ -394,7 +415,7 @@ export function monterSeance(hote, ctx) {
       });
     }
 
-    corps.append(objectifNoeud, remise, passerBouton, bouton);
+    corps.append(objectifNoeud, remise, passerBouton, sortirBouton, bouton);
     section.append(corps);
   }
 

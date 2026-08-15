@@ -736,3 +736,169 @@ entière ni à cocher une ligne qu'on n'a pas faite.
 **La règle §9.1 ne bouge toujours pas** : la séance devient *faite* — et sa case
 porte sa coche — dès que ses exercices le sont tous, qu'ils l'aient été dans la
 séance guidée, lancés un par un depuis la grille, ou cochés à la main.
+
+## A4. Les objectifs sont ceux de la feuille, et rien d'autre
+
+**Remonté par le demandeur** le 15 août 2026, interrogé sur la difficulté :
+« c'est le programme qui a été donné par les coachs, donc il faut suivre ce
+programme qui est adapté ».
+
+Le §8.3 avait **fabriqué deux paliers intermédiaires**. La feuille écrit
+« x10 / x20 » ; l'application affichait x10, puis **x13**, puis **x16**, puis
+x20. Ces deux valeurs du milieu ne viennent d'aucune entraîneuse : elles
+venaient de ce document, qui le disait honnêtement — « les deux marches du
+milieu viennent de l'application » — mais les affichait à une enfant comme si
+elles venaient du club.
+
+C'était une invention de trop. **Le §8.3 est remplacé** : une notation à deux
+valeurs vaut la valeur basse sur la première moitié du programme et la haute
+sur la seconde ; une notation à trois valeurs se répartit en trois blocs ; une
+valeur unique ne bouge jamais.
+
+| Notation de la feuille | S1-S4 | S5-S8 |
+|---|---|---|
+| `x10 / x20` | x10 | x20 |
+| `x5 / x10` | x5 | x10 |
+| `30s / 1min` | 30 s | 1 min |
+
+| Notation à trois valeurs | S1-S3 | S4-S6 | S7-S8 |
+|---|---|---|---|
+| `10s / 20s / 30s` | 10 s | 20 s | 30 s |
+
+**La leçon dépasse ce réglage** : une transposition peut interpoler ce qu'elle
+affiche **en interne**, jamais ce qu'elle présente comme la consigne d'un
+tiers. Ce que l'écran donne à faire doit être ce que l'entraîneuse a écrit, ou
+n'être pas donné.
+
+## A6. Sortir d'une séance en cours
+
+**Remonté par le demandeur** : « une fois une séance lancée, il est impossible
+de sortir afin de revenir au programme et de sauvegarder ce qui a déjà été
+réalisé afin de revenir dessus plus tard ».
+
+Le §7.3 le promettait pourtant : « Elle peut quitter en cours de séance. Ce qui
+était fait reste fait ; la séance reprend où elle en était. » Le mécanisme
+existe — la file est gardée, la reprise fonctionne — mais **aucun bouton ne
+permettait de sortir**. La promesse était tenue par le code et introuvable à
+l'écran.
+
+**Ce qui est ajouté** : un geste de sortie discret et permanent sur l'écran de
+séance. Il ramène à l'écran du jour, garde tout ce qui a été validé, et la
+séance reprendra là où elle en était.
+
+Il est **discret et non principal** : pendant une séance, le geste qui compte
+est celui qui fait avancer. Mais il est **toujours là**, jamais caché derrière
+un appui long ni un glissement — le §5 l'interdit.
+
+## A7. Choisir sa sonnerie, et l'entendre depuis les réglages
+
+**Remonté par le demandeur, deux fois** : la sonnerie de fin ne s'entend
+toujours pas. L'appareil est un **Android**, où le son d'une page web suit le
+**volume média** — souvent à zéro sans que personne le sache, parce qu'il ne
+bouge pas avec les boutons de volume quand aucun média ne joue.
+
+Aucune page web ne peut lever cela. Ce qu'elle peut faire, c'est **le rendre
+constatable**.
+
+**Ce qui est ajouté, dans les réglages** :
+
+- **un choix de sonnerie**, parmi quelques timbres nettement différents ;
+- **un bouton pour l'écouter tout de suite**, sans lancer de séance. C'est
+  l'essentiel : c'est là qu'on découvre en trois secondes que le téléphone est
+  muet, au lieu de le découvrir au milieu d'un gainage ;
+- **une phrase qui dit quoi faire** si rien ne sort : monter le volume média en
+  appuyant sur les boutons de volume **pendant que le son joue**, ce qui est le
+  seul moment où ces boutons règlent le bon canal.
+
+La vibration reste, et reste le seul canal qui traverse un téléphone muet.
+
+## A11. Garder l'écran allumé, vraiment, et pouvoir le dire
+
+**Demandé par le demandeur** le 15 août 2026 : une option pour bloquer la mise
+en veille du téléphone.
+
+La demande révèle un défaut, car l'application le fait **déjà** — mal. Le §5
+l'exige depuis le premier jour : « un téléphone qui se verrouille au milieu
+d'un gainage d'une minute annule le minuteur, et elle ne recommence pas. » Le
+verrou d'écran est bien demandé au début d'une séance.
+
+**Mais il n'est jamais redemandé.** Le navigateur relâche ce verrou de
+lui-même dès que la page passe en arrière-plan — un message reçu, un
+basculement d'application, un écran éteint une seule fois — et rien ne le
+reprend au retour. Elle le perd donc au premier incident, définitivement, et
+le téléphone s'endort au milieu de l'exercice suivant. Le §5 était tenu à la
+première seconde de la séance et faux ensuite.
+
+**Ce qui change** :
+
+- **Le verrou se reprend** dès que la page redevient visible, tant qu'une
+  séance est en cours. C'est le correctif, et il vaut indépendamment de
+  l'option.
+- **Une option dans les réglages**, active par défaut : « garder l'écran
+  allumé pendant les séances ». Elle peut la couper — c'est sa batterie.
+- **L'écran dit ce qui est vrai.** Si le navigateur ne sait pas tenir l'écran
+  allumé, l'option le dit au lieu de faire semblant. Une promesse qu'on ne
+  tient pas est pire que pas de promesse : elle laisse poser le téléphone
+  loin, en confiance.
+
+**Ce qui ne change pas** : le verrou ne vaut **que pendant une séance**, jamais
+sur la grille, les réglages ou l'écran du jour. Une application qui empêche un
+téléphone de dormir en permanence est une application qu'on désinstalle.
+
+## A12. L'application s'installe sur le téléphone
+
+**Demandé par le demandeur** le 15 août 2026.
+
+Elle devient installable : ajoutée à l'écran d'accueil, elle s'ouvre **en plein
+écran, sans barre de navigateur**, avec son icône et ses couleurs. C'est une
+application web installée, pas une application de magasin.
+
+**Cela ne contredit pas le §11.3, cela le précise.** Ce que ce paragraphe
+excluait — et qui reste exclu — c'est le compte Google, le magasin
+d'applications et le téléchargement. Le chemin d'entrée ne change pas : un lien
+qui s'ouvre. L'installation est un **geste offert après coup**, jamais un
+préalable, et **jamais réclamé** : aucune bannière, aucune invite qui recouvre
+l'écran. L'application ne mendie pas son installation.
+
+Ce que l'installation apporte, et qui compte pour cette utilisatrice précise :
+
+- **Le plein écran.** Le téléphone est posé par terre et regardé à un mètre :
+  la barre d'adresse et les onglets prennent une place qu'on ne peut pas se
+  permettre, et un appui malheureux dessus sort de la séance.
+- **Le hors-ligne, pour de vrai.** Le §11.2 exige qu'une séance entière se
+  fasse réseau coupé. Aujourd'hui cela ne tient que par le cache du navigateur,
+  que rien ne garantit. Une application installée garde sa coque, sa police et
+  son programme, et le tient.
+- **Une icône sur l'écran d'accueil**, ce qui, pour une enfant de treize ans,
+  est la différence entre une adresse qu'on retape et une chose qui existe.
+
+### Le piège, et comment il est tenu
+
+**Une application installée peut ne jamais recevoir les corrections
+suivantes.** C'est le défaut classique de ce mécanisme : la version en cache
+est servie indéfiniment, et l'utilisatrice reste sur une application dont les
+défauts sont pourtant réparés depuis longtemps. Au rythme où celle-ci évolue,
+c'est le risque numéro un.
+
+Il se tient par deux règles, et elles ne sont pas négociables :
+
+1. **La coque n'est jamais servie depuis le cache quand le réseau répond.** Le
+   réseau d'abord, le cache seulement en secours. Une correction livrée le
+   matin est en place à la première ouverture qui a du réseau.
+2. **Une version qui change remplace l'ancienne immédiatement**, sans attendre
+   la fermeture de tous les onglets, et l'ancien cache est effacé.
+
+Corollaire : ce qui est mis en cache l'est parce que la séance en a besoin hors
+ligne — la coque, la police, le programme —, et rien de plus. **Aucune réponse
+de l'API n'est jamais mise en cache** : une fiche périmée qui reviendrait à la
+place de la vraie ferait perdre des séances, ce qui est exactement ce que le
+serveur existe pour éviter.
+
+### Ce que cela retire du contrat
+
+Le PRP 02 avait posé un garde-fou : « aucune invite d'installation, aucun
+manifeste », et un test le vérifie. Il visait les bannières qui recouvrent
+l'écran d'une enfant, et cette intention reste — le manifeste, lui, est
+désormais demandé. **Le test change de cible** : il continue d'interdire toute
+invite d'installation faite par l'application, et cesse d'interdire le
+manifeste.

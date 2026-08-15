@@ -23,6 +23,16 @@ export const ETAT_VIDE = {
   // n'est pas un fait, seulement l'ordre local d'une seance qui n'est pas
   // finie.
   fileSeance: null, // { semaine, numero, file: [id...], passes: [id...] }
+  // A7 (« Ajouté après les PRP ») : la sonnerie choisie dans les reglages —
+  // garde ici comme le reste de l'etat, jamais envoyee au serveur (ce n'est
+  // pas un fait). L'identifiant par defaut est celui de `sonnerie.js`
+  // (`SONNERIE_PAR_DEFAUT`), recopie en litteral plutot qu'importe : ce
+  // module reste pur et ne depend d'aucun autre (ossature §6).
+  sonnerie: 'classique',
+  // A11 (« Ajoute apres les PRP ») : l'option des reglages qui demande — ou
+  // non — le verrou d'ecran pendant une seance. Active par defaut (PRD §5) ;
+  // jamais envoyee au serveur, ce n'est pas un fait.
+  ecranAllume: true,
 };
 
 export const EVT_ETAT = 'gym:etat-maj';

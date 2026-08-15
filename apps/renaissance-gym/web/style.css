@@ -72,9 +72,18 @@
     0 calc(100% - var(--angle)), 0 var(--angle)
   );
 
+  /* La saisie du code : des chiffres larges dans des cases etroites. C'est
+     du texte, et sa taille est une marche a part entiere du gabarit — elle
+     est donc nommee ici plutot que posee en litteral au fond du fichier. */
+  --taille-code: clamp(1.25rem, 6vw, 1.75rem);
+
   /* --- 5.4 Espacement et cibles --- */
   --pas: 0.5rem; /* toute marge est un multiple : 0.5 1 1.5 2 3 4 6 */
   --cible-min: 56px;
+  /* Une icone n'est pas du texte : elle se dimensionne en largeur et en
+     hauteur, jamais par `font-size`. Ce jeton est une DIMENSION, il n'a rien
+     a faire dans le gabarit typographique. */
+  --taille-icone: 1.25rem;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -479,7 +488,7 @@ input[type='text']:focus,
   text-align: center;
   font-family: var(--display);
   font-variation-settings: 'wdth' 110, 'wght' 700;
-  font-size: clamp(1.25rem, 6vw, 1.75rem);
+  font-size: var(--taille-code);
 }
 
 /* Huit semaines, deux rangs de quatre, cibles de 56 px minimum. */
@@ -717,9 +726,17 @@ input[type='text']:focus,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
   line-height: 1;
   vertical-align: middle;
+}
+
+/* Le trace SVG porte « width=1em height=1em » : le dimensionner par le
+   `font-size` du parent marcherait, mais reviendrait a faire passer une
+   dimension pour une taille de texte — et le detecteur de design a raison de
+   le relever. La largeur et la hauteur le disent directement. */
+.icone-fleche svg {
+  width: var(--taille-icone);
+  height: var(--taille-icone);
 }
 
 /* Au-dessus du remplissage d'avancement (A3), jamais dessous — une case
@@ -948,4 +965,36 @@ input[type='text']:focus,
   font-size: var(--taille-texte);
   line-height: 1.35;
   text-align: center;
+}
+
+/* --- A7, « Ajoute apres les PRP » : le choix de sonnerie, dans les reglages.
+   Meme grammaire que `.cible-semaine` (biseau, bordure en jersey-ombre,
+   fond bleu roi une fois choisie) : c'est la meme famille de composant —
+   « une cible parmi plusieurs » — juste empilee plutot que mise en grille,
+   les libelles etant plus longs qu'un chiffre de semaine. */
+.liste-sonneries {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.choix-sonnerie {
+  min-height: var(--cible-min);
+  padding: 0 calc(var(--pas) * 2);
+  border: 2px solid var(--jersey-ombre);
+  clip-path: var(--biseau);
+  background: var(--jersey);
+  color: var(--bleu-nuit);
+  text-align: left;
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 600;
+  font-size: var(--taille-texte);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.choix-sonnerie--choisie {
+  border-color: var(--bleu-roi);
+  background: var(--bleu-roi);
+  color: var(--jersey);
 }
