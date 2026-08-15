@@ -347,6 +347,131 @@ func TestPrenomEtSemaineDepartSuiventLeDernierEcrit(t *testing.T) {
 	}
 }
 
+// --- Le lot ludique, « Ajoute apres les PRP » : les nouveaux champs suivent
+// la fiche et se fusionnent sans perte entre deux appareils --------------
+
+// TestParuresSontUneUnionCommeLesBadges (PRD A13) : une parure acquise reste
+// acquise, quel que soit l'ordre d'arrivee des deux tranches.
+func TestParuresSontUneUnionCommeLesBadges(t *testing.T) {
+	m, _, horloge := magasinDeTest(t)
+	if _, err := m.creer("Comete-7", "481920", "Alice", 1); err != nil {
+		t.Fatalf("creer : %v", err)
+	}
+
+	horloge.avancer(time.Minute)
+	f1, err := m.synchroniserFiche(requeteSynchro{
+		Pseudo: "Comete-7", Code: "481920", Parures: []string{"parure-1"},
+	})
+	if err != nil {
+		t.Fatalf("premiere synchronisation : %v", err)
+	}
+	if len(f1.Parures) != 1 || f1.Parures[0] != "parure-1" {
+		t.Fatalf("parures apres la premiere synchro : %+v, attendu [parure-1]", f1.Parures)
+	}
+
+	// Un second appareil apporte une AUTRE parure : rien de ce qui etait deja
+	// acquis ne doit disparaitre.
+	horloge.avancer(time.Minute)
+	f2, err := m.synchroniserFiche(requeteSynchro{
+		Pseudo: "Comete-7", Code: "481920", Parures: []string{"parure-3"},
+	})
+	if err != nil {
+		t.Fatalf("seconde synchronisation : %v", err)
+	}
+	attendu := map[string]bool{"parure-1": true, "parure-3": true}
+	if len(f2.Parures) != 2 {
+		t.Fatalf("parures apres la seconde synchro : %+v, attendu 2 elements (union)", f2.Parures)
+	}
+	for _, p := range f2.Parures {
+		if !attendu[p] {
+			t.Errorf("parure inattendue : %s", p)
+		}
+	}
+}
+
+// TestRecordsNeRedescendentJamais (PRD A16) : chaque champ se fusionne par le
+// plus grand, jamais par ecrasement — un appareil qui envoie un record plus
+// PETIT que celui deja garde ne doit jamais le faire regresser.
+func TestRecordsNeRedescendentJamais(t *testing.T) {
+	m, _, horloge := magasinDeTest(t)
+	if _, err := m.creer("Comete-7", "481920", "Alice", 1); err != nil {
+		t.Fatalf("creer : %v", err)
+	}
+
+	horloge.avancer(time.Minute)
+	f1, err := m.synchroniserFiche(requeteSynchro{
+		Pseudo: "Comete-7", Code: "481920",
+		Records: Records{PlusLongueTenue: 30, PlusExercicesJour: 5, TotalExercices: 10},
+	})
+	if err != nil {
+		t.Fatalf("premiere synchronisation : %v", err)
+	}
+	if f1.Records != (Records{PlusLongueTenue: 30, PlusExercicesJour: 5, TotalExercices: 10}) {
+		t.Fatalf("records apres la premiere synchro : %+v", f1.Records)
+	}
+
+	// Un second appareil, en retard, envoie des records plus PETITS sur deux
+	// champs et plus GRAND sur le troisieme : chaque champ doit se fusionner
+	// independamment, jamais l'objet entier remplace.
+	horloge.avancer(time.Minute)
+	f2, err := m.synchroniserFiche(requeteSynchro{
+		Pseudo: "Comete-7", Code: "481920",
+		Records: Records{PlusLongueTenue: 10, PlusExercicesJour: 2, TotalExercices: 15},
+	})
+	if err != nil {
+		t.Fatalf("seconde synchronisation : %v", err)
+	}
+	attendu := Records{PlusLongueTenue: 30, PlusExercicesJour: 5, TotalExercices: 15}
+	if f2.Records != attendu {
+		t.Errorf("records = %+v, attendu %+v (le plus grand, champ par champ)", f2.Records, attendu)
+	}
+}
+
+// TestCouleurSuitLeDernierEcritCommeLePrenom (PRD A14).
+func TestCouleurSuitLeDernierEcritCommeLePrenom(t *testing.T) {
+	m, _, horloge := magasinDeTest(t)
+	if _, err := m.creer("Comete-7", "481920", "Alice", 1); err != nil {
+		t.Fatalf("creer : %v", err)
+	}
+
+	horloge.avancer(time.Minute)
+	f, err := m.synchroniserFiche(requeteSynchro{Pseudo: "Comete-7", Code: "481920", Couleur: "fuchsia"})
+	if err != nil {
+		t.Fatalf("synchroniser : %v", err)
+	}
+	if f.Couleur != "fuchsia" {
+		t.Fatalf("couleur = %q, attendu fuchsia", f.Couleur)
+	}
+
+	// Un envoi qui ne porte pas la couleur (chaine vide) ne l'efface pas —
+	// exactement la meme regle que le prenom.
+	horloge.avancer(time.Minute)
+	f, err = m.synchroniserFiche(requeteSynchro{Pseudo: "Comete-7", Code: "481920"})
+	if err != nil {
+		t.Fatalf("synchroniser : %v", err)
+	}
+	if f.Couleur != "fuchsia" {
+		t.Errorf("un envoi vide a efface la couleur : %+v", f)
+	}
+}
+
+// TestSynchroniserSansLotLudiqueSeComporteExactementCommeAvant : la signature
+// historique de synchroniser() ne doit RIEN changer pour un appelant qui
+// l'ignore — c'est ce qui garde tous les appels existants valides.
+func TestSynchroniserSansLotLudiqueSeComporteExactementCommeAvant(t *testing.T) {
+	m, _, _ := magasinDeTest(t)
+	if _, err := m.creer("Comete-7", "481920", "Alice", 1); err != nil {
+		t.Fatalf("creer : %v", err)
+	}
+	f, err := m.synchroniser("Comete-7", "481920", []Fait{{Exercice: "ex-1", Semaine: 1, Seance: 1}}, nil, "", 0)
+	if err != nil {
+		t.Fatalf("synchroniser : %v", err)
+	}
+	if len(f.Parures) != 0 || f.Records != (Records{}) || f.Couleur != "" {
+		t.Errorf("le lot ludique n'a jamais ete envoye : la fiche devrait rester neutre, %+v", f)
+	}
+}
+
 func TestFaitsAuDelaDeLaBorneRendErreurEtNecritRien(t *testing.T) {
 	m, _, horloge := magasinDeTest(t)
 	if _, err := m.creer("Comete-7", "481920", "Alice", 1); err != nil {

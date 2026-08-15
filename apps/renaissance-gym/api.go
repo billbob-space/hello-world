@@ -23,7 +23,9 @@ const maxCorps = 256 << 10
 // requeteFiche est le corps unique des trois operations. Faits et Badges ne
 // servent qu'a « synchroniser » ; Prenom et SemaineDepart servent a « creer »
 // et, s'ils sont non vides, mettent a jour la fiche sur « synchroniser »
-// (PRD §9.9).
+// (PRD §9.9). Parures, Records et Couleur sont le lot ludique, « Ajoute
+// apres les PRP » — memes regles que Badges, Faits et Prenom (voir
+// fiche.go, synchroniserFiche).
 type requeteFiche struct {
 	Operation     string   `json:"operation"`
 	Pseudo        string   `json:"pseudo"`
@@ -32,6 +34,9 @@ type requeteFiche struct {
 	SemaineDepart int      `json:"semaineDepart,omitempty"`
 	Faits         []Fait   `json:"faits,omitempty"`
 	Badges        []string `json:"badges,omitempty"`
+	Parures       []string `json:"parures,omitempty"`
+	Records       Records  `json:"records,omitempty"`
+	Couleur       string   `json:"couleur,omitempty"`
 }
 
 // ficheReponse est la fiche telle qu'elle repart vers le client : ni CodeSel
@@ -42,6 +47,9 @@ type ficheReponse struct {
 	SemaineDepart int       `json:"semaineDepart"`
 	Faits         []Fait    `json:"faits"`
 	Badges        []string  `json:"badges"`
+	Parures       []string  `json:"parures"`
+	Records       Records   `json:"records"`
+	Couleur       string    `json:"couleur"`
 	CreeeLe       time.Time `json:"creeeLe"`
 	MajLe         time.Time `json:"majLe"`
 }
@@ -53,6 +61,9 @@ func versReponse(f *Fiche) ficheReponse {
 		SemaineDepart: f.SemaineDepart,
 		Faits:         f.Faits,
 		Badges:        f.Badges,
+		Parures:       f.Parures,
+		Records:       f.Records,
+		Couleur:       f.Couleur,
 		CreeeLe:       f.CreeeLe,
 		MajLe:         f.MajLe,
 	}
@@ -191,7 +202,11 @@ func handleFiche(m *Magasin) http.HandlerFunc {
 			repondreJSON(w, http.StatusCreated, versReponse(f))
 
 		case "synchroniser":
-			f, err := m.synchroniser(req.Pseudo, req.Code, req.Faits, req.Badges, req.Prenom, req.SemaineDepart)
+			f, err := m.synchroniserFiche(requeteSynchro{
+				Pseudo: req.Pseudo, Code: req.Code, Faits: req.Faits, Badges: req.Badges,
+				Prenom: req.Prenom, SemaineDepart: req.SemaineDepart,
+				Parures: req.Parures, Records: req.Records, Couleur: req.Couleur,
+			})
 			if err != nil {
 				repondreErreurMagasin(w, err)
 				return

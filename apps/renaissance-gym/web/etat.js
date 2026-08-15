@@ -33,6 +33,29 @@ export const ETAT_VIDE = {
   // non — le verrou d'ecran pendant une seance. Active par defaut (PRD §5) ;
   // jamais envoyee au serveur, ce n'est pas un fait.
   ecranAllume: true,
+  // Le lot ludique, « Ajoute apres les PRP » : A13 porte huit parures,
+  // acquises DEFINITIVEMENT, sur le meme principe que `badges` — un
+  // identifiant present dans cette liste n'en sort plus jamais, meme si un
+  // fait qui l'avait declenchee est ensuite decoche depuis la grille ou
+  // qu'un programme recommence a zero (PRD, lot ludique A13 : « une semaine
+  // bouclee ne se debloque pas »). Suit la fiche comme les badges : union a
+  // la synchronisation, jamais un ecrasement.
+  parures: [],
+  // A16 : les trois records ne peuvent que MONTER (records.js les fusionne,
+  // jamais ne les remplace). Suit la fiche : fusionne par le plus grand,
+  // champ par champ, cote client comme cote serveur.
+  records: { plusLongueTenue: 0, plusExercicesJour: 0, totalExercices: 0 },
+  // A14 : la couleur du justaucorps, PAS celle de l'application (elle ne
+  // touche a aucun jeton de style.css). Six combinaisons, toutes disponibles
+  // des le premier jour ; celle-ci suit sa fiche comme le prenom — le
+  // dernier ecrit gagne, elle n'a pas de sens en union.
+  couleurJustaucorps: 'bleu-roi',
+  // A17 : l'instantane du programme termine, fige UNE SEULE FOIS par
+  // `bilan.js` (vue-jour.js) — « la trace de son ete » ne bouge plus ensuite,
+  // meme si un nouveau programme redemarre. Local a l'appareil : jamais
+  // envoye au serveur (ce n'est pas un fait, et §9.9 ne dit rien d'un
+  // instantane fige).
+  bilan: null, // { seancesFaites, exercicesFaits, records, dateISO }
 };
 
 export const EVT_ETAT = 'gym:etat-maj';
@@ -119,27 +142,66 @@ function estFileSeanceValide(f) {
   );
 }
 
+// A16 (lot ludique) : un record hors bornes (negatif, absent, corrompu) ne
+// rejette jamais l'ensemble — chaque champ retombe individuellement sur zero,
+// exactement comme `records.js` le ferait a la fusion.
+function nombrePositifOuZero(v) {
+  return Number.isFinite(v) && v >= 0 ? v : 0;
+}
+
+function sanitiserRecords(r) {
+  if (r === null || typeof r !== 'object') return { ...ETAT_VIDE.records };
+  return {
+    plusLongueTenue: nombrePositifOuZero(r.plusLongueTenue),
+    plusExercicesJour: nombrePositifOuZero(r.plusExercicesJour),
+    totalExercices: nombrePositifOuZero(r.totalExercices),
+  };
+}
+
+// A17 : un bilan corrompu ou mal forme (stockage bricolé a la main, version
+// anterieure au lot ludique) degrade vers « pas encore de bilan » plutot que
+// de casser l'ecran qui le lit.
+function sanitiserBilan(b) {
+  if (b === null || typeof b !== 'object') return null;
+  if (!Number.isFinite(b.seancesFaites) || !Number.isFinite(b.exercicesFaits)) return null;
+  if (typeof b.dateISO !== 'string' || b.dateISO === '') return null;
+  return {
+    seancesFaites: nombrePositifOuZero(b.seancesFaites),
+    exercicesFaits: nombrePositifOuZero(b.exercicesFaits),
+    records: sanitiserRecords(b.records),
+    dateISO: b.dateISO,
+  };
+}
+
 // Ne rend JAMAIS null et ne lance jamais : un stockage indisponible degrade
 // vers l'etat en memoire, il ne casse jamais l'application (PRP 02).
 export function lireEtat() {
   const brut = lireBrut();
-  if (brut === null || brut === '') return { ...ETAT_VIDE, faits: [], badges: [] };
+  if (brut === null || brut === '') return { ...ETAT_VIDE, faits: [], badges: [], parures: [] };
 
   let valeur;
   try {
     valeur = JSON.parse(brut);
   } catch (err) {
     console.warn('renaissance-gym : état illisible, remplacé par l’état vide', err);
-    return { ...ETAT_VIDE, faits: [], badges: [] };
+    return { ...ETAT_VIDE, faits: [], badges: [], parures: [] };
   }
   if (valeur === null || typeof valeur !== 'object' || Array.isArray(valeur)) {
-    return { ...ETAT_VIDE, faits: [], badges: [] };
+    return { ...ETAT_VIDE, faits: [], badges: [], parures: [] };
   }
 
   const faits = Array.isArray(valeur.faits) ? valeur.faits.filter(estFaitValide) : [];
   const badges = Array.isArray(valeur.badges) ? valeur.badges.filter((b) => typeof b === 'string' && b !== '') : [];
   const fileSeance = estFileSeanceValide(valeur.fileSeance) ? valeur.fileSeance : null;
-  return { ...ETAT_VIDE, ...valeur, faits, badges, fileSeance };
+  const parures = estListeIdentifiants(valeur.parures) ? valeur.parures : [];
+  const records = sanitiserRecords(valeur.records);
+  const couleurJustaucorps = typeof valeur.couleurJustaucorps === 'string' && valeur.couleurJustaucorps !== ''
+    ? valeur.couleurJustaucorps
+    : ETAT_VIDE.couleurJustaucorps;
+  const bilan = sanitiserBilan(valeur.bilan);
+  return {
+    ...ETAT_VIDE, ...valeur, faits, badges, fileSeance, parures, records, couleurJustaucorps, bilan,
+  };
 }
 
 // FUSIONNE puis ecrit -> l'etat a jour. Un remplacement complet serait le

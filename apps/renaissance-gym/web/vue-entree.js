@@ -331,6 +331,11 @@ export function monterEntree(hote, ctx) {
   // (PRP 03 chantier D, PRD §7.5 tableau) : le PRP 07 sait qu'un pseudo/code
   // présents sans succès de synchronisation doivent encore être créés côté
   // serveur.
+  //
+  // A18 (« Ajouté après les PRP ») : sa réponse est désormais ATTENDUE, pas
+  // lancée puis oubliée — un serveur qui ne répond pas ne bloque toujours pas
+  // l'entrée, mais un serveur qui répond « pseudo déjà pris » doit être
+  // entendu, voir le gestionnaire de clic plus bas.
   function ecran3() {
     const section = el('section', 'ecran-entree ecran-entree-compte zone-surete');
     const empiecement = el('div', 'empiecement');
@@ -363,7 +368,15 @@ export function monterEntree(hote, ctx) {
 
     const bouton = el('button', 'bouton', 'Créer mon compte');
     bouton.type = 'button';
-    bouton.addEventListener('click', () => {
+    // A18 (« Ajouté après les PRP », défaut de production remonté le
+    // 15 août 2026) : un pseudonyme déjà pris n'est PLUS un succès silencieux.
+    // Avant, `ctx.surCompteCree(...)` était lancé sans attendre sa réponse, et
+    // la navigation vers « #/jour » partait aussitôt — un 409 (pseudo pris)
+    // laissait un compte purement local, bon pseudonyme et bon code, qui ne
+    // synchroniserait jamais. Ici, la création est ATTENDUE ; un pseudonyme
+    // déjà pris tente la REPRISE avec exactement ce qu'elle vient de taper
+    // (presque toujours elle-même qui revient), sans lui redemander son code.
+    bouton.addEventListener('click', async () => {
       const rPseudo = validerPseudo(champPseudo.value);
       if (rPseudo.erreur !== null) {
         erreurPseudo.textContent = rPseudo.erreur;
@@ -386,12 +399,39 @@ export function monterEntree(hote, ctx) {
         code: rCode.valeur,
       });
 
-      if (typeof ctx.surCompteCree === 'function') {
-        ctx.surCompteCree({
-          pseudo: rPseudo.valeur, code: rCode.valeur, prenom: donnees.prenom, semaineDeDepart: donnees.semaine,
-        });
+      // Sans point d'accroche (lot 1 seul, ou tests qui ne le fournissent
+      // pas) : le compte reste local, comme avant A18, et l'entrée n'est
+      // jamais bloquée.
+      if (typeof ctx.surCompteCree !== 'function') {
+        if (typeof location !== 'undefined') location.hash = '#/jour';
+        return;
       }
 
+      bouton.disabled = true;
+      const resultat = await Promise.resolve(ctx.surCompteCree({
+        pseudo: rPseudo.valeur, code: rCode.valeur, prenom: donnees.prenom, semaineDeDepart: donnees.semaine,
+      })).catch(() => ({ ok: false, code: 'reseau' }));
+      bouton.disabled = false;
+
+      if (resultat && resultat.ok === false && resultat.code === 'pseudo-pris') {
+        const reprise = typeof ctx.reprendreCompte === 'function'
+          ? await Promise.resolve(ctx.reprendreCompte(rPseudo.valeur, rCode.valeur)).catch(() => ({ ok: false }))
+          : { ok: false };
+        if (reprise && reprise.ok) {
+          if (typeof location !== 'undefined') location.hash = '#/jour';
+          return;
+        }
+        // « Si le code ne correspond pas, elle propose un autre pseudonyme,
+        // comme prévu » (PRD A18) : le bouton « Un autre pseudo » reste juste
+        // au-dessus, inchangé.
+        erreurPseudo.textContent = 'Ce pseudo existe déjà. Si c’est le tien, vérifie ton code — sinon, choisis-en un autre.';
+        return;
+      }
+
+      // Tout le reste — un succès, ou un serveur injoignable — ne bloque
+      // JAMAIS l'entrée (PRD §7.1 : « un serveur qui ne répond pas ne bloque
+      // pas l'entrée »). Seul un refus EXPLICITE et NON AMBIGU (pseudo pris,
+      // et la reprise ne l'a pas résolu) arrête la navigation.
       if (typeof location !== 'undefined') location.hash = '#/jour';
     });
 

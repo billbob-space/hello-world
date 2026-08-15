@@ -1078,3 +1078,67 @@ toutes lettres, sur une page qui se montre.
 
 Le bilan **reste accessible** après. Il ne disparaît pas au redémarrage d'un
 nouveau programme, parce que c'est la trace de son été.
+
+---
+
+# Deux défauts trouvés en production
+
+Remontés par le demandeur le 15 août 2026, en connectant le compte de sa fille
+sur son propre téléphone. Le premier lui a fait perdre l'accès aux données ; le
+second aurait pu les détruire.
+
+## A18. Un pseudonyme déjà pris ne doit pas mener à un cul-de-sac silencieux
+
+**Ce qui s'est passé.** Il a suivi l'écran d'entrée ordinaire — prénom, semaine
+de départ, puis le pseudonyme et le code de sa fille. L'application a tenté de
+**créer** le compte ; le serveur a répondu `409`, le pseudonyme étant pris.
+
+Cette réponse **n'est traitée nulle part** : la création est lancée dans un
+`catch` vide, sans blocage ni message. L'appareil est donc resté avec un compte
+purement local — bon pseudonyme, bon code, aucune donnée, semaine 1 — qui ne se
+synchronisera jamais, puisqu'il retentera indéfiniment une création que le
+serveur refusera toujours.
+
+Rien n'est perdu côté serveur : un `409` n'écrit pas. Mais l'utilisateur voit
+une application vide et n'a aucun moyen de comprendre pourquoi.
+
+**Ce qui change** :
+
+- **Le `409` est traité, jamais avalé.** L'application dit ce qui se passe :
+  « Ce pseudo existe déjà. »
+- **Et elle propose la seule chose utile** : « C'est peut-être le tien —
+  entre ton code pour le retrouver. » Un pseudonyme déjà pris et un code
+  correct sont, presque toujours, quelqu'un qui revient. L'application bascule
+  alors sur la reprise plutôt que de laisser l'utilisateur deviner.
+- Si le code ne correspond pas, elle propose un autre pseudonyme, comme prévu.
+- **Aucune erreur réseau n'est plus silencieuse à la création.** Le `catch` vide
+  est la cause première : il transformait un refus explicite du serveur en
+  absence de réaction.
+
+**Ce qui reste vrai** : le compte différé du §7.1 tient. Un serveur qui ne
+répond pas ne bloque toujours pas l'entrée ; c'est un serveur qui répond
+*non* qui doit être entendu.
+
+## A19. Se déconnecter n'est pas effacer
+
+**Le danger.** « Effacer ma fiche » envoie le pseudonyme et le code au serveur,
+qui supprime la fiche définitivement. Sur l'appareil d'un parent ayant repris le
+compte de son enfant — même pseudonyme, même code — ce bouton **détruit les huit
+semaines de l'enfant**, depuis un appareil qui n'est pas le sien, sans que rien
+ne le laisse deviner.
+
+Le §7.5 avait prévu la reprise sur plusieurs appareils. Il n'avait pas prévu que
+« se retirer d'un appareil » et « supprimer ses données » sont deux gestes
+différents, et que l'application n'en offrait qu'un.
+
+**Ce qui change** — les réglages portent désormais **deux gestes distincts** :
+
+| Geste | Effet | Ton |
+|---|---|---|
+| **Se déconnecter de cet appareil** | efface ce que garde **ce téléphone**, et rien d'autre. La fiche reste entière sur le serveur, et se retrouve avec le pseudonyme et le code | ordinaire, réversible |
+| **Effacer ma fiche définitivement** | supprime la fiche **du serveur**, pour tous les appareils | grave, confirmé, et le texte dit que c'est irréversible et que cela vaut pour tous les appareils |
+
+C'est « se déconnecter » qui est proposé en premier et présenté normalement.
+L'effacement définitif reste possible — c'est sa donnée, elle doit pouvoir la
+retirer — mais il cesse d'être le seul chemin, et cesse d'être ce qu'on trouve
+quand on cherche à quitter un appareil.

@@ -21,7 +21,8 @@
 
 import { seance, exercicesDeSeance } from './programme.js';
 import { faitsDeSeance } from './domaine.js';
-import { ajouterFait, retirerFait } from './etat.js';
+import { ajouterFait, ecrireEtat, retirerFait } from './etat.js';
+import { fusionnerRecords, recordsDepuisFaits } from './records.js';
 
 function el(balise, classe, texte) {
   const noeud = document.createElement(balise);
@@ -108,6 +109,15 @@ export function monterDetailSeance(hote, ctx) {
     } else {
       etatCourant = ajouterFait({
         seance: numero, semaine, exercice: ex.id, a: maintenant().toISOString(), corrige: true,
+      });
+      // A16 (lot ludique, « Ajouté après les PRP ») : cocher depuis la grille
+      // est une validation comme une autre — elle compte pour « le plus
+      // d'exercices faits dans une journée » et « le total », au même titre
+      // qu'une validation depuis la séance guidée. Ne se fait JAMAIS au
+      // retrait (`retirerFait` ci-dessus) : décocher n'est pas un acte
+      // négatif, et un record déjà acquis ne redescend jamais (records.js).
+      etatCourant = ecrireEtat({
+        records: fusionnerRecords(etatCourant.records, recordsDepuisFaits(etatCourant.faits)),
       });
     }
     rendreListe();

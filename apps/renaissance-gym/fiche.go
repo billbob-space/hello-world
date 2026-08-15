@@ -82,9 +82,24 @@ type cleFait struct {
 	seance   int
 }
 
+// Records est le triplet de faits retenus par le lot ludique (PRD, A16) :
+// « ils ne peuvent que monter ». Chaque champ se fusionne independamment par
+// le plus grand (fusionnerRecords plus bas), jamais par ecrasement.
+type Records struct {
+	PlusLongueTenue   int `json:"plusLongueTenue"`
+	PlusExercicesJour int `json:"plusExercicesJour"`
+	TotalExercices    int `json:"totalExercices"`
+}
+
 // Fiche est la forme sur le disque ET la forme rendue au client — CodeSel et
 // CodeHash exceptes, retires par api.go avant l'envoi (PRD §10.3 : le serveur
 // ne rend jamais le code, ni son empreinte).
+//
+// Parures, Records et Couleur sont le lot ludique, « Ajoute apres les PRP » :
+// Parures suit exactement la regle de Badges (union, jamais un ecrasement,
+// PRD A13 : « une semaine bouclee ne se debloque pas ») ; Records ne peut que
+// monter, champ par champ (PRD A16) ; Couleur suit le dernier ecrit, comme
+// Prenom (PRD A14).
 type Fiche struct {
 	Schema        int       `json:"schema"`
 	Pseudo        string    `json:"pseudo"`
@@ -95,6 +110,9 @@ type Fiche struct {
 	SemaineDepart int       `json:"semaineDepart"`
 	Faits         []Fait    `json:"faits"`
 	Badges        []string  `json:"badges"`
+	Parures       []string  `json:"parures"`
+	Records       Records   `json:"records"`
+	Couleur       string    `json:"couleur"`
 	CreeeLe       time.Time `json:"creeeLe"`
 	MajLe         time.Time `json:"majLe"`
 }
@@ -451,23 +469,54 @@ func (m *Magasin) verifierAcces(empreinte, code string) (*Fiche, error) {
 	return f, nil
 }
 
+// requeteSynchro porte tous les champs qu'une synchronisation peut apporter.
+// Le lot ludique (Parures, Records, Couleur) a ete ajoute APRES la signature
+// historique de synchroniser() ci-dessous ; plutot que de faire grossir cette
+// signature (et casser tous ses appelants existants, tests compris),
+// synchroniserFiche prend ce struct, et synchroniser() delegue en laissant
+// les trois champs neufs a leur valeur neutre — un appelant qui les ignore se
+// comporte EXACTEMENT comme avant le lot ludique.
+type requeteSynchro struct {
+	Pseudo        string
+	Code          string
+	Faits         []Fait
+	Badges        []string
+	Prenom        string
+	SemaineDepart int
+	Parures       []string
+	Records       Records
+	Couleur       string
+}
+
 // synchroniser lit, fusionne et reecrit une fiche. La fusion est une UNION
 // (PRD §9.8) : aucune case cochee ne se decoche par synchronisation, quel que
 // soit l'ordre d'arrivee. prenom et semaineDepart suivent le dernier ecrit
 // s'ils sont non vides (PRD §9.9).
 func (m *Magasin) synchroniser(pseudoBrut, code string, faits []Fait, badges []string, prenom string, semaineDepart int) (*Fiche, error) {
-	affiche, cle, err := normaliserPseudo(pseudoBrut)
+	return m.synchroniserFiche(requeteSynchro{
+		Pseudo: pseudoBrut, Code: code, Faits: faits, Badges: badges,
+		Prenom: prenom, SemaineDepart: semaineDepart,
+	})
+}
+
+// synchroniserFiche est la version complete, utilisee par api.go : elle porte
+// en plus le lot ludique, « Ajoute apres les PRP » — Parures se fusionne en
+// UNION comme Badges (PRD A13) ; Records ne peut que monter, champ par champ
+// (PRD A16, fusionnerRecords) ; Couleur suit le dernier ecrit s'il est non
+// vide, exactement comme Prenom (PRD A14).
+func (m *Magasin) synchroniserFiche(r requeteSynchro) (*Fiche, error) {
+	affiche, cle, err := normaliserPseudo(r.Pseudo)
 	if err != nil {
 		return nil, err
 	}
-	if err := validerCode(code); err != nil {
+	if err := validerCode(r.Code); err != nil {
 		return nil, err
 	}
-	if err := validerFaits(faits); err != nil {
+	if err := validerFaits(r.Faits); err != nil {
 		return nil, err
 	}
-	if semaineDepart != 0 {
-		if err := validerSemaine(semaineDepart); err != nil {
+	if r.SemaineDepart != 0 {
+		if err := validerSemaine(r.SemaineDepart); err != nil {
 			return nil, err
 		}
 	}
@@ -483,7 +532,7 @@ func (m *Magasin) synchroniser(pseudoBrut, code string, faits []Fait, badges []s
 	verrou.Lock()
 	defer verrou.Unlock()
 
-	f, err := m.verifierAcces(empreinte, code)
+	f, err := m.verifierAcces(empreinte, r.Code)
 	if err != nil {
 		if errors.Is(err, errCodeRefuse) {
 			m.temporisation.noterEchec(empreinte, maintenant)
@@ -492,19 +541,24 @@ func (m *Magasin) synchroniser(pseudoBrut, code string, faits []Fait, badges []s
 	}
 	m.temporisation.reussite(empreinte)
 
-	fusion := fusionnerFaits(f.Faits, faits)
+	fusion := fusionnerFaits(f.Faits, r.Faits)
 	if len(fusion) > maxFaits {
 		return nil, errFaitsInvalide
 	}
 
 	f.Pseudo = affiche
 	f.Faits = fusion
-	f.Badges = fusionnerBadges(f.Badges, badges)
-	if prenom != "" {
-		f.Prenom = prenom
+	f.Badges = fusionnerEnsembleChaines(f.Badges, r.Badges)
+	f.Parures = fusionnerEnsembleChaines(f.Parures, r.Parures)
+	f.Records = fusionnerRecords(f.Records, r.Records)
+	if r.Prenom != "" {
+		f.Prenom = r.Prenom
 	}
-	if semaineDepart != 0 {
-		f.SemaineDepart = semaineDepart
+	if r.SemaineDepart != 0 {
+		f.SemaineDepart = r.SemaineDepart
+	}
+	if r.Couleur != "" {
+		f.Couleur = r.Couleur
 	}
 	f.MajLe = maintenant
 
@@ -594,8 +648,11 @@ func fusionnerFaits(stockes, recus []Fait) []Fait {
 	return fusion
 }
 
-// fusionnerBadges rend l'union des deux listes, sans doublon.
-func fusionnerBadges(stockes, recus []string) []string {
+// fusionnerEnsembleChaines rend l'union de deux listes, sans doublon, triee
+// pour un fichier stable a la main. Badges (lot 3) et Parures (PRD, lot
+// ludique A13) partagent cette meme regle de fusion : un identifiant acquis
+// reste acquis, pour toujours.
+func fusionnerEnsembleChaines(stockes, recus []string) []string {
 	ens := make(map[string]bool, len(stockes)+len(recus))
 	for _, b := range stockes {
 		ens[b] = true
@@ -609,6 +666,27 @@ func fusionnerBadges(stockes, recus []string) []string {
 	}
 	sort.Strings(fusion)
 	return fusion
+}
+
+// --- Le lot ludique, « Ajoute apres les PRP » : A16, les records -----------
+
+func plusGrand(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// fusionnerRecords ne retient jamais que le plus grand, champ par champ
+// (PRD A16 : « on ne perd jamais un record ») — jamais un remplacement, meme
+// quand l'un des deux cotes n'a encore rien synchronise depuis le lot ludique
+// (Records{} zero-valeur, un no-op ici).
+func fusionnerRecords(stocke, recu Records) Records {
+	return Records{
+		PlusLongueTenue:   plusGrand(stocke.PlusLongueTenue, recu.PlusLongueTenue),
+		PlusExercicesJour: plusGrand(stocke.PlusExercicesJour, recu.PlusExercicesJour),
+		TotalExercices:    plusGrand(stocke.TotalExercices, recu.TotalExercices),
+	}
 }
 
 // --- La temporisation (PRP 06, chantier D) -------------------------------

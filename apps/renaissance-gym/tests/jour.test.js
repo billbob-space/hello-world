@@ -12,11 +12,26 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chargerProgramme } from '../web/programme.js';
 import { modeleJour, monterJour } from '../web/vue-jour.js';
+import * as etat from '../web/etat.js';
 import { poserDocumentFactice, creerHote } from './dom-factice.js';
 
 const prog = chargerProgramme(JSON.parse(
   readFileSync(new URL('../web/programme.json', import.meta.url), 'utf8'),
 ));
+
+function poserMagasin(magasin) {
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: magasin });
+}
+function fauxMagasin(initial = {}) {
+  const donnees = new Map(Object.entries(initial));
+  return {
+    get length() { return donnees.size; },
+    key(i) { return [...donnees.keys()][i] ?? null; },
+    getItem(cle) { return donnees.has(cle) ? donnees.get(cle) : null; },
+    setItem(cle, valeur) { donnees.set(String(cle), String(valeur)); },
+    removeItem(cle) { donnees.delete(cle); },
+  };
+}
 
 function fait(exercice, semaine, seance, a = '2026-08-03T09:00:00.000Z') {
   return { exercice, semaine, seance, a };
@@ -26,15 +41,20 @@ function faitsSemaineComplete(semaine, a) {
   return prog.seances.flatMap((s) => s.exercices.map((id) => fait(id, semaine, Number(s.id.slice(1)), a)));
 }
 
-function ctxAvec({ faits = [], semaineDeDepart = 1 } = {}) {
+function ctxAvec({
+  faits = [], semaineDeDepart = 1, bilan = null, alea,
+} = {}) {
   return {
-    etat: { faits, semaineDeDepart },
+    etat: { ...etat.ETAT_VIDE, faits, semaineDeDepart, bilan },
     programme: prog,
     maintenant: () => new Date('2026-08-14T09:00:00.000Z'),
+    alea,
   };
 }
 
 beforeEach(() => {
+  poserMagasin(fauxMagasin());
+  etat.effacerEtat();
   poserDocumentFactice();
   globalThis.location = { hash: '#/jour' };
 });
@@ -166,4 +186,99 @@ test('le cas « a-faire » ne monte jamais le rang de strass : ce n’est pas un
   const hote = creerHote();
   monterJour(hote, ctxAvec());
   assert.equal(hote.querySelectorAll('.strass').length, 0);
+});
+
+// --- A13 (lot ludique) : un lien mène au justaucorps -------------------------
+
+test('un lien mène au justaucorps, depuis n’importe quel état de l’écran du jour', () => {
+  for (const ctx of [ctxAvec(), ctxAvec({ faits: faitsSemaineComplete(1) })]) {
+    const hote = creerHote();
+    monterJour(hote, ctx);
+    const lien = hote.querySelectorAll('a').find((a) => a.href === '#/justaucorps');
+    assert.ok(lien, 'garde-fou : le lien vers le justaucorps doit toujours exister');
+  }
+});
+
+// --- A15 (« Ajouté après les PRP », lot ludique) : « Un exercice au hasard »
+
+test('« Un exercice au hasard » existe sur l’écran du jour, quel que soit son état', () => {
+  const huitSemaines = Array.from({ length: 8 }, (_, i) => faitsSemaineComplete(i + 1)).flat();
+  for (const ctx of [ctxAvec(), ctxAvec({ faits: faitsSemaineComplete(1) }), ctxAvec({ faits: huitSemaines })]) {
+    const hote = creerHote();
+    monterJour(hote, ctx);
+    const bouton = hote.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Un exercice au hasard');
+    assert.ok(bouton, 'garde-fou : le bouton doit toujours exister — même semaine bouclée, même programme terminé');
+  }
+});
+
+test('« Un exercice au hasard » tire parmi les trente-six et route vers l’écran de séance marqué « hasard »', () => {
+  const hote = creerHote();
+  monterJour(hote, ctxAvec({ alea: () => 0 }));
+
+  hote.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Un exercice au hasard').declencher('click');
+
+  assert.match(globalThis.location.hash, /^#\/seance\/[1-4]\/e\d+\/1\/hasard$/);
+});
+
+test('« Un exercice au hasard » reçoit son aléa depuis le contexte, jamais Math.random en dur dans la vue', () => {
+  const hote1 = creerHote();
+  monterJour(hote1, ctxAvec({ alea: () => 0 }));
+  hote1.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Un exercice au hasard').declencher('click');
+  const premier = globalThis.location.hash;
+
+  globalThis.location = { hash: '#/jour' };
+  const hote2 = creerHote();
+  monterJour(hote2, ctxAvec({ alea: () => 0.999999 }));
+  hote2.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Un exercice au hasard').declencher('click');
+  const second = globalThis.location.hash;
+
+  assert.notEqual(premier, second, 'deux alea différents doivent pouvoir tirer deux exercices différents');
+});
+
+// --- A17 (« Ajouté après les PRP », lot ludique) : le bilan des huit semaines
+
+test('le programme terminé fige le bilan UNE SEULE FOIS, et propose de le voir', () => {
+  const huitSemaines = Array.from({ length: 8 }, (_, i) => faitsSemaineComplete(i + 1)).flat();
+  const hote = creerHote();
+  monterJour(hote, ctxAvec({ faits: huitSemaines }));
+
+  const bilan = etat.lireEtat().bilan;
+  assert.ok(bilan, 'le bilan doit être écrit dès la première fois que « termine » se constate');
+  assert.equal(bilan.seancesFaites, 32);
+
+  const versBilan = hote.querySelectorAll('.bouton').find((b) => b.textContent === 'Voir ton été');
+  assert.ok(versBilan, 'un bouton doit proposer de voir le bilan');
+  versBilan.declencher('click');
+  assert.equal(globalThis.location.hash, '#/bilan');
+});
+
+test('le bilan déjà figé n’est jamais recalculé à un second montage du cas « termine »', () => {
+  const huitSemaines = Array.from({ length: 8 }, (_, i) => faitsSemaineComplete(i + 1)).flat();
+  const hote1 = creerHote();
+  monterJour(hote1, ctxAvec({ faits: huitSemaines }));
+  const premierBilan = etat.lireEtat().bilan;
+
+  const hote2 = creerHote();
+  monterJour(hote2, ctxAvec({ faits: huitSemaines, bilan: premierBilan }));
+  assert.deepEqual(etat.lireEtat().bilan, premierBilan, 'rien ne doit avoir bougé');
+});
+
+test('le bilan, une fois figé, reste accessible depuis l’écran du jour même hors du cas « termine » (nouveau programme redémarré)', () => {
+  const bilanExistant = {
+    seancesFaites: 32, exercicesFaits: 288, records: etat.ETAT_VIDE.records, dateISO: '2026-08-14T09:00:00.000Z',
+  };
+  const hote = creerHote();
+  // Faits vides, semaine 1 : un programme qui vient de « recommencer à zéro »
+  // (vue-grille.js) — le bilan, lui, n'est jamais effacé par ce geste.
+  monterJour(hote, ctxAvec({ faits: [], bilan: bilanExistant }));
+
+  const lien = hote.querySelectorAll('a').find((a) => a.href === '#/bilan');
+  assert.ok(lien, 'le lien vers le bilan doit rester accessible même en dehors du cas « termine »');
+});
+
+test('sans bilan, aucun lien ne le propose — rien à montrer avant l’heure', () => {
+  const hote = creerHote();
+  monterJour(hote, ctxAvec());
+  const lien = hote.querySelectorAll('a').find((a) => a.href === '#/bilan');
+  assert.equal(lien, undefined);
 });

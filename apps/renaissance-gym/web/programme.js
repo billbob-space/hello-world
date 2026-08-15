@@ -101,6 +101,20 @@ export function exercicesDeSeance(prog, numero) {
   return s.exercices.map((id) => exercice(prog, id)).filter((ex) => ex !== undefined);
 }
 
+// A15 (« Ajoute apres les PRP », lot ludique) : la premiere seance (1..4) qui
+// porte cet exercice, ou null s'il n'appartient a aucune — un garde-fou qui
+// ne devrait jamais survenir. Un exercice de souplesse peut appartenir a deux
+// seances de la meme semaine (PRD §8.4) ; c'est alors la premiere dans
+// l'ordre du fichier qui est retenue, un choix arbitraire mais deterministe,
+// puisque le PRD n'attache pas de sens a laquelle des deux compte pour le
+// tirage au hasard.
+export function seanceContenant(prog, idExercice) {
+  const s = prog.seances.find((seance) => seance.exercices.includes(idExercice));
+  if (s === undefined) return null;
+  const trouve = /^s(\d+)$/.exec(s.id);
+  return trouve ? Number(trouve[1]) : null;
+}
+
 // A8 (« Ajoute apres les PRP ») : les trente-six exercices groupes par
 // famille, dans l'ordre de la feuille — chaque groupe suit l'ordre de
 // `familles`, chaque exercice l'ordre de `exercices` (PRD §8.1 : jamais

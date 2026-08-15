@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   chargerProgramme, exercices, exercice, seance, exercicesDeSeance,
-  palierDeSemaine, objectif, objectifTexte, couvertureComplete,
+  palierDeSemaine, objectif, objectifTexte, couvertureComplete, seanceContenant,
 } from '../web/programme.js';
 
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -229,6 +229,24 @@ test('aucune valeur d’objectif n’est ecrite en dur dans une vue (PRD §8.1)'
       assert.doesNotMatch(source, motif, `${fichier} porte une valeur d’objectif en dur`);
     }
   }
+});
+
+// --- A15 (« Ajouté après les PRP », lot ludique) : seanceContenant ----------
+
+test('seanceContenant rend le numéro de la séance qui porte un exercice', () => {
+  for (let numero = 1; numero <= 4; numero += 1) {
+    for (const ex of exercicesDeSeance(prog, numero)) {
+      const trouve = seanceContenant(prog, ex.id);
+      assert.ok(trouve !== null, `${ex.id} devrait appartenir à une séance`);
+      // Un exercice de souplesse peut appartenir à deux séances (PRD §8.4) :
+      // seanceContenant en rend une, déterministe, jamais null.
+      assert.ok([1, 2, 3, 4].includes(trouve));
+    }
+  }
+});
+
+test('seanceContenant rend null pour un identifiant inconnu', () => {
+  assert.equal(seanceContenant(prog, 'inexistant'), null);
 });
 
 // Ossature §6 : les modules purs ne touchent ni au DOM, ni au localStorage, ni
