@@ -374,6 +374,7 @@ p { margin: 0; }
 .corps-seance,
 .corps-seance-fin,
 .corps-grille,
+.corps-detail-seance,
 .corps-reglages {
   padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 4);
   display: flex;
@@ -674,6 +675,7 @@ input[type='text']:focus,
 }
 
 .case-seance {
+  position: relative;
   min-height: var(--cible-min);
   min-width: 0;
   border: 2px solid var(--jersey-ombre);
@@ -684,6 +686,18 @@ input[type='text']:focus,
   justify-content: center;
   padding: 0;
   touch-action: manipulation;
+}
+
+/* A3 : la case porte son avancement — un remplissage d'or, jamais un chiffre
+   (PRD §4, §14). `clip-path` sur `.case-seance` recoupe deja ce calque a son
+   biseau, comme un `overflow: hidden` : aucune decoupe supplementaire n'est
+   necessaire ici. Anime par transform, jamais par width (meme raison qu'a la
+   barre de couture : ce telephone n'est pas le plus recent de la maison). */
+.case-seance__remplissage {
+  position: absolute;
+  inset: 0;
+  background: var(--or);
+  transform-origin: left center;
 }
 
 /* Seance faite : fond or, coche (PRP 05, table du chantier A). */
@@ -698,6 +712,7 @@ input[type='text']:focus,
    l'autre. `currentColor` reprend la couleur deja posee ici. */
 .case-seance__coche,
 .case-seance__chevron,
+.case-exercice__coche,
 .icone-fleche {
   display: inline-flex;
   align-items: center;
@@ -705,6 +720,13 @@ input[type='text']:focus,
   font-size: 1.25rem;
   line-height: 1;
   vertical-align: middle;
+}
+
+/* Au-dessus du remplissage d'avancement (A3), jamais dessous — une case
+   entamee de la semaine en cours porte les deux a la fois. */
+.case-seance__coche,
+.case-seance__chevron {
+  position: relative;
 }
 
 .case-seance__coche {
@@ -728,12 +750,13 @@ input[type='text']:focus,
   text-decoration: underline;
 }
 
-/* Seance a faire, semaine en cours : contour fuchsia, chevron — jamais
-   cliquable depuis la grille (PRD §13 : ce n'est pas un second parcours). */
+/* Seance a faire, semaine en cours : contour fuchsia, chevron. Ouvrable
+   comme toute autre case non future (A3) : l'appui mene au detail de la
+   seance, pas a un second parcours d'entrainement. */
 .case-seance--encours {
   border-color: var(--fuchsia);
   background: var(--jersey);
-  cursor: default;
+  cursor: pointer;
 }
 
 .case-seance__chevron {
@@ -825,6 +848,70 @@ input[type='text']:focus,
 
 .badge-carte__phrase {
   font-size: var(--taille-texte);
+}
+
+/* --- A3 bis : le detail d'une seance, la liste de ses exercices -----------
+   Deux cibles bien separees par ligne (PRD §5 : rien ne depend d'un geste
+   precis) : cocher/decocher a gauche, lancer a droite, jamais l'une sur
+   l'autre. */
+
+.liste-exercices {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.ligne-exercice {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 1.5);
+}
+
+.ligne-exercice__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--taille-texte);
+}
+
+.case-exercice {
+  flex: 0 0 auto;
+  width: var(--cible-min);
+  height: var(--cible-min);
+  border: 2px solid var(--jersey-ombre);
+  clip-path: var(--biseau);
+  background: var(--jersey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Fait : fond or, coche — le meme visage que la case de la grille (A3), pour
+   qu'une seule grammaire visuelle dise « acquis » partout dans l'app. */
+.case-exercice--fait {
+  border-color: var(--or);
+  background: var(--or);
+}
+
+.case-exercice__coche {
+  color: var(--bleu-nuit);
+}
+
+.bouton-lancer {
+  flex: 0 0 auto;
+  min-height: var(--cible-min);
+  padding: 0 calc(var(--pas) * 2);
+  border: 0;
+  clip-path: var(--biseau);
+  background: var(--bleu-roi);
+  color: var(--jersey);
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 600;
+  font-size: var(--taille-texte);
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 /* --- PRP 05 : les reglages -------------------------------------------------- */

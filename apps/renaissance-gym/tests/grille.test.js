@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { chargerProgramme, exercicesDeSeance } from '../web/programme.js';
+import { chargerProgramme } from '../web/programme.js';
 import * as vueGrille from '../web/vue-grille.js';
 import * as etat from '../web/etat.js';
 import { poserDocumentFactice, creerHote } from './dom-factice.js';
@@ -92,74 +92,72 @@ test('classeDeCase rend les quatre etats de la table du chantier A', () => {
   assert.equal(vueGrille.classeDeCase({ faite: true, semaine: 5, semaineCouranteActuelle: 4 }), 'future');
 });
 
-// --- la semaine en cours n'est pas corrigible depuis la grille (PRD §13) ---
+// --- A3 : toute case ouvrable s'ouvre, la semaine en cours comme les
+// semaines passees — l'appui mene au detail de la seance, jamais a un
+// bandeau qui coche tout d'un coup (la correction descend a l'exercice,
+// PRD A3). ----------------------------------------------------------------
 
-test('une case de la semaine en cours n’a pas non plus de gestionnaire de clic', () => {
+test('une case de la semaine en cours porte desormais un gestionnaire de clic, qui ouvre son detail', () => {
   const hote = creerHote();
   vueGrille.monterGrille(hote, ctxVide());
+  globalThis.location = { hash: '#/grille' };
 
   const enCours = hote.querySelectorAll('.case-seance--encours');
   assert.equal(enCours.length, 4, 'les quatre seances de la semaine en cours sont a faire');
   for (const c of enCours) {
-    assert.equal(c._handlers.has('click'), false, 'la semaine en cours se joue depuis l’ecran du jour, pas la grille');
+    assert.equal(c._handlers.has('click'), true, 'une case ouvrable de la semaine en cours doit pouvoir s’ouvrir (A3)');
   }
+  enCours[0].declencher('click');
+  assert.equal(globalThis.location.hash, '#/grille/seance/4/1', 'semaine 4 est la semaine en cours dans ce jeu de donnees');
 });
 
-// --- une case passee se coche et se decoche (PRD §9.4) ----------------------
-
-test('une case de semaine passee se coche depuis la grille, avec confirmation', () => {
+test('une case de semaine passee ouvre elle aussi son detail, jamais un bandeau de confirmation', () => {
   const hote = creerHote();
   vueGrille.monterGrille(hote, ctxVide());
+  globalThis.location = { hash: '#/grille' };
 
   const vide = hote.querySelectorAll('.case-seance--passee-vide')[0];
   assert.ok(vide, 'garde-fou : au moins une case passee vide doit exister');
   vide.declencher('click');
 
-  const question = hote.querySelectorAll('.confirmation-case__question')[0];
-  assert.match(question.textContent, /Tu as fait la séance \d de la semaine \d \?/);
-
-  boutonTexte(hote, 'Oui').declencher('click');
-
-  const faits = etat.lireEtat().faits;
-  assert.ok(faits.length > 0, 'la correction doit avoir enregistre des faits');
-  assert.ok(faits.every((f) => f.corrige === true), 'chaque fait de correction porte le marqueur corrige');
-  assert.ok(faits.every((f) => f.semaine === 1), 'la premiere case passee-vide est celle de la semaine 1');
-
-  // La case correspondante est maintenant « faite ».
-  const faites = hote.querySelectorAll('.case-seance--faite');
-  assert.equal(faites.length, 1);
+  assert.match(globalThis.location.hash, /^#\/grille\/seance\/\d\/\d$/);
+  assert.equal(hote.querySelectorAll('.confirmation-case__question').length, 0, 'plus de bandeau de confirmation pour une case (A3)');
 });
 
-test('decocher une case deja faite retire exactement les faits de cette seance', () => {
+// --- A3 : la case porte son avancement, trois visages distincts -----------
+
+test('une seance entamee (certains exercices faits, pas tous) se distingue de la vide et de la finie', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const premier = s1.exercices[0];
+  etat.ecrireEtat({
+    debut: DEBUT,
+    semaineDeDepart: 1,
+    faits: [{ seance: 1, semaine: 1, exercice: premier, a: '2026-08-03T09:00:00.000Z' }],
+  });
+
   const hote = creerHote();
-  vueGrille.monterGrille(hote, ctxVide());
+  vueGrille.monterGrille(hote, { etat: etat.lireEtat(), programme: prog, maintenant: () => MAINTENANT });
 
-  // Cocher.
-  hote.querySelectorAll('.case-seance--passee-vide')[0].declencher('click');
-  boutonTexte(hote, 'Oui').declencher('click');
-  const exercicesSeance1 = exercicesDeSeance(prog, 1);
-  assert.equal(etat.lireEtat().faits.length, exercicesSeance1.length);
+  const entamees = hote.querySelectorAll('.case-seance--entamee');
+  const finies = hote.querySelectorAll('.case-seance--faite');
+  assert.equal(entamees.length, 1, 'exactement une seance a un exercice fait sur plusieurs');
+  assert.equal(entamees.some((c) => finies.includes(c)), false, 'entamee n’est jamais finie');
+  assert.ok(entamees[0].querySelectorAll('.case-seance__remplissage').length > 0, 'un remplissage doit porter l’avancement');
 
-  // Decocher : la meme case est maintenant « faite ».
-  const faite = hote.querySelectorAll('.case-seance--faite')[0];
-  faite.declencher('click');
-  const question = hote.querySelectorAll('.confirmation-case__question')[0];
-  assert.match(question.textContent, /Tu n’as pas fait la séance \d de la semaine \d \?/);
-  boutonTexte(hote, 'Oui').declencher('click');
-
-  assert.deepEqual(etat.lireEtat().faits, [], 'la decoche retire bien les faits correspondants');
-  assert.equal(hote.querySelectorAll('.case-seance--faite').length, 0);
-  assert.equal(hote.querySelectorAll('.case-seance--passee-vide').length > 0, true);
+  // Aucune case en dehors de l’etat entame ne porte de remplissage.
+  const toutesLesCases = hote.querySelectorAll('.case-seance');
+  const nonEntamees = toutesLesCases.filter((c) => !entamees.includes(c));
+  for (const c of nonEntamees) {
+    assert.equal(c.querySelectorAll('.case-seance__remplissage').length, 0);
+  }
 });
 
-test('repondre « Non » a la confirmation n’ecrit rien', () => {
+test('une seance dont aucun exercice n’est fait n’a pas de remplissage', () => {
   const hote = creerHote();
   vueGrille.monterGrille(hote, ctxVide());
-
-  hote.querySelectorAll('.case-seance--passee-vide')[0].declencher('click');
-  boutonTexte(hote, 'Non').declencher('click');
-
-  assert.deepEqual(etat.lireEtat().faits, []);
+  const videS = hote.querySelectorAll('.case-seance--passee-vide')[0];
+  assert.equal(hote.querySelectorAll('.case-seance--entamee').includes(videS), false);
+  assert.equal(videS.querySelectorAll('.case-seance__remplissage').length, 0);
 });
 
 // --- aucun total, aucun pourcentage, aucune moyenne (PRD §4, §14) -----------

@@ -7,13 +7,17 @@ import { monterEntree } from './vue-entree.js';
 import { monterJour } from './vue-jour.js';
 import { monterSeance } from './vue-seance.js';
 import { monterGrille } from './vue-grille.js';
+import { monterDetailSeance } from './vue-detail-seance.js';
 import { monterReglages } from './vue-reglages.js';
 import * as synchro from './synchro.js';
 
-// Les quatre ecrans du lot 1 (PRD §6). Une route hors de cette liste — et hors
-// de ses sous-routes, par exemple « #/seance/2026-08-14 » — n'est jamais
-// honoree : elle retombe sur « #/jour ».
-export const ROUTES = ['#/jour', '#/seance', '#/grille', '#/reglages'];
+// Les ecrans de l'application (PRD §6, puis A3 « Ajoute apres les PRP »).
+// Une route hors de cette liste — et hors de ses sous-routes, par exemple
+// « #/seance/2026-08-14 » — n'est jamais honoree : elle retombe sur
+// « #/jour ». « #/grille/seance » doit precéder « #/grille » : `routeDeBase`
+// prend le PREMIER motif qui correspond, et « #/grille/seance/3/2 » commence
+// aussi par « #/grille/ ».
+export const ROUTES = ['#/jour', '#/seance', '#/grille/seance', '#/grille', '#/reglages'];
 
 // L'ecran d'entree n'appartient pas encore a ce PRP (PRP 03 le monte) : router
 // s'y aiguille des qu'aucun prenom n'est enregistre, « quelle que soit la
@@ -156,12 +160,13 @@ async function chargerLeProgramme(hote) {
   }
 }
 
-// Les six ecrans du produit (PRD §6) : entree, jour, seance, grille,
-// reglages — la table complete, PRP 05 comprise.
+// Les ecrans du produit (PRD §6, PRP 05) : entree, jour, seance, grille, le
+// detail d'une case (A3), reglages — la table complete.
 const TABLE = {
   [ROUTE_ENTREE]: monterEntree,
   '#/jour': monterJour,
   '#/seance': monterSeance,
+  '#/grille/seance': monterDetailSeance,
   '#/grille': monterGrille,
   '#/reglages': monterReglages,
 };

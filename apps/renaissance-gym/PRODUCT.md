@@ -665,3 +665,74 @@ complète, le son ne fait que l'ajouter, et aucun test ne dépend de lui. Sur un
 iPhone dont l'interrupteur latéral est sur silence, le son du navigateur est
 coupé par le système et **aucune page web ne peut passer outre** : la vibration
 et l'écran sont alors les seuls signaux, et c'est assumé.
+
+## A3. La grille montre ce qui a été fait, exercice par exercice
+
+**Remonté par le demandeur après la deuxième séance**, le 15 août 2026 : « dans
+la vue grille aucun moyen de voir ce que j'ai déjà fait ».
+
+Le constat est exact, et trois défauts se cumulaient :
+
+1. **Une case était tout ou rien.** Elle ne devenait dorée qu'une fois la
+   séance entièrement faite. Dix exercices sur onze s'affichaient exactement
+   comme zéro : tout ce qui n'achevait pas une séance était invisible.
+2. **Les cases de la semaine en cours étaient inertes.** Celle où elle vit
+   était la plus opaque de la grille — elle ne pouvait ni la lire, ni la
+   corriger.
+3. **Rien ne descendait à l'exercice.** Or c'est la granularité de la feuille
+   du club : trente-six lignes, une croix par ligne. La grille montrait des
+   séances là où elle attendait des exercices.
+
+Le premier défaut a été **aggravé par A1** : depuis que « Passer » existe, une
+séance se termine bien plus souvent incomplète, et donc invisible.
+
+**Ce qui est ajouté** :
+
+- **La case porte son avancement.** Elle se remplit d'or à proportion des
+  exercices faits. Une case entamée ne ressemble plus ni à une case vide, ni à
+  une case finie — laquelle garde sa coche.
+- **Toute case ouvrable s'ouvre** : la semaine en cours comme les semaines
+  passées. On y lit **les exercices de la séance, un par un**, ceux qui sont
+  faits marqués comme tels. C'est la feuille du club, enfin.
+- **La correction descend à l'exercice.** Elle peut cocher ou décocher une
+  ligne, et non plus seulement la séance entière — une séance faite sans le
+  téléphone se rattrape ligne à ligne, et un exercice coché par erreur se
+  défait seul.
+- **Les semaines à venir restent inertes** : la règle §9.3 ne bouge pas,
+  l'avenir ne se coche pas.
+
+**Ce qui ne change pas** : la règle §9.1 tient — une séance n'est *faite* que
+lorsque tous ses exercices le sont, et seule une séance faite porte sa coche.
+Un avancement partiel se **voit** sans être compté comme un succès.
+
+**Ce qui reste interdit** : aucun pourcentage, aucun total, aucune moyenne,
+nulle part. La case se remplit, elle n'annonce pas « 64 % ». Le §4 et le §14
+tiennent : montrer ce qui a été fait est un service, en tenir le score est un
+jugement, et cette application n'en rend aucun.
+
+### A3 bis — depuis la liste, lancer l'exercice
+
+Précisé par le demandeur dans la foulée : la liste ne sert pas qu'à lire et à
+cocher, elle sert aussi à **faire**.
+
+Depuis le détail d'une séance, chaque exercice porte donc **deux gestes
+distincts**, et il ne faut pas les confondre :
+
+| Geste | Ce qu'il fait | Pour quoi |
+|---|---|---|
+| **Cocher / décocher** | marque l'exercice fait ou pas fait, sans rien lancer | elle l'a fait au club, ou sans le téléphone, ou elle s'est trompée |
+| **Lancer** | ouvre l'exercice pour de vrai — objectif de la semaine, minuteur, sonnerie | elle veut le faire maintenant, seul |
+
+**Lancer un exercice seul** l'amène sur l'écran de séance ordinaire, avec le
+même minuteur et la même sonnerie, mais pour ce seul exercice. Une fois validé,
+elle **revient à la liste** d'où elle est partie, et non à la séance du jour :
+c'est de là qu'elle est venue, et il lui en reste peut-être d'autres à
+rattraper.
+
+C'est ce qui rend la grille utile après coup : une séance à laquelle il manque
+deux exercices se termine depuis la grille, sans avoir à relancer la séance
+entière ni à cocher une ligne qu'on n'a pas faite.
+
+**La règle §9.1 ne bouge toujours pas** : la séance devient *faite* — et sa case
+porte sa coche — dès que ses exercices le sont tous, qu'ils l'aient été dans la
+séance guidée, lancés un par un depuis la grille, ou cochés à la main.

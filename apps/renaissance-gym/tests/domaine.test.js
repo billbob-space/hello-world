@@ -9,7 +9,7 @@ import { chargerProgramme } from '../web/programme.js';
 import {
   semaineCourante, debutDeSemaine, semaineEstPassee, semaineEstFuture,
   faitsDeSeance, seanceEstFaite, seancesFaites, prochaineSeance,
-  fusionner, progression,
+  fusionner, progression, avancementSeance,
   fileInitiale, passerEnFile, fileNeContientQueDesPasses,
 } from '../web/domaine.js';
 import { exercicesDeSeance } from '../web/programme.js';
@@ -85,6 +85,29 @@ test('une seance est faite quand TOUS ses exercices sont valides, pas avant (PRD
 
   const faitsComplets = s1.exercices.map((id) => fait(id, 1, 1, '2026-08-03T09:00:00.000Z'));
   assert.equal(seanceEstFaite(prog, faitsComplets, 1, 1), true);
+});
+
+// A3 (« Ajouté après les PRP ») : l'avancement d'une séance, entre 0 et 1 —
+// jamais rendu en chiffre par les vues (PRD §4, §14), seulement en
+// remplissage progressif de la case dans la grille.
+test('avancementSeance rend la proportion d’exercices valides, entre 0 et 1', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  assert.equal(avancementSeance(prog, [], 1, 1), 0, 'rien de fait : aucun avancement');
+
+  const unSeul = [fait(s1.exercices[0], 1, 1, '2026-08-03T09:00:00.000Z')];
+  assert.equal(avancementSeance(prog, unSeul, 1, 1), 1 / s1.exercices.length);
+
+  const faitsComplets = s1.exercices.map((id) => fait(id, 1, 1, '2026-08-03T09:00:00.000Z'));
+  assert.equal(avancementSeance(prog, faitsComplets, 1, 1), 1, 'tout fait : avancement complet');
+});
+
+test('avancementSeance s’accorde toujours avec seanceEstFaite : 1 exactement quand faite', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const faitsComplets = s1.exercices.map((id) => fait(id, 1, 1, '2026-08-03T09:00:00.000Z'));
+  assert.equal(avancementSeance(prog, faitsComplets, 1, 1) === 1, seanceEstFaite(prog, faitsComplets, 1, 1));
+
+  const faitsPartiels = s1.exercices.slice(0, -1).map((id) => fait(id, 1, 1, '2026-08-03T09:00:00.000Z'));
+  assert.equal(avancementSeance(prog, faitsPartiels, 1, 1) === 1, seanceEstFaite(prog, faitsPartiels, 1, 1));
 });
 
 test('une seance abandonnee reste inachevee, mais ce qui a ete valide n’est pas perdu (PRD §9.1)', () => {

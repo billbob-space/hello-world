@@ -66,6 +66,18 @@ export function seanceEstFaite(prog, faits, semaine, numero) {
   return attendus.every((id) => faitsSet.has(id));
 }
 
+// A3 (« Ajouté après les PRP ») : la proportion d'exercices valides d'une
+// seance, entre 0 et 1 — jamais rendue en chiffre nulle part (PRD §4, §14),
+// seulement en remplissage progressif de la case dans la grille. 0 si la
+// seance n'a aucun exercice attendu (garde-fou, ne devrait jamais survenir).
+export function avancementSeance(prog, faits, semaine, numero) {
+  const attendus = exercicesDeSeance(prog, numero).map((ex) => ex.id);
+  if (attendus.length === 0) return 0;
+  const faitsSet = faitsDeSeance(faits, semaine, numero);
+  const nFaits = attendus.filter((id) => faitsSet.has(id)).length;
+  return nFaits / attendus.length;
+}
+
 export function seancesFaites(prog, faits, semaine) {
   let n = 0;
   for (let numero = 1; numero <= 4; numero += 1) {
