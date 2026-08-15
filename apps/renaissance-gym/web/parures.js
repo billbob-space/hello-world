@@ -10,20 +10,77 @@
 // faut AJOUTER à la liste déjà conservée dans `etat.parures` — jamais ce
 // qu'il faudrait en retirer.
 //
-// Huit semaines, huit parures (PRD, lot ludique A13) : chaque palier
-// correspond au nombre de semaines entièrement bouclées, sans se soucier de
-// LESQUELLES — une semaine rejouée après un « recommencer à zéro » compte
-// comme n'importe quelle autre pour ce décompte, et c'est voulu : la parure
-// reste acquise pour toujours, elle ne se rattache à aucune semaine précise.
+// A20 (« Ajouté après les PRP ») corrige A13 croisé avec le §7.1 : les huit
+// parures ne sont plus au rythme d'UNE PAR SEMAINE BOUCLÉE dans l'absolu,
+// mais réparties sur les semaines qu'elle a RÉELLEMENT DEVANT ELLE — celle
+// qui démarre en semaine 6 n'a que trois semaines pour huit parures, sinon
+// son justaucorps ne peut jamais se compléter. `taillesEtapes` fait cette
+// répartition : huit éléments en `n` étapes aussi égales que possible, les
+// premières étapes recevant l'élément en trop quand huit ne se divise pas
+// exactement (3 semaines : 3, 3, 2) — et la dernière étape totalise toujours
+// les huit, quel que soit `n`, ce qui est tout le point : la dernière semaine
+// bouclée achève toujours le justaucorps.
+//
+// Le nombre de semaines bouclées compte, sans se soucier de LESQUELLES — une
+// semaine rejouée après un « recommencer à zéro » compte comme n'importe
+// quelle autre pour ce décompte, et c'est voulu : la parure reste acquise
+// pour toujours, elle ne se rattache à aucune semaine précise.
 
 import { progression } from './domaine.js';
+
+const NB_SEMAINES_PROGRAMME = 8;
+const NB_PARURES = 8;
 
 function semainesCompletes(prog, etat) {
   return progression(prog, etat.faits).semainesCompletes;
 }
 
-function palierAtteint(n) {
-  return (prog, etat) => semainesCompletes(prog, etat) >= n;
+// 1..8 : celle choisie à l'entrée (PRD §7.1) ou changée depuis les réglages
+// (A10). Une valeur absente ou hors bornes (état construit à la main dans les
+// tests, par exemple) retombe sur 1 — le programme complet, huit semaines
+// devant elle, exactement le comportement d'avant A20.
+function semaineDeDepart(etat) {
+  const v = etat.semaineDeDepart;
+  return Number.isInteger(v) && v >= 1 && v <= NB_SEMAINES_PROGRAMME ? v : 1;
+}
+
+// Le nombre de semaines qu'elle a réellement devant elle, à partir de sa
+// semaine de départ jusqu'à la huitième incluse.
+function semainesDevantElle(etat) {
+  return NB_SEMAINES_PROGRAMME - semaineDeDepart(etat) + 1;
+}
+
+// La taille de chaque étape d'une répartition de `NB_PARURES` éléments en `n`
+// étapes : la base (division entière), et le reste distribué une unité par
+// étape en commençant par la première — 8 en 3 étapes donne [3, 3, 2], 8 en 8
+// étapes donne huit fois [1].
+function taillesEtapes(n) {
+  const base = Math.floor(NB_PARURES / n);
+  const reste = NB_PARURES % n;
+  return Array.from({ length: n }, (_, i) => base + (i < reste ? 1 : 0));
+}
+
+// Le total de parures que `k` semaines bouclées valent, pour une gymnaste qui
+// a `n` semaines devant elle — la somme des `k` premières étapes.
+function totalPourSemainesBouclees(n, k) {
+  const tailles = taillesEtapes(n);
+  let total = 0;
+  for (let i = 0; i < k && i < tailles.length; i += 1) total += tailles[i];
+  return total;
+}
+
+// Le nombre de parures que les faits ACTUELS valent, compte tenu de la
+// semaine de départ actuelle. Les semaines bouclées au-delà de ce qu'elle a
+// devant elle ne comptent pas davantage que le maximum : le justaucorps ne
+// porte jamais plus de huit éléments.
+function totalParuresDues(prog, etat) {
+  const n = semainesDevantElle(etat);
+  const k = Math.min(semainesCompletes(prog, etat), n);
+  return totalPourSemainesBouclees(n, k);
+}
+
+function palierAtteint(rang) {
+  return (prog, etat) => totalParuresDues(prog, etat) >= rang;
 }
 
 // `partie` identifie l'élément dessiné par `vue-justaucorps.js` — jamais lu
