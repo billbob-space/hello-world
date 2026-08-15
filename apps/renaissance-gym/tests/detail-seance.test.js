@@ -133,6 +133,33 @@ test('cocher un à un chaque exercice d’une séance la rend « faite » (PRD �
   assert.equal(seanceEstFaite(prog, etat.lireEtat().faits, 2, 1), true);
 });
 
+// --- A16 (« Ajouté après les PRP », lot ludique) : cocher est une validation
+// comme une autre ------------------------------------------------------------
+
+test('A16 : cocher depuis le détail met à jour le record du total d’exercices', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/grille/seance/2/1' };
+  vueDetail.monterDetailSeance(hote, ctxDe());
+
+  hote.querySelectorAll('.case-exercice')[0].declencher('click');
+  assert.equal(etat.lireEtat().records.totalExercices, 1);
+});
+
+test('A16 : décocher ne fait jamais redescendre un record déjà acquis', () => {
+  const hote = creerHote();
+  const premierId = exercicesDeSeance(prog, 1)[0].id;
+  globalThis.location = { hash: '#/grille/seance/2/1' };
+  vueDetail.monterDetailSeance(hote, ctxDe([{ seance: 1, semaine: 2, exercice: premierId, a: '2026-08-05T09:00:00.000Z' }]));
+
+  // Un record déjà acquis avant l'ouverture de cet écran (par exemple une
+  // grosse séance faite ailleurs) : décocher ici ne doit jamais l'effacer.
+  etat.ecrireEtat({ records: { plusLongueTenue: 0, plusExercicesJour: 0, totalExercices: 9 } });
+
+  hote.querySelectorAll('.case-exercice')[0].declencher('click'); // décoche
+  assert.deepEqual(etat.lireEtat().faits, []);
+  assert.equal(etat.lireEtat().records.totalExercices, 9, 'décocher n’est pas une validation : le record ne bouge pas');
+});
+
 // --- lancer, la deuxième cible, distincte de la première ----------------------
 
 test('lancer depuis la liste mène à l’écran de séance avec l’exercice, la séance ET la semaine de CETTE case dans la route', () => {

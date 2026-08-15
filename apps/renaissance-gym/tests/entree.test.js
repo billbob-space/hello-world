@@ -308,6 +308,99 @@ test('une reprise réussie navigue vers #/jour', async () => {
   assert.equal(globalThis.location.hash, '#/jour');
 });
 
+// --- A18 (« Ajouté après les PRP », défaut de production remonté le
+// 15 août 2026) : un pseudonyme déjà pris n'est plus un cul-de-sac silencieux
+
+test('A18 : un pseudonyme déjà pris (409) tente la reprise avec le code tapé, et navigue si elle réussit', async () => {
+  const hote = creerHote();
+  const appelsReprise = [];
+  const ctx = ctxDe({
+    surCompteCree: async () => ({ ok: false, code: 'pseudo-pris' }),
+    reprendreCompte: async (pseudo, code) => {
+      appelsReprise.push([pseudo, code]);
+      return { ok: true, fiche: {} };
+    },
+  });
+  avancerVersEcran3(hote, ctx);
+  const champPseudo = hote.querySelectorAll('input')[0];
+  const cases = hote.querySelectorAll('.saisie-code__case');
+  saisirCode(cases.slice(0, 6), '482913');
+  saisirCode(cases.slice(6, 12), '482913');
+
+  hote.querySelector('.bouton').declencher('click');
+  await new Promise((r) => { setTimeout(r, 0); });
+
+  // La reprise reçoit EXACTEMENT ce qu'elle vient de taper — jamais un
+  // second formulaire, jamais un code redemandé (PRD A18).
+  assert.deepEqual(appelsReprise, [[champPseudo.value, '482913']]);
+  assert.equal(globalThis.location.hash, '#/jour');
+});
+
+test('A18 : pseudonyme déjà pris et code qui ne correspond pas — un message apparaît, rien ne navigue', async () => {
+  const hote = creerHote();
+  const ctx = ctxDe({
+    surCompteCree: async () => ({ ok: false, code: 'pseudo-pris' }),
+    reprendreCompte: async () => ({ ok: false }),
+  });
+  avancerVersEcran3(hote, ctx);
+  const cases = hote.querySelectorAll('.saisie-code__case');
+  saisirCode(cases.slice(0, 6), '482913');
+  saisirCode(cases.slice(6, 12), '482913');
+
+  hote.querySelector('.bouton').declencher('click');
+  await new Promise((r) => { setTimeout(r, 0); });
+
+  assert.equal(globalThis.location.hash, '', 'aucune navigation tant que le pseudo reste pris sans reprise possible');
+  const erreur = hote.querySelectorAll('.erreur-champ').find((p) => p.textContent !== '');
+  assert.ok(erreur, 'un message doit apparaître');
+  assert.match(erreur.textContent, /existe déjà/);
+  // « Un autre pseudo » reste disponible juste au-dessus (PRD A18).
+  assert.ok(hote.querySelectorAll('.bouton--discret').some((b) => b.textContent === 'Un autre pseudo'));
+});
+
+test('A18 : sans reprendreCompte fourni, un pseudonyme déjà pris affiche quand même le message, sans naviguer', async () => {
+  const hote = creerHote();
+  const ctx = ctxDe({ surCompteCree: async () => ({ ok: false, code: 'pseudo-pris' }) });
+  avancerVersEcran3(hote, ctx);
+  const cases = hote.querySelectorAll('.saisie-code__case');
+  saisirCode(cases.slice(0, 6), '482913');
+  saisirCode(cases.slice(6, 12), '482913');
+
+  hote.querySelector('.bouton').declencher('click');
+  await new Promise((r) => { setTimeout(r, 0); });
+
+  assert.equal(globalThis.location.hash, '');
+  assert.ok(hote.querySelectorAll('.erreur-champ').some((p) => /existe déjà/.test(p.textContent)));
+});
+
+test('A18 : un succès de création navigue vers #/jour', async () => {
+  const hote = creerHote();
+  const ctx = ctxDe({ surCompteCree: async () => ({ ok: true, fiche: {} }) });
+  avancerVersEcran3(hote, ctx);
+  const cases = hote.querySelectorAll('.saisie-code__case');
+  saisirCode(cases.slice(0, 6), '482913');
+  saisirCode(cases.slice(6, 12), '482913');
+
+  hote.querySelector('.bouton').declencher('click');
+  await new Promise((r) => { setTimeout(r, 0); });
+
+  assert.equal(globalThis.location.hash, '#/jour');
+});
+
+test('A18 : un serveur injoignable à la création ne bloque jamais l’entrée (compte différé, PRD §7.1)', async () => {
+  const hote = creerHote();
+  const ctx = ctxDe({ surCompteCree: async () => ({ ok: false, code: 'reseau' }) });
+  avancerVersEcran3(hote, ctx);
+  const cases = hote.querySelectorAll('.saisie-code__case');
+  saisirCode(cases.slice(0, 6), '482913');
+  saisirCode(cases.slice(6, 12), '482913');
+
+  hote.querySelector('.bouton').declencher('click');
+  await new Promise((r) => { setTimeout(r, 0); });
+
+  assert.equal(globalThis.location.hash, '#/jour');
+});
+
 test('monterEntree rend un démonteur qui ne lève jamais, quel que soit l’écran affiché', () => {
   const hote = creerHote();
   const demonter = vueEntree.monterEntree(hote, ctxDe());

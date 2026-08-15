@@ -177,6 +177,84 @@ test('un fileSeance mal forme est ignore plutot que de casser lireEtat', () => {
   assert.deepEqual(etat.lireEtat().fileSeance, { semaine: 1, numero: 1, file: ['e01'], passes: ['e01'] }, 'une forme valide survit');
 });
 
+// --- Le lot ludique, « Ajouté après les PRP » : parures, records, couleur,
+// bilan ----------------------------------------------------------------------
+
+test('ETAT_VIDE porte les quatre champs du lot ludique, à leur valeur neutre', () => {
+  assert.deepEqual(etat.ETAT_VIDE.parures, []);
+  assert.deepEqual(etat.ETAT_VIDE.records, { plusLongueTenue: 0, plusExercicesJour: 0, totalExercices: 0 });
+  assert.equal(etat.ETAT_VIDE.couleurJustaucorps, 'bleu-roi');
+  assert.equal(etat.ETAT_VIDE.bilan, null);
+});
+
+test('ecrireEtat fusionne les records champ par champ n’est PAS automatique : c’est records.js qui fusionne avant d’écrire', () => {
+  // etat.js reste un simple magasin (ossature §6) : il n'a aucune règle de
+  // fusion propre aux records — un `ecrireEtat({ records })` REMPLACE,
+  // exactement comme n'importe quel autre champ. C'est records.js et ses
+  // appelants (vue-seance.js, vue-detail-seance.js) qui portent la règle
+  // « le plus grand », pas etat.js lui-même.
+  etat.ecrireEtat({ records: { plusLongueTenue: 30, plusExercicesJour: 5, totalExercices: 10 } });
+  const apres = etat.ecrireEtat({ records: { plusLongueTenue: 10, plusExercicesJour: 2, totalExercices: 3 } });
+  assert.deepEqual(apres.records, { plusLongueTenue: 10, plusExercicesJour: 2, totalExercices: 3 });
+});
+
+test('un records corrompu (négatif, manquant) dégrade champ par champ, sans casser lireEtat', () => {
+  poserMagasin(fauxMagasin({
+    'gym.v1.etat': JSON.stringify({ prenom: 'Léa', records: { plusLongueTenue: -5, totalExercices: 'beaucoup' } }),
+  }));
+  assert.deepEqual(etat.lireEtat().records, { plusLongueTenue: 0, plusExercicesJour: 0, totalExercices: 0 });
+
+  poserMagasin(fauxMagasin({ 'gym.v1.etat': JSON.stringify({ prenom: 'Léa', records: null }) }));
+  assert.deepEqual(etat.lireEtat().records, { plusLongueTenue: 0, plusExercicesJour: 0, totalExercices: 0 });
+});
+
+test('une liste de parures mal formée retombe sur une liste vide, sans casser lireEtat', () => {
+  poserMagasin(fauxMagasin({
+    'gym.v1.etat': JSON.stringify({ prenom: 'Léa', parures: ['parure-1', 3, ''] }),
+  }));
+  assert.deepEqual(etat.lireEtat().parures, []);
+
+  poserMagasin(fauxMagasin({
+    'gym.v1.etat': JSON.stringify({ prenom: 'Léa', parures: ['parure-1', 'parure-2'] }),
+  }));
+  assert.deepEqual(etat.lireEtat().parures, ['parure-1', 'parure-2'], 'une forme valide survit');
+});
+
+test('une couleurJustaucorps vide ou mal formée retombe sur la couleur par défaut', () => {
+  poserMagasin(fauxMagasin({ 'gym.v1.etat': JSON.stringify({ prenom: 'Léa', couleurJustaucorps: '' }) }));
+  assert.equal(etat.lireEtat().couleurJustaucorps, 'bleu-roi');
+
+  poserMagasin(fauxMagasin({ 'gym.v1.etat': JSON.stringify({ prenom: 'Léa', couleurJustaucorps: 42 }) }));
+  assert.equal(etat.lireEtat().couleurJustaucorps, 'bleu-roi');
+
+  etat.ecrireEtat({ couleurJustaucorps: 'fuchsia' });
+  assert.equal(etat.lireEtat().couleurJustaucorps, 'fuchsia');
+});
+
+test('un bilan mal formé (dates ou nombres manquants) redevient null, sans casser lireEtat', () => {
+  poserMagasin(fauxMagasin({ 'gym.v1.etat': JSON.stringify({ prenom: 'Léa', bilan: { seancesFaites: 'beaucoup' } }) }));
+  assert.equal(etat.lireEtat().bilan, null);
+
+  poserMagasin(fauxMagasin({ 'gym.v1.etat': JSON.stringify({ prenom: 'Léa', bilan: 'oui' }) }));
+  assert.equal(etat.lireEtat().bilan, null);
+});
+
+test('un bilan valide survit à la relecture, records compris', () => {
+  const bilan = {
+    seancesFaites: 32, exercicesFaits: 288, records: { plusLongueTenue: 60, plusExercicesJour: 11, totalExercices: 288 }, dateISO: '2026-10-01T09:00:00.000Z',
+  };
+  etat.ecrireEtat({ bilan });
+  assert.deepEqual(etat.lireEtat().bilan, bilan);
+});
+
+test('effacerEtat (déconnexion locale, A19) remet le lot ludique à zéro comme le reste', () => {
+  etat.ecrireEtat({
+    prenom: 'Léa', parures: ['parure-1'], couleurJustaucorps: 'fuchsia', bilan: { seancesFaites: 1, exercicesFaits: 1, records: etat.ETAT_VIDE.records, dateISO: '2026-08-14T09:00:00.000Z' },
+  });
+  etat.effacerEtat();
+  assert.deepEqual(etat.lireEtat(), etat.ETAT_VIDE);
+});
+
 test('EVT_ETAT est emis a chaque ecriture, quand la plateforme le permet', () => {
   assert.equal(etat.EVT_ETAT, 'gym:etat-maj');
   let recus = 0;

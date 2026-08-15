@@ -10,15 +10,20 @@ import { monterGrille } from './vue-grille.js';
 import { monterDetailSeance } from './vue-detail-seance.js';
 import { monterReglages } from './vue-reglages.js';
 import { monterListe } from './vue-liste.js';
+import { monterJustaucorps } from './vue-justaucorps.js';
+import { monterBilan } from './vue-bilan.js';
 import * as synchro from './synchro.js';
 
 // Les ecrans de l'application (PRD §6, puis A3 et A8 « Ajoute apres les
-// PRP »). Une route hors de cette liste — et hors de ses sous-routes, par
-// exemple « #/seance/2026-08-14 » — n'est jamais honoree : elle retombe sur
+// PRP », puis le lot ludique A13 « Ajoute apres les PRP »). Une route hors de
+// cette liste — et hors de ses sous-routes, par exemple
+// « #/seance/2026-08-14 » — n'est jamais honoree : elle retombe sur
 // « #/jour ». « #/grille/seance » doit precéder « #/grille » : `routeDeBase`
 // prend le PREMIER motif qui correspond, et « #/grille/seance/3/2 » commence
 // aussi par « #/grille/ ».
-export const ROUTES = ['#/jour', '#/seance', '#/grille/seance', '#/grille', '#/reglages', '#/liste'];
+export const ROUTES = [
+  '#/jour', '#/seance', '#/grille/seance', '#/grille', '#/reglages', '#/liste', '#/justaucorps', '#/bilan',
+];
 
 // L'ecran d'entree n'appartient pas encore a ce PRP (PRP 03 le monte) : router
 // s'y aiguille des qu'aucun prenom n'est enregistre, « quelle que soit la
@@ -59,11 +64,20 @@ export function contexte() {
     etat: lireEtat(),
     programme: programmeCharge,
     maintenant: () => new Date(),
+    // A15 (lot ludique, « Ajouté après les PRP ») : le tirage au hasard reçoit
+    // sa source d'aléa comme `maintenant` reçoit l'horloge — jamais un
+    // `Math.random()` en dur dans une vue, pour que le tirage reste testable
+    // sans dépendre du hasard réel.
+    alea: Math.random,
     surCompteCree() {
-      // Tentative fixe, sans bloquer la navigation : le compte est deja
-      // ecrit localement (PRP 03), le reseau n'est jamais une dependance de
-      // fonctionnement (PRD §11.2).
-      synchro.creer(lireEtat(), {}).catch(() => {});
+      // A18 (« Ajouté après les PRP », défaut de production remonté le
+      // 15 août 2026) : le résultat n'est PLUS avalé dans un `.catch(() =>
+      // {})` vide — c'est exactement ce qui transformait un 409 (pseudonyme
+      // déjà pris) en absence totale de réaction. C'est `vue-entree.js`, qui
+      // a demandé la création, qui décide quoi faire du résultat (proposer la
+      // reprise sur un pseudo déjà pris) ; `synchro.creer` ne lève jamais
+      // (PRD §11.2), rien à rattraper ici.
+      return synchro.creer(lireEtat(), {});
     },
     async reprendreCompte(pseudo, code) {
       // « Lire et fusionner » du PRD §10.4 : un appareil neuf apporte des
@@ -226,8 +240,9 @@ async function chargerLeProgramme(hote) {
   }
 }
 
-// Les ecrans du produit (PRD §6, PRP 05, A8) : entree, jour, seance, grille,
-// le detail d'une case (A3), reglages, la liste des 36 exercices — la table
+// Les ecrans du produit (PRD §6, PRP 05, A8, lot ludique A13) : entree, jour,
+// seance, grille, le detail d'une case (A3), reglages, la liste des 36
+// exercices, le justaucorps (A13) — la table
 // complete.
 const TABLE = {
   [ROUTE_ENTREE]: monterEntree,
@@ -237,6 +252,8 @@ const TABLE = {
   '#/grille': monterGrille,
   '#/reglages': monterReglages,
   '#/liste': monterListe,
+  '#/justaucorps': monterJustaucorps,
+  '#/bilan': monterBilan,
 };
 
 async function demarrer() {

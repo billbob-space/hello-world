@@ -8,6 +8,7 @@
 
 import { ecrireEtat, lireEtat, EVT_ETAT } from './etat.js';
 import { fusionner, progression } from './domaine.js';
+import { fusionnerRecords } from './records.js';
 
 export const CHEMIN_API = '/api/fiche';
 export const DELAI_MS = 8000; // au-dela, un portail captif ment
@@ -40,6 +41,14 @@ export function corpsSynchronisation(etat) {
     semaineDepart: etat.semaineDeDepart ?? 0,
     faits: etat.faits ?? [],
     badges: etat.badges ?? [],
+    // Le lot ludique, « Ajouté après les PRP » : les nouveaux champs
+    // « suivent la fiche » comme le reste (badges, faits) — union pour les
+    // parures (A13, même règle que les badges), maximum champ par champ pour
+    // les records (A16), dernier écrit pour la couleur (A14, même règle que
+    // le prénom).
+    parures: etat.parures ?? [],
+    records: etat.records ?? {},
+    couleur: etat.couleurJustaucorps ?? '',
   };
 }
 
@@ -140,6 +149,14 @@ function fusionnerReponse(etat, reponse, maintenant) {
     debut: etat.debut ?? reponse.creeeLe ?? null,
     faits: fusionner(etat.faits ?? [], reponse.faits ?? []),
     badges: listeUnie(etat.badges, reponse.badges),
+    // Le lot ludique, « Ajouté après les PRP » : une parure acquise le reste
+    // (union, comme les badges) ; un record ne peut que monter (le plus grand
+    // champ par champ) ; la couleur suit le dernier écrit, comme le prénom
+    // juste au-dessus — une réponse SANS ces champs (une fiche jamais
+    // synchronisée depuis le lot ludique) ne doit jamais rien effacer.
+    parures: listeUnie(etat.parures, reponse.parures),
+    records: fusionnerRecords(etat.records, reponse.records),
+    couleurJustaucorps: adopteDuServeur && reponse.couleur ? reponse.couleur : etat.couleurJustaucorps,
     dernierEnvoi: maintenantISO,
     dernierSucces: maintenantISO,
   };

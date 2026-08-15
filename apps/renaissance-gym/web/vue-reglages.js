@@ -34,10 +34,18 @@ function iconeFleche() {
   return span;
 }
 
-// La phrase exacte de ce qui part (PRP 05 chantier D) : la fiche du serveur
-// ET ce que garde le telephone, et c'est irreversible — dit comme tel.
-export const PHRASE_EFFACEMENT = 'Ta fiche sur le serveur, et tout ce que garde ce téléphone, vont disparaître. '
-  + 'C’est définitif : personne ne pourra te les rendre.';
+// La phrase exacte de ce qui part (PRP 05 chantier D, revue par A19
+// « Ajouté après les PRP », défaut de production remonté le 15 août 2026) :
+// GRAVE, et qui dit explicitement que c'est irréversible et que cela vaut
+// pour TOUS LES APPAREILS — pas seulement celui-ci. C'est ce qui la distingue
+// de la simple déconnexion, juste en dessous.
+export const PHRASE_EFFACEMENT = 'Ta fiche va disparaître du serveur pour de bon, sur TOUS LES APPAREILS où ton '
+  + 'pseudo et ton code la retrouvent — pas seulement celui-ci. C’est irréversible : personne ne pourra te la rendre.';
+
+// A19 : la phrase, ordinaire, de la simple déconnexion — rien d'irréversible,
+// rien qui touche au serveur.
+export const PHRASE_DECONNEXION = 'Ta fiche reste entière sur le serveur : retrouve-la avec ton pseudo et ton '
+  + 'code, depuis « J’ai déjà un pseudo ».';
 
 // A7 (« Ajouté après les PRP ») : ce qui dit QUOI FAIRE si l'écoute ne sort
 // aucun son. Sur Android, le son d'une page web suit le volume MÉDIA, qui ne
@@ -257,10 +265,29 @@ export function monterReglages(hote, ctx) {
   }
   rafraichirSynchro();
 
-  // 4. Effacer la fiche — confirmation explicite, irreversible, dit comme
-  // tel (PRP 05 chantier D).
+  // 4. Se déconnecter de CET APPAREIL — A19 (« Ajouté après les PRP »,
+  // défaut de production remonté le 15 août 2026). Réversible, ordinaire, et
+  // présenté EN PREMIER : sur l'appareil d'un parent ayant repris le compte
+  // de son enfant, l'ancien bouton unique « Effacer ma fiche » détruisait ses
+  // huit semaines depuis un appareil qui n'était pas le sien. Ce geste-ci
+  // n'appelle JAMAIS le serveur — seul `effacerEtat()`, qui ne touche que
+  // localStorage, est en jeu. La fiche reste entière côté serveur et se
+  // retrouve avec le pseudonyme et le code.
+  const blocDeconnexion = el('div', 'reglage-bloc');
+  const boutonDeconnecter = el('button', 'bouton--discret', 'Se déconnecter de cet appareil');
+  boutonDeconnecter.type = 'button';
+  boutonDeconnecter.addEventListener('click', () => {
+    effacerEtat();
+    if (typeof location !== 'undefined') location.hash = '#/entree';
+  });
+  blocDeconnexion.append(boutonDeconnecter, el('p', null, PHRASE_DECONNEXION));
+
+  // 5. Effacer la fiche DÉFINITIVEMENT — confirmation grave, irréversible,
+  // dit comme tel, et pour TOUS LES APPAREILS (A19). Ce n'est plus le seul
+  // chemin, et ce n'est plus ce qu'on trouve en cherchant juste à se retirer
+  // d'un appareil : c'est pourquoi il vient APRÈS la déconnexion ci-dessus.
   const blocEffacement = el('div', 'reglage-bloc');
-  const boutonEffacer = el('button', 'bouton--discret', 'Effacer ma fiche');
+  const boutonEffacer = el('button', 'bouton--discret', 'Effacer ma fiche définitivement');
   boutonEffacer.type = 'button';
   const confirmation = el('div', 'confirmation-case');
   confirmation.hidden = true;
@@ -275,7 +302,7 @@ export function monterReglages(hote, ctx) {
     confirmation.hidden = false;
     confirmation.append(el('p', 'confirmation-case__question', PHRASE_EFFACEMENT));
     const rangee = el('div', 'confirmation-case__boutons');
-    const oui = el('button', 'bouton', 'Oui, tout effacer');
+    const oui = el('button', 'bouton', 'Oui, tout effacer définitivement');
     oui.type = 'button';
     const non = el('button', 'bouton--discret', 'Non');
     non.type = 'button';
@@ -283,7 +310,10 @@ export function monterReglages(hote, ctx) {
       const etatActuel = lireEtat();
       // Un refus du code cote serveur n'empeche JAMAIS le geste d'aboutir
       // cote appareil (PRP 05 chantier D) : `effacerEtat()` s'execute quoi
-      // qu'il arrive au reseau.
+      // qu'il arrive au reseau. C'est ICI, et NULLE PART ailleurs dans ce
+      // fichier, que `effacerSurLeServeur` (donc l'operation « effacer » de
+      // l'API) est appelee (A19) — la deconnexion ci-dessus ne l'appelle
+      // jamais.
       Promise.resolve(effacerSurLeServeur(etatActuel, {})).catch(() => {}).then(() => {
         effacerEtat();
         fermerConfirmation();
@@ -296,7 +326,9 @@ export function monterReglages(hote, ctx) {
   });
   blocEffacement.append(boutonEffacer, confirmation);
 
-  corps.append(blocPrenom, blocSemaine, blocPseudo, blocSonnerie, blocEcran, blocSynchro, blocEffacement);
+  corps.append(
+    blocPrenom, blocSemaine, blocPseudo, blocSonnerie, blocEcran, blocSynchro, blocDeconnexion, blocEffacement,
+  );
   section.append(corps);
   hote.append(section);
 

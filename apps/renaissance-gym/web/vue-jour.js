@@ -9,10 +9,12 @@
 // L'écran ne montre JAMAIS de rouge, de retard, ni de compte de ce qui n'a
 // pas été fait (PRD §14 : l'abandon est le risque principal).
 
-import { seance } from './programme.js';
+import { seance, seanceContenant } from './programme.js';
 import {
-  prochaineSeance, semaineCourante, semaineVenantDetreBouclee,
+  exerciceAuHasard, prochaineSeance, semaineCourante, semaineVenantDetreBouclee,
 } from './domaine.js';
+import { ecrireEtat } from './etat.js';
+import { construireBilan } from './bilan.js';
 
 const SEMAINES_DU_PROGRAMME = 8;
 
@@ -120,18 +122,53 @@ function construireStrass(nombreDeFacettes = 6) {
 // grille et les reglages. Deux vrais liens (`<a>`), pas des boutons : le
 // bouton retour du telephone doit fonctionner, et un appui long doit pouvoir
 // les ouvrir dans un autre onglet.
-function construireNavigationSecondaire() {
+function construireNavigationSecondaire(afficherLienBilan) {
   const nav = el('div', 'nav-secondaire');
   const versGrille = document.createElement('a');
   versGrille.className = 'bouton--discret';
   versGrille.href = '#/grille';
   versGrille.textContent = 'Ta grille';
+  // Lot ludique, A13 (« Ajouté après les PRP ») : le justaucorps se regarde
+  // depuis son propre écran, atteignable depuis celui-ci — jamais pendant une
+  // séance (même règle que `.strass`, voir vue-seance.js).
+  const versJustaucorps = document.createElement('a');
+  versJustaucorps.className = 'bouton--discret';
+  versJustaucorps.href = '#/justaucorps';
+  versJustaucorps.textContent = 'Ton justaucorps';
   const versReglages = document.createElement('a');
   versReglages.className = 'bouton--discret';
   versReglages.href = '#/reglages';
   versReglages.textContent = 'Réglages';
-  nav.append(versGrille, versReglages);
+  nav.append(versGrille, versJustaucorps, versReglages);
+  // A17 (lot ludique) : « le bilan reste accessible après » — dès qu'il
+  // existe, il reste atteignable depuis l'écran du jour, quel que soit son
+  // état courant (y compris après un nouveau programme redémarré).
+  if (afficherLienBilan) {
+    const versBilan = document.createElement('a');
+    versBilan.className = 'bouton--discret';
+    versBilan.href = '#/bilan';
+    versBilan.textContent = 'Ton été';
+    nav.append(versBilan);
+  }
   return nav;
+}
+
+// A15 (lot ludique, « Ajouté après les PRP ») : « Un exercice au hasard »,
+// atteignable depuis l'écran du jour quel que soit son état — une semaine
+// bouclée ou un programme terminé n'empêchent pas d'avoir cinq minutes à
+// tuer. Discret : le geste principal de l'écran reste celui qui fait avancer
+// le programme, jamais ce bouton-ci.
+function construireBoutonHasard(ctx, semaine) {
+  const { programme, etat, alea } = ctx;
+  const bouton = el('button', 'bouton--discret', 'Un exercice au hasard');
+  bouton.type = 'button';
+  bouton.addEventListener('click', () => {
+    const ex = exerciceAuHasard(programme, etat.faits, semaine, alea);
+    if (ex === null) return; // garde-fou : le programme porte toujours des exercices
+    const numero = seanceContenant(programme, ex.id) ?? 1;
+    if (typeof location !== 'undefined') location.hash = `#/seance/${numero}/${ex.id}/${semaine}/hasard`;
+  });
+  return bouton;
 }
 
 export function monterJour(hote, ctx) {
@@ -160,6 +197,17 @@ export function monterJour(hote, ctx) {
 
   const corps = el('div', 'jersey corps-jour');
 
+  // A17 (lot ludique, « Ajouté après les PRP ») : l'instantané se fige UNE
+  // SEULE FOIS, au moment précis où le cas « termine » se constate pour la
+  // première fois — jamais recalculé ensuite, jamais effacé par un programme
+  // qui redémarre (`bilan.js`). `bilanPresent` reste local à ce rendu :
+  // `ecrireEtat` lit et écrit le magasin, jamais `ctx.etat` lui-même.
+  let bilanPresent = Boolean(ctx.etat.bilan);
+  if (m.cas === 'termine' && !bilanPresent) {
+    ecrireEtat({ bilan: construireBilan(ctx.programme, ctx.etat, ctx.maintenant) });
+    bilanPresent = true;
+  }
+
   if (m.cas === 'termine') {
     corps.append(el('h1', 'titre-jour', 'Ton programme est terminé'));
     corps.append(el(
@@ -167,6 +215,12 @@ export function monterJour(hote, ctx) {
       null,
       'Les huit semaines sont passées — bravo. Ta grille reste là pour la revoir.',
     ));
+    const versBilan = el('button', 'bouton', 'Voir ton été');
+    versBilan.type = 'button';
+    versBilan.addEventListener('click', () => {
+      if (typeof location !== 'undefined') location.hash = '#/bilan';
+    });
+    corps.append(versBilan);
   } else if (m.cas === 'bouclee') {
     // Meme traitement que le cas « a-faire » (finition) : un seul objet
     // focal, dans le meme emplacement — `.objectif-seance`, qui grandit et se
@@ -243,7 +297,17 @@ export function monterJour(hote, ctx) {
     corps.append(bouton);
   }
 
-  corps.append(construireNavigationSecondaire());
+  // A15 (lot ludique) : l'objectif du tirage suit la semaine COURANTE, bornée
+  // à huit comme partout ailleurs (vue-liste.js) — un programme terminé
+  // continue de proposer l'objectif du dernier palier plutôt que de
+  // désactiver le bouton.
+  const semaineHasard = Math.min(
+    semaineCourante(ctx.programme, ctx.etat.faits, ctx.etat.semaineDeDepart),
+    8,
+  );
+  corps.append(construireBoutonHasard(ctx, semaineHasard));
+
+  corps.append(construireNavigationSecondaire(bilanPresent));
 
   section.append(corps);
   hote.append(section);

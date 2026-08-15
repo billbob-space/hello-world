@@ -110,6 +110,50 @@ func TestCreerSynchroniserEffacer(t *testing.T) {
 	}
 }
 
+// TestLotLudiqueRoundTripParApi (PRD, lot ludique A13, A14, A16) : parures,
+// records et couleur voyagent bien par l'API, avec leurs regles de fusion
+// respectives.
+func TestLotLudiqueRoundTripParApi(t *testing.T) {
+	h, _, _, horloge := serveurAvecMagasin(t)
+	poster(t, h, `{"operation":"creer","pseudo":"Comete-7","code":"481920","semaineDepart":1}`)
+
+	horloge.avancer(time.Second)
+	rec := poster(t, h, `{"operation":"synchroniser","pseudo":"Comete-7","code":"481920",`+
+		`"parures":["parure-1","parure-2"],`+
+		`"records":{"plusLongueTenue":30,"plusExercicesJour":4,"totalExercices":9},`+
+		`"couleur":"grenat"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut %d, attendu 200 — %s", rec.Code, rec.Body.String())
+	}
+	fiche := corpsJSON[ficheReponse](t, rec)
+	if len(fiche.Parures) != 2 || fiche.Records.PlusLongueTenue != 30 || fiche.Couleur != "grenat" {
+		t.Fatalf("fiche inattendue apres la premiere synchro : %+v", fiche)
+	}
+
+	// Un second appareil, avec un record plus petit sur un champ et une
+	// parure de plus : rien ne doit regresser, l'union et le maximum jouent
+	// chacun leur role.
+	horloge.avancer(time.Second)
+	rec = poster(t, h, `{"operation":"synchroniser","pseudo":"Comete-7","code":"481920",`+
+		`"parures":["parure-3"],`+
+		`"records":{"plusLongueTenue":10,"plusExercicesJour":6,"totalExercices":9}}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut %d, attendu 200 — %s", rec.Code, rec.Body.String())
+	}
+	fiche = corpsJSON[ficheReponse](t, rec)
+	if len(fiche.Parures) != 3 {
+		t.Errorf("parures = %+v, attendu 3 (union)", fiche.Parures)
+	}
+	if fiche.Records.PlusLongueTenue != 30 || fiche.Records.PlusExercicesJour != 6 {
+		t.Errorf("records = %+v, attendu le plus grand champ par champ (30, 6)", fiche.Records)
+	}
+	// La couleur n'a pas ete renvoyee cette fois : elle doit rester celle
+	// deja enregistree (dernier ecrit NON VIDE, comme le prenom).
+	if fiche.Couleur != "grenat" {
+		t.Errorf("couleur = %q, un envoi vide n'aurait pas du l'effacer", fiche.Couleur)
+	}
+}
+
 func TestPseudoDejaPrisRend409(t *testing.T) {
 	h, _, _, _ := serveurAvecMagasin(t)
 	poster(t, h, `{"operation":"creer","pseudo":"Comete-7","code":"481920","semaineDepart":1}`)

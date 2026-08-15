@@ -600,3 +600,132 @@ test('en mode cible unique, « Sortir de la séance » ramène au détail d’o�
 
   assert.equal(globalThis.location.hash, '#/grille/seance/3/2');
 });
+
+// --- A15 (« Ajouté après les PRP », lot ludique) : « Un exercice au hasard »,
+// réutilise le mode cible unique, mais revient TOUJOURS à l’écran du jour ---
+
+test('cibleUniqueDepuisHash reconnaît le suffixe « /hasard », et lui seul porte le marqueur', () => {
+  assert.deepEqual(vueSeance.cibleUniqueDepuisHash('#/seance/2/e07/5/hasard'), { exercice: 'e07', semaine: 5, hasard: true });
+  // Sans le suffixe, la forme est EXACTEMENT celle d’avant A15 — pas de clé
+  // « hasard » ajoutée à tort.
+  assert.deepEqual(vueSeance.cibleUniqueDepuisHash('#/seance/2/e07/5'), { exercice: 'e07', semaine: 5 });
+});
+
+test('A15 : un exercice « au hasard » validé ramène TOUJOURS à l’écran du jour, jamais à la grille', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/2/e1/3/hasard' };
+  vueSeance.monterSeance(hote, ctxAvec({ debut: null, semaineDeDepart: 1 }, progSynthetique));
+
+  const ex = progSynthetique.exercices.find((e) => e.id === 'e1');
+  assert.equal(hote.querySelector('.nom-exercice').textContent, ex.libelle, 'un seul exercice à l’écran, comme A3 bis');
+
+  boutonAvecTexte(hote, 'Sortir de la séance').declencher('click');
+  assert.equal(globalThis.location.hash, '#/jour', 'jamais « #/grille/seance/... » : elle vient de l’écran du jour');
+});
+
+test('A15 : « Passer » n’a pas de sens en mode hasard non plus — il reste masqué', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/2/e1/3/hasard' };
+  vueSeance.monterSeance(hote, ctxAvec({ debut: null, semaineDeDepart: 1 }, progSynthetique));
+
+  const passer = boutonAvecTexte(hote, 'Passer');
+  assert.ok(passer, 'garde-fou : le bouton doit exister, juste masqué');
+  assert.equal(passer.hidden, true);
+});
+
+test('A15 : valider un exercice « au hasard » compte comme fait, exactement comme en séance', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/1/e2/7/hasard' }; // e2 : repetitions, un seul geste
+  vueSeance.monterSeance(hote, ctxAvec({ debut: null, semaineDeDepart: 1 }, progSynthetique));
+
+  hote.querySelector('.bouton').declencher('click'); // « C'est fait » -> écran de fin
+  boutonAvecTexte(hote, 'Retour').declencher('click');
+
+  const e = etat.lireEtat();
+  assert.deepEqual(e.faits, [{ seance: 1, semaine: 7, exercice: 'e2', a: '2026-08-14T09:00:00.000Z' }]);
+  assert.equal(globalThis.location.hash, '#/jour');
+});
+
+// --- A16 (« Ajouté après les PRP », lot ludique) : les records -------------
+
+test('A16 : valider un exercice « repetitions » met à jour totalExercices, dérivé des faits réellement stockés', () => {
+  const hote = creerHote();
+  // e1 (progSynthetique) est déjà fait dans le MODÈLE passé à la vue — ce qui
+  // détermine que l'écran affiche e2, « repetitions » — mais le magasin réel
+  // est vide (beforeEach) : c'est ce que `ajouterFait` (donc le record) lit.
+  vueSeance.monterSeance(hote, ctxAvec({
+    faits: [{ seance: 1, semaine: 1, exercice: 'e1', a: '2026-08-14T09:00:00.000Z' }],
+  }, progSynthetique));
+
+  boutonAvecTexte(hote, 'C’est fait').declencher('click');
+
+  assert.equal(etat.lireEtat().records.totalExercices, 1, 'seul e2 est réellement écrit dans le magasin');
+});
+
+test('A16 : un minuteur qui se termine SANS remise à zéro enregistre le record de la plus longue tenue', async () => {
+  // Un palier volontairement minuscule (50 ms, PAS une durée réelle
+  // d'entraînement) : c'est le même procédé que tests/chrono.test.js, « le
+  // chrono passe à termine tout seul, porté par l'horloge réelle ».
+  const progTenue = chargerProgramme({
+    titre: 'Test tenue',
+    semaines: 8,
+    seances_par_semaine: 4,
+    familles: [{ id: 'f', nom: 'Famille' }],
+    exercices: [
+      { id: 'e1', libelle: 'Gainage test', famille: 'f', mesure: 'tenue', paliers: [0.05] },
+    ],
+    seances: [
+      { id: 's1', nom: 'Séance test', exercices: ['e1'] },
+      { id: 's2', nom: 'Séance 2', exercices: ['e1'] },
+      { id: 's3', nom: 'Séance 3', exercices: ['e1'] },
+      { id: 's4', nom: 'Séance 4', exercices: ['e1'] },
+    ],
+  });
+
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/1' };
+  vueSeance.monterSeance(hote, {
+    etat: { ...etat.ETAT_VIDE }, programme: progTenue, maintenant: () => new Date(),
+  });
+
+  boutonAvecTexte(hote, 'Démarrer').declencher('click');
+  // chrono.js sonde toutes les 250 ms (temps réel) : une durée de 50 ms ne
+  // se constate donc qu'au PREMIER sondage suivant, jamais avant — on attend
+  // large plutôt que de coller au plus juste.
+  await new Promise((resolve) => { setTimeout(resolve, 400); });
+
+  assert.equal(etat.lireEtat().records.plusLongueTenue, 0.05);
+  // Le fait est bien enregistré, exactement comme avant le lot ludique.
+  assert.equal(etat.lireEtat().faits.length, 1);
+});
+
+test('A16 : remettre à zéro AVANT la fin n’enregistre aucun record — seule une tenue MENÉE À SON TERME compte', async () => {
+  const progTenue = chargerProgramme({
+    titre: 'Test tenue',
+    semaines: 8,
+    seances_par_semaine: 4,
+    familles: [{ id: 'f', nom: 'Famille' }],
+    exercices: [
+      { id: 'e1', libelle: 'Gainage test', famille: 'f', mesure: 'tenue', paliers: [30] },
+    ],
+    seances: [
+      { id: 's1', nom: 'Séance test', exercices: ['e1'] },
+      { id: 's2', nom: 'Séance 2', exercices: ['e1'] },
+      { id: 's3', nom: 'Séance 3', exercices: ['e1'] },
+      { id: 's4', nom: 'Séance 4', exercices: ['e1'] },
+    ],
+  });
+
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/1' };
+  vueSeance.monterSeance(hote, {
+    etat: { ...etat.ETAT_VIDE }, programme: progTenue, maintenant: () => new Date(),
+  });
+
+  boutonAvecTexte(hote, 'Démarrer').declencher('click');
+  await new Promise((resolve) => { setTimeout(resolve, 30); });
+  boutonAvecTexte(hote, 'Remettre à zéro').declencher('click');
+
+  assert.equal(etat.lireEtat().records.plusLongueTenue, 0);
+  assert.equal(etat.lireEtat().faits.length, 0);
+});

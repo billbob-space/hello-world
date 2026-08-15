@@ -84,6 +84,20 @@
      hauteur, jamais par `font-size`. Ce jeton est une DIMENSION, il n'a rien
      a faire dans le gabarit typographique. */
   --taille-icone: 1.25rem;
+
+  /* --- Lot ludique, A14, « Ajoute apres les PRP » : les couleurs DU
+     JUSTAUCORPS, PAS celles de l'application. Elles ne font PAS partie du
+     systeme visuel du §5 ci-dessus : --bleu-roi, --fuchsia, --or, --jersey
+     restent ce qu'ils sont, l'application ne se repeint pas. Trois des six
+     combinaisons de vue-justaucorps.js reutilisent des jetons deja existants
+     (bleu roi, fuchsia, bleu nuit — ils appartiennent deja au monde du club) ;
+     ces trois-ci sont PROPRES a cet ecran et n'apparaissent nulle part
+     ailleurs dans l'interface. Chaque combinaison s'associe a --or, jamais a
+     une seconde couleur libre : l'or reste ce qu'il est partout ailleurs,
+     « ce qui est acquis ». */
+  --parure-grenat:   #7A1033;
+  --parure-emeraude: #0E6B4F;
+  --parure-violine:  #5B2A86;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -385,7 +399,9 @@ p { margin: 0; }
 .corps-grille,
 .corps-detail-seance,
 .corps-reglages,
-.corps-liste {
+.corps-liste,
+.corps-justaucorps,
+.corps-bilan {
   padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 4);
   display: flex;
   flex-direction: column;
@@ -1049,6 +1065,92 @@ input[type='text']:focus,
 .ligne-programme__nom {
   flex: 1 1 auto;
   min-width: 0;
+  font-size: var(--taille-texte);
+}
+
+/* --- Lot ludique, A13/A14, « Ajouté après les PRP » : le justaucorps qui se
+   pare, et ses couleurs. C'est le seul écran où le dessin prend toute la
+   place (PRD) : la figure grandit pour occuper ce que l'empiècement ne
+   prend pas, exactement comme `.objectif-seance` sur l'écran du jour. */
+.justaucorps__figure {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.justaucorps__figure svg {
+  width: 70%;
+  max-width: 220px;
+  height: auto;
+}
+
+.justaucorps__couleurs {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+.justaucorps__grille-couleurs {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1);
+}
+
+/* Même grammaire que `.choix-sonnerie` (biseau, bordure en jersey-ombre,
+   fond bleu roi une fois choisie) : « une cible parmi plusieurs ». Le texte
+   reste TOUJOURS bleu nuit sur jersey, quelle que soit la couleur choisie —
+   c'est l'aperçu en ::before qui porte la vraie couleur, jamais le fond du
+   bouton, pour que le libellé reste lisible quel que soit le choix. */
+.justaucorps__couleur {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 1.5);
+  min-height: var(--cible-min);
+  padding: 0 calc(var(--pas) * 2);
+  border: 2px solid var(--jersey-ombre);
+  clip-path: var(--biseau);
+  background: var(--jersey);
+  color: var(--bleu-nuit);
+  font-family: var(--texte);
+  font-variation-settings: 'wdth' 100, 'wght' 600;
+  font-size: var(--taille-texte);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.justaucorps__couleur::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: var(--couleur-apercu);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.justaucorps__couleur--choisie {
+  border-color: var(--bleu-roi);
+}
+
+/* --- Lot ludique, A17, « Ajouté après les PRP » : le bilan des huit
+   semaines. Aucun total ni pourcentage dans LA GRILLE (PRD §4, §14) — ce
+   n'est pas la grille : c'est l'écran pensé pour se montrer, où le nombre de
+   séances et d'exercices EST le propos. */
+.bilan__phrase {
+  font-size: var(--taille-titre);
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 112, 'wght' 800;
+}
+
+.bilan__records {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 0.75);
+}
+
+.bilan__record {
   font-size: var(--taille-texte);
 }
 

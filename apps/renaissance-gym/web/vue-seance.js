@@ -34,10 +34,11 @@ import {
   faitsDeSeance, prochaineSeance, semaineCourante,
   fileInitiale, passerEnFile, fileNeContientQueDesPasses,
 } from './domaine.js';
-import { ajouterFait, ecrireFileSeance } from './etat.js';
+import { ajouterFait, ecrireEtat, ecrireFileSeance } from './etat.js';
 import { creerChrono, formater } from './chrono.js';
 import { debloquerAudio, bip, FREQUENCES_BIP, sonnerie } from './sonnerie.js';
 import { garderEcranAllume } from './app.js';
+import { RECORDS_VIDES, fusionnerRecords, recordsDepuisFaits } from './records.js';
 
 function el(balise, classe, texte) {
   const noeud = document.createElement(balise);
@@ -63,12 +64,20 @@ export function numeroDepuisHash(hash) {
 // un seul exercice depuis le détail d'une séance de la grille. `null` quand
 // la route ne porte pas cette forme précise — c'est alors la file entière de
 // la séance qui se monte, comme avant.
+//
+// Le suffixe optionnel « /hasard » (A15, lot ludique, « Ajouté après les
+// PRP ») marque le même mode cible unique, mais lancé depuis l'écran du jour
+// plutôt que depuis le détail d'une séance de la grille : c'est le SEUL
+// terrain qui change, la mécanique — un exercice, un minuteur, une sonnerie —
+// est intégralement réutilisée. `cibleUniqueDepuisHash` ne rend le marqueur
+// `hasard: true` QUE quand ce suffixe est présent — un appel sans lui rend
+// exactement l'objet à deux clés d'avant, inchangé.
 export function cibleUniqueDepuisHash(hash) {
-  const trouve = /^#\/seance\/\d+\/([^/]+)\/(\d+)$/.exec(String(hash ?? ''));
+  const trouve = /^#\/seance\/\d+\/([^/]+)\/(\d+)(\/hasard)?$/.exec(String(hash ?? ''));
   if (trouve === null) return null;
   const semaine = Number(trouve[2]);
   if (!Number.isInteger(semaine) || semaine < 1 || semaine > 8) return null;
-  return { exercice: trouve[1], semaine };
+  return trouve[3] ? { exercice: trouve[1], semaine, hasard: true } : { exercice: trouve[1], semaine };
 }
 
 // PRD §9.1 : une séance interrompue à mi-parcours reprend au premier exercice
@@ -99,6 +108,10 @@ export function monterSeance(hote, ctx) {
   const exParId = new Map(exercices.map((ex) => [ex.id, ex]));
   const total = exercices.length;
   const modeUnique = cibleUnique !== null;
+  // A15 (lot ludique, « Ajouté après les PRP ») : « Un exercice au hasard »
+  // est lancé depuis l'écran du jour, jamais depuis la grille — c'est ce que
+  // change le suffixe « /hasard » sur `destinationRetour()` plus bas.
+  const hasard = modeUnique && cibleUnique.hasard === true;
 
   // A1 (« Ajouté après les PRP ») : la file de la séance en cours — les
   // exercices non encore validés, dans leur ordre de présentation. Elle
@@ -157,15 +170,32 @@ export function monterSeance(hote, ctx) {
     ecrireFileSeance(semaine, numero, file, passes);
   }
 
+  // A16 (lot ludique, « Ajouté après les PRP ») : les trois records ne
+  // peuvent que monter (records.js) — cet appel les met à jour au moment même
+  // où un fait vient d'être ajouté, à partir de CE QUE LES FAITS RACONTENT
+  // MAINTENANT (`recordsDepuisFaits`), fusionné avec ce qui est déjà
+  // enregistré. `tenueSecondes` n'est fourni que par le chemin « minuteur » :
+  // c'est la seule information qu'aucun fait ne porte (un fait ne garde pas
+  // la durée tenue), donc la seule qui ne peut pas se déduire après coup.
+  function enregistrerRecords(etatApres, tenueSecondes) {
+    const depuisFaits = recordsDepuisFaits(etatApres.faits);
+    const instantane = tenueSecondes === undefined
+      ? depuisFaits
+      : { ...depuisFaits, plusLongueTenue: Math.max(depuisFaits.plusLongueTenue, tenueSecondes) };
+    ecrireEtat({ records: fusionnerRecords(etatApres.records ?? RECORDS_VIDES, instantane) });
+  }
+
   function valider(ex) {
-    ajouterFait({ seance: numero, semaine, exercice: ex.id, a: maintenant().toISOString() });
+    return ajouterFait({ seance: numero, semaine, exercice: ex.id, a: maintenant().toISOString() });
   }
 
   // A3 bis : le geste de retour ne ramène JAMAIS à l'écran du jour depuis un
   // aparté lancé de la grille — elle y revient d'où elle est partie, le
   // détail de CETTE séance, où il lui reste peut-être d'autres exercices à
-  // rattraper.
+  // rattraper. A15 (lot ludique) : un aparté « au hasard » y revient TOUJOURS,
+  // puisqu'elle n'est jamais partie de la grille.
   function destinationRetour() {
+    if (modeUnique && hasard) return '#/jour';
     return modeUnique ? `#/grille/seance/${semaine}/${numero}` : '#/jour';
   }
 
@@ -364,7 +394,11 @@ export function monterSeance(hote, ctx) {
           if (etatChrono === 'termine' && !zeroJoue) {
             zeroJoue = true;
             sonnerie();
-            valider(ex);
+            // A16 (lot ludique) : c'est ICI, au moment precis ou le minuteur
+            // se termine SANS remise a zero, que « la plus longue tenue
+            // menee a son terme » se constate — nulle part ailleurs, et
+            // jamais dans chrono.js (qui reste pur, PRD lot ludique A16).
+            enregistrerRecords(valider(ex), valeur);
             phase = 'suivant';
             // Le fuchsia ne dit plus « en cours » une fois l'effort fini
             // (finition, correctif 7) : le décompte revient à --bleu-nuit.
@@ -412,7 +446,7 @@ export function monterSeance(hote, ctx) {
       bouton.textContent = 'C’est fait';
       bouton.addEventListener('click', () => {
         debloquerAuPremierGeste();
-        valider(ex);
+        enregistrerRecords(valider(ex));
         avancer();
       });
     }

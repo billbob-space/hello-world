@@ -11,8 +11,9 @@ import {
   faitsDeSeance, seanceEstFaite, seancesFaites, prochaineSeance,
   fusionner, progression, avancementSeance, exerciceFaitCetteSemaine,
   fileInitiale, passerEnFile, fileNeContientQueDesPasses,
+  exercicesEligiblesHasard, exerciceAuHasard,
 } from '../web/domaine.js';
-import { exercicesDeSeance } from '../web/programme.js';
+import { exercicesDeSeance, exercices } from '../web/programme.js';
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const prog = chargerProgramme(JSON.parse(readFileSync(join(web, 'programme.json'), 'utf8')));
@@ -340,6 +341,51 @@ test('A1 : passer un exercice ne le valide jamais — une séance finie sans lui
   const file = passerEnFile(fileInitiale(exs1, new Set()));
   assert.deepEqual(new Set(faitsDeSeance(faits, 1, 1)), new Set(reste));
   assert.equal(fileNeContientQueDesPasses(file.filter((id) => !faitsDeSeance(faits, 1, 1).has(id)), new Set([premier])), true);
+});
+
+// --- A15 (« Ajouté après les PRP », lot ludique) : « Un exercice au hasard »
+
+test('exercicesEligiblesHasard écarte ce qui est déjà fait cette semaine, tant qu’il en reste', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const faits = s1.exercices.slice(0, 2).map((id) => fait(id, 3, 1, '2026-08-03T09:00:00.000Z'));
+  const eligibles = exercicesEligiblesHasard(prog, faits, 3);
+  const idsEligibles = new Set(eligibles.map((ex) => ex.id));
+  for (const id of s1.exercices.slice(0, 2)) {
+    assert.equal(idsEligibles.has(id), false, `${id} est déjà fait cette semaine : il ne doit pas être tiré`);
+  }
+  assert.equal(eligibles.length, exercices(prog).length - 2);
+});
+
+test('exercicesEligiblesHasard reprend l’ensemble entier une fois les trente-six vus', () => {
+  const faits = faitsSemaineComplete(4); // couvre les 36 (PRD §8.4)
+  const vus = new Set(faits.map((f) => f.exercice));
+  assert.equal(vus.size, exercices(prog).length, 'garde-fou : une semaine couvre exactement les 36 exercices');
+  const eligibles = exercicesEligiblesHasard(prog, faits, 4);
+  assert.equal(eligibles.length, exercices(prog).length, 'rien ne doit rendre le tirage inerte');
+});
+
+test('exerciceAuHasard reçoit son aléa injecté, jamais Math.random en dur', () => {
+  const zero = () => 0;
+  const presqueUn = () => 0.999999;
+  const eligibles = exercicesEligiblesHasard(prog, [], 1);
+  assert.equal(exerciceAuHasard(prog, [], 1, zero).id, eligibles[0].id);
+  assert.equal(exerciceAuHasard(prog, [], 1, presqueUn).id, eligibles[eligibles.length - 1].id);
+});
+
+test('exerciceAuHasard tire toujours parmi les éligibles, jamais un exercice déjà fait cette semaine', () => {
+  const s1 = prog.seances.find((s) => s.id === 's1');
+  const faits = s1.exercices.map((id) => fait(id, 2, 1, '2026-08-03T09:00:00.000Z'));
+  let alea = 0;
+  const suite = () => {
+    const v = (alea % 977) / 977; // une suite deterministe, sans Math.random
+    alea += 1;
+    return v;
+  };
+  for (let i = 0; i < 50; i += 1) {
+    const ex = exerciceAuHasard(prog, faits, 2, suite);
+    assert.ok(ex !== null);
+    assert.equal(s1.exercices.includes(ex.id), false, `${ex.id} est déjà fait cette semaine`);
+  }
 });
 
 // --- purete du module (ossature §6) -----------------------------------------

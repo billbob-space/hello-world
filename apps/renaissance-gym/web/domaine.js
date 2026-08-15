@@ -18,7 +18,7 @@
 // entre deux appareils (§9.8) — mais elle ne sert plus a faire avancer le
 // programme.
 
-import { exercicesDeSeance } from './programme.js';
+import { exercices, exercicesDeSeance } from './programme.js';
 
 const SEMAINES_DU_PROGRAMME = 8;
 
@@ -176,6 +176,30 @@ export function passerEnFile(file) {
 // passes » a l'ecran.
 export function fileNeContientQueDesPasses(file, idsPasses) {
   return file.length > 0 && file.every((id) => idsPasses.has(id));
+}
+
+// --- A15, « Ajouté après les PRP », lot ludique : « Un exercice au hasard » -
+//
+// Les exercices ELIGIBLES au tirage : tant qu'il en reste un qu'elle n'a pas
+// encore fait CETTE semaine (toutes séances confondues, comme `exerciceFait-
+// CetteSemaine`), le tirage se limite à eux — sans quoi il proposerait dix
+// fois le même exercice. Une fois les trente-six vus, le tirage reprend sur
+// l'ensemble entier : rien ne doit jamais rendre le bouton inerte.
+export function exercicesEligiblesHasard(prog, faits, semaine) {
+  const tous = exercices(prog);
+  const nonFaits = tous.filter((ex) => !exerciceFaitCetteSemaine(faits, semaine, ex.id));
+  return nonFaits.length > 0 ? nonFaits : tous;
+}
+
+// `alea` est injectee (comme `horloge` dans chrono.js, comme `maintenant`
+// dans app.js) : ce module reste pur et testable sans dependre de
+// Math.random. Rend `null` seulement si le programme ne porte aucun
+// exercice — un garde-fou qui ne devrait jamais survenir en pratique.
+export function exerciceAuHasard(prog, faits, semaine, alea = Math.random) {
+  const eligibles = exercicesEligiblesHasard(prog, faits, semaine);
+  if (eligibles.length === 0) return null;
+  const indice = Math.min(Math.floor(alea() * eligibles.length), eligibles.length - 1);
+  return eligibles[indice];
 }
 
 // Un instantane de la progression, pour la grille et les badges (lot 3) :

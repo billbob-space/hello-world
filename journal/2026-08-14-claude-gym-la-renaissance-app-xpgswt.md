@@ -2666,3 +2666,73 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 2006 agent claude-sonnet-5 192 247219 2
 -->
 <!-- /cout -->
+
+### 27. Un refus explicite du serveur avalé par un `catch` vide
+
+**Symptome** — un parent connecte le compte de sa fille sur son téléphone, avec
+le bon pseudonyme et le bon code, et ne voit **aucune** de ses séances. Son
+appareil affiche une semaine 1 vide.
+
+**Cause** — il est passé par l'écran d'entrée ordinaire, qui **crée** un compte.
+Le serveur a répondu `409` — pseudonyme pris — et `app.js` lançait la création
+en `.catch(() => {})`. Un `grep` de « 409 » sur tout `web/*.js` ne rendait rien :
+le cas n'était traité nulle part. L'appareil restait avec un compte purement
+local qui ne pourrait jamais se synchroniser, puisqu'il retenterait
+indéfiniment une création toujours refusée.
+
+Le `catch` vide venait d'une bonne intention — PRD §11.2, « le réseau n'est
+jamais une dépendance de fonctionnement » — appliquée trop largement : elle vaut
+pour un serveur qui **ne répond pas**, pas pour un serveur qui répond **non**.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `garde-fou` — un `catch` vide sur un appel réseau qui peut rendre
+un refus **métier** est un trou par construction. Un test qui lirait les sources
+et échouerait sur un `.catch(() => {})` autour d'un appel d'API attraperait
+cette classe entière de défauts, dans cette app comme dans les autres.
+
+### 28. Se déconnecter et effacer étaient le même bouton
+
+**Symptome** — aucun symptôme : l'utilisateur ne l'a pas déclenché, et c'est
+une chance. « Effacer ma fiche » envoie pseudonyme et code au serveur, qui
+supprime la fiche définitivement. Sur l'appareil d'un parent ayant repris le
+compte de son enfant — mêmes identifiants — ce bouton **détruisait les huit
+semaines de l'enfant**, depuis un appareil qui n'est pas le sien, sans qu'aucun
+texte ne le laisse deviner.
+
+**Cause** — le PRD §7.5 a prévu la reprise sur plusieurs appareils sans prévoir
+sa symétrie : **quitter un appareil** et **supprimer ses données** sont deux
+gestes différents, et l'application n'en offrait qu'un. Le PRP 05 chantier D a
+même soigné le cas du code refusé — « l'appareil ne doit pas rester prisonnier
+d'une fiche » — sans voir que le cas inverse, l'appareil qui a le **bon** code
+et veut seulement partir, n'avait aucune issue non destructrice.
+
+**Detecte par** — `relecture` — trouvé en diagnostiquant l'anomalie 27.
+
+**Action** — `contrat` — dès qu'une application permet de **reprendre** un
+compte sur un appareil, elle doit permettre de l'y **quitter** sans toucher aux
+données. La règle manque au contrat, et elle vaut pour toute app de la fabrique
+qui gardera un jour une identité portable.
+
+### 29. Les parures supposent un programme commencé à la semaine 1
+
+**Symptome** — signalé par l'artisan, non tranché. Les parures comptent le
+**nombre** de semaines bouclées, jamais lesquelles. Une gymnaste qui démarre en
+semaine 5 — ce que le §7.1 autorise explicitement — ne peut donc en gagner que
+quatre avant la fin du programme, alors que le bilan A17 suppose un justaucorps
+entièrement paré.
+
+**Cause** — A13 a été écrite en pensant à un parcours complet, sans croiser le
+choix de la semaine de départ qui existe pourtant depuis le premier jour. Deux
+sections du même PRD, écrites à des moments différents, se contredisent en un
+point que ni l'une ni l'autre ne mentionne.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — trois issues, et le choix appartient au demandeur :
+une parure par semaine **bouclée** quelle qu'elle soit (le justaucorps se pare
+complètement même en démarrant tard, mais huit parures demandent huit semaines
+que le programme ne contient plus), une parure par semaine **du programme**
+(l'état actuel : démarrer tard plafonne le justaucorps), ou un jeu de parures
+proportionné aux semaines restantes. En attendant, le bilan montre le
+justaucorps tel qu'il est et ne prétend jamais qu'il est complet.
