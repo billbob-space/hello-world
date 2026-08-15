@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-15T00:00:00Z",
+  "title": "Design System: Renaissance Gym",
+  "extensions": {
+    "colorMeta": {
+      "bleu-roi": {
+        "role": "primary",
+        "displayName": "Velours bleu roi",
+        "canonical": "#1B2FB5",
+        "tonalRamp": ["#080D33", "#0D1552", "#131F7C", "#1B2FB5", "#3F51CE", "#6F7CDE", "#A6AEEC", "#D6DAF8"]
+      },
+      "or": {
+        "role": "secondary",
+        "displayName": "Or de passepoil",
+        "canonical": "#F0C24B",
+        "tonalRamp": ["#3B2C05", "#5E4A0D", "#8A6D16", "#B79222", "#E0B435", "#F0C24B", "#F6D687", "#FBEEC6"]
+      },
+      "fuchsia": {
+        "role": "tertiary",
+        "displayName": "Fuchsia d'effort",
+        "canonical": "#E5197E",
+        "tonalRamp": ["#3B0420", "#5E0834", "#8A0C4C", "#B31063", "#E5197E", "#EF539F", "#F68CC1", "#FBC9E1"]
+      },
+      "bleu-nuit": {
+        "role": "neutral",
+        "displayName": "Bleu nuit",
+        "canonical": "#0B1030",
+        "tonalRamp": ["#04061A", "#0B1030", "#151C4A", "#232C68", "#3A4590", "#5D69B4", "#8F98D2", "#C7CCEB"]
+      },
+      "jersey": {
+        "role": "neutral",
+        "displayName": "Jersey mat",
+        "canonical": "#F4F1EA",
+        "tonalRamp": ["#302D26", "#4A463C", "#6B665A", "#8F8A7C", "#B3AEA0", "#D2CDC0", "#E3DED2", "#F4F1EA"]
+      },
+      "jersey-ombre": {
+        "role": "neutral",
+        "displayName": "Ombre du jersey",
+        "canonical": "#E3DED2",
+        "tonalRamp": ["#2B281F", "#443F32", "#635D4B", "#847D68", "#A69F89", "#C4BEAB", "#E3DED2", "#F2EFE8"]
+      }
+    },
+    "typographyMeta": {
+      "decompte": {
+        "displayName": "Décompte",
+        "purpose": "Le minuteur et l'objectif de la semaine, lus à un mètre, téléphone posé par terre. Chiffres tabulaires."
+      },
+      "exercice": {
+        "displayName": "Nom d'exercice",
+        "purpose": "L'exercice en cours pendant la séance ; se réduit sur son mot le plus long plutôt que de déborder."
+      },
+      "titre": {
+        "displayName": "Titre d'écran",
+        "purpose": "h1/h2/h3 et le pseudonyme des réglages."
+      },
+      "texte": {
+        "displayName": "Texte",
+        "purpose": "Tout le reste. Plancher absolu de 17 px, mentions légères comprises."
+      },
+      "etiquette": {
+        "displayName": "Étiquette de couture",
+        "purpose": "Les étiquettes capitales posées sur l'empiècement. Seul endroit où capitales et interlettrage sont admis."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "seance-glisse", "value": "seance-glisse 280ms ease-out", "purpose": "Le passage d'un exercice au suivant : translateX(-6vw) + skewY(-12deg), selon l'angle de la couture, jamais horizontalement. Neutralisée sous prefers-reduced-motion." },
+      { "name": "strass-balayage", "value": "strass-balayage 900ms ease-out 1", "purpose": "Balayage de lumière sur le rang de strass, déclenché à l'événement par .strass--balaie, jamais en boucle. Neutralisé sous prefers-reduced-motion ; les facettes restent visibles." },
+      { "name": "progression", "value": "transform 200ms ease-out", "purpose": "Le remplissage de la barre de couture, animé par scaleX depuis le bord gauche, jamais par width." }
+    ],
+    "breakpoints": [
+      { "name": "mesure", "value": "640px" }
+    ],
+    "geometry": [
+      { "name": "--couture", "value": "12deg", "purpose": "L'angle du monde. Toute chute est dérivée par tan(--couture) * 100cqw contre un ancêtre conteneur, jamais un vw." },
+      { "name": "--passepoil", "value": "2px", "purpose": "L'épaisseur du filet d'or, mesurée perpendiculairement à la couture via / cos(--couture)." },
+      { "name": "--cible-min", "value": "56px", "purpose": "Aucune cible tactile en dessous : les paumes sont moites et le téléphone est à un mètre." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton principal",
+      "kind": "button",
+      "refersTo": "bouton",
+      "description": "Le geste principal d'un écran, collé en bas, à portée de pouce.",
+      "html": "<button class=\"ds-bouton\">Démarrer la séance</button>",
+      "css": ".ds-bouton { display: inline-flex; align-items: center; justify-content: center; min-width: 50%; min-height: 56px; padding: 0 24px; border: 0; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px); background: #1B2FB5; color: #F4F1EA; font-family: 'Archivo', system-ui, sans-serif; font-variation-settings: 'wdth' 100, 'wght' 700; font-size: 1.0625rem; line-height: 1; cursor: pointer; touch-action: manipulation; } .ds-bouton:focus-visible { outline: 2px solid #F0C24B; outline-offset: 2px; } .ds-bouton:disabled { background: #E3DED2; color: #0B1030; cursor: not-allowed; }"
+    },
+    {
+      "name": "Bouton discret",
+      "kind": "button",
+      "refersTo": "bouton-discret",
+      "description": "L'action secondaire, sans fond. Déclare son display explicitement : la même classe est portée par un <a> et par un <button>.",
+      "html": "<a class=\"ds-bouton-discret\" href=\"#\">Ta grille</a>",
+      "css": ".ds-bouton-discret { display: inline-flex; align-items: center; justify-content: flex-start; align-self: flex-start; min-width: auto; min-height: 56px; padding: 0 16px; border: 0; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px); background: transparent; color: #1B2FB5; font-family: 'Archivo', system-ui, sans-serif; font-variation-settings: 'wdth' 100, 'wght' 600; font-size: 1.0625rem; cursor: pointer; touch-action: manipulation; } .ds-bouton-discret:hover { background: #E3DED2; } .ds-bouton-discret:focus-visible { outline: 2px solid #F0C24B; outline-offset: 2px; }"
+    },
+    {
+      "name": "Champ texte",
+      "kind": "input",
+      "refersTo": "champ-texte",
+      "description": "Tout champ texte de l'application. Garde un rayon de 4 px plutôt qu'un biseau : un clip-path rognerait la bordure de 2 px.",
+      "html": "<input class=\"ds-champ\" type=\"text\" value=\"Alice\" aria-label=\"Prénom\">",
+      "css": ".ds-champ { width: 100%; min-height: 56px; padding: 0 12px; border: 2px solid #E3DED2; border-radius: 4px; background: #F4F1EA; color: #0B1030; font-family: 'Archivo', system-ui, sans-serif; font-variation-settings: 'wdth' 100, 'wght' 500; font-size: 1.0625rem; } .ds-champ:focus { border-color: #1B2FB5; outline: 2px solid #F0C24B; outline-offset: 2px; }"
+    },
+    {
+      "name": "Empiècement à couture diagonale",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Le panneau signature : velours bleu roi coupé à 12°, passepoil d'or de 2 px. Panneau et passepoil sont UN SEUL élément — le fond direct est l'or, un ::before porte le velours découpé par la même formule arrêtée --passepoil plus tôt.",
+      "html": "<div class=\"ds-conteneur\"><div class=\"ds-empiecement\"><div class=\"ds-etiquettes\"><span class=\"ds-etiquette\">Semaine 3</span><span class=\"ds-etiquette\">Séance 2 sur 4</span></div></div></div>",
+      "css": "@property --ds-chute { syntax: '<length>'; inherits: true; initial-value: 0px; } .ds-conteneur { container-type: inline-size; width: 100%; } .ds-empiecement { position: relative; isolation: isolate; --ds-chute: calc(tan(12deg) * 100cqw); background: #F0C24B; color: #F4F1EA; clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--ds-chute)), 0 100%); padding: 24px 16px calc(var(--ds-chute) + 16px); } .ds-empiecement::before { content: ''; position: absolute; inset: 0; z-index: -1; background-color: #1B2FB5; clip-path: polygon(0 0, 100% 0, 100% calc(100% - (var(--ds-chute) + (2px / cos(12deg)))), 0 calc(100% - (2px / cos(12deg)))); } .ds-etiquettes { display: flex; flex-direction: column; align-items: center; gap: 4px; } .ds-etiquette { display: inline-block; font-family: 'Archivo', system-ui, sans-serif; font-variation-settings: 'wdth' 100, 'wght' 600; font-size: 1.0625rem; text-transform: uppercase; letter-spacing: 0.08em; }"
+    },
+    {
+      "name": "Rang de strass",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Losanges d'or, réservés à la semaine bouclée et aux badges. Jamais pendant l'effort — un test vérifie que vue-seance.js ne monte jamais .strass.",
+      "html": "<div class=\"ds-strass\"><span class=\"ds-facette\"></span><span class=\"ds-facette\"></span><span class=\"ds-facette\"></span><span class=\"ds-facette\"></span><span class=\"ds-facette\"></span><span class=\"ds-facette\"></span></div>",
+      "css": ".ds-strass { display: flex; gap: 4px; } .ds-facette { width: 0.75rem; height: 0.75rem; background: #F0C24B; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); opacity: 0.85; animation: ds-balayage 900ms ease-out 1; } @keyframes ds-balayage { 0% { opacity: 0.35; } 55% { opacity: 1; } 100% { opacity: 0.85; } } @media (prefers-reduced-motion: reduce) { .ds-facette { animation: none; } }"
+    },
+    {
+      "name": "Barre de couture",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "La progression de la séance, dans l'empiècement. 6 px de haut ; le rayon de 4 px y est un embout, pas un coin. Animée par transform, jamais par width.",
+      "html": "<div class=\"ds-barre\"><div class=\"ds-barre-remplissage\" style=\"transform: scaleX(0.5)\"></div></div>",
+      "css": ".ds-barre { margin-top: 8px; height: 6px; background: rgba(244, 241, 234, 0.35); border-radius: 4px; overflow: hidden; } .ds-barre-remplissage { height: 100%; width: 100%; transform-origin: left center; background: #F0C24B; border-radius: 4px; transition: transform 200ms ease-out; } @media (prefers-reduced-motion: reduce) { .ds-barre-remplissage { transition: none; } }"
+    },
+    {
+      "name": "Case de séance",
+      "kind": "chip",
+      "refersTo": "case-seance-faite",
+      "description": "Les quatre états d'une séance dans la grille : faite (or + coche), en cours (contour fuchsia + chevron), passée vide, future (inerte, opacité 0.5). Chaque état double sa couleur d'une forme.",
+      "html": "<div style=\"display:flex;gap:8px\"><button class=\"ds-case ds-case-faite\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"4,13 9,18 20,6\"/></svg></button><button class=\"ds-case ds-case-encours\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"9,5 16,12 9,19\"/></svg></button><button class=\"ds-case ds-case-vide\"></button><button class=\"ds-case ds-case-future\" disabled></button></div>",
+      "css": ".ds-case { min-height: 56px; min-width: 56px; border: 2px solid #E3DED2; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px); background: #F4F1EA; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-size: 1.25rem; line-height: 1; touch-action: manipulation; } .ds-case-faite { border-color: #F0C24B; background: #F0C24B; color: #0B1030; cursor: pointer; } .ds-case-encours { border-color: #E5197E; background: #F4F1EA; color: #E5197E; cursor: default; } .ds-case-vide { background: #E3DED2; border-color: #E3DED2; cursor: pointer; } .ds-case-future { background: #E3DED2; border-color: #E3DED2; opacity: 0.5; cursor: default; }"
+    },
+    {
+      "name": "Carte de badge",
+      "kind": "card",
+      "refersTo": "badge-carte",
+      "description": "Un ton plus sombre que le champ, coins biseautés, aucune ombre : la profondeur est tonale.",
+      "html": "<div class=\"ds-badge\"><span class=\"ds-badge-nom\">Première semaine bouclée</span><span class=\"ds-badge-phrase\">Quatre séances, quatre fois de suite.</span></div>",
+      "css": ".ds-badge { padding: 12px; background: #E3DED2; color: #0B1030; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px); display: flex; flex-direction: column; gap: 4px; font-family: 'Archivo', system-ui, sans-serif; font-size: 1.0625rem; } .ds-badge-nom { font-variation-settings: 'wdth' 112, 'wght' 800; }"
+    },
+    {
+      "name": "Décompte",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Le minuteur, lu à un mètre. Bleu nuit au repos, fuchsia seulement pendant qu'il tourne : le changement de couleur EST le retour de départ.",
+      "html": "<div class=\"ds-decompte ds-decompte-actif\">0:42</div>",
+      "css": ".ds-decompte { font-family: 'Archivo', system-ui, sans-serif; font-variation-settings: 'wdth' 125, 'wght' 800; font-size: clamp(5rem, 28vw, 11rem); font-variant-numeric: tabular-nums; line-height: 1.05; color: #0B1030; text-align: center; } .ds-decompte-actif { color: #E5197E; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le justaucorps de compétition",
+    "overview": "Un seul tissu, des panneaux coupés différemment. L'application est cousue, pas empilée : des empiècements de velours bleu roi coupés en diagonale, un passepoil d'or de 2 px le long de chaque couture, et un champ de lecture en jersey mat où tout le texte vit. Rien n'est arrondi, parce qu'un justaucorps se coud ; rien n'est ombré, parce qu'un vêtement n'est pas un empilement de cartes.\n\nLa densité est celle d'un objet regardé à un mètre, posé par terre, les paumes moites. Le PRD §5 gouverne : le décompte et le nom de l'exercice montent jusqu'à 11 rem, aucune cible ne descend sous 56 px, et aucun texte ne descend sous 17 px — mentions légères comprises. C'est un système à très forte amplitude typographique et à très faible variété : une seule police variable, six couleurs, un seul angle.\n\nL'anti-référence est nommée dans le contrat de direction et refusée dans le code : fond presque noir, accent fluo, anneaux de progression, cartes arrondies empilées. Le fond est clair, l'accent est une région entière, la progression est une couture, et il n'y a pas une seule ombre portée dans la feuille de style.",
+    "keyCharacteristics": [
+      "Empiècements diagonaux à 12°, passepoil d'or de 2 px, jamais un filet séparé",
+      "Angles coupés à 4 px en clip-path, jamais un rayon",
+      "Une seule police variable, pilotée par ses axes wght et wdth",
+      "Plancher de 17 px sur tout texte, cibles de 56 px minimum",
+      "Zéro ombre : la profondeur est tonale et géométrique",
+      "Le fuchsia dit « en cours », l'or dit « acquis », et rien d'autre"
+    ],
+    "rules": [
+      { "name": "La règle du Fuchsia en cours", "body": "Le fuchsia ne désigne jamais qu'une chose en train de se faire, et jamais rien d'autre. Le décompte est en bleu nuit au repos et ne devient fuchsia que pendant qu'il tourne : c'est le CHANGEMENT de couleur qui constitue le retour de départ, pas une teinte posée avant l'effort.", "section": "colors" },
+      { "name": "La règle de l'Or acquis", "body": "L'or ne se pose que sur ce qui est fini, cousu ou mis en avant hors effort : passepoil, strass, séance faite, progression remplie, anneau de focus. Il n'annonce jamais une action à venir.", "section": "colors" },
+      { "name": "La règle de la Double lecture", "body": "Aucune information n'est portée par la seule couleur. Une case faite porte l'or ET une coche ; une case en cours porte le fuchsia ET un chevron ; le décompte porte la couleur ET le chiffre.", "section": "colors" },
+      { "name": "La règle du plancher de 17 px", "body": "Aucun texte ne descend sous 1.0625rem, y compris les mentions légères. La table de l'ossature §5.2 proposait 0.8125rem pour l'étiquette de couture ; le plancher, explicite et testé, l'a emporté, parce que le PRD §5 exige la lecture à un mètre, téléphone posé par terre. Une contradiction entre une table de jetons et le plancher se tranche toujours en faveur du plancher.", "section": "typography" },
+      { "name": "La règle des Capitales réservées", "body": "Les capitales et l'interlettrage n'appartiennent qu'à .etiquette. Un texte secondaire (la légende des familles sous le nom de la séance) est une légende en casse normale, jamais un surtitre.", "section": "typography" },
+      { "name": "La règle de la Réduction par le mot le plus long", "body": "Un titre d'affichage se plie à l'unité qui ne peut pas se couper en fin de ligne, pas à sa longueur totale : le nom de la séance calcule sa taille depuis son mot le plus long (--plus-long-mot, écrit par la vue) contre sa propre largeur en cqw, avec un multiplicateur de 0.72 mesuré au pixel sur la police réelle.", "section": "typography" },
+      { "name": "La règle du Conteneur ancêtre", "body": "container-type: inline-size vit sur #ecran > section, JAMAIS sur .empiecement. La spécification interdit à un élément de lire son propre cqw (dépendance circulaire) : il retombe alors silencieusement sur le conteneur ancêtre suivant, ou à défaut sur le viewport. Posé sur le panneau, l'angle de couture mesurait 12° en mobile et 31,3° à 1280px. Toute mesure relative à la largeur d'un panneau se lit sur l'ANCÊTRE dont la largeur EST celle du panneau.", "section": "layout" },
+      { "name": "La règle de la Longueur typée", "body": "Toute custom property qui porte une longueur partagée entre un élément et son pseudo-élément est enregistrée par @property avec syntax: '<length>'. Sans ce typage, Chromium 141 résout la même propriété non typée en deux longueurs différentes pour l'élément (82,90 px) et pour son ::before positionné en absolu sous mise en page flex (78,14 px) — ce qui faisait s'éteindre le passepoil d'or après une vingtaine de pixels.", "section": "layout" },
+      { "name": "La règle de la Mesure bornée", "body": "Au-delà de 640px la coque reste bornée à la mesure d'un justaucorps tenu à bout de bras (28rem) plutôt que de s'étaler : sans elle, un champ de saisie dépasse le millier de pixels et un titre se retrouve à 16 px du bord de la fenêtre.", "section": "layout" },
+      { "name": "La règle Plate", "body": "Une surface ne se soulève jamais. Si un élément doit se distinguer du champ, il change de ton ou de découpe ; il ne prend ni ombre, ni flou d'arrière-plan, ni bordure lumineuse.", "section": "elevation" },
+      { "name": "La règle du Display explicite", "body": ".bouton--discret déclare son display lui-même, et ce n'est pas cosmétique : sans lui, un <button> est centré par la feuille de style du navigateur tandis qu'un <a> reste en flux en ligne et s'aligne à gauche. La même classe produisait deux axes d'alignement selon la balise, et rien dans la CSS ne le disait. Toute classe portée à la fois par un <a> et un <button> déclare son display.", "section": "components" }
+    ],
+    "dos": [
+      "Do dériver toute mesure d'angle de --couture (tan(), cos()) et la résoudre contre 100cqw d'un ancêtre conteneur — jamais un vw, jamais une valeur en dur.",
+      "Do enregistrer par @property { syntax: '<length>' } toute longueur partagée entre un élément et son pseudo-élément.",
+      "Do couper les coins au biseau de 4 px via var(--biseau).",
+      "Do tenir le plancher de 17 px et la cible de 56 px, y compris quand une table de jetons dit autre chose.",
+      "Do déclarer display explicitement sur toute classe portée à la fois par un <a> et un <button>.",
+      "Do doubler toute couleur porteuse d'information par une forme ou un mot.",
+      "Do donner une échappatoire prefers-reduced-motion à toute animation.",
+      "Do servir la police depuis l'app, préchargée avec crossorigin."
+    ],
+    "donts": [
+      "Don't poser container-type sur l'élément qui doit lire sa propre largeur : il ne peut pas être son propre conteneur, et il retombera silencieusement sur le viewport.",
+      "Don't ajouter un border-radius : trois seulement subsistent et chacun porte sa raison en commentaire (deux champs texte, une barre de 6 px).",
+      "Don't utiliser une box-shadow. Il n'y en a aucune dans le système.",
+      "Don't séparer le passepoil de sa couture en deux éléments — un filet de 2 px en flex s'écrase à zéro et ne peut pas suivre une diagonale.",
+      "Don't monter un rang de strass pendant l'effort : un test vérifie que vue-seance.js ne monte jamais .strass.",
+      "Don't poser du fuchsia sur autre chose qu'un état en cours, ni de l'or sur autre chose qu'un acquis.",
+      "Don't employer les capitales et l'interlettrage hors de .etiquette : un texte secondaire est une légende, jamais un surtitre.",
+      "Don't utiliser un glyphe de police en guise d'icône (✓, ›) — SVG en trait, currentColor, dimensionné en 1em.",
+      "Don't animer width, height ou toute propriété de mise en page ; passer par transform."
+    ]
+  }
+}
