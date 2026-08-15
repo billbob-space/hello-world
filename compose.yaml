@@ -485,10 +485,53 @@ services:
     networks: [apps_net]
   # <<< ramure
 
-  # >>> renaissance-gym — DESACTIVEE (enabled: false dans apps/renaissance-gym/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+  # >>> renaissance-gym — apps/renaissance-gym/app.yml — https://renaissance-gym.apps.billbob.ovh
+  renaissance-gym:
+    image: ghcr.io/billbob-space/hello-world/renaissance-gym:164c7b5e45f123bc13bfc2a926ce3b81b226e74a
+    container_name: renaissance-gym
+    restart: unless-stopped
+    mem_limit: 128m
+    # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
+    # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
+    # seule : « docker compose up » ne recree que les services dont la ligne
+    # image: a bouge. Une app encore absente de versions.yml retombe sur le tag
+    # mutable « :main », et c'est le seul cas ou pull_policy sert vraiment —
+    # sans lui, un redeploiement relancerait l'image locale, donc la version
+    # precedente. Sur un tag epingle il ne coute qu'une verification d'empreinte.
+    pull_policy: always
+    # Aucun port publie : Traefik joint le conteneur par le reseau apps_net.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Journaux bornes : le disque du serveur est a 92 %, et la fabrique
+    # multiplie les services. Un json-file non borne les remplirait.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # priority=100 est OBLIGATOIRE : un routeur catch-all capte tout
+      # *.apps.billbob.ovh par HostRegexp, et sa regle est plus longue que ce
+      # Host(). Traefik departageant par longueur de regle, il gagnerait et
+      # servirait un 404 silencieux.
+      - "traefik.enable=true"
+      - "traefik.http.routers.renaissance-gym.rule=Host(`renaissance-gym.apps.billbob.ovh`)"
+      - "traefik.http.routers.renaissance-gym.entrypoints=websecure"
+      - "traefik.http.routers.renaissance-gym.priority=100"
+      # public = AUCUNE authentification (exposure public). Acces anonyme,
+      # rate-limit seul. Ne pas confondre avec forwardauth-open, qui exige un
+      # compte Google. X-Forwarded-User n'est PAS pose sur ce palier.
+      - "traefik.http.routers.renaissance-gym.middlewares=public,security-headers@file"
+      - "traefik.http.routers.renaissance-gym.tls.certresolver=letsencrypt"
+      - "traefik.http.services.renaissance-gym.loadbalancer.server.port=8080"
+      - "traefik.docker.network=apps_net"
+    networks: [apps_net]
+    volumes:
+      - renaissance-gym-donnees:/var/lib/renaissance-gym
   # <<< renaissance-gym
 
   # ===== services partages — fabrique.yml, cle shared_services =====
@@ -545,6 +588,8 @@ volumes:
     name: marcq-handball-donnees
   pilabelle-donnees:
     name: pilabelle-donnees
+  renaissance-gym-donnees:
+    name: renaissance-gym-donnees
 
 networks:
   apps_net:
