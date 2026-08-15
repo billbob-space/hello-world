@@ -1,0 +1,6 @@
+{
+  "name": "renaissance-gym",
+  "private": true,
+  "type": "module",
+  "description": "Le programme, le domaine et les vues sont des modules ES natifs. Ce fichier ne sert qu'a le dire a Node : aucune dependance, aucun script, aucun node_modules."
+}

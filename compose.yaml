@@ -485,6 +485,12 @@ services:
     networks: [apps_net]
   # <<< ramure
 
+  # >>> renaissance-gym — DESACTIVEE (enabled: false dans apps/renaissance-gym/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< renaissance-gym
+
   # ===== services partages — fabrique.yml, cle shared_services =====
   # Un seul exemplaire pour toute la fabrique, joignable par son nom de service
   # depuis n'importe quelle app d'apps_net, et jamais route vers l'exterieur.
