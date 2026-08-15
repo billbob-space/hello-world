@@ -4,7 +4,7 @@
 // remplacer l'ancien cache par le nouveau et parvenir le correctif suivant à
 // une gymnaste qui a déjà installé l'application : une version qui ne change
 // pas est un correctif qui n'arrive jamais chez elle.
-const VERSION = '1';
+const VERSION = '2';
 const CACHE_NAME = `renaissance-gym-coque-v${VERSION}`;
 
 // Ce qui est mis en cache l'est parce que la séance en a besoin hors ligne —
@@ -29,6 +29,7 @@ const PRECACHE_URLS = [
   '/vue-entree.js',
   '/vue-grille.js',
   '/vue-jour.js',
+  '/vue-liste.js',
   '/vue-reglages.js',
   '/vue-seance.js',
   '/style.css',

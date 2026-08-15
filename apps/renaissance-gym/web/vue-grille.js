@@ -73,13 +73,19 @@ export function monterGrille(hote, ctx) {
   retour.className = 'bouton--discret lien-retour';
   retour.href = '#/jour';
   retour.append(icone('icone-fleche', '15 5 8 12 15 19'), el('span', 'lien-retour__libelle', 'Aujourd’hui'));
+  // A8 (« Ajouté après les PRP ») : la liste des trente-six exercices,
+  // atteignable depuis la grille et depuis les réglages (vue-reglages.js).
+  const versListe = document.createElement('a');
+  versListe.className = 'bouton--discret';
+  versListe.href = '#/liste';
+  versListe.textContent = 'Les 36 exercices';
   const grille = el('div', 'grille-programme');
   const confirmation = el('div', 'confirmation-case');
   confirmation.hidden = true;
   const finProgramme = el('div', 'fin-programme');
   const zoneBadges = el('div', 'zone-badges');
 
-  corps.append(retour, grille, confirmation, finProgramme, zoneBadges);
+  corps.append(retour, versListe, grille, confirmation, finProgramme, zoneBadges);
   section.append(corps);
   hote.append(section);
 
@@ -214,7 +220,9 @@ export function monterGrille(hote, ctx) {
   }
 
   function rendreTout(misEnAvant) {
-    const semaineCouranteActuelle = semaineCourante(etatCourant.debut, maintenant(), etatCourant.semaineDeDepart);
+    // A5 (« Ajouté après les PRP ») : la semaine courante se déduit désormais
+    // des faits, jamais de l'horloge (voir domaine.js).
+    const semaineCouranteActuelle = semaineCourante(programme, etatCourant.faits, etatCourant.semaineDeDepart);
     grille.replaceChildren();
     for (let semaine = 1; semaine <= SEMAINES_DU_PROGRAMME; semaine += 1) {
       grille.append(construireRang(semaine, semaineCouranteActuelle));

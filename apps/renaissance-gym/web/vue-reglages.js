@@ -73,6 +73,14 @@ export function monterReglages(hote, ctx) {
   retour.append(iconeFleche(), el('span', 'lien-retour__libelle', 'Aujourd’hui'));
   corps.append(retour);
 
+  // A8 (« Ajouté après les PRP ») : la liste des trente-six exercices,
+  // atteignable depuis la grille (vue-grille.js) et depuis les réglages.
+  const versListe = document.createElement('a');
+  versListe.className = 'bouton--discret';
+  versListe.href = '#/liste';
+  versListe.textContent = 'Les 36 exercices';
+  corps.append(versListe);
+
   // 1. Le prenom. Un champ, un bouton, AUCUNE confirmation : c'est
   // reversible (PRP 05 chantier D).
   const blocPrenom = el('div', 'reglage-bloc');
@@ -95,6 +103,61 @@ export function monterReglages(hote, ctx) {
     ecrireEtat({ prenom: r.valeur });
   });
   blocPrenom.append(champPrenom, erreurPrenom, boutonPrenom);
+
+  // 1 bis. La semaine de départ (A10, « Ajouté après les PRP ») : les mêmes
+  // huit cibles que l'écran d'entrée (PRD §7.1), avec une confirmation qui
+  // dit ce que cela déplace. RIEN N'EST EFFACÉ : changer cette valeur change
+  // seulement où `semaineCourante` (domaine.js) reprend sa recherche — les
+  // exercices déjà validés restent attachés à la semaine où ils l'ont été.
+  const blocSemaine = el('div', 'reglage-bloc');
+  blocSemaine.append(el('span', 'etiquette', 'Ta semaine de départ'));
+  const grilleSemaines = el('div', 'grille-semaines');
+  const confirmationSemaine = el('div', 'confirmation-case');
+  confirmationSemaine.hidden = true;
+
+  function fermerConfirmationSemaine() {
+    confirmationSemaine.hidden = true;
+    confirmationSemaine.replaceChildren();
+  }
+
+  function rafraichirSemaines() {
+    const actuelle = lireEtat().semaineDeDepart;
+    grilleSemaines.querySelectorAll('.cible-semaine').forEach((bouton, i) => {
+      bouton.classList.toggle('choisi', i + 1 === actuelle);
+    });
+  }
+
+  for (let s = 1; s <= 8; s += 1) {
+    const boutonSemaine = el('button', 'cible-semaine', String(s));
+    boutonSemaine.type = 'button';
+    boutonSemaine.addEventListener('click', () => {
+      const actuelle = lireEtat().semaineDeDepart;
+      if (s === actuelle) return;
+      confirmationSemaine.replaceChildren();
+      confirmationSemaine.hidden = false;
+      confirmationSemaine.append(el(
+        'p',
+        'confirmation-case__question',
+        `Commencer maintenant à la semaine ${s} au lieu de la semaine ${actuelle} ? Rien n’est effacé : ce que tu as déjà fait reste à la semaine où tu l’as fait.`,
+      ));
+      const rangee = el('div', 'confirmation-case__boutons');
+      const oui = el('button', 'bouton', 'Oui');
+      oui.type = 'button';
+      const non = el('button', 'bouton--discret', 'Non');
+      non.type = 'button';
+      oui.addEventListener('click', () => {
+        ecrireEtat({ semaineDeDepart: s });
+        fermerConfirmationSemaine();
+        rafraichirSemaines();
+      });
+      non.addEventListener('click', fermerConfirmationSemaine);
+      rangee.append(oui, non);
+      confirmationSemaine.append(rangee);
+    });
+    grilleSemaines.append(boutonSemaine);
+  }
+  rafraichirSemaines();
+  blocSemaine.append(grilleSemaines, confirmationSemaine);
 
   // 2. Le pseudonyme, affiche en clair. Le code, lui, n'est JAMAIS affiche
   // (PRP 05 chantier D) : il vit sur l'appareil, le montrer n'aiderait qu'a
@@ -233,7 +296,7 @@ export function monterReglages(hote, ctx) {
   });
   blocEffacement.append(boutonEffacer, confirmation);
 
-  corps.append(blocPrenom, blocPseudo, blocSonnerie, blocEcran, blocSynchro, blocEffacement);
+  corps.append(blocPrenom, blocSemaine, blocPseudo, blocSonnerie, blocEcran, blocSynchro, blocEffacement);
   section.append(corps);
   hote.append(section);
 

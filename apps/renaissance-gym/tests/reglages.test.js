@@ -135,3 +135,83 @@ test('avec un wakeLock disponible, la phrase d’indisponibilité n’est pas af
   assert.ok(!paragraphes.includes(vueReglages.PHRASE_ECRAN_INDISPONIBLE));
   delete globalThis.navigator.wakeLock;
 });
+
+// --- A10 : changer sa semaine de départ, avec confirmation ------------------
+
+test('les réglages proposent les huit mêmes cibles que l’écran d’entrée, la semaine actuelle est présélectionnée', () => {
+  etat.ecrireEtat({ prenom: 'Léa', semaineDeDepart: 3 });
+  const hote = creerHote();
+  vueReglages.monterReglages(hote, ctxDe());
+
+  const cibles = hote.querySelectorAll('.cible-semaine');
+  assert.equal(cibles.length, 8);
+  assert.ok(cibles[2].classList.contains('choisi'), 'la semaine 3 doit être présélectionnée');
+  assert.equal(cibles.filter((c) => c.classList.contains('choisi')).length, 1);
+});
+
+test('choisir une autre semaine ouvre une confirmation qui dit ce que cela déplace, avant d’écrire quoi que ce soit (A10)', () => {
+  etat.ecrireEtat({ prenom: 'Léa', semaineDeDepart: 1 });
+  const hote = creerHote();
+  vueReglages.monterReglages(hote, ctxDe());
+
+  const cibles = hote.querySelectorAll('.cible-semaine');
+  cibles[4].declencher('click'); // la semaine 5
+
+  assert.equal(etat.lireEtat().semaineDeDepart, 1, 'rien n’est écrit avant confirmation');
+  const question = hote.querySelector('.confirmation-case__question');
+  assert.ok(question, 'une confirmation doit s’ouvrir');
+  assert.match(question.textContent, /semaine 5/);
+  assert.match(question.textContent, /Rien n’est effacé/);
+});
+
+test('confirmer change la semaine de départ, sans effacer les exercices déjà faits (A10)', () => {
+  etat.ecrireEtat({
+    prenom: 'Léa',
+    semaineDeDepart: 1,
+    faits: [{ seance: 1, semaine: 1, exercice: 'e01', a: '2026-08-03T09:00:00.000Z' }],
+  });
+  const hote = creerHote();
+  vueReglages.monterReglages(hote, ctxDe());
+
+  hote.querySelectorAll('.cible-semaine')[4].declencher('click'); // semaine 5
+  hote.querySelectorAll('.bouton').find((b) => b.textContent === 'Oui').declencher('click');
+
+  const apres = etat.lireEtat();
+  assert.equal(apres.semaineDeDepart, 5);
+  assert.deepEqual(apres.faits, [{ seance: 1, semaine: 1, exercice: 'e01', a: '2026-08-03T09:00:00.000Z' }], 'rien n’est effacé');
+
+  const cibles = hote.querySelectorAll('.cible-semaine');
+  assert.ok(cibles[4].classList.contains('choisi'), 'l’affichage suit le nouveau choix');
+});
+
+test('« Non » referme la confirmation sans rien changer', () => {
+  etat.ecrireEtat({ prenom: 'Léa', semaineDeDepart: 1 });
+  const hote = creerHote();
+  vueReglages.monterReglages(hote, ctxDe());
+
+  hote.querySelectorAll('.cible-semaine')[4].declencher('click');
+  hote.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Non').declencher('click');
+
+  assert.equal(etat.lireEtat().semaineDeDepart, 1);
+  assert.equal(hote.querySelectorAll('.confirmation-case__question').length, 0);
+});
+
+test('choisir la semaine déjà en cours ne fait rien : ni écriture, ni confirmation', () => {
+  etat.ecrireEtat({ prenom: 'Léa', semaineDeDepart: 3 });
+  const hote = creerHote();
+  vueReglages.monterReglages(hote, ctxDe());
+
+  hote.querySelectorAll('.cible-semaine')[2].declencher('click'); // deja la semaine 3
+  assert.equal(hote.querySelectorAll('.confirmation-case__question').length, 0);
+});
+
+// --- A8 : la liste des trente-six exercices, aussi depuis les réglages -----
+
+test('un lien mène à la liste des trente-six exercices', () => {
+  etat.ecrireEtat({ prenom: 'Léa' });
+  const hote = creerHote();
+  vueReglages.monterReglages(hote, ctxDe());
+
+  const lien = hote.querySelectorAll('a').find((a) => a.href === '#/liste');
+  assert.ok(lien, 'un lien vers « #/liste » doit exister dans les réglages');
+});

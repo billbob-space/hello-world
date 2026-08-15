@@ -101,6 +101,19 @@ export function exercicesDeSeance(prog, numero) {
   return s.exercices.map((id) => exercice(prog, id)).filter((ex) => ex !== undefined);
 }
 
+// A8 (« Ajoute apres les PRP ») : les trente-six exercices groupes par
+// famille, dans l'ordre de la feuille — chaque groupe suit l'ordre de
+// `familles`, chaque exercice l'ordre de `exercices` (PRD §8.1 : jamais
+// recopie, toujours derive du fichier de donnees). C'est ce qui reconstitue
+// les deux pages d'origine a l'ecran.
+export function exercicesParFamille(prog) {
+  return prog.familles.map((f) => ({
+    id: f.id,
+    nom: f.nom,
+    exercices: prog.exercices.filter((ex) => ex.famille === f.id),
+  }));
+}
+
 // Semaine 1..8 -> index de palier (A4, « Ajoute apres les PRP » : le §8.3
 // d'origine fabriquait deux marches intermediaires qui ne venaient d'aucune
 // entraineuse — corrige ici, pas seulement dans les donnees). Les huit

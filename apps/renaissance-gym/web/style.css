@@ -384,7 +384,8 @@ p { margin: 0; }
 .corps-seance-fin,
 .corps-grille,
 .corps-detail-seance,
-.corps-reglages {
+.corps-reglages,
+.corps-liste {
   padding: calc(var(--pas) * 3) calc(var(--pas) * 2) calc(var(--pas) * 4);
   display: flex;
   flex-direction: column;
@@ -997,4 +998,64 @@ input[type='text']:focus,
   border-color: var(--bleu-roi);
   background: var(--bleu-roi);
   color: var(--jersey);
+}
+
+/* --- A9, « Ajouté après les PRP » : la ligne discrète de l'écran du jour qui
+   dit ce qui vient ensuite. Taille de texte courante, centrée sous le nom de
+   la séance : elle ne concurrence jamais l'objet focal au-dessus. */
+.apres-jour {
+  text-align: center;
+}
+
+/* --- A8, « Ajouté après les PRP » : la liste des trente-six exercices,
+   groupés par famille comme sur les deux pages d'origine. Purement
+   consultative -- aucune cible de 56 px n'est nécessaire ici, rien ne se
+   coche ni ne se lance (contrairement à vue-detail-seance.js). */
+.liste-programme {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 3);
+}
+
+.groupe-programme__titre {
+  display: block;
+  margin-bottom: calc(var(--pas) * 1);
+}
+
+.groupe-programme__lignes {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--pas) * 1.5);
+}
+
+.ligne-programme {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 1.5);
+}
+
+.ligne-programme__marque {
+  flex: 0 0 auto;
+  width: var(--taille-icone);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ligne-programme__coche {
+  color: var(--bleu-nuit);
+}
+
+.ligne-programme__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--taille-texte);
+}
+
+.ligne-programme__objectif {
+  flex: 0 0 auto;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 110, 'wght' 700;
+  font-size: var(--taille-texte);
+  color: var(--bleu-nuit);
 }

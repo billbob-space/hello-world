@@ -11,7 +11,14 @@ export class ElementFactice {
     this.attrs = {};
     this._classes = new Set();
     this._handlers = new Map();
-    this.style = {};
+    // `style.setProperty` (custom properties CSS, `--plus-long-mot` etc.) et
+    // `style.transform` (assignation directe) sont les deux seuls usages du
+    // vrai CSSStyleDeclaration dans web/*.js : ce factice ne porte que ceux-là.
+    this.style = {
+      _proprietes: {},
+      setProperty(nom, valeur) { this._proprietes[nom] = valeur; },
+      getPropertyValue(nom) { return this._proprietes[nom] ?? ''; },
+    };
     this.value = '';
     this._text = '';
     this.disabled = false;
