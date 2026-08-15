@@ -979,3 +979,102 @@ l'écran d'entrée, et une confirmation qui dit ce que cela déplace.
 **Rien n'est effacé** : les exercices faits restent attachés à la semaine où ils
 l'ont été. Changer la semaine de départ change là où elle se trouve dans le
 programme, pas ce qu'elle a fait.
+
+---
+
+# Le lot ludique
+
+Cinq ajouts, décidés avec le demandeur. Ils partagent une contrainte, et elle
+gouverne chacun d'eux : **le §4 et le §14 tiennent**. Aucun score, aucune
+comparaison, aucun jugement, aucune obligation. L'abandon est le risque
+principal de cette application, et une récompense qui mesure devient une dette.
+
+La règle qui les distingue d'un système de points : **on ne peut rien perdre**.
+Ce qui est gagné est gagné, rien ne se dégrade, rien n'expire, rien ne rappelle
+ce qui manque.
+
+## A13. Son justaucorps se pare
+
+L'application est taillée comme un justaucorps de compétition — c'est son monde
+visuel depuis le premier jour. Ce monde devient la récompense.
+
+Un **justaucorps dessiné**, visible sur son écran à elle, qui **gagne un élément
+à chaque semaine bouclée** : un passepoil d'or le long d'une couture, un rang de
+strass, un chevron, un empiècement de plus. Huit semaines, huit parures.
+
+- Chaque parure est **acquise définitivement**. Une semaine bouclée ne se
+  déboucle pas.
+- Le justaucorps se regarde depuis son propre écran, atteignable depuis l'écran
+  du jour. Il n'apparaît **jamais pendant une séance** — même règle que le rang
+  de strass, l'écran de l'effort n'est pas celui de la récompense.
+- **Aucune parure n'est verrouillée à vue** avec un cadenas ou un « plus que
+  deux semaines ». On voit ce qu'on a ; ce qui viendra ne se montre pas en
+  creux. Un catalogue de ce qui manque est un décompte de ce qu'on n'a pas fait.
+
+C'est le seul endroit de l'application où le dessin prend toute la place, et
+c'est voulu : elle a treize ans, elle fait de la gymnastique, et son justaucorps
+compte.
+
+## A14. Ses couleurs
+
+Elle choisit les couleurs **de son justaucorps** — pas celles de l'application.
+
+La distinction est importante et elle est tenue : le monde visuel de
+l'application est arrêté et documenté ; le laisser repeindre le déferait. Mais
+le justaucorps de l'écran A13 est **son objet à elle**, et une gymnaste choisit
+son justaucorps.
+
+- Six combinaisons, toutes tirées du monde du club et du sport : bleu roi et or,
+  fuchsia et or, nuit et or, et trois autres. Toutes lisibles, toutes contrastées.
+- **Disponibles dès le premier jour**, aucune n'est à gagner. Choisir sa couleur
+  n'est pas une récompense, c'est une appartenance.
+- Le choix suit sa fiche, comme le reste.
+
+## A15. L'exercice au hasard
+
+Un bouton, sur l'écran du jour : **« Un exercice au hasard »**. L'application en
+tire un parmi les trente-six, l'affiche avec l'objectif de la semaine, et elle
+le fait — minuteur et sonnerie comme dans une séance.
+
+Il répond à un moment précis que le programme ne couvre pas : cinq minutes à
+tuer, l'envie de faire quelque chose sans se lancer dans une séance entière.
+
+- Le tirage **évite ce qu'elle a déjà fait cette semaine** tant qu'il reste des
+  exercices non faits — sans quoi il proposerait dix fois la roue.
+- L'exercice tiré **compte comme fait**, exactement comme dans une séance : la
+  case avance, et c'est bien le même exercice de la même feuille.
+- Elle peut retirer autant qu'elle veut.
+
+## A16. Ses records
+
+Trois faits, tirés de ce qu'elle a fait, et rien d'autre :
+
+- **la plus longue tenue** menée à son terme sans remise à zéro ;
+- **le plus d'exercices faits dans une journée** ;
+- **le nombre d'exercices faits en tout** depuis le début.
+
+**Ce qui est délibérément exclu, et pourquoi.** Pas de série de jours consécutifs,
+pas de « streak ». C'est le mécanisme ludique le plus efficace qui existe, et
+c'est exactement pour cela qu'il est refusé ici : une série crée une dette qui
+grandit, puis une culpabilité le jour où elle se brise — souvent le jour où
+l'enfant est malade ou en voyage. Le §14 pose que l'abandon est le risque
+principal ; une série cassée est une des premières causes d'abandon, et elle
+frappe précisément ceux qui s'étaient le plus investis.
+
+Les trois records retenus ont une propriété commune : **ils ne peuvent que
+monter**. On ne perd jamais un record.
+
+## A17. Le bilan des huit semaines
+
+Quand les huit semaines sont bouclées, un écran de fin : ce qu'elle a fait, en
+toutes lettres, sur une page qui se montre.
+
+- Le nombre de séances, le nombre d'exercices, ses trois records, son
+  justaucorps entièrement paré.
+- Une phrase qui nomme ce qu'elle a fait, sans emphase et sans comparaison.
+- **Elle peut la montrer** : c'est le seul écran de l'application pensé pour
+  être vu par quelqu'un d'autre — son entraîneuse à la rentrée, ses parents.
+  Aucun bouton de partage, aucun envoi : elle tend le téléphone.
+
+Le bilan **reste accessible** après. Il ne disparaît pas au redémarrage d'un
+nouveau programme, parce que c'est la trace de son été.
