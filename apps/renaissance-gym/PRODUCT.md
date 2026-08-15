@@ -902,3 +902,80 @@ l'écran d'une enfant, et cette intention reste — le manifeste, lui, est
 désormais demandé. **Le test change de cible** : il continue d'interdire toute
 invite d'installation faite par l'application, et cesse d'interdire le
 manifeste.
+
+## A5. La semaine attend qu'elle l'ait faite
+
+Ce point **corrige le §8.5 et la règle §9.6**, qui disaient l'inverse : « la
+semaine avance sur le calendrier, jamais sur l'assiduité. Sept jours après son
+début, la suivante commence. »
+
+C'était une erreur, et elle est du genre coûteux : elle punit exactement le
+comportement que l'application existe pour soutenir. Une gymnaste qui part cinq
+jours chez sa grand-mère perd une semaine entière du programme sans avoir rien
+fait de mal. Trois absences de ce genre, et les huit semaines de la feuille sont
+consommées en ayant fait la moitié des séances. Le §14 dit que l'abandon est le
+risque principal ; un programme qui file tout seul pendant qu'on a le dos tourné
+est une machine à l'engendrer.
+
+**La règle devient** : une semaine avance quand ses **quatre séances sont
+faites**, et pas avant. Le calendrier ne la pousse plus.
+
+Conséquences, toutes voulues :
+
+- **Rien ne se perd.** Les huit semaines de la feuille sont huit semaines de
+  travail, pas huit semaines de calendrier. Elles durent ce qu'elles durent.
+- **Elle peut passer à la suivante quand elle veut**, d'un geste explicite et
+  confirmé. Une semaine qu'elle décide de laisser incomplète est son choix, pas
+  une sanction du temps qui passe.
+- **Rien ne réclame, rien ne rattrape.** Aucune notion de retard n'apparaît
+  nulle part : il n'y a plus de retard possible, puisqu'il n'y a plus
+  d'échéance.
+- La date de chaque fait reste enregistrée — c'est elle qui fait la fusion
+  entre deux téléphones. Elle ne sert simplement plus à faire avancer le
+  programme.
+
+**Ce qui ne change pas** : la règle §9.3 tient. Les semaines **au-delà** de
+celle en cours restent en lecture seule — on ne coche pas ce qu'on n'a pas
+encore abordé.
+
+## A8. La liste des trente-six exercices
+
+Il n'existait aucun endroit où voir le programme complet. L'application le
+déroulait sans jamais le montrer, alors que c'est un document que le club a
+distribué et qu'elle a sous les yeux depuis juillet.
+
+**Un écran, atteignable depuis la grille et les réglages** : les trente-six
+exercices, dans l'ordre de la feuille, groupés par famille comme sur les deux
+pages d'origine. Pour chacun : son libellé exact, l'objectif de la semaine en
+cours, et s'il a été fait **au moins une fois cette semaine**.
+
+C'est la feuille du club, à l'écran, et c'est la réponse à la question qu'elle
+se pose vraiment : « il me reste quoi à faire cette semaine ? »
+
+**Ce qui reste interdit** : ni compteur, ni pourcentage, ni classement des
+exercices par assiduité. On montre ce qui est fait, on n'en tient pas le score.
+
+## A9. Ce qui vient
+
+L'écran du jour annonce la séance à faire et rien d'autre. Une ligne discrète
+lui dit **ce qui vient ensuite** : « après, ce sera L'équilibre ».
+
+C'est une seule phrase, et elle a une raison précise : savoir qu'un ATR l'attend
+demain change la façon dont on finit aujourd'hui. Un programme dont on ne voit
+que le pas suivant se subit ; un programme dont on voit le pas d'après se
+prépare.
+
+Sur la dernière séance d'une semaine, la ligne annonce la semaine suivante.
+
+## A10. Changer sa semaine de départ
+
+Elle choisit sa semaine au premier lancement (§7.1), et ce choix était ensuite
+définitif. Or c'est exactement le genre de réglage qu'on se trompe une fois : on
+tape 1 par réflexe alors qu'on en est à la 3, et on s'en aperçoit le lendemain.
+
+**Les réglages permettent de la changer**, avec les mêmes huit cibles que
+l'écran d'entrée, et une confirmation qui dit ce que cela déplace.
+
+**Rien n'est effacé** : les exercices faits restent attachés à la semaine où ils
+l'ont été. Changer la semaine de départ change là où elle se trouve dans le
+programme, pas ce qu'elle a fait.
