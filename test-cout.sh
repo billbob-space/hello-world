@@ -356,6 +356,33 @@ $(requete b_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
 $(requete b_2 "$BRANCHE" 0 claude-opus-5 0 0 100000 500)
 FIN
 
+# Le seuil CRITIQUE, le seul chiffre du depot qui refuse un commit. Le code de
+# sortie compte autant que le message : c'est lui que pret.sh transforme en
+# refus, et un 3 rendu par erreur bloquerait tout le monde. La paire verifie les
+# deux sens — 650 000 bloque, 350 000 avertit sans bloquer.
+code_rappel() {  # code_rappel <nom> <code attendu> — la conversation est lue sur l'entree standard
+  local nom="$1" attendu="$2" d code=0
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  ( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel >/dev/null 2>&1 ) || code=$?
+  if [ "$code" = "$attendu" ]; then
+    reussi "$nom"
+  else
+    echec "$nom" "code $code, attendu $attendu"
+  fi
+}
+
+code_rappel "au-dela du critique, --rappel rend 3" 3 <<FIN
+$(requete k_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete k_2 "$BRANCHE" 0 claude-opus-5 0 0 650000 500)
+FIN
+
+code_rappel "sous le critique, --rappel rend 0 meme s il avertit" 0 <<FIN
+$(requete l_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete l_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

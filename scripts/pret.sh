@@ -83,7 +83,15 @@ if [ "$courante" != "$BASE" ]; then
     # Le rappel de cout avertit sans bloquer. Depuis qu'il est un processus
     # separe, sa panne emporterait pret.sh sous set -e — avant meme le verdict
     # sur les tests, et sans dire pourquoi.
-    ./scripts/cout.sh --rappel || true
+    # Le « || true » d'origine protegeait d'une panne du script, qui aurait
+    # emporte pret.sh sous set -e avant meme le verdict sur les tests. Il
+    # avalait du meme coup le seul refus que cout.sh sache produire : le code 3
+    # du seuil critique. Les deux cas se distinguent maintenant — 3 bloque,
+    # tout autre incident passe comme avant.
+    rc=0; ./scripts/cout.sh --rappel || rc=$?
+    if [ "$rc" = 3 ]; then
+      bad "contexte critique — ouvre une session neuve sur cette branche avant de committer"
+    fi
 
     # Une Action « garde-fou » ou « contrat » PROMET un changement de la surface
     # partagee. Sur 41 entrees, 96 de ces promesses ont ete ecrites et 11 commits

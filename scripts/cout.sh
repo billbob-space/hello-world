@@ -44,6 +44,14 @@ COUT_TAUX_JOURS=90         # au-dela, le taux de change est signale comme vieux
 # session, ou confier la suite a l'artisan, rapporte plus que ca ne coute.
 COUT_CONTEXTE_ALERTE=300000
 
+# Le double du seuil d'alerte, et le seul chiffre du depot qui REFUSE un commit.
+# L'alerte ci-dessus a ete ignoree neuf fois sur vingt-deux branches, jusqu'a
+# 703 497 jetons : un avertissement qu'on apprend a ignorer ne garde rien. Le
+# refus a un cout — il tombe en pleine tache, et la seule issue est d'ouvrir une
+# session neuve sur la meme branche — et c'est pourquoi il est place au DOUBLE
+# de l'alerte : deux branches du depot l'auraient franchi, les deux plus lourdes.
+COUT_CONTEXTE_CRITIQUE=600000
+
 COUT_DEBUT='<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->'
 COUT_FIN='<!-- /cout -->'
 # Le bloc s'ECRIT avec COUT_DEBUT, mais il se RECONNAIT sur ce prefixe. Les
@@ -302,18 +310,27 @@ cout_ecrit() {  # cout_ecrit <entree> <bloc> — remplace le bloc existant, ou l
 # la session — et a la fin du releve normal, ce qui la rend observable par
 # test-cout.sh, dont le harnais lance --dry-run. « champ » n'existe pas encore
 # ici, d'ou la lecture directe du releve par awk.
+# Rend 3 quand le seuil CRITIQUE est franchi, 0 sinon : c'est ce code que
+# pret.sh transforme en refus. Un code dedie plutot qu'une sortie non nulle
+# ordinaire, pour qu'une panne du script — qui sortirait en 1 ou 2 — ne se lise
+# jamais comme « contexte critique ».
 cout_alerte() {  # cout_alerte <releve>
   local dernier
   dernier=$(printf '%s\n' "$1" | awk '$1 == "COURBE" { print $3 }')
   [ -n "$dernier" ] && [ "$dernier" -gt "$COUT_CONTEXTE_ALERTE" ] 2>/dev/null || return 0
+  if [ "$dernier" -gt "$COUT_CONTEXTE_CRITIQUE" ] 2>/dev/null; then
+    bad "contexte de $(jetons_nb "$dernier") jetons — au-dela du critique ; termine cette session et rouvre-en une sur la MEME branche, qui reprend par le depot"
+    return 3
+  fi
   warn "contexte de $(jetons_nb "$dernier") jetons — chaque tour le paie en entier ; coupe la session, ou confie la suite a l'artisan"
 }
 
+# Prend le releve en argument plutot que de le refaire : l'alerte de contexte,
+# elle, ne depend pas de l'entree de journal et se lance meme quand la branche
+# n'en a pas encore ouvert une. Les deux etaient lies, et le contexte n'etait
+# donc jamais mesure sur une branche neuve.
 cout_rappel() {
-  local entree="$1" d ecrit actuel releve
-  d=$(cout_dir); [ -n "$d" ] || return 0
-  releve=$(cout_releve "$d" "$(branche_courante)" "$BASE")
-  cout_alerte "$releve"
+  local entree="$1" releve="$2" ecrit actuel
   actuel=$(printf '%s\n' "$releve" | awk '$1 == "TOTAL" { print $2 }')
   [ -n "$actuel" ] && [ "$actuel" -gt 0 ] 2>/dev/null || return 0
   ecrit=$(cout_total_ecrit "$entree")
@@ -329,8 +346,14 @@ entree=""
 [ "$courante" != "$BASE" ] && entree=$(journal_entree "$courante")
 
 if [ "$RAPPEL" = 1 ]; then
-  [ -n "$entree" ] && cout_rappel "$entree"
-  exit 0
+  CRITIQUE=0
+  d_rappel=$(cout_dir)
+  if [ -n "$d_rappel" ]; then
+    releve_rappel=$(cout_releve "$d_rappel" "$courante" "$BASE")
+    cout_alerte "$releve_rappel" || CRITIQUE=3
+    [ -n "$entree" ] && cout_rappel "$entree" "$releve_rappel"
+  fi
+  exit "$CRITIQUE"
 fi
 
 dir=$(cout_dir)
