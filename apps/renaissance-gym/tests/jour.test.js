@@ -159,6 +159,33 @@ test('A5 : le palier « bouclee » propose un geste explicite ET confirmé pour 
   assert.equal(globalThis.location.hash, '#/seance/1', 'confirmer lance la première séance de la semaine suivante');
 });
 
+// --- A21 : « Refaire une séance », de retour sur l'écran « ta semaine est
+// bouclée » — retirée par A5 parce que « #/seance/<numero> » désignait une
+// séance SANS SA SEMAINE. -----------------------------------------------------
+
+test('A21 : « Refaire une séance » existe sur le palier « bouclee » et rejoue la première séance de LA SEMAINE BOUCLÉE, pas la semaine suivante', () => {
+  const hote = creerHote();
+  const faits = faitsSemaineComplete(1);
+  monterJour(hote, ctxAvec({ faits }));
+
+  const refaire = hote.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Refaire une séance');
+  assert.ok(refaire, 'le bouton doit exister sur l’écran « ta semaine est bouclée »');
+
+  refaire.declencher('click');
+  assert.equal(
+    globalThis.location.hash,
+    '#/seance/1/1',
+    'la séance ET sa semaine — celle qui vient d’être bouclée (1), jamais la semaine suivante (2)',
+  );
+});
+
+test('« Refaire une séance » n’apparaît que sur le palier « bouclee », jamais sur « a-faire »', () => {
+  const hote = creerHote();
+  monterJour(hote, ctxAvec());
+  const refaire = hote.querySelectorAll('.bouton--discret').find((b) => b.textContent === 'Refaire une séance');
+  assert.equal(refaire, undefined);
+});
+
 test('« Non » referme la confirmation sans jamais naviguer', () => {
   const hote = creerHote();
   const faits = faitsSemaineComplete(1);

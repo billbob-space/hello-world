@@ -271,7 +271,22 @@ export function monterJour(hote, ctx) {
       rangee.append(oui, non);
       confirmationNoeud.append(rangee);
     });
-    corps.append(continuerBouton, confirmationNoeud);
+
+    // A21 (« Ajouté après les PRP ») : « Refaire une séance » avait disparu
+    // (A5) parce que « #/seance/<numero> » désignait une séance SANS SA
+    // SEMAINE, et visait donc la semaine SUIVANTE dès que la semaine
+    // courante ne se déduit plus du calendrier — un doublon exact du bouton
+    // ci-dessus. La route « #/seance/<numero>/<semaine> » porte les deux :
+    // elle rejoue la première séance de LA SEMAINE QU'ELLE VIENT DE FINIR
+    // (`m.semaine`, jamais `m.semaineSuivante`), avec les objectifs de cette
+    // semaine-là (vue-seance.js, `rejeuDepuisHash`), et la ramène ici — «
+    // #/jour » — une fois faite.
+    const refaireBouton = el('button', 'bouton--discret', 'Refaire une séance');
+    refaireBouton.type = 'button';
+    refaireBouton.addEventListener('click', () => {
+      if (typeof location !== 'undefined') location.hash = `#/seance/1/${m.semaine}`;
+    });
+    corps.append(continuerBouton, confirmationNoeud, refaireBouton);
   } else {
     // Un seul objet focal (finition, correctif 5) : le nom de la séance,
     // seul, à la taille d'affichage, dans l'emplacement que `.objectif-seance`
