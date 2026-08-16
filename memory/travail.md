@@ -6,7 +6,8 @@ branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
 fermés par anomalie, présence des trois agents et des deux commandes de mode ;
 pret.sh — relevé de coût manquant ou
-périmé, en avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
+périmé, et app fusionnée sur `main` dont l'image en ligne est plus ancienne, en
+avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
 `garde-commit.sh` refuse un arbre sale ; test-cout.sh — le relevé rend un nombre
 qu'aucune relecture ne vérifie à l'œil, dix cas le tiennent
 

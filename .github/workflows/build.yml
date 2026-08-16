@@ -367,9 +367,22 @@ jobs:
     # meme temps qu'elle admet le saut, desormais le cas courant.
     # Ecriture entre crochets : un trait d'union est un signe de soustraction
     # dans une expression, « needs.tests-de-l-outillage » ne se lit pas.
+    #
+    # workflow_dispatch est admis a cote de push, et c'est ce qui rend l'entree
+    # « toutes » utilisable. Elle promettait de tout reconstruire ; elle le
+    # faisait — detect rend bien la liste complete et build publie les images —
+    # mais ce job-ci s'arretait sur « event_name == push », si bien que rien
+    # n'etait EPINGLE ni DEPLOYE : les images partaient au registre, versions.yml
+    # gardait les anciens commits, et le compose que dockhand relit ne bougeait
+    # pas d'une ligne. Le seul levier de rattrapage de la fabrique — celui qu'on
+    # actionne quand la CI a rate des fusions, comme le 16 aout — s'arretait a
+    # mi-chemin en annoncant un succes. La garde qui compte est celle de la
+    # ligne suivante, « ref == refs/heads/main » : elle vaut pour les deux
+    # evenements, et un dispatch sur une autre branche ne deploie pas davantage
+    # qu'une poussee sur une autre branche.
     if: >-
       always()
-      && github.event_name == 'push'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       && github.ref == 'refs/heads/main'
       && needs.detect.outputs.deploy == 'true'
       && needs.contrat.result == 'success'

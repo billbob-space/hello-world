@@ -109,7 +109,7 @@ Renseigne-le tôt.
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
 
 ```bash
-./scripts/pret.sh     # branche dédiée ? contrat vert ? tests des apps touchées verts ?
+./scripts/pret.sh     # branche dédiée ? contrat vert ? tests verts ? apps bien livrées ?
 ```
 
 On pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ensemble
