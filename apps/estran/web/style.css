@@ -39,17 +39,28 @@
      genereuse en grand desktop ou main passe en deux colonnes (voir plus
      bas) — sinon le contenu reste un bloc etroit flottant dans du vide. */
   --largeur-contenu: 640px;
+  /* Largeur de la premiere colonne (nom du jour) de la tendance a 7 jours :
+     exprimee en rem, la meme unite que .jour-nom, jamais en em relatif au
+     conteneur (qui ne grossit pas avec le texte) — sinon le nom deborde de
+     sa piste et touche l'icone des qu'il grossit a un palier plus large.
+     Utilisee a la fois par .jour-principale (grille) et .jour-maree (marge),
+     pour que les deux restent alignes l'un sur l'autre. Dimensionnee pour
+     le nom le plus long ("Dimanche", "Mercredi", "Vendredi") a la taille de
+     .jour-nom de ce palier, avec une marge de securite. */
+  --jour-nom-largeur: 7rem;
 }
 
 @media (min-width: 640px) {
   :root {
     --largeur-contenu: 760px;
+    --jour-nom-largeur: 7.25rem;
   }
 }
 
 @media (min-width: 1024px) {
   :root {
     --largeur-contenu: 1200px;
+    --jour-nom-largeur: 7.75rem;
   }
 }
 
@@ -139,6 +150,96 @@ main {
   }
 }
 
+/* ---------- navigation entre les jours ---------- */
+/* Choisir le jour regarde (jusqu'a 7 jours en arriere, 7 en avant), ajout
+   sans mode d'emploi : deux fleches, un libelle, un retour a aujourd'hui
+   qui n'apparait que quand on s'en est eloigne (prp/01-navigation-
+   temporelle.md). */
+
+.nav-jour {
+  max-width: var(--largeur-contenu);
+  margin: var(--espace-4) auto 0;
+  padding: 0 var(--espace-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espace-3);
+}
+
+.nav-fleche {
+  appearance: none;
+  border: 1px solid rgba(244, 236, 216, 0.14);
+  background: var(--encre-700);
+  color: var(--sable-100);
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-fleche:hover:not(:disabled) {
+  background: var(--encre-600);
+}
+
+.nav-fleche:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.nav-jour-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espace-1);
+  min-width: 9rem;
+}
+
+.nav-jour-libelle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--sable-100);
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.nav-aujourdhui {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--eau-400);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.nav-aujourdhui[hidden] {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .nav-jour-libelle {
+    font-size: 1.2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .nav-jour {
+    margin-top: var(--espace-5);
+  }
+
+  .nav-jour-libelle {
+    font-size: 1.3rem;
+  }
+}
+
 /* ---------- en-tete ---------- */
 
 .entete {
@@ -154,27 +255,27 @@ main {
 
 .entete-titre h1 {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 2.2rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
 .lieu {
   margin: var(--espace-1) 0 0;
-  font-size: 1rem;
+  font-size: 1.15rem;
   color: var(--sable-200);
 }
 
 .horloge {
   margin: 0;
   font-variant-numeric: tabular-nums;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   color: var(--sable-200);
 }
 
 .titre-section {
   margin: 0 0 var(--espace-3);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -226,13 +327,13 @@ main {
 }
 
 .jauge-hauteur {
-  font-size: 2.1rem;
+  font-size: 3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .jauge-hauteur small {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: var(--sable-200);
   margin-left: var(--espace-1);
@@ -242,14 +343,14 @@ main {
   display: flex;
   align-items: center;
   gap: var(--espace-2);
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   color: var(--ambre-400);
   font-weight: 700;
 }
 
 .jauge-sens svg {
-  width: 1.1em;
-  height: 1.1em;
+  width: 1.2em;
+  height: 1.2em;
 }
 
 .jauge-piste {
@@ -286,14 +387,14 @@ main {
 .jauge-reperes {
   display: flex;
   justify-content: space-between;
-  font-size: 0.92rem;
+  font-size: 1.1rem;
   color: var(--sable-300);
 }
 
 .jauge-repere strong {
   display: block;
   color: var(--sable-100);
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -305,7 +406,7 @@ main {
   margin-top: var(--espace-4);
   padding-top: var(--espace-3);
   border-top: 1px solid rgba(244, 236, 216, 0.1);
-  font-size: 1.02rem;
+  font-size: 1.2rem;
   color: var(--sable-200);
   text-align: center;
 }
@@ -321,12 +422,115 @@ main {
   text-align: center;
 }
 
+/* ---------- marees du jour (jour autre qu'aujourd'hui) ---------- */
+/* La jauge mesure un instant present : sur un autre jour, elle n'a pas de
+   sens et est remplacee par la liste des pleines/basses mers de ce jour
+   (prp/01-navigation-temporelle.md). Le teal reste celui des hauteurs
+   d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici. */
+.jauge-jour-titre {
+  margin: 0 0 var(--espace-3);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--sable-100);
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.jour-extrema-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+
+.jour-extremum {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espace-2);
+  padding: var(--espace-2) var(--espace-3);
+  border-radius: var(--rayon-petit);
+  background: var(--encre-800);
+}
+
+.jour-extremum-type {
+  flex: 1 1 auto;
+  font-weight: 700;
+  color: var(--eau-400);
+}
+
+.jour-extremum-heure {
+  color: var(--sable-200);
+  font-variant-numeric: tabular-nums;
+}
+
+.jour-extremum-hauteur {
+  min-width: 4.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.jour-extremum-coef {
+  color: var(--sable-300);
+  font-size: 0.92rem;
+}
+
+@media (min-width: 640px) {
+  .jauge-jour-titre {
+    font-size: 1.2rem;
+  }
+
+  .jour-extremum {
+    font-size: 1.1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .jauge-jour-titre {
+    font-size: 1.3rem;
+  }
+
+  .jour-extremum {
+    font-size: 1.15rem;
+  }
+}
+
 /* ---------- prevision a 5 heures ---------- */
 
 .heures-rangee {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: var(--espace-2);
+}
+
+/* Sur un jour autre qu'aujourd'hui, les 24 heures defilent horizontalement
+   plutot que de forcer 24 colonnes etroites (prp/01-navigation-temporelle.md).
+   Les tailles des cartes/textes restent celles deja posees ci-dessous : seule
+   la disposition change. */
+.heures-rangee--jour {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  gap: var(--espace-2);
+  padding-bottom: var(--espace-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.heures-rangee--jour .heure-carte {
+  flex: 0 0 auto;
+  width: 5.5rem;
+  scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+  .heures-rangee--jour .heure-carte {
+    width: 6.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .heures-rangee--jour .heure-carte {
+    width: 6.75rem;
+  }
 }
 
 .heure-carte {
@@ -342,20 +546,20 @@ main {
 }
 
 .heure-carte .heure {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--sable-200);
   font-variant-numeric: tabular-nums;
 }
 
 .heure-carte .icone {
-  width: 32px;
-  height: 32px;
+  width: 42px;
+  height: 42px;
   margin: var(--espace-1) 0;
 }
 
 .heure-carte .temperature {
-  font-size: 1.3rem;
+  font-size: 1.7rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -372,7 +576,7 @@ main {
 }
 
 .heure-carte .detail {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--sable-100);
   font-variant-numeric: tabular-nums;
@@ -386,8 +590,8 @@ main {
 }
 
 .heure-carte .detail svg {
-  width: 1.05em;
-  height: 1.05em;
+  width: 1.15em;
+  height: 1.15em;
   flex-shrink: 0;
   opacity: 0.9;
 }
@@ -402,7 +606,18 @@ main {
   border: 1px solid rgba(244, 236, 216, 0.06);
 }
 
+/* Chaque ligne de la tendance est un bouton (mene directement au jour
+   qu'elle decrit, prp/01-navigation-temporelle.md) : remise a plat des
+   styles par defaut d'un <button> pour garder l'apparence d'une ligne. */
 .jour-ligne {
+  display: block;
+  width: 100%;
+  appearance: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   padding: var(--espace-2) var(--espace-3);
   background: var(--encre-700);
 }
@@ -411,23 +626,40 @@ main {
   background: var(--encre-800);
 }
 
+.jour-ligne:hover {
+  background: var(--encre-600);
+}
+
+/* Le jour regarde est mis en evidence dans la tendance (prp/01-navigation-
+   temporelle.md) : meme signal ambre que le marqueur de la jauge, jamais
+   confondu avec le teal reserve aux hauteurs de maree. */
+.jour-ligne--actif {
+  background: var(--encre-600);
+  box-shadow: inset 3px 0 0 var(--ambre-400);
+}
+
 .jour-principale {
   display: grid;
-  grid-template-columns: 5.5em auto 1fr auto;
+  grid-template-columns: var(--jour-nom-largeur) auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--espace-3);
 }
 
 .jour-ligne .jour-nom {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--sable-200);
   text-transform: capitalize;
+  /* Le nom du jour ne casse jamais de mot par defaut (aucun espace dans
+     "Dimanche") : sans ceci, un depassement de la piste --jour-nom-largeur
+     deborderait par-dessus l'icone plutot que de se couper proprement. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .jour-ligne .icone {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
 }
 
 /* Hauteurs de maree du jour : ligne secondaire, sous la meteo. Teal (eau),
@@ -437,10 +669,10 @@ main {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: var(--espace-1) 0 0 calc(5.5em + var(--espace-3));
+  margin: var(--espace-1) 0 0 calc(var(--jour-nom-largeur) + var(--espace-3));
   padding-top: var(--espace-1);
   border-top: 1px solid rgba(244, 236, 216, 0.08);
-  font-size: 0.88rem;
+  font-size: 1.02rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--eau-400);
@@ -464,7 +696,7 @@ main {
 }
 
 .jour-ligne .pluie {
-  font-size: 0.92rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--eau-400);
   display: flex;
@@ -479,7 +711,7 @@ main {
 }
 
 .jour-ligne .temps {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -500,12 +732,19 @@ main {
   margin: 0 auto;
   padding: 0 var(--espace-4) var(--espace-5);
   text-align: center;
-  font-size: 0.88rem;
+  font-size: 1rem;
   color: var(--sable-300);
 }
 
 /* ---------- responsive ---------- */
 
+/* En dessous de 480px, seule la mise en page se resserre (colonnes, marges,
+   largeur des icones) — jamais la taille du texte : un telephone est
+   precisement l'appareil ou la lisibilite compte le plus, la retrecir ici
+   defaisait la correction ci-dessus (retour d'usage reel, cf. journal).
+   Seule l'icone des cartes horaires redescend un peu, pour que les 5 cartes
+   restent cote a cote sans se chevaucher (verifie a 360px de large : aucun
+   debordement horizontal, grace aussi a `minmax(0, 1fr)` ci-dessus). */
 @media (max-width: 480px) {
   .heures-rangee {
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -514,22 +753,208 @@ main {
   .heure-carte {
     padding: var(--espace-2) var(--espace-1);
   }
-  .heure-carte .heure {
-    font-size: 0.82rem;
-  }
-  .heure-carte .temperature {
-    font-size: 1.1rem;
-  }
-  .heure-carte .detail {
-    font-size: 0.82rem;
+  .heure-carte .icone {
+    width: 34px;
+    height: 34px;
   }
   .jour-principale {
-    grid-template-columns: 4.5em auto 1fr auto;
+    /* La largeur de la premiere colonne ne change pas ici : le texte de
+       .jour-nom garde la meme taille qu'au-dessus de 480px (voir plus haut),
+       seul l'ecart entre colonnes se resserre pour laisser de la place aux
+       colonnes pluie/temps sur un petit ecran. */
     gap: var(--espace-2);
   }
   .jour-maree {
-    margin-left: calc(4.5em + var(--espace-2));
-    font-size: 0.82rem;
+    margin-left: calc(var(--jour-nom-largeur) + var(--espace-2));
+  }
+}
+
+/* Au-dela de 640px puis de 1024px, les cartes ont plus d'espace (voir
+   --largeur-contenu et la grille deux colonnes plus haut) : le texte et les
+   icones grossissent encore pour remplir cet espace plutot que de rester a
+   echelle mobile. Chaque palier est strictement superieur ou egal au
+   precedent, jamais plus petit — cf. les tailles de base juste au-dessus.
+   Le chiffre de hauteur de maree (.jauge-hauteur) reste celui qui grossit le
+   plus, pour rester la piece la plus visible de l'ecran (PRODUCT.md,
+   principe 2) ; le reste suit en gardant les memes rapports de hierarchie
+   qu'en mobile. */
+@media (min-width: 640px) {
+  .entete-titre h1 {
+    font-size: 2.4rem;
+  }
+
+  .lieu {
+    font-size: 1.2rem;
+  }
+
+  .horloge {
+    font-size: 1.2rem;
+  }
+
+  .titre-section {
+    font-size: 1.15rem;
+  }
+
+  .jauge-carte {
+    padding: var(--espace-5);
+  }
+
+  .jauge-hauteur {
+    font-size: 3.2rem;
+  }
+
+  .jauge-hauteur small {
+    font-size: 1.4rem;
+  }
+
+  .jauge-sens {
+    font-size: 1.3rem;
+  }
+
+  .jauge-reperes {
+    font-size: 1.2rem;
+  }
+
+  .jauge-repere strong {
+    font-size: 1.4rem;
+  }
+
+  .jauge-prochaine {
+    font-size: 1.25rem;
+  }
+
+  .heure-carte {
+    padding: var(--espace-4) var(--espace-2);
+  }
+
+  .heure-carte .heure {
+    font-size: 1.1rem;
+  }
+
+  .heure-carte .icone {
+    width: 46px;
+    height: 46px;
+  }
+
+  .heure-carte .temperature {
+    font-size: 1.8rem;
+  }
+
+  .heure-carte .detail {
+    font-size: 1.1rem;
+  }
+
+  .jour-ligne {
+    padding: var(--espace-3) var(--espace-4);
+  }
+
+  .jour-ligne .jour-nom {
+    font-size: 1.25rem;
+  }
+
+  .jour-ligne .icone {
+    width: 34px;
+    height: 34px;
+  }
+
+  .jour-maree {
+    font-size: 1.08rem;
+  }
+
+  .jour-ligne .pluie {
+    font-size: 1.1rem;
+  }
+
+  .jour-ligne .temps {
+    font-size: 1.25rem;
+  }
+
+  .pied {
+    font-size: 1.05rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .entete-titre h1 {
+    font-size: 2.7rem;
+  }
+
+  .lieu {
+    font-size: 1.3rem;
+  }
+
+  .horloge {
+    font-size: 1.3rem;
+  }
+
+  .titre-section {
+    font-size: 1.25rem;
+  }
+
+  .jauge-hauteur {
+    font-size: 3.6rem;
+  }
+
+  .jauge-hauteur small {
+    font-size: 1.6rem;
+  }
+
+  .jauge-sens {
+    font-size: 1.4rem;
+  }
+
+  .jauge-reperes {
+    font-size: 1.3rem;
+  }
+
+  .jauge-repere strong {
+    font-size: 1.5rem;
+  }
+
+  .jauge-prochaine {
+    font-size: 1.35rem;
+  }
+
+  .heure-carte .heure {
+    font-size: 1.15rem;
+  }
+
+  .heure-carte .icone {
+    width: 50px;
+    height: 50px;
+  }
+
+  .heure-carte .temperature {
+    font-size: 2rem;
+  }
+
+  .heure-carte .detail {
+    font-size: 1.2rem;
+  }
+
+  .jour-ligne .jour-nom {
+    font-size: 1.35rem;
+  }
+
+  .jour-ligne .icone {
+    width: 38px;
+    height: 38px;
+  }
+
+  .jour-maree {
+    font-size: 1.15rem;
+  }
+
+  .jour-ligne .pluie {
+    font-size: 1.15rem;
+  }
+
+  .jour-ligne .temps {
+    font-size: 1.35rem;
+  }
+
+  .pied {
+    font-size: 1.1rem;
   }
 }
 

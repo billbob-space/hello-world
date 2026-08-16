@@ -8,6 +8,79 @@
 
 const RAFRAICHISSEMENT_MS = 5 * 60 * 1000;
 
+// Navigation temporelle (prp/01-navigation-temporelle.md) : choisir le jour
+// regardé, jusqu'à 7 jours en arrière et 7 en avant. decalageJour est en
+// jours par rapport à aujourd'hui (0 = aujourd'hui) ; il ne survit jamais au
+// rechargement — pas de stockage, la variable repart à 0 à chaque ouverture
+// de la page. Le serveur reste seul juge de la marée et de la météo : ce
+// fichier ne fait que choisir QUEL jour demander, jamais calculer une valeur.
+const JOURS_ARRIERE_MAX = 7;
+const JOURS_AVANT_MAX = 7;
+let decalageJour = 0;
+
+function dateLocale(decalage) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + decalage);
+  return d;
+}
+
+function dateISO(decalage) {
+  const d = dateLocale(decalage);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const j = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${j}`;
+}
+
+// decalageDepuisISO convertit une date "AAAA-MM-JJ" (telle que renvoyée par
+// le serveur pour la tendance) en décalage de jours par rapport à
+// aujourd'hui, pour savoir quelle ligne de la tendance mettre en évidence et
+// vers quel decalage naviguer au clic.
+function decalageDepuisISO(iso) {
+  const [y, m, j] = iso.split("-").map(Number);
+  const cible = new Date(y, m - 1, j);
+  const diffMs = cible.getTime() - dateLocale(0).getTime();
+  return Math.round(diffMs / 86400000);
+}
+
+function libelleJourNav(decalage) {
+  if (decalage === 0) return "Aujourd’hui";
+  return dateLocale(decalage).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+function majNavigation() {
+  const libelle = document.getElementById("nav-jour-libelle");
+  const precedent = document.getElementById("nav-precedent");
+  const suivant = document.getElementById("nav-suivant");
+  const retour = document.getElementById("nav-aujourdhui");
+  if (!libelle || !precedent || !suivant || !retour) return;
+
+  libelle.textContent = libelleJourNav(decalageJour);
+  precedent.disabled = decalageJour <= -JOURS_ARRIERE_MAX;
+  suivant.disabled = decalageJour >= JOURS_AVANT_MAX;
+  retour.hidden = decalageJour === 0;
+}
+
+// allerAuJour ignore silencieusement une cible hors fenêtre : les flèches
+// sont désactivées avant de pouvoir y mener (majNavigation), ce garde-fou
+// couvre aussi le clavier et le clic sur une ligne de tendance.
+function allerAuJour(decalage) {
+  if (decalage < -JOURS_ARRIERE_MAX || decalage > JOURS_AVANT_MAX) return;
+  if (decalage === decalageJour) return;
+  decalageJour = decalage;
+  majNavigation();
+  tout();
+}
+
+function urlAvecJour(base) {
+  return decalageJour === 0 ? base : `${base}?date=${dateISO(decalageJour)}`;
+}
+
 const ICONES = {
   soleil: '<circle cx="12" cy="12" r="4.2"/><g stroke-linecap="round"><path d="M12 2.5v3"/><path d="M12 18.5v3"/><path d="M2.5 12h3"/><path d="M18.5 12h3"/><path d="M5.1 5.1l2.1 2.1"/><path d="M16.8 16.8l2.1 2.1"/><path d="M5.1 18.9l2.1-2.1"/><path d="M16.8 7.2l2.1-2.1"/></g>',
   "soleil-voile": '<circle cx="10.5" cy="10" r="4"/><g stroke-linecap="round"><path d="M10.5 2.8v2.4"/><path d="M3.3 10h2.4"/><path d="M5.6 4.9l1.7 1.7"/><path d="M15.4 4.9l-1.7 1.7"/></g><path d="M6 18.5a4 4 0 0 1 .6-7.9 5 5 0 0 1 9.7 1.1 3.6 3.6 0 0 1-.8 6.8H6Z"/>',
@@ -69,9 +142,29 @@ async function chargerJSON(url) {
 function rendrePrevisions(donnees) {
   const rangee = document.getElementById("heures-rangee");
   const source = document.getElementById("pied-source");
+  const titre = document.getElementById("titre-previsions");
+
+  // jour_affiche n'est present que si un `date` a ete demande : sur un jour
+  // autre qu'aujourd'hui, le titre le dit et les vignettes deviennent
+  // vingt-quatre, defilables horizontalement (prp/01-navigation-
+  // temporelle.md).
+  const autreJour = Boolean(donnees.jour_affiche);
+  rangee.classList.toggle("heures-rangee--jour", autreJour);
+  if (titre) {
+    titre.textContent = autreJour
+      ? donnees.jour_affiche_libelle || "Ce jour"
+      : "Les 5 prochaines heures";
+  }
 
   if (donnees.erreur) {
     rangee.innerHTML = `<p class="etat-attente">${esc(donnees.erreur)}</p>`;
+  } else if (autreJour && !(donnees.heures || []).length) {
+    // Degradation attendue en bord de fenetre (le fournisseur meteo ne
+    // couvre pas tout a fait aussi loin que la navigation) : absence
+    // affichee, jamais une carte inventee (PRODUCT.md, principe 3).
+    rangee.innerHTML = `<p class="etat-attente">aucune prévision pour ce jour</p>`;
+    joursMeteoActuels = donnees.jours || [];
+    actualiserTendance();
   } else {
     rangee.innerHTML = (donnees.heures || [])
       .map((h) => {
@@ -135,8 +228,12 @@ function actualiserTendance() {
              ${maree.coefficient != null ? `<span class="coef">coef&nbsp;${maree.coefficient}</span>` : ""}
            </div>`
         : "";
+      // Chaque ligne mene directement au jour qu'elle decrit, et le jour
+      // regarde y est mis en evidence (prp/01-navigation-temporelle.md).
+      const decalage = decalageDepuisISO(j.date);
+      const actif = decalage === decalageJour ? " jour-ligne--actif" : "";
       return `
-      <div class="jour-ligne">
+      <button type="button" class="jour-ligne${actif}" data-decalage="${decalage}" aria-current="${decalage === decalageJour}">
         <div class="jour-principale">
           <span class="jour-nom">${esc(j.jour_semaine)}</span>
           ${icone(j.symbole, "icone")}
@@ -144,7 +241,7 @@ function actualiserTendance() {
           <span class="temps"><span class="max">${Math.round(j.temp_max_c)}°</span> <span class="min">${Math.round(j.temp_min_c)}°</span></span>
         </div>
         ${ligneMaree}
-      </div>`;
+      </button>`;
     })
     .join("");
 }
@@ -178,6 +275,15 @@ function rendreJauge(m) {
 
   joursMareeActuels = m.jours || null;
   actualiserTendance();
+
+  // jour_affiche n'est present que si un `date` a ete demande : sur un
+  // autre jour qu'aujourd'hui, la jauge instantanee n'a pas de sens — elle
+  // est remplacee par les marées du jour (prp/01-navigation-temporelle.md).
+  if (m.jour_affiche) {
+    prochaineBasculeISO = null;
+    rendreExtremaJour(carte, m);
+    return;
+  }
 
   const sensIcone = m.sens === "montante" ? "fleche_haut" : "fleche_bas";
   const sensTexte = m.sens === "montante" ? "Montante" : "Descendante";
@@ -215,6 +321,33 @@ function rendreJauge(m) {
   majCompteARebours();
 }
 
+// rendreExtremaJour affiche les pleines et basses mers d'un jour choisi,
+// heure + hauteur + coefficient quand le fournisseur le porte — jamais une
+// position "maintenant" sur un jour qui n'est pas aujourd'hui (PRODUCT.md,
+// "Ajouté après les PRP").
+function rendreExtremaJour(carte, m) {
+  const extrema = m.extrema || [];
+  const corps = extrema.length
+    ? extrema
+        .map(
+          (e) => `
+        <div class="jour-extremum">
+          <span class="jour-extremum-type">${e.type === "PM" ? "Pleine mer" : "Basse mer"}</span>
+          <span class="jour-extremum-heure">${esc(e.heure)}</span>
+          <span class="jour-extremum-hauteur">${e.hauteur_m.toFixed(2)}&nbsp;m</span>
+          ${e.coefficient != null ? `<span class="jour-extremum-coef">coef&nbsp;${e.coefficient}</span>` : ""}
+        </div>`
+        )
+        .join("")
+    : `<p class="etat-attente">aucune donnée de marée pour ce jour</p>`;
+
+  carte.innerHTML = `
+    <p class="jauge-jour-titre">${esc(m.jour_affiche_libelle || "")}</p>
+    <div class="jour-extrema-liste">${corps}</div>
+    ${m.frais === false ? '<p class="jauge-perimee">dernière donnée connue, fournisseur indisponible</p>' : ""}
+  `;
+}
+
 function combinerAujourdhui(heureHHMM) {
   if (!heureHHMM) return null;
   const [h, m] = heureHHMM.split(":").map(Number);
@@ -246,19 +379,52 @@ function majCompteARebours() {
 
 async function tout() {
   try {
-    rendrePrevisions(await chargerJSON("/api/previsions"));
+    rendrePrevisions(await chargerJSON(urlAvecJour("/api/previsions")));
   } catch (e) {
     document.getElementById("heures-rangee").innerHTML = `<p class="etat-attente">prévisions indisponibles</p>`;
     document.getElementById("jours-rangee").innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
   }
   try {
-    rendreJauge(await chargerJSON("/api/maree"));
+    rendreJauge(await chargerJSON(urlAvecJour("/api/maree")));
   } catch (e) {
     document.getElementById("jauge-carte").innerHTML = `<p class="etat-attente">marée indisponible</p>`;
   }
 }
 
+// Navigation : deux flèches, un retour à aujourd'hui, les flèches gauche/
+// droite du clavier, et chaque ligne de la tendance qui mène à son jour
+// (prp/01-navigation-temporelle.md). Une flèche qui sortirait de la fenêtre
+// est desactivee (majNavigation) plutôt que menant à un écran vide.
+function initNavigation() {
+  const precedent = document.getElementById("nav-precedent");
+  const suivant = document.getElementById("nav-suivant");
+  const retour = document.getElementById("nav-aujourdhui");
+  const tendance = document.getElementById("jours-rangee");
+
+  if (precedent) precedent.addEventListener("click", () => allerAuJour(decalageJour - 1));
+  if (suivant) suivant.addEventListener("click", () => allerAuJour(decalageJour + 1));
+  if (retour) retour.addEventListener("click", () => allerAuJour(0));
+
+  if (tendance) {
+    tendance.addEventListener("click", (e) => {
+      const ligne = e.target.closest(".jour-ligne");
+      if (!ligne) return;
+      const decalage = Number(ligne.dataset.decalage);
+      if (Number.isFinite(decalage)) allerAuJour(decalage);
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target && ["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+    if (e.key === "ArrowLeft") allerAuJour(decalageJour - 1);
+    else if (e.key === "ArrowRight") allerAuJour(decalageJour + 1);
+  });
+
+  majNavigation();
+}
+
 horlogeLocale();
+initNavigation();
 tout();
 setInterval(tout, RAFRAICHISSEMENT_MS);
 setInterval(majCompteARebours, 30 * 1000);

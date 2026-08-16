@@ -158,3 +158,31 @@ est une limite connue plutôt qu'un objectif non atteint.
 4. **Prévision courte avant tendance longue** — les 5 heures sont ce qu'on
    consulte avant de sortir ; les 7 jours ne servent qu'à anticiper, jamais au
    même niveau de détail.
+
+## Ajouté après les PRP
+
+### Naviguer d'un jour à l'autre — 16 août 2026
+
+**Ce qui existe maintenant** : le jour regardé se choisit. Deux flèches
+reculent et avancent d'un jour, jusqu'à sept de chaque côté, et un retour à
+aujourd'hui ramène à l'écran d'ouverture. Sur un jour qui n'est pas
+aujourd'hui, la section marée montre les pleines et basses mers de ce jour —
+heure, hauteur, coefficient — au lieu d'une jauge qui n'aurait pas de sens, et
+la section horaire montre les vingt-quatre heures du jour au lieu des cinq
+prochaines. Les lignes de la tendance à 7 jours mènent directement au jour
+qu'elles décrivent. Conception détaillée : `prp/01-navigation-temporelle.md`.
+
+**Ce qui l'a demandé** : l'usage, après la première mise en ligne — puis une
+demande explicite le 16 août 2026, deux tentatives antérieures ayant été
+abandonnées avant d'atteindre le dépôt.
+
+**Ce que le PRD affirmait avant** : il décrivait un écran figé sur l'instant
+présent — « une prévision à 5 heures », « la position actuelle », « une
+tendance à 7 jours » — sans jamais écarter de regarder un autre jour : c'était
+absent, pas refusé.
+
+**Ce que cela ne rouvre pas** : l'exclusion de l'**historique personnel** tient
+toujours, et reste écrite. Ce qui était refusé, c'est de garder trace de ce que
+l'utilisateur a consulté ou fait ; ce qui est livré lit la même donnée publique
+à une autre date, ne conserve rien, et le jour choisi ne survit même pas au
+rechargement de la page. Le PRD en délimite le bord, il ne lève rien.

@@ -147,9 +147,16 @@ func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
 	return Previsions{Heures: heures, Jours: jours}, nil
 }
 
+// forecast_days=8, pas 7 : Open-Meteo compte aujourd'hui dans sa fenetre, si
+// bien que forecast_days=7 s'arreterait a J+6 et laisserait le dernier jour
+// navigable (J+7) sans meteo alors que la maree, elle, le couvre deja
+// (from/to explicites, maree.go) — verifie en direct le 16 aout 2026,
+// corrige dans prp/01-navigation-temporelle.md. past_days=7 : les 7 jours
+// precedents, ajoutes pour la navigation temporelle. La tendance a 7 jours
+// (aujourd'hui a J+6) reste entierement couverte par ce meme appel.
 func (c *ClientMeteo) recupererForecast(ctx context.Context) (reponseForecastBrute, error) {
 	url := fmt.Sprintf(
-		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=7"+
+		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=8&past_days=7"+
 			"&hourly=temperature_2m,precipitation_probability,cloud_cover,wind_speed_10m,wind_direction_10m,weather_code"+
 			"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
 		c.BaseForecast, c.Latitude, c.Longitude)
@@ -158,9 +165,14 @@ func (c *ClientMeteo) recupererForecast(ctx context.Context) (reponseForecastBru
 	return r, err
 }
 
+// recupererMarine portait forecast_days=2, suffisant pour les 5 prochaines
+// heures mais pas pour un jour choisi jusqu'a 7 jours en avant : porte a 8
+// (aujourd'hui compte dans la fenetre Open-Meteo, cf. recupererForecast
+// ci-dessus), plus past_days=7 pour le passe
+// (prp/01-navigation-temporelle.md).
 func (c *ClientMeteo) recupererMarine(ctx context.Context) (reponseMarineBrute, error) {
 	url := fmt.Sprintf(
-		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=2&hourly=wave_height",
+		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=8&past_days=7&hourly=wave_height",
 		c.BaseMarine, c.Latitude, c.Longitude)
 	var r reponseMarineBrute
 	err := recupererJSON(ctx, c.HTTP, url, &r)

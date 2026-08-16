@@ -125,6 +125,41 @@ func TestClientMeteo_Recuperer_ForecastIndisponibleEstFatal(t *testing.T) {
 	}
 }
 
+// TestClientMeteo_Recuperer_DemandeLaFenetreDeNavigation verifie que les deux
+// appels sortants (previsions, marine) demandent past_days=7 et
+// forecast_days=8 : c'est ce qui permet de decouper n'importe quel jour de
+// la fenetre de navigation cote serveur, sans appel HTTP supplementaire
+// (prp/01-navigation-temporelle.md). forecast_days=8, pas 7 : Open-Meteo
+// compte aujourd'hui dans sa fenetre, il faut donc 8 jours pour couvrir
+// jusqu'a J+7, le dernier jour navigable en avant.
+func TestClientMeteo_Recuperer_DemandeLaFenetreDeNavigation(t *testing.T) {
+	var requeteForecast, requeteMarine string
+	forecast := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requeteForecast = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(forecastJSON))
+	}))
+	t.Cleanup(forecast.Close)
+	marine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requeteMarine = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(marineJSON))
+	}))
+	t.Cleanup(marine.Close)
+
+	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client(), Latitude: 50.517, Longitude: 1.583}
+	if _, err := c.Recuperer(context.Background()); err != nil {
+		t.Fatalf("Recuperer : %v", err)
+	}
+
+	if !strings.Contains(requeteForecast, "past_days=7") || !strings.Contains(requeteForecast, "forecast_days=8") {
+		t.Errorf("requete previsions = %q, attendu past_days=7 et forecast_days=8", requeteForecast)
+	}
+	if !strings.Contains(requeteMarine, "past_days=7") || !strings.Contains(requeteMarine, "forecast_days=8") {
+		t.Errorf("requete marine = %q, attendu past_days=7 et forecast_days=8 (portee de 2 a 8)", requeteMarine)
+	}
+}
+
 func TestLibelleMeteo(t *testing.T) {
 	cas := []struct {
 		code           int
