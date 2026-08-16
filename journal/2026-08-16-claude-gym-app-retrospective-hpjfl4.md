@@ -13,6 +13,15 @@ complétude. Aucun code touché — le livrable est
 de la branche `claude/gym-la-renaissance-app-xpgswt` (29 anomalies, bloc
 `cout-detail` de 2 433 lignes), l'historique de `main` et l'état livré de l'app.
 
+Second livrable, demandé ensuite : `docs/plan-amelioration.md`, quinze gestes
+ordonnés par rentabilité pour les prochains travaux. Produit par cinq enquêtes
+parallèles (sessions, démarrage, garde-fous, cadrage, boucle de construction),
+chacune relue par un critique chargé de la réfuter, puis synthétisées. Trois
+propositions sont tombées à la critique et sont consignées comme telles dans le
+plan — dont l'interdiction du `catch` vide que l'anomalie 27 de la branche
+`renaissance-gym` réclamait : le dépôt en porte 17 occurrences légitimes pour un
+seul bug avéré.
+
 Deux anomalies rencontrées **en menant l'analyse**, toutes deux dans les outils
 qui devaient la rendre possible.
 
@@ -93,10 +102,37 @@ contrôle les fichiers non suivis en plus des suivis. C'est le premier contrôle
 de la fabrique dont on sait qu'il ne peut rien dire sur ce qui vient d'être
 écrit.
 
+### 4. `cout.sh` ne voit pas les agents lancés par un workflow
+
+**Symptome** — cette branche a lancé onze agents pour produire le plan
+d'amélioration. Le relevé de coût ci-dessous, écrit par `cout.sh`, annonce
+7,24 $ et « aucun appel par des sous-agents ». Les transcriptions des onze
+agents, lues à la main, portent 48,4 M de lecture de cache, 2,6 M d'écriture et
+21 k de sortie en `sonnet-5`, plus 1,2 M / 0,3 M en `opus-5` : environ 27,4 $.
+**Le relevé rend 21 % du coût réel de la branche.**
+
+**Cause** — `cout.sh` ligne 73 découvre les transcriptions par
+`"$d"/*.jsonl "$d"/*/subagents/*.jsonl`. Un sous-agent lancé par l'outil `Task`
+écrit bien sous `<session>/subagents/agent-*.jsonl` et il est compté — c'est
+ainsi que la branche `renaissance-gym` a pu attribuer 1 819 appels à ses
+artisans. Un agent lancé par un **workflow** écrit un niveau plus bas,
+`<session>/subagents/workflows/<run>/agent-*.jsonl`, et le glob ne descend pas
+jusque-là. La détection de sous-agent, elle, teste `FILENAME ~ /\/subagents\//`
+et matcherait le chemin profond : c'est le seul motif de découverte qui manque.
+
+**Detecte par** — `relecture` — en vérifiant le travail de l'équipe, pas en le
+cherchant.
+
+**Action** — `garde-fou` — corrigé par le geste 16 du plan, ajouté après coup
+pour cette raison. Le point est plus large que le motif manquant : le plan
+recommande de déléguer davantage à des agents, et l'outil qui mesure ce que ça
+coûte est aveugle à exactement cette forme de délégation. Les relevés des
+branches passées restent faux et ne se recalculent pas.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 09:07 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 10:01 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -104,26 +140,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 100 | 0,00 $ |
-| Écriture de cache | 172 900 | 1,08 $ |
-| Lecture de cache | 6 793 670 | 3,40 $ |
-| Sortie | 40 545 | 1,01 $ |
-| **Total** | **7 007 215** | **5,49 $ — 4,77 €** |
+| Entrée | 146 | 0,00 $ |
+| Écriture de cache | 213 093 | 1,33 $ |
+| Lecture de cache | 11 511 363 | 5,76 $ |
+| Sortie | 61 981 | 1,55 $ |
+| **Total** | **11 786 583** | **8,64 $ — 7,50 €** |
 
 **Ce qui coûte**
 
-- **53 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **77 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 960 jetons, écrits une fois par session puis relus à chaque
-  échange : 3 169 920 jetons de relecture, 46 % de tout ce qui a été relu.
-- **Tours courts** — 26 des 53 tours (49 %) sortent
+  échange : 4 632 960 jetons de relecture, 40 % de tout ce qui a été relu.
+- **Tours courts** — 35 des 77 tours (45 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 2,21 $, soit 40 % de la facture.
+  une sortie de rien. Ils coûtent 3,21 $, soit 37 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 960 jetons relus au premier appel qui relise
-  quelque chose, 172 527 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 213 678 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 7007215 -->
+<!-- cout-total: 11786583 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60960 0 579
 2 principal claude-opus-5 4307 60960 392
@@ -178,5 +214,29 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 51 principal claude-opus-5 1297 170824 205
 52 principal claude-opus-5 406 172121 117
 53 principal claude-opus-5 373 172527 680
+54 principal claude-opus-5 4781 172900 168
+55 principal claude-opus-5 606 177681 1574
+56 principal claude-opus-5 1615 178287 137
+57 principal claude-opus-5 759 179902 695
+58 principal claude-opus-5 14 181356 177
+59 principal claude-opus-5 1141 181370 264
+60 principal claude-opus-5 67 182775 9028
+61 principal claude-opus-5 9756 182842 383
+62 principal claude-opus-5 1824 192598 204
+63 principal claude-opus-5 2767 194422 490
+64 principal claude-opus-5 1259 197189 414
+65 principal claude-opus-5 1947 198448 830
+66 principal claude-opus-5 927 200395 164
+67 principal claude-opus-5 4420 201322 488
+68 principal claude-opus-5 856 205742 545
+69 principal claude-opus-5 671 206598 239
+70 principal claude-opus-5 289 207269 694
+71 principal claude-opus-5 1149 207558 856
+72 principal claude-opus-5 1906 208707 377
+73 principal claude-opus-5 431 210613 1229
+74 principal claude-opus-5 1283 211044 289
+75 principal claude-opus-5 343 212327 935
+76 principal claude-opus-5 1008 212670 123
+77 principal claude-opus-5 374 213678 1133
 -->
 <!-- /cout -->
