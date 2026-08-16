@@ -160,6 +160,70 @@ func TestClientMeteo_Recuperer_DemandeLaFenetreDeNavigation(t *testing.T) {
 	}
 }
 
+// forecastAgregationJSON couvre deux jours : le 2026-08-16, dont les heures
+// de NUIT (is_day=0) sont bouchees (cloud_cover_low=100) et les heures de
+// JOUR (is_day=1) degagees (tout a 0) — l'agregat journalier ne doit tenir
+// compte que des heures de jour, sinon le brouillage nocturne ferait passer
+// une journee ensoleillee pour couverte. Le 2026-08-17 n'a aucune heure
+// is_day=1 dans cette fixture (jour tronque en fin de fenetre) : son agregat
+// doit rester absent (CouchesConnues=false).
+const forecastAgregationJSON = `{
+  "hourly": {
+    "time": ["2026-08-16T00:00", "2026-08-16T12:00", "2026-08-16T18:00", "2026-08-16T23:00", "2026-08-17T00:00"],
+    "temperature_2m": [15, 22, 20, 16, 15],
+    "precipitation_probability": [0, 0, 0, 0, 0],
+    "cloud_cover": [100, 0, 0, 100, 100],
+    "cloud_cover_low": [100, 0, 0, 100, 100],
+    "cloud_cover_mid": [0, 0, 0, 0, 0],
+    "cloud_cover_high": [0, 0, 0, 0, 0],
+    "is_day": [0, 1, 1, 0, 0],
+    "wind_speed_10m": [10, 10, 10, 10, 10],
+    "wind_direction_10m": [90, 90, 90, 90, 90],
+    "weather_code": [3, 0, 0, 3, 3]
+  },
+  "daily": {
+    "time": ["2026-08-16", "2026-08-17"],
+    "temperature_2m_max": [22, 21],
+    "temperature_2m_min": [15, 14],
+    "precipitation_probability_max": [0, 0],
+    "weather_code": [3, 3]
+  }
+}`
+
+func TestClientMeteo_Recuperer_AgregeCouchesJournalieresDepuisLesHeuresDeJour(t *testing.T) {
+	forecast := serveurTest(t, forecastAgregationJSON)
+	marine := serveurTest(t, marineJSON)
+
+	c := &ClientMeteo{
+		BaseForecast: forecast.URL,
+		BaseMarine:   marine.URL,
+		HTTP:         forecast.Client(),
+		Latitude:     50.517,
+		Longitude:    1.583,
+	}
+
+	p, err := c.Recuperer(context.Background())
+	if err != nil {
+		t.Fatalf("Recuperer : %v", err)
+	}
+	if len(p.Jours) != 2 {
+		t.Fatalf("attendu 2 jours, recu %d", len(p.Jours))
+	}
+
+	jour16 := p.Jours[0]
+	if !jour16.CouchesConnues {
+		t.Fatal("2026-08-16 a deux heures de jour connues, CouchesConnues doit etre vrai")
+	}
+	if jour16.NebulositeBassePct != 0 {
+		t.Errorf("nebulosite basse agregee (jour) = %v, attendu 0 (heures de nuit bouchees ignorees)", jour16.NebulositeBassePct)
+	}
+
+	jour17 := p.Jours[1]
+	if jour17.CouchesConnues {
+		t.Error("2026-08-17 n'a aucune heure de jour dans la fixture, CouchesConnues doit rester faux")
+	}
+}
+
 func TestLibelleMeteo(t *testing.T) {
 	cas := []struct {
 		code           int
@@ -177,6 +241,61 @@ func TestLibelleMeteo(t *testing.T) {
 			t.Errorf("libelleMeteo(%d) = (%q, %q), attendu (%q, %q)",
 				c.code, libelle, symbole, c.libelleAttendu, c.symboleAttendu)
 		}
+	}
+}
+
+// TestCielApparent_16Aout2026 est le cas reel qui a declenche ce correctif :
+// bulletin marine de reference "soleil franc" au Touquet le 16 aout 2026 a
+// 18h, alors que weather_code=3 ("couvert") a cause d'un cirrus haut a 100%.
+// C'est ce bulletin qui est l'arbitre du resultat attendu, pas l'API.
+func TestCielApparent_16Aout2026(t *testing.T) {
+	libelle, symbole := cielApparent(0, 45, 100)
+	if libelle != "principalement degage" || symbole != "soleil-voile" {
+		t.Errorf("cielApparent(0,45,100) = (%q,%q), attendu (\"principalement degage\",\"soleil-voile\") — bulletin marine du 16 aout 2026 18h : soleil franc", libelle, symbole)
+	}
+}
+
+func TestCielApparent(t *testing.T) {
+	cas := []struct {
+		nom                 string
+		bas, moyenne, haute float64
+		libelleAttendu      string
+		symboleAttendu      string
+	}{
+		{"cirrus seul a 100%", 0, 0, 100, "principalement degage", "soleil-voile"},
+		{"ciel bouche par le bas", 100, 0, 0, "couvert", "nuage"},
+		{"stratocumulus moyen epais", 0, 100, 0, "couvert", "nuage"},
+		{"ciel vide", 0, 0, 0, "ciel degage", "soleil"},
+	}
+	for _, c := range cas {
+		t.Run(c.nom, func(t *testing.T) {
+			libelle, symbole := cielApparent(c.bas, c.moyenne, c.haute)
+			if libelle != c.libelleAttendu || symbole != c.symboleAttendu {
+				t.Errorf("cielApparent(%v,%v,%v) = (%q,%q), attendu (%q,%q)",
+					c.bas, c.moyenne, c.haute, libelle, symbole, c.libelleAttendu, c.symboleAttendu)
+			}
+		})
+	}
+}
+
+func TestLibelleCiel_UnPhenomeneLEmporte(t *testing.T) {
+	cas := []struct {
+		nom            string
+		code           int
+		libelleAttendu string
+		symboleAttendu string
+	}{
+		{"pluie malgre ciel vide en entree", 61, "pluie", "pluie"},
+		{"brouillard malgre ciel vide en entree", 45, "brouillard", "brouillard"},
+	}
+	for _, c := range cas {
+		t.Run(c.nom, func(t *testing.T) {
+			libelle, symbole := libelleCiel(c.code, 0, 0, 0)
+			if libelle != c.libelleAttendu || symbole != c.symboleAttendu {
+				t.Errorf("libelleCiel(%d,0,0,0) = (%q,%q), attendu (%q,%q)",
+					c.code, libelle, symbole, c.libelleAttendu, c.symboleAttendu)
+			}
+		})
 	}
 }
 

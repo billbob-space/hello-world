@@ -114,7 +114,7 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 }
 
 func vueHeureMeteo(h HeureMeteo) VueHeure {
-	libelle, symbole := libelleMeteo(h.CodeMeteo)
+	libelle, symbole := libelleCiel(h.CodeMeteo, h.NebulositeBassePct, h.NebulositeMoyennePct, h.NebulositeHautePct)
 	return VueHeure{
 		Heure:            h.Heure.Format("15:04"),
 		TemperatureC:     arrondi1(h.TemperatureC),
@@ -128,7 +128,12 @@ func vueHeureMeteo(h HeureMeteo) VueHeure {
 }
 
 func vueJourMeteo(j JourMeteo) VueJour {
-	libelle, symbole := libelleMeteo(j.CodeMeteo)
+	var libelle, symbole string
+	if j.CouchesConnues {
+		libelle, symbole = libelleCiel(j.CodeMeteo, j.NebulositeBassePct, j.NebulositeMoyennePct, j.NebulositeHautePct)
+	} else {
+		libelle, symbole = libelleMeteo(j.CodeMeteo)
+	}
 	return VueJour{
 		Date:        j.Date.Format("2006-01-02"),
 		JourSemaine: jourSemaineFr(j.Date),
