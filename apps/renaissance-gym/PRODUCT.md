@@ -1170,3 +1170,30 @@ justaucorps le montre.
 
 **Ce qui ne change pas** : une parure acquise le reste, même si la semaine de
 départ change ensuite (§A10). On ne perd rien.
+
+## A21. Refaire une séance, depuis l'écran du jour
+
+La règle §9.5 autorise depuis le premier jour de refaire une séance déjà faite.
+Le bouton existait sur l'écran « ta semaine est bouclée » ; A5 l'a fait
+disparaître, et pas par choix : la route qui le portait désignait une séance
+**sans sa semaine**. Tant que la semaine avançait sur le calendrier,
+l'ambiguïté ne se voyait pas ; dès que la semaine se déduit des faits, la même
+route s'est mise à viser la semaine **suivante**, faisant doublon avec le bouton
+d'à côté. Il a été retiré plutôt que livré en double.
+
+C'est un rétrécissement d'une capacité écrite, décidé par défaut. Il se répare.
+
+**Ce qui est ajouté** : une adresse qui porte **la séance et sa semaine**, et le
+bouton qui va avec, sur l'écran « ta semaine est bouclée ». Refaire une séance y
+rejoue **celle de la semaine qu'elle vient de finir**, avec les objectifs de
+cette semaine-là, et la ramène ensuite d'où elle est partie.
+
+**L'adresse doit être non ambiguë par construction**, jamais par la forme des
+identifiants. Une adresse qui porte une séance et une semaine ne doit pas
+pouvoir se confondre avec celle qui porte une séance, un exercice et une
+semaine — même si un identifiant d'exercice venait un jour à ne contenir que
+des chiffres. C'est précisément l'ambiguïté qui a coûté ce bouton.
+
+**Ce qui ne change pas** : refaire ne compte pas double (§9.5), la règle §9.1
+tient, et la semaine ne recule pas — rejouer une séance déjà faite ne change
+rien à l'avancement, puisque ses exercices sont déjà validés.

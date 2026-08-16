@@ -28,6 +28,29 @@
 // elle vient en mode cible unique, exactement comme la validation. Rien à
 // persister de plus : ce qui est validé l'est déjà (`ajouterFait`), et la
 // file n'a pas bougé depuis le dernier rendu.
+//
+// A21 (« Ajouté après les PRP ») : le bouton « Refaire une séance » de
+// l'écran « ta semaine est bouclée » (vue-jour.js) était retiré depuis A5 —
+// la route « #/seance/<numero> » désignait une séance SANS SA SEMAINE, et
+// visait donc la semaine SUIVANTE dès que la semaine courante se déduit des
+// faits plutôt que du calendrier, faisant doublon avec « Semaine suivante ».
+// La sous-route « #/seance/<numero>/<semaine> » (`rejeuDepuisHash`) porte
+// les DEUX : elle rejoue la séance de LA SEMAINE QU'ELLE VIENT DE FINIR, avec
+// les objectifs de cette semaine-là, jamais celle en cours. Elle se distingue
+// de `cibleUniqueDepuisHash` PAR CONSTRUCTION, jamais par la forme des
+// identifiants — c'est exactement l'ambiguïté qui a coûté le bouton la
+// première fois : cette route porte exactement DEUX segments après le mot
+// « seance » (numéro puis semaine, ancrée en fin de chaîne), quand la cible
+// unique en exige au moins TROIS (exercice puis semaine, plus un `/hasard`
+// optionnel en quatrième). Même si un identifiant d'exercice devenait un jour
+// purement numérique, aucune route ne peut jamais remplir les deux formes à
+// la fois : c'est leur NOMBRE de segments qui diffère, jamais leur contenu.
+// Comme en mode cible unique, la file porte TOUS les exercices de la séance,
+// déjà validés ou non (même principe qu'A3 bis) — sans quoi une séance
+// entièrement faite se rejouerait à file vide et se terminerait aussitôt,
+// sans rien montrer. `ajouterFait` (etat.js) dédoublonne déjà par
+// (semaine, séance, exercice) : revalider ce qui l'est déjà n'ajoute rien de
+// neuf, donc ne fait AVANCER ni reculer la semaine courante (PRD §9.5).
 
 import { exercicesDeSeance, objectif, objectifTexte } from './programme.js';
 import {
@@ -47,12 +70,12 @@ function el(balise, classe, texte) {
   return noeud;
 }
 
-// Sous-route « #/seance/<numero> » : force la séance à rejouer (écran du
-// jour, « Refaire une séance », PRD §9.5). Sans suffixe valide, `null` — la
-// séance vient alors de `domaine.prochaineSeance`. Le numéro se lit aussi
-// quand la sous-route porte en plus une cible unique (voir
-// `cibleUniqueDepuisHash` juste en dessous) : le segment optionnel n'est
-// jamais capturé ici, seul le premier compte.
+// Sous-route « #/seance/<numero> » : force le numéro de séance. Sans suffixe
+// valide, `null` — la séance vient alors de `domaine.prochaineSeance`. Le
+// numéro se lit aussi quand la sous-route porte en plus une semaine (A21,
+// `rejeuDepuisHash`) ou une cible unique (`cibleUniqueDepuisHash` juste en
+// dessous) : le reste de la route n'est jamais capturé ici, seul le premier
+// segment compte.
 export function numeroDepuisHash(hash) {
   const trouve = /^#\/seance\/(\d+)(?:\/.*)?$/.exec(String(hash ?? ''));
   if (trouve === null) return null;
@@ -80,6 +103,25 @@ export function cibleUniqueDepuisHash(hash) {
   return trouve[3] ? { exercice: trouve[1], semaine, hasard: true } : { exercice: trouve[1], semaine };
 }
 
+// Sous-route « #/seance/<numero>/<semaine> » : A21, « Refaire une séance »
+// depuis l'écran « ta semaine est bouclée » (PRD §9.5). `null` quand la route
+// ne porte pas cette forme EXACTE — c'est alors la séance courante (ou la
+// cible unique) qui se monte, comme avant.
+//
+// Se distingue de `cibleUniqueDepuisHash` PAR CONSTRUCTION, jamais par la
+// forme des identifiants : cette route exige EXACTEMENT deux segments après
+// le numéro (`$` ancré aussitôt après la semaine), quand la cible unique en
+// exige au moins trois (l'exercice puis la semaine, plus un `/hasard`
+// optionnel en quatrième). Un identifiant d'exercice, même purement
+// numérique un jour, ne peut jamais faire remplir les deux formes à la fois
+// par une même route : leur nombre de segments diffère, pas leur contenu.
+export function rejeuDepuisHash(hash) {
+  const trouve = /^#\/seance\/\d+\/(\d+)$/.exec(String(hash ?? ''));
+  if (trouve === null) return null;
+  const semaine = Number(trouve[1]);
+  return Number.isInteger(semaine) && semaine >= 1 && semaine <= 8 ? { semaine } : null;
+}
+
 // PRD §9.1 : une séance interrompue à mi-parcours reprend au premier exercice
 // non validé — jamais au premier de la liste.
 export function indexPremierNonFait(programme, faits, semaine, numero) {
@@ -96,11 +138,19 @@ export function monterSeance(hote, ctx) {
   const semaineActuelle = Math.min(semaineCourante(programme, etat.faits, etat.semaineDeDepart), 8);
   const hash = typeof location !== 'undefined' ? location.hash : '';
   const cibleUnique = cibleUniqueDepuisHash(hash);
+  // A21 : une route de rejeu ne se lit que si la route n'est pas déjà une
+  // cible unique — les deux formes ne peuvent de toute façon jamais matcher
+  // ensemble (nombre de segments différent), cette garde évite juste un
+  // second `exec()` inutile quand le premier a déjà répondu.
+  const rejeu = cibleUnique === null ? rejeuDepuisHash(hash) : null;
   const numero = numeroDepuisHash(hash) ?? prochaineSeance(programme, etat.faits, semaineActuelle) ?? 1;
   // A3 bis : « Lancer » un seul exercice prend l'objectif de LA SEMAINE DE LA
   // CASE d'où il vient, jamais celle en cours (§4 du contrat qui a demandé
-  // cette vue).
-  const semaine = cibleUnique !== null ? cibleUnique.semaine : semaineActuelle;
+  // cette vue). A21 : rejouer une séance bouclée prend l'objectif de LA
+  // SEMAINE QU'ELLE VIENT DE FINIR, même règle.
+  const semaine = cibleUnique !== null
+    ? cibleUnique.semaine
+    : (rejeu !== null ? rejeu.semaine : semaineActuelle);
   const exercicesSeance = exercicesDeSeance(programme, numero);
   const exercices = cibleUnique !== null
     ? exercicesSeance.filter((ex) => ex.id === cibleUnique.exercice)
@@ -108,6 +158,11 @@ export function monterSeance(hote, ctx) {
   const exParId = new Map(exercices.map((ex) => [ex.id, ex]));
   const total = exercices.length;
   const modeUnique = cibleUnique !== null;
+  // A21 : la file entière, mais rejouée volontairement — jamais la file
+  // partagée d'une séance qui pourrait être en cours par ailleurs (voir
+  // `persisterFile` plus bas), exactement pour la même raison qu'en mode
+  // cible unique.
+  const modeRejeu = rejeu !== null;
   // A15 (lot ludique, « Ajouté après les PRP ») : « Un exercice au hasard »
   // est lancé depuis l'écran du jour, jamais depuis la grille — c'est ce que
   // change le suffixe « /hasard » sur `destinationRetour()` plus bas.
@@ -131,7 +186,11 @@ export function monterSeance(hote, ctx) {
   // ailleurs, à une autre semaine ou une autre séance.
   let file;
   let passes;
-  if (modeUnique) {
+  if (modeUnique || modeRejeu) {
+    // A21 : le rejeu porte TOUS les exercices de la séance, DÉJÀ VALIDÉS OU
+    // NON — sans quoi une séance bouclée (donc entièrement faite) filtrerait
+    // sa propre file à vide via `fileInitiale` et se « terminerait » aussitôt,
+    // sans jamais rien montrer à rejouer.
     file = exercices.map((ex) => ex.id);
     passes = new Set();
   } else {
@@ -163,10 +222,12 @@ export function monterSeance(hote, ctx) {
   }
 
   function persisterFile() {
-    // A3 bis : la file d'un aparté d'un seul exercice n'est jamais la file
-    // partagée d'`etat.js` — l'écrire écraserait sinon la reprise d'une
-    // séance en cours ailleurs, à une autre semaine ou une autre séance.
-    if (modeUnique) return;
+    // A3 bis, A21 : la file d'un aparté (cible unique OU rejeu d'une séance
+    // bouclée) n'est jamais la file partagée d'`etat.js` — `fileSeance` ne
+    // porte qu'UNE seule entrée à la fois, et l'écrire écraserait sinon la
+    // reprise d'une séance en cours ailleurs, à une autre semaine ou une
+    // autre séance.
+    if (modeUnique || modeRejeu) return;
     ecrireFileSeance(semaine, numero, file, passes);
   }
 
@@ -193,7 +254,10 @@ export function monterSeance(hote, ctx) {
   // aparté lancé de la grille — elle y revient d'où elle est partie, le
   // détail de CETTE séance, où il lui reste peut-être d'autres exercices à
   // rattraper. A15 (lot ludique) : un aparté « au hasard » y revient TOUJOURS,
-  // puisqu'elle n'est jamais partie de la grille.
+  // puisqu'elle n'est jamais partie de la grille. A21 : un rejeu depuis
+  // l'écran « ta semaine est bouclée » y revient TOUJOURS aussi — c'est de là
+  // qu'elle est partie, jamais de la grille — `modeUnique` reste faux dans ce
+  // mode, la branche par défaut suffit.
   function destinationRetour() {
     if (modeUnique && hasard) return '#/jour';
     return modeUnique ? `#/grille/seance/${semaine}/${numero}` : '#/jour';
