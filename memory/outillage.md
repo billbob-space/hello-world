@@ -47,6 +47,29 @@ la fabrique** — les erreurs du compilateur après chaque édition, pour zéro 
 et, dès qu'**une seule** app porte `ui: true`, `frontend-design`, `playwright` et
 `impeccable`.
 
+## Chromium — le canal du plugin MCP est absent de l'image
+
+`browser_navigate` et `browser_resize` échouent par défaut : « Chromium
+distribution 'chrome' is not found at /opt/google/chrome/chrome ». Ce répertoire
+n'existe pas. Ce qui répond, vérifié le 16 août 2026 : **`/opt/pw-browsers/chromium`**,
+lancé depuis Bash avec le paquet `playwright` installé sous
+`/opt/node22/lib/node_modules/`. Un aller-retour complet — lancer, charger une page,
+lire un `getComputedStyle` — prend **1,7 s**.
+
+C'est le chemin qu'impose `.claude/agents/artisan.md`, qui n'a de toute façon pas
+accès au plugin MCP : ses outils sont `Read, Edit, Write, Bash, Grep, Glob`.
+
+**Mesure plutôt que capture.** Une capture d'écran coûte 439 jetons en 390×844 et
+1 536 en 1280×900, et elle est **relue à chaque tour suivant** ; un
+`page.evaluate` qui rend trois valeurs calculées coûte quelques centaines de
+jetons, une fois. Les six défauts visuels que 152 tests verts n'ont pas vus sur
+`renaissance-gym` étaient **tous** des faits géométriques ou de style calculé —
+aucun n'était une question de goût.
+
+**En production, ça ne marche pas** : le proxy de l'environnement bloque le
+navigateur alors que `curl` passe (anomalie 18 de la branche `renaissance-gym`).
+La vérification visuelle vaut en local, pas en ligne.
+
 ## Connecteurs de compte, distincts des plugins du dépôt
 
 La branche `renaissance-gym` a chargé, en plus des 13 plugins de `settings.json`,

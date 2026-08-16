@@ -68,6 +68,40 @@ root et l'app non root n'y ecrira jamais. Le detail :
 `--check` n'ecrit rien : tu peux le lancer autant que tu veux. S'il refuse
 quelque chose qui est hors de ton perimetre, rapporte-le, ne le repare pas.
 
+## Quand tu touches une vue
+
+Les tests verts ne voient pas une page : sur `renaissance-gym`, 152 tests au vert
+coexistaient avec un liseré qui ne peignait aucun pixel, un angle annonce a 12°
+qui en faisait 2, et une moitie d'ecran morte. Si tu as touche du CSS, du HTML ou
+un JS de rendu, sers l'app en local et **mesure** chaque ecran touche :
+
+```bash
+/opt/node22/bin/node -e '
+const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+(async () => {
+  const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await p.goto("http://localhost:8080/#/ecran");
+  console.log(JSON.stringify(await p.evaluate(() => {
+    const s = getComputedStyle(document.querySelector(".cible"));
+    return { display: s.display, radius: s.borderRadius, clip: s.clipPath };
+  })));
+  await b.close();
+})();'
+```
+
+- **Pas le plugin MCP playwright** : il n'est pas dans tes outils, et son canal
+  par defaut `chrome` est absent de l'image.
+- **Deux largeurs**, dont le seuil declare par l'app si elle en a un : une
+  geometrie juste a une largeur peut etre fausse a l'autre, et ne se voit pas
+  autrement.
+- **Des faits calcules** (`getComputedStyle`, une mesure de `getBoundingClientRect`)
+  plutot qu'une capture : ~1,7 s et quelques centaines de jetons. Une capture
+  coute 439 jetons en 390×844 et 1 536 en 1280×900, **relus a chaque tour
+  suivant**. Si tu en prends une, sauve-la en fichier pour l'humain et ne la
+  reinjecte pas.
+- Nomme les ecrans verifies et la methode dans ta rubrique **2. Les tests**.
+
 ## Ce que tu ne fais jamais
 
 - **Enregistrer dans git.** Ni `branche.sh`, ni `add`, ni `commit`, ni `push`,
