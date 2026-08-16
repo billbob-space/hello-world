@@ -142,6 +142,58 @@ cas "app sans PRODUCT.md" silence non <<'FIN'
   printf 'export const chrono = 1\n' > "apps/bidon/web/chrono.js"
 FIN
 
+printf '\n-- les promesses du journal\n'
+
+# Une Action « garde-fou » ou « contrat » promet un changement de la surface
+# partagee. 96 promesses ecrites dans le journal, 11 commits qui touchent ces
+# fichiers : le journal enregistrait sans que rien ne suive. Ces deux cas
+# tiennent le rapprochement — et le second existe parce que CLAUDE.md doit
+# compter dans la liste, faute de quoi le garde-fou avertirait a tort.
+cas_promesse() {  # <nom> <attendu: avertit|silence> — la situation est lue sur l'entree standard
+  local nom="$1" attendu="$2" situation d sortie vu
+  situation=$(cat)
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  mkdir -p "$d/journal"
+  cat > "$d/journal/2026-01-01-claude-test-pret.md" <<'ENTREE'
+# 2026-01-01 — claude/test-pret
+
+Branche : `claude/test-pret`
+Périmètre : bidon
+Mode : `chaud`
+
+## Anomalies
+
+### 1. Une anomalie qui promet un garde-fou
+
+**Symptome** — peu importe.
+
+**Cause** — peu importe.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — le geste promis.
+ENTREE
+  ( cd "$d" && bash -euo pipefail -c "$situation" )
+  sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
+  vu=silence
+  printf '%s\n' "$sortie" | grep -q "action(s) garde-fou/contrat sans suite" && vu=avertit
+  if [ "$vu" = "$attendu" ]; then
+    reussi "$nom"
+  else
+    echec "$nom" "attendu : $attendu — obtenu : $vu"
+    printf '%s\n' "$sortie" | grep -E "journal" | sed 's/^/      /' | head -3
+  fi
+}
+
+cas_promesse "une action garde-fou sans rien sous la surface partagee avertit" avertit <<'FIN'
+  printf 'export const chrono = 1\n' > "apps/bidon/web/chrono.js"
+FIN
+
+cas_promesse "CLAUDE.md compte comme surface partagee, et fait taire l'avertissement" silence <<'FIN'
+  printf '\nUne ligne de plus.\n' >> CLAUDE.md
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

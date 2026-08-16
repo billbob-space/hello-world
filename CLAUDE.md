@@ -190,7 +190,8 @@ déployée** se regarde en lecture seule avec `./scripts/prod.sh`, expliqué là
 ## Le sommaire de `memory/`
 
 Avant d'agir sur un de ces sujets, lis son fichier. Le contrat n'en garde que l'essentiel ;
-le détail, les formes admises et les pièges y sont.
+le détail, les formes admises et les pièges y sont. Ils se lisent **à la demande, jamais
+importés automatiquement** — `--check` le vérifie.
 
 | Sujet | Fichier | Quand le lire |
 |---|---|---|
@@ -199,8 +200,8 @@ le détail, les formes admises et les pièges y sont.
 | Trois sortes de services | `memory/services.md` | avant d'ajouter un service à une app ou à la fabrique |
 | Journal, garde-fous, agents, modes | `memory/travail.md` | avant de remplir le journal, d'ouvrir une PR ou de lancer un agent |
 | Ajouter une application | `memory/ajouter-une-app.md` | avant `--add`, et avant chacun de ses deux commits |
-| Le PRD suit l'app | `memory/produit.md` | avant de livrer un ajout que nul PRP ne prévoyait |
-| Outillage, plugins, LSP, compétences | `memory/outillage.md` | quand un plugin ou un LSP manque, avant d'écrire une compétence |
+| Le PRD suit l'app | `memory/produit.md` | avant d'écrire un PRD, avant de livrer un ajout que nul PRP ne prévoyait |
+| Outillage, plugins, LSP, compétences | `memory/outillage.md` | quand un plugin ou un LSP manque, avant d'écrire une compétence, avant d'ouvrir une session cloud |
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |
 | Règles impératives, détail | `memory/regles-imperatives.md` | avant d'écrire un `Dockerfile` ou un `test.sh` |
 | Ce qui ne t'appartient pas, détail | `memory/perimetre.md` | avant de demander dans un README ce qui se déclare |

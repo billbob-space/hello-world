@@ -1,8 +1,8 @@
 # Le PRD suit l'application — le détail
 
-Quand lire : avant de livrer un ajout qui ne vient d'aucun PRP, avant de retirer
-une ligne d'un « hors périmètre », et quand `pret.sh` signale du code neuf sans
-`PRODUCT.md`.
+Quand lire : avant d'écrire un PRD ou un PRP, avant de livrer un ajout qui ne
+vient d'aucun PRP, avant de retirer une ligne d'un « hors périmètre », et quand
+`pret.sh` signale du code neuf sans `PRODUCT.md`.
 Tenu par : --check — un document d'app égaré sous `docs/` est refusé par son
 nom, le PRD n'a qu'un domicile ; pret.sh — un fichier de code neuf dans une app
 dont le `PRODUCT.md` ne bouge pas, en avertissement, huit cas dans
@@ -55,6 +55,39 @@ dans six mois.
 garde une phrase qui renvoie à ce qui l'a rouverte. *Une exclusion qui disparaît
 sans laisser d'adresse est une décision perdue*, et c'est ainsi qu'on la reprend
 deux mois plus tard sans savoir qu'elle avait été tranchée.
+
+**Un tableau de risques nomme le test qui tient chacun d'eux.** Tout tableau
+« Risques » d'un PRD et tout tableau de cas d'échec d'un PRP porte une **colonne
+finale « Test »** : soit le nom exact d'un test entre guillemets inverses, soit
+« non testable » suivi de la raison. Une cellule vide n'est pas une option
+silencieuse, et `--check` avertit quand un nom cité n'existe dans aucun test de
+l'app. `apps/pilabelle/prp/` pratique déjà ce format.
+
+*Ce que ça évite* : sur `renaissance-gym`, le refus « pseudonyme déjà pris » était
+spécifié **trois fois** — PRD §14, PRP 03, PRP 06 — testé nulle part côté client,
+et livré non implémenté. Un parent a perdu l'accès aux huit semaines de sa fille.
+Une colonne obligatoire vide se voit à la relecture ; une promesse en prose, non.
+
+**Quatre questions trouvent leur réponse écrite dans l'Annexe** du PRD, avant la
+première ligne de code. Elles ne sont pas là par principe : chacune a coûté un
+défaut livré.
+
+1. **Combien d'appareils ?** — pas « combien d'utilisateurs ». C'est la seconde
+   question qui décide s'il faut un serveur, et l'avoir confondue avec la
+   première a invalidé un design déjà approuvé.
+2. **Et si l'utilisateur ne peut pas terminer une étape ?** Un parcours guidé a
+   besoin de quatre issues — sauter, quitter, revenir, refaire. On oublie de se
+   la poser précisément quand le parcours nominal est limpide.
+3. **Comment quitte-t-on un compte sans l'effacer ?** Dès qu'une identité est
+   portable d'un appareil à l'autre, sa symétrie doit exister.
+4. **L'unité de l'original survit-elle à la transposition ?** Séance ou
+   exercice, palier ou date : une feuille papier ne date presque jamais ce
+   qu'elle compte, et lui prêter un calendrier lui ajoute une contrainte que son
+   auteur n'a pas écrite.
+
+Ces quatre-là ne couvrent pas tout — les contraintes physiques de l'appareil et
+la maille d'affichage de la progression restent hors de leur portée, et c'est dit
+ici pour qu'on ne les croie pas couvertes.
 
 **Un PRP livré ne se rouvre jamais** pour y ajouter l'après. Il est le compte
 rendu d'une intention, à sa date. Le `README.md` du répertoire `prp/` dit où se

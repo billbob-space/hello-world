@@ -224,6 +224,34 @@ sous_agent_fichier_porte "la part des sous-agents est chiffree depuis son propre
 # compte de sessions de la session principale, il en ferait 2 au lieu de 1.
 sous_agent_fichier_porte "un fichier de sous-agent ne compte pas comme une session de plus" "1 session(s)"
 
+# Meme panne, un niveau plus bas, trouvee le 16 aout 2026 : un agent lance par
+# un WORKFLOW n'ecrit pas sous <session>/subagents/ mais sous
+# <session>/subagents/workflows/<run>/. La branche qui a produit le plan
+# d'amelioration annoncait 7,24 $ et « aucun sous-agent » pour environ 35 $
+# reels. Le glob ne descend pas tout seul : ce cas tient le motif.
+pose_agent_workflow() {  # <bac> — la ou un agent de workflow ecrit vraiment
+  local d="$1" p
+  p="$d/home/.claude/projects/$(printf '%s' "$d" | sed 's/[^A-Za-z0-9]/-/g')/session/subagents/workflows/wf_1"
+  mkdir -p "$p"
+  cat > "$p/agent-1.jsonl"
+}
+
+agent_workflow_total() {  # <nom> <attendu>
+  local nom="$1" attendu="$2" d sortie vu
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
+  pose_agent_workflow "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  if [ "$vu" != "$attendu" ]; then
+    echec "$nom" "total $vu, attendu $attendu"
+  else
+    reussi "$nom"
+  fi
+}
+agent_workflow_total "un agent de workflow compte dans le total" 2230
+
 printf '\n-- ce qui coute\n'
 
 # Le demarrage — contrat, outillage, definitions d'outils — est ecrit en cache
@@ -326,6 +354,33 @@ FIN
 tait "l alerte de contexte se tait en deca du seuil" "coupe la session" <<FIN
 $(requete b_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
 $(requete b_2 "$BRANCHE" 0 claude-opus-5 0 0 100000 500)
+FIN
+
+# Le seuil CRITIQUE, le seul chiffre du depot qui refuse un commit. Le code de
+# sortie compte autant que le message : c'est lui que pret.sh transforme en
+# refus, et un 3 rendu par erreur bloquerait tout le monde. La paire verifie les
+# deux sens — 650 000 bloque, 350 000 avertit sans bloquer.
+code_rappel() {  # code_rappel <nom> <code attendu> — la conversation est lue sur l'entree standard
+  local nom="$1" attendu="$2" d code=0
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  ( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel >/dev/null 2>&1 ) || code=$?
+  if [ "$code" = "$attendu" ]; then
+    reussi "$nom"
+  else
+    echec "$nom" "code $code, attendu $attendu"
+  fi
+}
+
+code_rappel "au-dela du critique, --rappel rend 3" 3 <<FIN
+$(requete k_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete k_2 "$BRANCHE" 0 claude-opus-5 0 0 650000 500)
+FIN
+
+code_rappel "sous le critique, --rappel rend 0 meme s il avertit" 0 <<FIN
+$(requete l_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete l_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
 FIN
 
 printf '\n-- resultat\n'

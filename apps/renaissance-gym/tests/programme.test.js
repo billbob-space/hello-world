@@ -214,7 +214,15 @@ test('aucun libelle (ou variante, pour les 2 exceptions documentees) ne differe 
 // objectif ecrit en dur dans une vue livrerait un second programme, invisible
 // et non corrigible depuis programme.json.
 test('aucune valeur d’objectif n’est ecrite en dur dans une vue (PRD §8.1)', () => {
-  const motifsSuspects = [/['"]x\d+['"]/, /\b\d+\s*(?:s|min)\b/i];
+  // Ce test lit du TEXTE BRUT : il ne distingue ni le code du commentaire, ni un
+  // mot d'une unite. Trois faux positifs sur la branche de construction, tous sur
+  // le second motif — dont « SEMAINE 1SÉANCE », ou « \b » apres « s » se posait
+  // devant le « É », qui n'est pas un caractere de mot. D'ou la classe explicite
+  // plutot que « \b » : accents compris. Il reste volontairement trop large —
+  // un garde-fou un peu large vaut mieux qu'un garde-fou troue —, et c'est le
+  // message d'echec qui doit le dire, sans quoi le prochain cherchera un bug
+  // dans son code.
+  const motifsSuspects = [/['"]x\d+['"]/, /\b\d+\s*(?:s|min)(?![A-Za-zÀ-ÖØ-öø-ÿ0-9])/i];
   let fichiers = [];
   try {
     fichiers = readdirSync(web).filter((f) => /^vue-.*\.js$/.test(f));
@@ -226,7 +234,12 @@ test('aucune valeur d’objectif n’est ecrite en dur dans une vue (PRD §8.1)'
   for (const fichier of fichiers) {
     const source = readFileSync(join(web, fichier), 'utf8');
     for (const motif of motifsSuspects) {
-      assert.doesNotMatch(source, motif, `${fichier} porte une valeur d’objectif en dur`);
+      assert.doesNotMatch(
+        source, motif,
+        `${fichier} porte une valeur d’objectif en dur — ce test lit le fichier `
+        + `comme du texte : un COMMENTAIRE citant une durée le déclenche aussi. `
+        + `Reformule le commentaire plutôt que de chercher un bug dans le code.`,
+      );
     }
   }
 });

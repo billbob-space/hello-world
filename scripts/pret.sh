@@ -83,7 +83,33 @@ if [ "$courante" != "$BASE" ]; then
     # Le rappel de cout avertit sans bloquer. Depuis qu'il est un processus
     # separe, sa panne emporterait pret.sh sous set -e — avant meme le verdict
     # sur les tests, et sans dire pourquoi.
-    ./scripts/cout.sh --rappel || true
+    # Le « || true » d'origine protegeait d'une panne du script, qui aurait
+    # emporte pret.sh sous set -e avant meme le verdict sur les tests. Il
+    # avalait du meme coup le seul refus que cout.sh sache produire : le code 3
+    # du seuil critique. Les deux cas se distinguent maintenant — 3 bloque,
+    # tout autre incident passe comme avant.
+    rc=0; ./scripts/cout.sh --rappel || rc=$?
+    if [ "$rc" = 3 ]; then
+      bad "contexte critique — ouvre une session neuve sur cette branche avant de committer"
+    fi
+
+    # Une Action « garde-fou » ou « contrat » PROMET un changement de la surface
+    # partagee. Sur 41 entrees, 96 de ces promesses ont ete ecrites et 11 commits
+    # seulement ont touche init.sh, scripts/, memory/ ou .claude/ : le journal
+    # enregistre, et la boucle ne se referme pas. renaissance-gym en a consigne
+    # dix, et son entree dit elle-meme qu'aucun de ces fichiers n'a bouge.
+    #
+    # CLAUDE.md compte dans la liste : un commit du depot le touche sans toucher
+    # aucun des quatre autres, et l'oublier ferait avertir a tort. Avertissement
+    # et jamais KO : une action peut legitimement se traiter ailleurs.
+    promesses=$(grep -cE '^\*\*Action\*\* — `(garde-fou|contrat)`' "$entree" || true)
+    if [ "$promesses" -gt 0 ]; then
+      if fichiers_touches | grep -qE '^(memory/|\.claude/|scripts/|init\.sh$|CLAUDE\.md$)'; then
+        ok "journal : $promesses action(s) garde-fou/contrat, et la surface partagee bouge"
+      else
+        warn "journal : $promesses action(s) garde-fou/contrat sans suite — rien sous memory/, .claude/, scripts/, init.sh ni CLAUDE.md. Si le correctif vit dans une autre branche, dis-le dans le champ Action"
+      fi
+    fi
   fi
 fi
 

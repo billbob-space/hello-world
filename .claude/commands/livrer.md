@@ -14,6 +14,19 @@ Si un sujet est donne ci-dessus, c'est celui-la. Sinon, reprends le travail en
 cours de la conversation. S'il n'y en a aucun, c'est le seul cas ou tu demandes
 quoi faire — et tu le demandes en une phrase.
 
+**Avant de reprendre un travail en cours, lance `./scripts/cout.sh --dry-run` et
+regarde le contexte.** C'est ici, et nulle part ailleurs, que le choix
+continuer-ou-couper se prend : neuf branches sur vingt-deux ont franchi le seuil
+d'alerte sans que personne coupe. Au-dela, **propose** en une phrase d'ouvrir une
+session neuve sur la meme branche — une proposition tiree d'un chiffre que tu
+viens de lire, pas une question qui bloque : ce mode ne redemande rien.
+
+Lis le chiffre du script, pas le bloc de cout de l'entree de journal : ce
+dernier est toujours en retard, et `cout.sh` te le dit lui-meme. Limite a
+connaitre : le fichier de conversation vit dans le conteneur, donc ce controle
+ne vaut que si `/livrer` reprend dans le MEME conteneur. Rouvrir une session
+ailleurs efface la mesure au lieu de la rendre.
+
 ## Ou tu t'arretes : le site repond
 
 Pas a la pull request ouverte, pas a la fusion. Tu t'arretes quand
