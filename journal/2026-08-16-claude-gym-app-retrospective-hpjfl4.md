@@ -13,7 +13,7 @@ complétude. Aucun code touché — le livrable est
 de la branche `claude/gym-la-renaissance-app-xpgswt` (29 anomalies, bloc
 `cout-detail` de 2 433 lignes), l'historique de `main` et l'état livré de l'app.
 
-Second livrable, demandé ensuite : `docs/plan-amelioration.md`, quinze gestes
+Second livrable, demandé ensuite : `docs/plan-amelioration.md`, seize gestes
 ordonnés par rentabilité pour les prochains travaux. Produit par cinq enquêtes
 parallèles (sessions, démarrage, garde-fous, cadrage, boucle de construction),
 chacune relue par un critique chargé de la réfuter, puis synthétisées. Trois
@@ -22,8 +22,8 @@ plan — dont l'interdiction du `catch` vide que l'anomalie 27 de la branche
 `renaissance-gym` réclamait : le dépôt en porte 17 occurrences légitimes pour un
 seul bug avéré.
 
-Deux anomalies rencontrées **en menant l'analyse**, toutes deux dans les outils
-qui devaient la rendre possible.
+Quatre anomalies rencontrées **en menant ce travail**, toutes dans les outils
+qui devaient le rendre possible ou le mesurer.
 
 ### 1. Le relevé de coût figé perd l'avertissement des modèles sans tarif
 
@@ -132,7 +132,7 @@ branches passées restent faux et ne se recalculent pas.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 10:01 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 10:02 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -140,26 +140,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 146 | 0,00 $ |
-| Écriture de cache | 213 093 | 1,33 $ |
-| Lecture de cache | 11 511 363 | 5,76 $ |
-| Sortie | 61 981 | 1,55 $ |
-| **Total** | **11 786 583** | **8,64 $ — 7,50 €** |
+| Entrée | 150 | 0,00 $ |
+| Écriture de cache | 218 954 | 1,37 $ |
+| Lecture de cache | 11 944 669 | 5,97 $ |
+| Sortie | 62 978 | 1,57 $ |
+| **Total** | **12 226 751** | **8,92 $ — 7,74 €** |
 
 **Ce qui coûte**
 
-- **77 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **79 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 960 jetons, écrits une fois par session puis relus à chaque
-  échange : 4 632 960 jetons de relecture, 40 % de tout ce qui a été relu.
-- **Tours courts** — 35 des 77 tours (45 %) sortent
+  échange : 4 754 880 jetons de relecture, 39 % de tout ce qui a été relu.
+- **Tours courts** — 35 des 79 tours (44 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 3,21 $, soit 37 % de la facture.
+  une sortie de rien. Ils coûtent 3,21 $, soit 35 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 960 jetons relus au premier appel qui relise
-  quelque chose, 213 678 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 219 254 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 11786583 -->
+<!-- cout-total: 12226751 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60960 0 579
 2 principal claude-opus-5 4307 60960 392
@@ -238,5 +238,7 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 75 principal claude-opus-5 343 212327 935
 76 principal claude-opus-5 1008 212670 123
 77 principal claude-opus-5 374 213678 1133
+78 principal claude-opus-5 5202 214052 596
+79 principal claude-opus-5 659 219254 401
 -->
 <!-- /cout -->
