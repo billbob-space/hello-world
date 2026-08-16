@@ -8,6 +8,19 @@ fichier existant, repose sur une mesure prise dans le dépôt, et est classé pa
 gain divisé par coût de mise en place. Les propositions dont la critique a montré la mesure
 fausse ou la cible erronée sont en fin de document, section « Écarté, et pourquoi ».
 
+## État : les seize gestes sont appliqués
+
+Écrits sur la branche `claude/gym-app-retrospective-hpjfl4`, en six commits, dans l'ordre
+d'exécution ci-dessous. Le plan est conservé tel qu'il a été arbitré — ce qu'il annonçait et ce
+qui a été fait doivent pouvoir se comparer. Deux écarts, tous deux consignés au journal de la
+branche : la mesure du geste 16 a été corrigée (27,4 $ mesurés à la main était faux d'un facteur
+2,5 ; le chiffre juste est celui du script), et le geste 14 a révélé que l'alerte de contexte ne
+se déclenchait que sur une branche ayant déjà une entrée de journal — corrigé dans le même geste.
+
+Trois contrôles neufs avertissent aujourd'hui sur le dépôt tel qu'il est : `marcq-handball`,
+`pilabelle` et `renaissance-gym` exposent l'attribut `hidden` à un écrasement de `display`
+(geste 13). Ce sont des travaux d'app, hors de ce plan.
+
 ## La table des gestes
 
 | # | Geste | Gain | Coût | Fichier |
