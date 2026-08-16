@@ -160,7 +160,7 @@ rencontre : trois chiffres de plus s'y ajoutent, sous « Ce qui coûte ».
 |---|---|
 | appels au modèle, dont ceux des **sous-agents** | savoir ce que coûte le geste « je lance un agent », qui n'avait pas de prix |
 | poids du **démarrage** — contrat, outillage, définitions d'outils — et sa part de la relecture | il est écrit une fois par session puis **relu à chaque appel** : mesuré entre la moitié et 80 % de toute la relecture, dont le contrat du dépôt ne fait que 7 %. C'est le seul poste qu'on réduise en élaguant l'outillage plutôt qu'en travaillant moins |
-| **croissance** de la relecture, du premier au dernier appel | dit à partir de quand une session devrait être coupée en deux |
+| **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons |
 
 Et le bloc porte `cout-detail` : **un appel par ligne** — rang, agent, modèle,
 écriture, lecture, sortie. Compact et illisible à dessein, son lecteur est un
@@ -209,6 +209,14 @@ Quatre limites, toutes dites par la commande elle-même :
 /livrer [sujet]    # autonome : jusqu'à la mise en ligne vérifiée, sans question
 /pas-a-pas         # normal : l'agent consulte et rend la main à chaque étape
 ```
+
+`CLAUDE.md` dit déjà « on pousse à chaque commit ; la pull request vient à la fin,
+une fois l'ensemble cohérent ». **« Ensemble cohérent » veut dire un lot
+fonctionnel** — une construction, ou une série de retours d'usage groupés —
+**jamais un correctif isolé d'une ligne**. Exception : un correctif qui débloque un
+usage en cours part tout de suite. `renaissance-gym` a coûté 12 pull requests et
+7 déploiements pour une seule app ; chacun recrée **toute** la stack, et remet donc
+en jeu les apps que la branche n'a pas touchées.
 
 Fichiers ordinaires dans `.claude/commands/`, dont `--check` vérifie la présence.
 Le nom de la commande **est** celui du fichier, d'où `pas-a-pas` sans accents :
@@ -305,6 +313,14 @@ déploie d'un bloc, et l'agent au contexte volontairement réduit est celui qui 
 moins bien ce qu'il casserait. Il n'enregistre rien dans git — c'est le `greffier`,
 lancé après lui — et il ne remplit pas le journal, mais il rapporte les anomalies
 rencontrées dans une rubrique dédiée, que tu recopies dans l'entrée de branche.
+
+Ne lui confie **pas plus d'un PRP à la fois**, et relance un artisan **neuf** plutôt
+que de poursuivre le même au-delà d'un chantier qui s'étire : c'est la session
+appelante, pas l'artisan, qui décide du périmètre passé à l'agent. Un chantier se
+dimensionne pour tenir sous 100 000 jetons, PRP compris. Mesure de `renaissance-gym` :
+1 819 appels d'artisans à **181 026 jetons relus en moyenne**, soit des agents
+saturés en permanence, pour un poste de 113 $ sur 266 $. Les branches où l'artisan
+a reçu un chantier borné tournent entre 14 000 et 79 000.
 
 **Le registre des agents est lu au démarrage de la session** : un agent ajouté en
 cours de session n'est invocable qu'à la suivante — même piège que les plugins.

@@ -20,6 +20,15 @@ attendus et ou vivent ses documents. Elle t'evite d'ouvrir `compose.yaml`,
 Si cette notice manque, dis-le et arrete-toi : elle se regenere par
 `./init.sh`, et ce n'est pas ton geste.
 
+## La taille de ton chantier
+
+Un chantier porte **un seul PRP**, jamais deux, et se dimensionne pour tenir sous
+**100 000 jetons de contexte, PRP compris**. Lis le PRP, pas `apps/<nom>/PRODUCT.md` :
+`prp/README.md` fixe l'ordre d'autorite et le PRP est autoportant. Si tu te
+surprends a relire les memes fichiers de nombreuses fois, ou si le chantier
+s'etire au-dela, ecris-le dans « Ce que tu n'as pas pu faire » et rends la main :
+ton appelant relancera un artisan neuf.
+
 ## Ton perimetre
 
 `apps/<nom>/` et rien d'autre.

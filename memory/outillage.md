@@ -1,7 +1,7 @@
 # Ton outillage — les plugins Claude Code
 
-Quand lire : quand un plugin ou un serveur LSP manque, ou après un `./init.sh`
-qui change un `stack` ou un `ui`.
+Quand lire : quand un plugin ou un serveur LSP manque, après un `./init.sh`
+qui change un `stack` ou un `ui`, ou avant d'ouvrir une session cloud.
 Tenu par : --check — `settings.json` présent et sans bloc `env`, scripts
 analysables, `cloud-setup.sh` aligné sur les plugins et les LSP ; hook —
 `check-plugins.sh` rapporte à chaque ouverture de session
@@ -46,6 +46,26 @@ S'y ajoutent, selon les `apps/*/app.yml` : **un serveur LSP par langage présent
 la fabrique** — les erreurs du compilateur après chaque édition, pour zéro contexte —
 et, dès qu'**une seule** app porte `ui: true`, `frontend-design`, `playwright` et
 `impeccable`.
+
+## Connecteurs de compte, distincts des plugins du dépôt
+
+La branche `renaissance-gym` a chargé, en plus des 13 plugins de `settings.json`,
+**six serveurs MCP** de connecteur : Canva, Gmail, Google Drive, Notion, GitHub,
+Playwright. Deux seulement ont servi. Canva, Gmail, Drive et Notion n'ont **aucune
+trace d'usage** dans tout le dépôt — les occurrences que rend un `grep` sont toutes
+des faux positifs vérifiés un à un : le mot français « notion », `<canvas>`, et
+l'adresse de l'utilisateur.
+
+Ils ne sont **ni** dans `.claude/settings.json` **ni** dans `.claude/cloud-setup.sh` :
+ce sont des réglages du compte claude.ai, hors dépôt, que `./init.sh` ne peut ni voir
+ni corriger. **Décoche-les dans les réglages de connecteurs du compte avant d'ouvrir
+une session de fabrique.** Le gain se lit ensuite dans le bloc « Démarrage » de la
+prochaine entrée de journal, comparé à la plage habituelle de 55 000 à 68 000 jetons —
+un poids écrit une fois par session puis relu à **chaque** appel, 7 % de toute la
+relecture de `renaissance-gym`.
+
+L'audit de plugins du 7 août, plus bas, ne couvrait pas les connecteurs : il ne
+voyait que ce que le dépôt déclare.
 
 ## rtk — un binaire, pas un plugin de marketplace
 
