@@ -186,3 +186,33 @@ toujours, et reste écrite. Ce qui était refusé, c'est de garder trace de ce q
 l'utilisateur a consulté ou fait ; ce qui est livré lit la même donnée publique
 à une autre date, ne conserve rien, et le jour choisi ne survit même pas au
 rechargement de la page. Le PRD en délimite le bord, il ne lève rien.
+
+### Le ciel se décrit par ce qu'on voit, pas par la nébulosité totale — 16 août 2026
+
+**Ce qui existe maintenant** : la description du ciel — soleil, soleil voilé,
+partiellement nuageux, couvert — se calcule à partir des trois couches
+nuageuses séparées, pondérées par ce que chacune masque réellement du soleil :
+les nuages bas le bouchent, les nuages moyens l'atténuent, les cirrus hauts ne
+font que le voiler. Un phénomène — brouillard, pluie, neige, orage — l'emporte
+toujours sur cette description, et reste lu du code météo comme avant. La
+tendance à 7 jours applique la même règle, agrégée sur les heures de jour, pour
+qu'une ligne journalière ne contredise jamais la ligne horaire du même jour.
+
+**Ce qui l'a demandé** : l'usage, le 16 août 2026 vers 18 h. L'application
+annonçait « couvert » pour les trois heures suivantes sous un plein soleil, quand
+le bulletin marine de référence montrait un soleil franc. L'utilisateur a tranché :
+c'est le bulletin marine qui fait foi.
+
+**Ce que le PRD affirmait avant** : il listait « ensoleillement (nébulosité) »
+parmi les données de la prévision horaire, sans dire *laquelle* des nébulosités —
+et l'implémentation avait pris la seule que le fournisseur résume en un chiffre,
+la nébulosité totale, toutes couches confondues. Un voile de cirrus à 100 %
+suffisait alors à afficher « couvert » alors que l'heure entière était
+ensoleillée.
+
+**Ce que cela ne change pas** : la source reste Open-Meteo, et elle n'était pas
+en cause — les six modèles comparés donnaient la même chose, et leur prévision
+était juste. Ce qui était faux, c'était de traduire un chiffre global en une
+phrase que quelqu'un lit debout sur la plage. Aucun modèle n'est privilégié,
+aucune clé n'apparaît, et la règle « dégrader, jamais casser » tient : quand les
+couches manquent, l'ancienne description reprend la main.

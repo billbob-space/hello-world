@@ -15,23 +15,37 @@ import (
 // horodatage exact — cela arrive rarement (les deux fournisseurs partagent la
 // meme grille horaire) mais ne doit jamais faire echouer toute la prevision.
 type HeureMeteo struct {
-	Heure            time.Time
-	TemperatureC     float64
-	PluiePct         float64
-	NebulositePct    float64
-	VentKmh          float64
-	VentDirectionDeg float64
-	VaguesM          *float64
-	CodeMeteo        int
+	Heure                time.Time
+	TemperatureC         float64
+	PluiePct             float64
+	NebulositePct        float64
+	NebulositeBassePct   float64
+	NebulositeMoyennePct float64
+	NebulositeHautePct   float64
+	EstJour              bool
+	VentKmh              float64
+	VentDirectionDeg     float64
+	VaguesM              *float64
+	CodeMeteo            int
 }
 
 // JourMeteo est un pas journalier de la tendance a 7 jours.
+// NebulositeBassePct/MoyennePct/HautePct sont l'agregat (moyenne) des heures
+// de JOUR (EstJour) de cette date, calcule dans Recuperer a partir de la
+// serie horaire — Open-Meteo ne rend pas ces couches en journalier.
+// CouchesConnues dit si cet agregat existe (faux si aucune heure de jour
+// n'est disponible pour la date, auquel cas les trois champs restent a 0 et
+// ne doivent pas etre utilises).
 type JourMeteo struct {
-	Date        time.Time
-	TempMinC    float64
-	TempMaxC    float64
-	PluiePctMax float64
-	CodeMeteo   int
+	Date                 time.Time
+	TempMinC             float64
+	TempMaxC             float64
+	PluiePctMax          float64
+	CodeMeteo            int
+	NebulositeBassePct   float64
+	NebulositeMoyennePct float64
+	NebulositeHautePct   float64
+	CouchesConnues       bool
 }
 
 // Previsions rassemble la prevision horaire complete (la vue n'en garde que
@@ -69,6 +83,10 @@ type reponseForecastBrute struct {
 		Temperature2m            []float64 `json:"temperature_2m"`
 		PrecipitationProbability []float64 `json:"precipitation_probability"`
 		CloudCover               []float64 `json:"cloud_cover"`
+		CloudCoverLow            []float64 `json:"cloud_cover_low"`
+		CloudCoverMid            []float64 `json:"cloud_cover_mid"`
+		CloudCoverHigh           []float64 `json:"cloud_cover_high"`
+		IsDay                    []float64 `json:"is_day"`
 		WindSpeed10m             []float64 `json:"wind_speed_10m"`
 		WindDirection10m         []float64 `json:"wind_direction_10m"`
 		WeatherCode              []int     `json:"weather_code"`
@@ -115,13 +133,17 @@ func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
 			continue
 		}
 		h := HeureMeteo{
-			Heure:            instant,
-			TemperatureC:     valeurA(forecast.Hourly.Temperature2m, i),
-			PluiePct:         valeurA(forecast.Hourly.PrecipitationProbability, i),
-			NebulositePct:    valeurA(forecast.Hourly.CloudCover, i),
-			VentKmh:          valeurA(forecast.Hourly.WindSpeed10m, i),
-			VentDirectionDeg: valeurA(forecast.Hourly.WindDirection10m, i),
-			CodeMeteo:        valeurEntiereA(forecast.Hourly.WeatherCode, i),
+			Heure:                instant,
+			TemperatureC:         valeurA(forecast.Hourly.Temperature2m, i),
+			PluiePct:             valeurA(forecast.Hourly.PrecipitationProbability, i),
+			NebulositePct:        valeurA(forecast.Hourly.CloudCover, i),
+			NebulositeBassePct:   valeurA(forecast.Hourly.CloudCoverLow, i),
+			NebulositeMoyennePct: valeurA(forecast.Hourly.CloudCoverMid, i),
+			NebulositeHautePct:   valeurA(forecast.Hourly.CloudCoverHigh, i),
+			EstJour:              valeurA(forecast.Hourly.IsDay, i) == 1,
+			VentKmh:              valeurA(forecast.Hourly.WindSpeed10m, i),
+			VentDirectionDeg:     valeurA(forecast.Hourly.WindDirection10m, i),
+			CodeMeteo:            valeurEntiereA(forecast.Hourly.WeatherCode, i),
 		}
 		if v, ok := vagues[t]; ok {
 			h.VaguesM = &v
@@ -135,16 +157,50 @@ func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
 		if err != nil {
 			continue
 		}
-		jours = append(jours, JourMeteo{
+		j := JourMeteo{
 			Date:        date,
 			TempMinC:    valeurA(forecast.Daily.Temperature2mMin, i),
 			TempMaxC:    valeurA(forecast.Daily.Temperature2mMax, i),
 			PluiePctMax: valeurA(forecast.Daily.PrecipitationProbabilityMax, i),
 			CodeMeteo:   valeurEntiereA(forecast.Daily.WeatherCode, i),
-		})
+		}
+		if bas, moyenne, haute, ok := couchesJour(heures, date); ok {
+			j.NebulositeBassePct = bas
+			j.NebulositeMoyennePct = moyenne
+			j.NebulositeHautePct = haute
+			j.CouchesConnues = true
+		}
+		jours = append(jours, j)
 	}
 
 	return Previsions{Heures: heures, Jours: jours}, nil
+}
+
+// couchesJour moyenne les trois couches nuageuses des heures de JOUR
+// (EstJour) de la date donnee. Open-Meteo ne rend pas cloud_cover_low/mid/
+// high en journalier ; on les reconstitue depuis l'horaire, seule serie ou
+// ils sont presents, pour que la tendance a 7 jours dise « soleil » quand la
+// meme journee vue heure par heure le dit aussi (sinon les deux vues se
+// contredisent, cf. le cas du 16 aout 2026 en tete de fichier). Ne compte
+// que les heures de jour : melanger les couches nocturnes (souvent bouchees
+// sans que cela genere quiconque) fausserait la moyenne.
+func couchesJour(heures []HeureMeteo, date time.Time) (bas, moyenne, haute float64, ok bool) {
+	debut := debutDuJour(date)
+	fin := debut.AddDate(0, 0, 1)
+	var n int
+	for _, h := range heures {
+		if h.Heure.Before(debut) || !h.Heure.Before(fin) || !h.EstJour {
+			continue
+		}
+		bas += h.NebulositeBassePct
+		moyenne += h.NebulositeMoyennePct
+		haute += h.NebulositeHautePct
+		n++
+	}
+	if n == 0 {
+		return 0, 0, 0, false
+	}
+	return bas / float64(n), moyenne / float64(n), haute / float64(n), true
 }
 
 // forecast_days=8, pas 7 : Open-Meteo compte aujourd'hui dans sa fenetre, si
@@ -157,7 +213,7 @@ func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
 func (c *ClientMeteo) recupererForecast(ctx context.Context) (reponseForecastBrute, error) {
 	url := fmt.Sprintf(
 		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=8&past_days=7"+
-			"&hourly=temperature_2m,precipitation_probability,cloud_cover,wind_speed_10m,wind_direction_10m,weather_code"+
+			"&hourly=temperature_2m,precipitation_probability,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,is_day,wind_speed_10m,wind_direction_10m,weather_code"+
 			"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
 		c.BaseForecast, c.Latitude, c.Longitude)
 	var r reponseForecastBrute
@@ -234,6 +290,53 @@ func valeurEntiereA(s []int, i int) int {
 		return 0
 	}
 	return s[i]
+}
+
+// cielApparent decrit le ciel tel qu'on le voit du sol, a partir des trois
+// couches nuageuses plutot que de la nebulosite totale (le weather_code OMM
+// des codes 0 a 3 n'est derive que de cette derniere, toutes couches
+// confondues, et ment donc des qu'un voile haut se superpose a un ciel bas
+// degage). Opacite ressentie = max(bas, 0.85*moyenne, 0.35*haute) : chaque
+// coefficient dit combien la couche masque reellement le soleil — le
+// stratus/cumulus bas le bouche, l'altostratus moyen l'attenue fortement,
+// le cirrus haut ne fait que le voiler. Calage verifie en direct le 16 aout
+// 2026 a 18h au Touquet (50.517/1.583), bulletin marine de reference "soleil
+// franc" a l'appui : cloud_cover=100 (total, toutes couches), mais
+// cloud_cover_low=0, cloud_cover_mid=45, cloud_cover_high=100,
+// sunshine_duration=3600s, direct_radiation=157 W/m2 — un cirrus seul a 100%
+// (haute=100, bas=moyenne=0) doit rendre "soleil-voile", jamais "couvert" ;
+// c'est ce cas qui a fixe le coefficient 0.35 (100*0.35=35, sous le seuil de
+// 50 qui bascule en "partiellement nuageux").
+func cielApparent(bas, moyenne, haute float64) (libelle, symbole string) {
+	opacite := bas
+	if v := 0.85 * moyenne; v > opacite {
+		opacite = v
+	}
+	if v := 0.35 * haute; v > opacite {
+		opacite = v
+	}
+	switch {
+	case opacite < 20:
+		return "ciel degage", "soleil"
+	case opacite < 50:
+		return "principalement degage", "soleil-voile"
+	case opacite < 80:
+		return "partiellement nuageux", "nuage-soleil"
+	default:
+		return "couvert", "nuage"
+	}
+}
+
+// libelleCiel rend la description affichee : le phenomene (brouillard,
+// pluie, neige, orage...) quand le code OMM en decrit un, sinon le ciel vu
+// du sol reconstitue depuis les trois couches nuageuses (cielApparent). Les
+// codes 0 a 3 ne decrivent qu'une quantite de nuages, pas un phenomene :
+// c'est la seule plage ou le code OMM est insuffisant (cf. cielApparent).
+func libelleCiel(code int, bas, moyenne, haute float64) (libelle, symbole string) {
+	if code <= 3 {
+		return cielApparent(bas, moyenne, haute)
+	}
+	return libelleMeteo(code)
 }
 
 // libelleMeteo traduit un code meteo OMM (WMO) en un libelle et un symbole

@@ -128,6 +128,36 @@ func TestVuePrevisions_JoursPasses_TendanceIgnoreLePasse(t *testing.T) {
 	}
 }
 
+// TestVueJourMeteo_UtiliseLesCouchesQuandConnues verifie que la tendance
+// journaliere passe par libelleCiel (comme la vue horaire) des que
+// CouchesConnues est vrai, pour ne pas dire "couvert" un jour ou la vue
+// horaire du meme jour dirait "soleil" (cas du 16 aout 2026, cf. meteo.go).
+func TestVueJourMeteo_UtiliseLesCouchesQuandConnues(t *testing.T) {
+	j := JourMeteo{
+		CodeMeteo:            3,
+		NebulositeBassePct:   0,
+		NebulositeMoyennePct: 45,
+		NebulositeHautePct:   100,
+		CouchesConnues:       true,
+	}
+	v := vueJourMeteo(j)
+	if v.Symbole != "soleil-voile" {
+		t.Errorf("symbole = %q, attendu soleil-voile (couches connues, cirrus seul)", v.Symbole)
+	}
+}
+
+// TestVueJourMeteo_RetombeSurLeCodeOMMSansCouches verifie qu'un jour sans
+// agregat de couches (CouchesConnues faux) garde l'ancien comportement :
+// libelleMeteo(CodeMeteo), plutot que de traiter des zeros comme un ciel
+// vide.
+func TestVueJourMeteo_RetombeSurLeCodeOMMSansCouches(t *testing.T) {
+	j := JourMeteo{CodeMeteo: 3, CouchesConnues: false}
+	v := vueJourMeteo(j)
+	if v.Symbole != "nuage" || v.Libelle != "couvert" {
+		t.Errorf("libelle/symbole = %q/%q, attendu couvert/nuage (retombee sur le code OMM)", v.Libelle, v.Symbole)
+	}
+}
+
 func TestVueMaree(t *testing.T) {
 	coef := 76
 	m := Maree{
