@@ -93,21 +93,33 @@ cette règle comme cassée dans l'autre sens : elle exigeait un job renommé,
 été corrigés depuis, et c'est ce qui a laissé passer la fusion — la règle
 correcte bloque maintenant la moitié suivante de la chaîne.
 
+Le contournement, trouvé après coup : l'épinglage n'a pas besoin d'être écrit
+**par la CI**, il a besoin d'être **sur `main`**. Une pull request qui porte le
+`./init.sh --pin` des neuf apps y arrive par la porte que la règle laisse
+ouverte — celle qu'elle protège au lieu de la fermer. À la fusion, `detect` ne
+voit aucune app changer mais voit `compose.yaml` changer : c'est la distinction
+que le workflow écrit noir sur blanc, « il y a quelque chose à redéployer »
+n'est pas « on a construit une image ». `test` et `build` sautent, l'étape
+d'épinglage saute avec eux, et donc l'étape de poussée aussi ; sans rien à
+écrire, il ne reste que la vérification des images et l'appel du webhook. Le
+déploiement passe sans qu'une ligne soit poussée sur `main` hors pull request.
+C'est le geste que le contrat décrit déjà pour revenir en arrière — « remettre
+ici le commit précédent puis lancer ./init.sh » —, employé pour avancer.
+
 **Detecte par** — `CI`
 
-**Action** — `arbitrage` — le geste est dans les réglages GitHub et nulle part
-ailleurs : ajouter le compte de GitHub Actions en dérogation du règlement
-`Auto merge`, pour qu'il puisse pousser `versions.yml` sur `main`. Aucun
-correctif de dépôt ne l'obtient : le jeton de la session n'a pas les droits
-d'administration, et un déploiement qui n'écrit pas la version qu'il vient de
-mettre en ligne cesse d'être vérifiable. Le run reste rejouable une fois la
-dérogation posée — les images de `c67f3b2` sont déjà au registre, rien n'est à
-reconstruire.
+**Action** — `arbitrage` — le contournement livre, il ne répare pas. Tant que le
+règlement n'a pas d'acteur en dérogation, **toute livraison ordinaire reste
+cassée** : la CI construira et publiera les images, puis échouera à enregistrer
+leur version, et il faudra à chaque fois une pull request d'épinglage à la main.
+Le geste qui rend la chaîne autonome est dans les réglages GitHub et nulle part
+ailleurs — ajouter le compte de GitHub Actions en dérogation du règlement
+`Auto merge`. Le jeton de la session n'a pas les droits d'administration.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 14:44 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 15:32 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -115,26 +127,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 153 | 0,00 $ |
-| Écriture de cache | 380 828 | 1,88 $ |
-| Lecture de cache | 9 594 756 | 4,66 $ |
-| Sortie | 44 355 | 0,88 $ |
-| **Total** | **10 020 092** | **7,42 $ — 6,44 €** |
+| Entrée | 192 | 0,00 $ |
+| Écriture de cache | 621 312 | 3,38 $ |
+| Lecture de cache | 13 923 911 | 6,83 $ |
+| Sortie | 55 733 | 1,16 $ |
+| **Total** | **14 601 148** | **11,37 $ — 9,88 €** |
 
 **Ce qui coûte**
 
-- **79 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **100 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 918 jetons, écrits une fois par session puis relus à chaque
-  échange : 4 751 604 jetons de relecture, 49 % de tout ce qui a été relu.
-- **Tours courts** — 35 des 79 tours (44 %) sortent
+  échange : 6 030 882 jetons de relecture, 43 % de tout ce qui a été relu.
+- **Tours courts** — 44 des 100 tours (44 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 2,88 $, soit 38 % de la facture.
+  une sortie de rien. Ils coûtent 3,95 $, soit 34 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 918 jetons relus au premier appel qui relise
-  quelque chose, 196 227 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 227 972 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 10020092 -->
+<!-- cout-total: 14601148 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60918 0 300
 2 principal claude-opus-5 4449 60918 365
@@ -215,5 +227,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 77 principal claude-opus-5 366 194533 1273
 78 principal claude-opus-5 1328 194899 108
 79 principal claude-opus-5 445 196227 879
+80 principal claude-opus-5 1139 196672 1201
+81 principal claude-opus-5 1787 197811 494
+82 principal claude-opus-5 888 199598 814
+83 principal claude-opus-5 208602 0 349
+84 principal claude-opus-5 485 208602 466
+85 principal claude-opus-5 527 209087 46
+86 principal claude-opus-5 14574 201300 2287
+87 principal claude-opus-5 2575 215874 97
+88 principal claude-opus-5 385 218449 113
+89 principal claude-opus-5 246 218834 434
+90 principal claude-opus-5 1387 219080 118
+91 principal claude-opus-5 737 220467 1221
+92 principal claude-opus-5 1497 221204 316
+93 principal claude-opus-5 714 222701 1006
+94 principal claude-opus-5 1104 223415 89
+95 principal claude-opus-5 204 224519 96
+96 principal claude-opus-5 371 224723 1026
+97 principal claude-opus-5 1314 225094 847
+98 principal claude-opus-5 937 226408 179
+99 principal claude-opus-5 627 227345 97
+100 principal claude-opus-5 384 227972 82
 -->
 <!-- /cout -->
