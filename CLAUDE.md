@@ -190,7 +190,8 @@ déployée** se regarde en lecture seule avec `./scripts/prod.sh`, expliqué là
 ## Le sommaire de `memory/`
 
 Avant d'agir sur un de ces sujets, lis son fichier. Le contrat n'en garde que l'essentiel ;
-le détail, les formes admises et les pièges y sont.
+le détail, les formes admises et les pièges y sont. Ils se lisent **à la demande, jamais
+importés automatiquement** — `--check` le vérifie.
 
 | Sujet | Fichier | Quand le lire |
 |---|---|---|

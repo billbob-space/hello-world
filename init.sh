@@ -2478,6 +2478,20 @@ check_fabrique() {
   done
   [ "$doublons" -eq 0 ] && ok "aucun titre de section en double"
 
+  # Les deux controles qui suivent jugent l'EMPLACEMENT d'un document, jamais
+  # son contenu : un fichier mal range est deja une faute avant d'etre indexe,
+  # et le detecter plus tot n'en cree aucune. Ils lisent donc les fichiers
+  # suivis ET les non suivis non ignores -- pret.sh, qui tourne AVANT le commit,
+  # rendait sinon « contrat respecte » sur un document que la CI refusait
+  # trente secondes plus tard, faute de le voir.
+  #
+  # Les trois autres « git ls-files » de ce script gardent leur restriction aux
+  # fichiers suivis, et c'est delibere : une entree de journal non suivie est un
+  # travail en cours et ne se juge pas.
+  fichiers_md() {
+    { git ls-files "$@"; git ls-files --others --exclude-standard -- "$@"; } | LC_ALL=C sort -u
+  }
+
   # Une PRD ou un README d'app n'a qu'un domicile : apps/<nom>/PRODUCT.md ou
   # apps/<nom>/README.md. Un exemplaire identique ailleurs dans le depot a
   # echappe a l'arborescence -- le cas reel : un agent redigeant un plan a
@@ -2495,7 +2509,7 @@ check_fabrique() {
       case "$autre" in apps/*) continue ;; esac
       cmp -s "$canon" "$autre" \
         && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
-    done < <(git ls-files '*.md')
+    done < <(fichiers_md '*.md')
   done
   [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
 
@@ -2522,7 +2536,7 @@ check_fabrique() {
                 egares=$((egares+1)); break ;;
       esac
     done
-  done < <(git ls-files 'docs/*.md' 'docs/**/*.md')
+  done < <(fichiers_md 'docs/*.md' 'docs/**/*.md')
   [ "$egares" -eq 0 ] && ok "aucun document d'app egare sous docs/"
 
   # Les fichiers de memory/ portent l'explication des regles que --check tient
@@ -2651,6 +2665,32 @@ check_outillage() {
     [ "${#LSP_BINS[@]}" -le 3 ] || warn "${#LSP_BINS[@]} serveurs LSP a installer — le budget de 5 minutes du setup script devient douteux"
   else
     bad ".claude/cloud-setup.sh absent — les plugins resteraient inertes en session cloud"
+  fi
+
+  # Le rapport d'ouverture de session porte sa PROPRE liste de plugins et de
+  # serveurs de langage, en dur. settings.json et cloud-setup.sh etaient
+  # verifies, lui non : typescript-lsp y a manque pendant que marcq-handball
+  # etait deja en typescript, et un artisan pouvait donc perdre les diagnostics
+  # du compilateur sans que rien ne le dise. Un defaut silencieux coute plus en
+  # allers-retours qu'aucune economie de jetons ne rapporte.
+  if [ -f .claude/check-plugins.sh ]; then
+    drift=0
+    for p in "${PLUGIN_IDS[@]}"; do grep -qF "$p" .claude/check-plugins.sh || drift=1; done
+    for t in "${LSP_TRIPLETS[@]-}"; do [ -z "$t" ] || grep -qF "$t" .claude/check-plugins.sh || drift=1; done
+    [ "$drift" = 0 ] && ok "check-plugins.sh aligne sur ${#PLUGIN_IDS[@]} plugins" \
+                     || warn "check-plugins.sh desynchronise — un plugin ou un LSP attendu n'y est pas verifie"
+  fi
+
+  # memory/ pese ~15 000 jetons, cinq fois le contrat lui-meme, et ne coute
+  # RIEN par tour : il est lu a la demande, sur le declencheur du sommaire. Un
+  # « @memory/... » dans un fichier charge d'office — le contrat, une notice
+  # d'app, la definition d'un agent — le transformerait en charge fixe, relue a
+  # chaque echange de chaque session. Le controle porte sur un comportement qui
+  # n'existe pas encore : il est vert aujourd'hui, et c'est le but.
+  if grep -l '@memory/' CLAUDE.md apps/*/CLAUDE.md .claude/agents/*.md 2>/dev/null | grep -q .; then
+    bad "import automatique @memory/ — memory/ se lit a la demande ; importe, il serait relu a chaque tour"
+  else
+    ok "aucun import automatique de memory/"
   fi
 
   # 6. Journal des anomalies. Une entree suivie par git est une entree livree :

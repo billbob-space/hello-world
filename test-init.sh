@@ -409,6 +409,20 @@ refuse "un fichier de memory/ absent du sommaire est refuse" "sommaire" <<'FIN'
 printf 'Quand lire : jamais.\nTenu par : --check\n\n# Sujet\n' > memory/orphelin.md
 FIN
 
+# Les deux cas qui suivent n'appellent PAS « git add » : c'est tout leur objet.
+# Le 16 aout 2026, pret.sh a rendu « contrat respecte » sur un document d'app
+# range sous docs/, et la CI l'a refuse trente secondes plus tard — les deux
+# controles d'emplacement ne lisaient que « git ls-files », donc rien tant que
+# le fichier n'etait pas indexe, alors que pret.sh tourne AVANT le commit.
+
+refuse "un document d'app egare sous docs/ est refuse meme non suivi" "son domicile est apps/" <<'FIN'
+printf '# Note\nUn document qui parle de renaissance-gym.\n' > docs/note-renaissance-gym.md
+FIN
+
+refuse "un doublon de PRODUCT.md est refuse meme non suivi" "doublon exact" <<'FIN'
+cp apps/renaissance-gym/PRODUCT.md docs/copie-du-prd.md
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]
