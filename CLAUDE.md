@@ -187,6 +187,13 @@ prend deux à trois minutes, et `dockhand` recrée alors **toute** la stack, pas
 apps livrées : le dépôt n'y peut rien, c'est mesuré au `README`. Ce que fait l'app **une fois
 déployée** se regarde en lecture seule avec `./scripts/prod.sh`, expliqué là aussi.
 
+**La chaîne ne finit pas son travail toute seule** : elle construit et publie les images,
+puis échoue à enregistrer leur version, car le règlement de branche refuse toute poussée
+directe sur `main` — la sienne comprise — et un dépôt de compte personnel n'offre aucune
+dérogation. Le run est alors rouge sur le seul job `deploy`, les images sont bien au
+registre, et **rien n'est en ligne**. La livraison s'achève à la main, par une pull request
+d'épinglage : `memory/livraison.md`. `pret.sh` nomme les apps restées en arrière.
+
 ## Le sommaire de `memory/`
 
 Avant d'agir sur un de ces sujets, lis son fichier. Le contrat n'en garde que l'essentiel ;
@@ -205,3 +212,4 @@ importés automatiquement** — `--check` le vérifie.
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |
 | Règles impératives, détail | `memory/regles-imperatives.md` | avant d'écrire un `Dockerfile` ou un `test.sh` |
 | Ce qui ne t'appartient pas, détail | `memory/perimetre.md` | avant de demander dans un README ce qui se déclare |
+| Achever une livraison à la main | `memory/livraison.md` | quand `deploy` échoue à enregistrer les versions, ou qu'une app est en ligne en retard |

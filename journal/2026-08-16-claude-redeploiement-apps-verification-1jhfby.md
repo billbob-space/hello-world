@@ -108,18 +108,26 @@ ici le commit précédent puis lancer ./init.sh » —, employé pour avancer.
 
 **Detecte par** — `CI`
 
-**Action** — `arbitrage` — le contournement livre, il ne répare pas. Tant que le
-règlement n'a pas d'acteur en dérogation, **toute livraison ordinaire reste
-cassée** : la CI construira et publiera les images, puis échouera à enregistrer
-leur version, et il faudra à chaque fois une pull request d'épinglage à la main.
-Le geste qui rend la chaîne autonome est dans les réglages GitHub et nulle part
-ailleurs — ajouter le compte de GitHub Actions en dérogation du règlement
-`Auto merge`. Le jeton de la session n'a pas les droits d'administration.
+**Action** — `contrat` — le contournement livre, il ne répare pas, et il n'y a
+rien à réparer : **la dérogation que j'ai recommandée n'existe pas.** Une liste
+d'acteurs en dérogation n'est offerte qu'aux dépôts appartenant à une
+organisation, et `billbob-space` est un compte personnel ; « GitHub Actions » ne
+figure de toute façon pas parmi les acteurs éligibles. J'ai envoyé l'utilisateur
+vers un écran qui ne pouvait pas répondre, et c'est lui qui l'a constaté — la
+recommandation était formulée avec l'aplomb d'une vérification, sans en être
+une. **Vérifier qu'un réglage existe avant de l'indiquer**, surtout quand on
+n'a pas les droits de l'ouvrir soi-même.
+
+Le seul autre levier serait de retirer les vérifications du règlement, donc de
+renoncer au verrou qui protège une stack partagée. **Arbitrage rendu : on garde
+le verrou et on achève la livraison à la main.** La procédure passe donc du
+statut d'improvisation à celui de règle : `memory/livraison.md`, appelé depuis
+le contrat. Elle disparaîtra si le dépôt rejoint une organisation.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 15:32 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 16:13 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -127,26 +135,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 192 | 0,00 $ |
-| Écriture de cache | 621 312 | 3,38 $ |
-| Lecture de cache | 13 923 911 | 6,83 $ |
-| Sortie | 55 733 | 1,16 $ |
-| **Total** | **14 601 148** | **11,37 $ — 9,88 €** |
+| Entrée | 277 | 0,00 $ |
+| Écriture de cache | 658 158 | 3,61 $ |
+| Lecture de cache | 25 128 067 | 12,43 $ |
+| Sortie | 76 011 | 1,67 $ |
+| **Total** | **25 862 513** | **17,71 $ — 15,38 €** |
 
 **Ce qui coûte**
 
-- **100 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **145 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 918 jetons, écrits une fois par session puis relus à chaque
-  échange : 6 030 882 jetons de relecture, 43 % de tout ce qui a été relu.
-- **Tours courts** — 44 des 100 tours (44 %) sortent
+  échange : 8 772 192 jetons de relecture, 34 % de tout ce qui a été relu.
+- **Tours courts** — 69 des 145 tours (47 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 3,95 $, soit 34 % de la facture.
+  une sortie de rien. Ils coûtent 7,28 $, soit 41 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 918 jetons relus au premier appel qui relise
-  quelque chose, 227 972 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 266 429 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 14601148 -->
+<!-- cout-total: 25862513 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60918 0 300
 2 principal claude-opus-5 4449 60918 365
@@ -248,5 +256,50 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 98 principal claude-opus-5 937 226408 179
 99 principal claude-opus-5 627 227345 97
 100 principal claude-opus-5 384 227972 82
+101 principal claude-opus-5 6745 228356 155
+102 principal claude-opus-5 443 235101 75
+103 principal claude-opus-5 363 235544 287
+104 principal claude-opus-5 371 235907 150
+105 principal claude-opus-5 438 236278 139
+106 principal claude-opus-5 427 236716 923
+107 principal claude-opus-5 935 237143 98
+108 principal claude-opus-5 386 238078 99
+109 principal claude-opus-5 517 238464 306
+110 principal claude-opus-5 390 238981 1342
+111 principal claude-opus-5 1383 239371 137
+112 principal claude-opus-5 1064 240754 343
+113 principal claude-opus-5 358 241818 145
+114 principal claude-opus-5 222 242176 324
+115 principal claude-opus-5 563 242398 137
+116 principal claude-opus-5 549 242961 205
+117 principal claude-opus-5 1066 243510 171
+118 principal claude-opus-5 191 244576 656
+119 principal claude-opus-5 793 244767 146
+120 principal claude-opus-5 222 245560 44
+121 principal claude-opus-5 240 245826 217
+122 principal claude-opus-5 953 246066 323
+123 principal claude-opus-5 388 247019 343
+124 principal claude-opus-5 506 247407 565
+125 principal claude-opus-5 1437 247913 186
+126 principal claude-opus-5 221 249350 494
+127 principal claude-opus-5 152 250065 1136
+128 principal claude-opus-5 17 251352 873
+129 principal claude-opus-5 1578 251369 216
+130 principal claude-opus-5 453 252947 1054
+131 principal claude-opus-5 2284 253400 2168
+132 principal claude-opus-5 2363 255684 1091
+133 principal claude-opus-5 1196 258047 139
+134 principal claude-opus-5 480 259243 2293
+135 principal claude-opus-5 2470 259723 417
+136 principal claude-opus-5 466 262193 292
+137 principal claude-opus-5 342 262659 89
+138 principal claude-opus-5 197 263001 101
+139 principal claude-opus-5 286 263198 484
+140 principal claude-opus-5 736 263484 92
+141 principal claude-opus-5 342 264220 558
+142 principal claude-opus-5 608 264562 91
+143 principal claude-opus-5 200 265170 985
+144 principal claude-opus-5 1059 265370 96
+145 principal claude-opus-5 446 266429 93
 -->
 <!-- /cout -->
