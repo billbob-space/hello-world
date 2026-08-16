@@ -65,10 +65,61 @@ panne de CI, s'arrêtait à mi-chemin sans le dire.
 `push`, la garde qui compte restant `ref == refs/heads/main`, commune aux deux
 événements.
 
+### 3. Le dépôt passé en public a réactivé une règle qui bloque la CI elle-même
+
+**Symptome** — fusion faite, les neuf images construites et publiées, puis le
+déploiement échoue sur son avant-dernier pas : `GH013: Repository rule
+violations found for refs/heads/main — 2 of 2 required status checks are
+expected`, quatre fois de suite, puis « impossible d'enregistrer les versions
+sur main — rien n'est deploye ». Le webhook est sauté, `versions.yml` garde les
+anciens commits, la production tourne inchangée. Tout le reste du run est vert.
+
+**Cause** — le règlement de branche de `main` exige deux vérifications, et il
+les exige **de toute poussée**, pas seulement d'une pull request. Or la CI
+pousse elle-même sur `main` : c'est ainsi qu'elle enregistre la version des
+images qu'elle vient de publier, et c'est le seul écrit de toute la chaîne. Une
+poussée directe ne rapporte aucune vérification — elles ne peuvent jamais être
+satisfaites, la règle refuse donc **par construction**. Le règlement ne porte
+aucun acteur en dérogation : `bypass_actors` est vide.
+
+Ce n'est pas une régression du dépôt et rien n'a changé dans le workflow depuis
+le dernier déploiement réussi. Ce qui a changé, c'est la **visibilité** : un
+règlement de branche n'est pas appliqué sur un dépôt privé de compte personnel
+gratuit, et le devient à la seconde où le dépôt passe en public. L'arbitrage
+du matin — passer en public pour retrouver des runners — a donc réveillé une
+règle jusque-là inerte, et l'a fait sans un mot. L'entrée précédente notait
+cette règle comme cassée dans l'autre sens : elle exigeait un job renommé,
+`tests-du-generateur`, ce qui bloquait toutes les pull requests. Les noms ont
+été corrigés depuis, et c'est ce qui a laissé passer la fusion — la règle
+correcte bloque maintenant la moitié suivante de la chaîne.
+
+Le contournement, trouvé après coup : l'épinglage n'a pas besoin d'être écrit
+**par la CI**, il a besoin d'être **sur `main`**. Une pull request qui porte le
+`./init.sh --pin` des neuf apps y arrive par la porte que la règle laisse
+ouverte — celle qu'elle protège au lieu de la fermer. À la fusion, `detect` ne
+voit aucune app changer mais voit `compose.yaml` changer : c'est la distinction
+que le workflow écrit noir sur blanc, « il y a quelque chose à redéployer »
+n'est pas « on a construit une image ». `test` et `build` sautent, l'étape
+d'épinglage saute avec eux, et donc l'étape de poussée aussi ; sans rien à
+écrire, il ne reste que la vérification des images et l'appel du webhook. Le
+déploiement passe sans qu'une ligne soit poussée sur `main` hors pull request.
+C'est le geste que le contrat décrit déjà pour revenir en arrière — « remettre
+ici le commit précédent puis lancer ./init.sh » —, employé pour avancer.
+
+**Detecte par** — `CI`
+
+**Action** — `arbitrage` — le contournement livre, il ne répare pas. Tant que le
+règlement n'a pas d'acteur en dérogation, **toute livraison ordinaire reste
+cassée** : la CI construira et publiera les images, puis échouera à enregistrer
+leur version, et il faudra à chaque fois une pull request d'épinglage à la main.
+Le geste qui rend la chaîne autonome est dans les réglages GitHub et nulle part
+ailleurs — ajouter le compte de GitHub Actions en dérogation du règlement
+`Auto merge`. Le jeton de la session n'a pas les droits d'administration.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 14:24 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 15:32 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -76,26 +127,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 92 | 0,00 $ |
-| Écriture de cache | 331 325 | 1,57 $ |
-| Lecture de cache | 4 314 185 | 2,02 $ |
-| Sortie | 32 065 | 0,57 $ |
-| **Total** | **4 677 667** | **4,16 $ — 3,61 €** |
+| Entrée | 192 | 0,00 $ |
+| Écriture de cache | 621 312 | 3,38 $ |
+| Lecture de cache | 13 923 911 | 6,83 $ |
+| Sortie | 55 733 | 1,16 $ |
+| **Total** | **14 601 148** | **11,37 $ — 9,88 €** |
 
 **Ce qui coûte**
 
-- **47 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **100 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 918 jetons, écrits une fois par session puis relus à chaque
-  échange : 2 802 228 jetons de relecture, 64 % de tout ce qui a été relu.
-- **Tours courts** — 13 des 47 tours (27 %) sortent
+  échange : 6 030 882 jetons de relecture, 43 % de tout ce qui a été relu.
+- **Tours courts** — 44 des 100 tours (44 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 0,93 $, soit 22 % de la facture.
+  une sortie de rien. Ils coûtent 3,95 $, soit 34 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 918 jetons relus au premier appel qui relise
-  quelque chose, 34 989 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 227 972 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 4677667 -->
+<!-- cout-total: 14601148 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60918 0 300
 2 principal claude-opus-5 4449 60918 365
@@ -144,5 +195,58 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 45 principal claude-opus-5 233 139049 535
 46 principal claude-opus-5 939 139282 94
 47 principal claude-opus-5 111738 34989 320
+48 principal claude-opus-5 814 146727 111
+49 principal claude-opus-5 382 147541 261
+50 principal claude-opus-5 338 147923 113
+51 principal claude-opus-5 1839 148261 133
+52 principal claude-opus-5 173 150100 228
+53 principal claude-opus-5 2281 150273 238
+54 principal claude-opus-5 671 152554 202
+55 principal claude-opus-5 227 153225 147
+56 principal claude-opus-5 223 153452 91
+57 principal claude-opus-5 21 153766 376
+58 principal claude-opus-5 1492 153787 408
+59 principal claude-opus-5 439 155279 164
+60 principal claude-opus-5 558 155718 242
+61 principal claude-opus-5 368 156518 137
+62 principal claude-opus-5 544 156886 286
+63 principal claude-opus-5 915 157430 205
+64 principal claude-opus-5 725 158345 241
+65 principal claude-opus-5 529 159070 183
+66 principal claude-opus-5 203 159599 355
+67 principal claude-opus-5 386 159802 146
+68 principal claude-opus-5 224 160188 109
+69 principal claude-opus-5 240 160521 190
+70 principal claude-opus-5 23543 160761 404
+71 principal claude-opus-5 1020 184304 160
+72 principal claude-opus-5 3627 185324 2063
+73 principal claude-opus-5 2409 188951 1441
+74 principal claude-opus-5 1920 191360 637
+75 principal claude-opus-5 687 193280 473
+76 principal claude-opus-5 566 193967 286
+77 principal claude-opus-5 366 194533 1273
+78 principal claude-opus-5 1328 194899 108
+79 principal claude-opus-5 445 196227 879
+80 principal claude-opus-5 1139 196672 1201
+81 principal claude-opus-5 1787 197811 494
+82 principal claude-opus-5 888 199598 814
+83 principal claude-opus-5 208602 0 349
+84 principal claude-opus-5 485 208602 466
+85 principal claude-opus-5 527 209087 46
+86 principal claude-opus-5 14574 201300 2287
+87 principal claude-opus-5 2575 215874 97
+88 principal claude-opus-5 385 218449 113
+89 principal claude-opus-5 246 218834 434
+90 principal claude-opus-5 1387 219080 118
+91 principal claude-opus-5 737 220467 1221
+92 principal claude-opus-5 1497 221204 316
+93 principal claude-opus-5 714 222701 1006
+94 principal claude-opus-5 1104 223415 89
+95 principal claude-opus-5 204 224519 96
+96 principal claude-opus-5 371 224723 1026
+97 principal claude-opus-5 1314 225094 847
+98 principal claude-opus-5 937 226408 179
+99 principal claude-opus-5 627 227345 97
+100 principal claude-opus-5 384 227972 82
 -->
 <!-- /cout -->
