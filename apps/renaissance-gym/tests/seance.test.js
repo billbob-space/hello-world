@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { chargerProgramme, objectif } from '../web/programme.js';
 import * as vueSeance from '../web/vue-seance.js';
 import * as etat from '../web/etat.js';
-import { seanceEstFaite } from '../web/domaine.js';
+import { seanceEstFaite, semaineCourante } from '../web/domaine.js';
 import { formater } from '../web/chrono.js';
 import { poserDocumentFactice, creerHote } from './dom-factice.js';
 
@@ -534,6 +534,108 @@ test('relancer un exercice déjà marqué fait le rejoue quand même (refaire es
     'Tenir 1 min (libellé trompeur)',
     'un exercice déjà fait doit quand même s’afficher quand il est visé exprès',
   );
+});
+
+// --- A21 : « Refaire une séance », depuis l'écran « ta semaine est bouclée » -
+
+test('rejeuDepuisHash lit « #/seance/<numero>/<semaine> », rend null sinon', () => {
+  assert.deepEqual(vueSeance.rejeuDepuisHash('#/seance/1/3'), { semaine: 3 });
+  assert.equal(vueSeance.rejeuDepuisHash('#/seance/1'), null, 'pas de semaine : pas un rejeu');
+  assert.equal(vueSeance.rejeuDepuisHash('#/seance/1/0'), null, 'semaine hors bornes');
+  assert.equal(vueSeance.rejeuDepuisHash('#/seance/1/9'), null, 'semaine hors bornes');
+  assert.equal(vueSeance.rejeuDepuisHash('#/seance/1/abc'), null);
+  assert.equal(vueSeance.rejeuDepuisHash(undefined), null);
+});
+
+test('numeroDepuisHash lit toujours le numéro sur une route de rejeu', () => {
+  assert.equal(vueSeance.numeroDepuisHash('#/seance/3/2'), 3);
+});
+
+test('la route de rejeu (deux segments) ne se confond JAMAIS avec la cible unique (trois ou quatre segments) — même si un identifiant d’exercice devenait un jour purement numérique', () => {
+  // « #/seance/3/2 » : deux segments après le numéro -> un rejeu, jamais une
+  // cible unique, faute de segment assez pour porter un exercice.
+  assert.deepEqual(vueSeance.rejeuDepuisHash('#/seance/3/2'), { semaine: 2 });
+  assert.equal(vueSeance.cibleUniqueDepuisHash('#/seance/3/2'), null, 'pas assez de segments pour une cible unique');
+
+  // « #/seance/3/42/2 » : un identifiant d’exercice PUREMENT NUMÉRIQUE
+  // (« 42 ») — exactement le cas que le PRD (A21) demande de couvrir « même
+  // si un identifiant d'exercice venait un jour à ne contenir que des
+  // chiffres ». Trois segments après le numéro : c’est une cible unique,
+  // jamais un rejeu, quel que soit le CONTENU du deuxième segment — seul son
+  // NOMBRE de segments compte.
+  assert.deepEqual(vueSeance.cibleUniqueDepuisHash('#/seance/3/42/2'), { exercice: '42', semaine: 2 });
+  assert.equal(vueSeance.rejeuDepuisHash('#/seance/3/42/2'), null, 'trop de segments pour un rejeu');
+});
+
+test('en mode rejeu, la séance entière se monte avec les objectifs de SA semaine, pas la semaine en cours', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/1/7' };
+  // La fiche « vit » en semaine 1 (semaineDeDepart, sans date de début) :
+  // sans la généralisation, l’objectif serait celui du premier palier.
+  vueSeance.monterSeance(hote, ctxAvec({ debut: null, semaineDeDepart: 1 }, progSynthetique));
+
+  assert.equal(hote.querySelectorAll('.nom-exercice').length, 1, 'le premier exercice de la séance, comme toujours');
+  const ex = progSynthetique.exercices.find((e) => e.id === 'e1');
+  const attenduSemaineDeLaCase = objectif(ex, 7).valeur;
+  assert.equal(
+    hote.querySelector('.decompte').textContent,
+    formater(attenduSemaineDeLaCase * 1000),
+    'objectif de la semaine 7 — celle du rejeu — pas la semaine 1 en cours',
+  );
+});
+
+test('rejouer une séance déjà entièrement faite montre quand même ses exercices (refaire est permis, §9.5) — pas un écran de fin immédiat', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/1/1' };
+  const faits = [
+    { seance: 1, semaine: 1, exercice: 'e1', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 1, semaine: 1, exercice: 'e2', a: '2026-08-01T09:00:00.000Z' },
+  ];
+  vueSeance.monterSeance(hote, ctxAvec({ faits, debut: null, semaineDeDepart: 1 }, progSynthetique));
+
+  assert.equal(hote.querySelectorAll('h1').length, 1, 'garde-fou : la file ne doit pas être vide dès l’entrée');
+  assert.equal(hote.querySelector('h1').textContent, 'x20 fois vite (libellé trompeur)', 'le premier exercice se montre, déjà validé ou non');
+});
+
+test('rejouer une séance depuis « #/seance/<numero>/<semaine> » ramène à l’écran du jour, jamais à la grille', () => {
+  const hote = creerHote();
+  globalThis.location = { hash: '#/seance/1/1' };
+  const faits = [
+    { seance: 1, semaine: 1, exercice: 'e1', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 1, semaine: 1, exercice: 'e2', a: '2026-08-01T09:00:00.000Z' },
+  ];
+  vueSeance.monterSeance(hote, ctxAvec({ faits, debut: null, semaineDeDepart: 1 }, progSynthetique));
+
+  boutonAvecTexte(hote, 'Sortir de la séance').declencher('click');
+  assert.equal(globalThis.location.hash, '#/jour', 'un rejeu revient toujours à l’écran du jour, d’où « Refaire une séance » est partie');
+});
+
+test('A21 : rejouer une séance déjà bouclée ne fait ni avancer ni reculer la semaine courante (PRD §9.5)', () => {
+  const hote = creerHote();
+  const faits = [
+    { seance: 1, semaine: 1, exercice: 'e1', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 1, semaine: 1, exercice: 'e2', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 1, semaine: 1, exercice: 'e3', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 2, semaine: 1, exercice: 'e1', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 3, semaine: 1, exercice: 'e1', a: '2026-08-01T09:00:00.000Z' },
+    { seance: 4, semaine: 1, exercice: 'e1', a: '2026-08-01T09:00:00.000Z' },
+  ];
+  assert.equal(semaineCourante(progFile, faits, 1), 2, 'garde-fou : la semaine 1 est bouclée, la courante est déjà 2');
+  // Les faits doivent vivre dans le magasin RÉEL, pas seulement dans le
+  // contexte de rendu : c'est `etat.js` (`ajouterFait`, appelé par
+  // `valider()`), et non `ctx.etat`, qui décide si un fait est un doublon.
+  etat.ecrireEtat({ faits, semaineDeDepart: 1 });
+
+  globalThis.location = { hash: '#/seance/1/1' };
+  vueSeance.monterSeance(hote, ctxAvec({ faits, semaineDeDepart: 1 }, progFile));
+  // Valide les trois exercices de la séance 1, tous déjà faits.
+  hote.querySelector('.bouton').declencher('click');
+  hote.querySelector('.bouton').declencher('click');
+  hote.querySelector('.bouton').declencher('click');
+
+  const apres = etat.lireEtat();
+  assert.deepEqual(apres.faits, faits, 'refaire ne compte pas double : aucun fait de plus (§9.5)');
+  assert.equal(semaineCourante(progFile, apres.faits, 1), 2, 'la semaine courante ne bouge pas, ni en avant ni en arrière');
 });
 
 test('en mode cible unique, la file d’un aparté n’écrase jamais la file partagée d’une séance en cours ailleurs', () => {
