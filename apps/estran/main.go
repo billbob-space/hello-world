@@ -8,6 +8,7 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -125,6 +126,13 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
+	maintenant := time.Now().In(parisTZ)
+	dateCible, err := parametreDate(r, maintenant)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	// 12s : chaque fournisseur fait deux appels sortants sequentiels
 	// (previsions+marine, ou extrema+niveaux) ; 8s s'est revele tangent en
 	// pratique sur une connexion qui demarre a froid.
@@ -140,12 +148,19 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repondreJSON(w, http.StatusOK, vuePrevisions(valeur, time.Now().In(parisTZ), frais))
+	repondreJSON(w, http.StatusOK, vuePrevisions(valeur, maintenant, frais, dateCible))
 }
 
 func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	if s.clientMaree.CleAPI == "" {
 		repondreJSON(w, http.StatusOK, ReponseMaree{Configure: false})
+		return
+	}
+
+	maintenant := time.Now().In(parisTZ)
+	dateCible, err := parametreDate(r, maintenant)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -164,7 +179,36 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repondreJSON(w, http.StatusOK, vueMaree(valeur, frais, siteMaree))
+	if dateCible == nil {
+		repondreJSON(w, http.StatusOK, vueMaree(valeur, frais, siteMaree))
+		return
+	}
+	repondreJSON(w, http.StatusOK, vueMareeJour(valeur, frais, siteMaree, *dateCible))
+}
+
+// parametreDate lit le parametre optionnel `date` (AAAA-MM-JJ, interprete en
+// Europe/Paris). Absent, il rend (nil, nil) : la reponse doit alors rester
+// celle d'aujourd'hui, a l'octet pres — c'est la contrainte principale de
+// prp/01-navigation-temporelle.md. Present mais illisible ou hors de la
+// fenetre de navigation (joursNavigationArriere/Avant jours de part et
+// d'autre d'aujourd'hui), il rend une erreur explicite : rendre la donnee
+// d'un autre jour serait pire que ne rien afficher.
+func parametreDate(r *http.Request, maintenant time.Time) (*time.Time, error) {
+	brut := r.URL.Query().Get("date")
+	if brut == "" {
+		return nil, nil
+	}
+	d, err := time.ParseInLocation("2006-01-02", brut, parisTZ)
+	if err != nil {
+		return nil, fmt.Errorf("date invalide : attendu AAAA-MM-JJ")
+	}
+	aujourdhui := debutDuJour(maintenant)
+	min := aujourdhui.AddDate(0, 0, -joursNavigationArriere)
+	max := aujourdhui.AddDate(0, 0, joursNavigationAvant)
+	if d.Before(min) || d.After(max) {
+		return nil, fmt.Errorf("date hors de la fenêtre couverte (%s a %s)", min.Format("2006-01-02"), max.Format("2006-01-02"))
+	}
+	return &d, nil
 }
 
 func repondreJSON(w http.ResponseWriter, statut int, v any) {
@@ -174,6 +218,15 @@ func repondreJSON(w http.ResponseWriter, statut int, v any) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		log.Printf("encodage JSON : %v", err)
 	}
+}
+
+// repondreErreur rend une erreur de requete (parametre `date` illisible ou
+// hors fenetre) : distincte des degradations de fournisseur ci-dessus, qui
+// restent en 200 avec un champ "erreur" (dernier connu servi malgre tout).
+// Ici il n'y a rien a servir : la donnee demandee n'existe pas ou n'a pas de
+// sens, jamais remplacee par celle d'un autre jour.
+func repondreErreur(w http.ResponseWriter, statut int, message string) {
+	repondreJSON(w, statut, map[string]string{"erreur": message})
 }
 
 // withVersion annonce la version deployee sur toutes les reponses : verifier

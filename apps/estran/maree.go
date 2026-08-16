@@ -43,6 +43,13 @@ type Maree struct {
 	// basse basse mer du jour. nil pour un jour sans extremum retourne par
 	// le fournisseur, jamais une valeur inventee.
 	Tendance []JourMaree
+	// Extrema porte la fenetre entiere recuperee aupres du fournisseur
+	// (aujourd'hui -joursNavigationArriere a +joursNavigationAvant jours,
+	// triee par heure croissante) : elle permet de decouper les extrema d'un
+	// jour choisi (navigation temporelle) sans appel HTTP supplementaire —
+	// « un seul appel sortant par fournisseur, quel que soit le jour
+	// demande » (prp/01-navigation-temporelle.md).
+	Extrema []Extremum
 }
 
 // JourMaree resume un jour pour la tendance a 7 jours. HauteM/BasseM/
@@ -107,12 +114,13 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 		return Maree{}, ErrCleAbsente
 	}
 
-	// Une seule requete d'extrema couvre les deux besoins : encadrer
-	// l'instant present pour la jauge (marge d'une journee avant, pour ne
-	// jamais manquer l'extremum encadrant pres de minuit) et couvrir la
-	// fenetre de tendance affichee (nombreJoursAffiches jours) sans appel
-	// HTTP supplementaire.
-	extrema, err := c.recupererExtrema(ctx, maintenant.AddDate(0, 0, -1), maintenant.AddDate(0, 0, nombreJoursAffiches))
+	// Une seule requete d'extrema couvre desormais trois besoins : encadrer
+	// l'instant present pour la jauge, couvrir la fenetre de tendance
+	// affichee (nombreJoursAffiches jours) et couvrir toute la fenetre de
+	// navigation temporelle (joursNavigationArriere/Avant jours de part et
+	// d'autre d'aujourd'hui) — sans appel HTTP supplementaire quel que soit
+	// le jour ensuite regarde (prp/01-navigation-temporelle.md).
+	extrema, err := c.recupererExtrema(ctx, maintenant.AddDate(0, 0, -joursNavigationArriere), maintenant.AddDate(0, 0, joursNavigationAvant))
 	if err != nil {
 		return Maree{}, fmt.Errorf("horaires de maree : %w", err)
 	}
@@ -146,6 +154,7 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 		PositionPct: position,
 		Sens:        sens,
 		Tendance:    grouperParJour(extrema, maintenant, nombreJoursAffiches),
+		Extrema:     extrema,
 	}, nil
 }
 
@@ -154,15 +163,15 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 // debut (heure locale). Un jour que le fournisseur n'a pas couvert reste a
 // nil sur ses trois champs plutot que de tomber a zero.
 func grouperParJour(extrema []Extremum, debut time.Time, nJours int) []JourMaree {
-	debutJour := time.Date(debut.Year(), debut.Month(), debut.Day(), 0, 0, 0, 0, debut.Location())
+	debutJ := debutDuJour(debut)
 
 	jours := make([]JourMaree, nJours)
 	for i := range jours {
-		jours[i].Date = debutJour.AddDate(0, 0, i)
+		jours[i].Date = debutJ.AddDate(0, 0, i)
 	}
 
 	for _, e := range extrema {
-		i := int(e.Heure.Sub(debutJour).Hours() / 24)
+		i := int(e.Heure.Sub(debutJ).Hours() / 24)
 		if i < 0 || i >= nJours {
 			continue
 		}
@@ -184,6 +193,24 @@ func grouperParJour(extrema []Extremum, debut time.Time, nJours int) []JourMaree
 		}
 	}
 	return jours
+}
+
+// extremaDuJour decoupe la fenetre complete d'extrema (recuperee en un seul
+// appel par RecupererA) pour ne garder que ceux du jour donne, triee par
+// heure croissante (deja le cas de la liste source). Un jour que le
+// fournisseur n'a pas couvert rend une liste vide, jamais une valeur
+// inventee (« degrader, jamais casser », PRODUCT.md principe 3).
+func extremaDuJour(extrema []Extremum, jour time.Time) []Extremum {
+	debut := debutDuJour(jour)
+	fin := debut.AddDate(0, 0, 1)
+	var du []Extremum
+	for _, e := range extrema {
+		if e.Heure.Before(debut) || !e.Heure.Before(fin) {
+			continue
+		}
+		du = append(du, e)
+	}
+	return du
 }
 
 func (c *ClientMaree) recupererExtrema(ctx context.Context, de, a time.Time) ([]Extremum, error) {

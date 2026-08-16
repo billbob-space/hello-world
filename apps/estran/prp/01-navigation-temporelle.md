@@ -43,12 +43,19 @@ et chacune de ses lignes devient un moyen d'y aller directement.
 
 | Source | Passé | Avenir |
 |---|---|---|
-| Open-Meteo (horaire, journalier) | `past_days=7` | `forecast_days=7` |
-| Open-Meteo Marine (vagues) | `past_days=7` | `forecast_days=7` |
+| Open-Meteo (horaire, journalier) | `past_days=7` | `forecast_days=8` |
+| Open-Meteo Marine (vagues) | `past_days=7` | `forecast_days=8` |
 | api-maree.fr (`/tide-extrema`) | `from` reculé de 7 jours | `to` avancé de 7 jours |
 
 `past_days` a été vérifié en direct le 2026-08-16 sur les deux API Open-Meteo,
 aux coordonnées du Touquet : la série horaire remonte bien de sept jours.
+
+**`forecast_days` vaut 8, pas 7, et c'est le seul chiffre piégeux du tableau** :
+Open-Meteo compte aujourd'hui dans sa fenêtre, si bien que `forecast_days=7`
+s'arrête à J+6 et laisse le dernier jour navigable sans météo alors que la
+marée, dont la fenêtre se déclare en dates, le couvre. La navigation aurait
+mené à un jour à moitié vide — pas cassé, mais faux. Vérifié en direct le
+2026-08-16 : `forecast_days=8` rend bien J0 à J+7 sur les deux API.
 
 La hauteur d'eau instantanée (`/water-levels`) n'est demandée **que pour
 aujourd'hui** : elle ne sert qu'à la jauge.

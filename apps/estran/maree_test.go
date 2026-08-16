@@ -44,6 +44,29 @@ func serveurMaree(t *testing.T) *httptest.Server {
 	return srv
 }
 
+// serveurMareeCaptureFenetre se comporte comme serveurMaree mais enregistre
+// les parametres `from`/`to` de la requete /tide-extrema recue, pour
+// verifier que RecupererA demande desormais toute la fenetre de navigation
+// (J-joursNavigationArriere a J+joursNavigationAvant) en un seul appel.
+func serveurMareeCaptureFenetre(t *testing.T) (*httptest.Server, *string, *string) {
+	t.Helper()
+	var from, to string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/tide-extrema", func(w http.ResponseWriter, r *http.Request) {
+		from = r.URL.Query().Get("from")
+		to = r.URL.Query().Get("to")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(extremaJSON))
+	})
+	mux.HandleFunc("/water-levels", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(niveauxJSON))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, &from, &to
+}
+
 func TestClientMaree_RecupererA_EncadreEtInterpole(t *testing.T) {
 	srv := serveurMaree(t)
 	c := &ClientMaree{
@@ -87,6 +110,60 @@ func TestClientMaree_RecupererA_EncadreEtInterpole(t *testing.T) {
 	}
 	if m.Tendance[0].HauteM == nil || *m.Tendance[0].HauteM != 6.9 {
 		t.Errorf("tendance jour 0 haute = %v, attendu 6.9", m.Tendance[0].HauteM)
+	}
+	if len(m.Extrema) != 3 {
+		t.Fatalf("Extrema = %d entree(s), attendu 3 (toute la fenetre recuperee)", len(m.Extrema))
+	}
+}
+
+// TestClientMaree_RecupererA_FenetreNavigation verifie que la requete
+// d'extrema couvre desormais J-joursNavigationArriere a J+joursNavigationAvant
+// en un seul appel (prp/01-navigation-temporelle.md), et pas seulement la
+// marge d'un jour + la tendance a 7 jours d'avant cette capacite.
+func TestClientMaree_RecupererA_FenetreNavigation(t *testing.T) {
+	srv, from, to := serveurMareeCaptureFenetre(t)
+	c := &ClientMaree{BaseURL: srv.URL, HTTP: srv.Client(), Site: "berck-plage-fort-mahon", CleAPI: "test-key"}
+	// L'heure choisie doit rester encadree par les extrema de la fixture
+	// (extremaJSON, le 9 aout) : seule la fenetre from/to demandee nous
+	// interesse ici, pas l'encadrement lui-meme (deja teste ailleurs).
+	maintenant := time.Date(2026, 8, 9, 15, 0, 0, 0, parisTZ)
+
+	if _, err := c.RecupererA(context.Background(), maintenant); err != nil {
+		t.Fatalf("RecupererA : %v", err)
+	}
+
+	attenduFrom := maintenant.AddDate(0, 0, -joursNavigationArriere).Format("2006-01-02")
+	attenduTo := maintenant.AddDate(0, 0, joursNavigationAvant).Format("2006-01-02")
+	if *from != attenduFrom {
+		t.Errorf("from = %q, attendu %q (J-%d)", *from, attenduFrom, joursNavigationArriere)
+	}
+	if *to != attenduTo {
+		t.Errorf("to = %q, attendu %q (J+%d)", *to, attenduTo, joursNavigationAvant)
+	}
+}
+
+func TestExtremaDuJour(t *testing.T) {
+	coef := 76
+	extrema := []Extremum{
+		{Type: "BM", Heure: time.Date(2026, 8, 15, 23, 0, 0, 0, parisTZ), HauteurM: 1.2},
+		{Type: "BM", Heure: time.Date(2026, 8, 16, 3, 10, 0, 0, parisTZ), HauteurM: 1.5},
+		{Type: "PM", Heure: time.Date(2026, 8, 16, 9, 20, 0, 0, parisTZ), HauteurM: 7.2, Coefficient: &coef},
+		{Type: "BM", Heure: time.Date(2026, 8, 17, 3, 40, 0, 0, parisTZ), HauteurM: 1.6},
+	}
+
+	du := extremaDuJour(extrema, time.Date(2026, 8, 16, 0, 0, 0, 0, parisTZ))
+	if len(du) != 2 {
+		t.Fatalf("extremaDuJour = %d entree(s), attendu 2", len(du))
+	}
+	if du[0].HauteurM != 1.5 || du[1].HauteurM != 7.2 {
+		t.Errorf("extremaDuJour = %+v, attendu les deux extrema du 16 dans l'ordre", du)
+	}
+
+	// Un jour sans aucun extremum rend une liste vide, jamais une valeur
+	// inventee.
+	vide := extremaDuJour(extrema, time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ))
+	if len(vide) != 0 {
+		t.Errorf("extremaDuJour(jour sans donnee) = %+v, attendu vide", vide)
 	}
 }
 

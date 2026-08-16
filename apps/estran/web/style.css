@@ -150,6 +150,96 @@ main {
   }
 }
 
+/* ---------- navigation entre les jours ---------- */
+/* Choisir le jour regarde (jusqu'a 7 jours en arriere, 7 en avant), ajout
+   sans mode d'emploi : deux fleches, un libelle, un retour a aujourd'hui
+   qui n'apparait que quand on s'en est eloigne (prp/01-navigation-
+   temporelle.md). */
+
+.nav-jour {
+  max-width: var(--largeur-contenu);
+  margin: var(--espace-4) auto 0;
+  padding: 0 var(--espace-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espace-3);
+}
+
+.nav-fleche {
+  appearance: none;
+  border: 1px solid rgba(244, 236, 216, 0.14);
+  background: var(--encre-700);
+  color: var(--sable-100);
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-fleche:hover:not(:disabled) {
+  background: var(--encre-600);
+}
+
+.nav-fleche:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.nav-jour-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espace-1);
+  min-width: 9rem;
+}
+
+.nav-jour-libelle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--sable-100);
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.nav-aujourdhui {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--eau-400);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.nav-aujourdhui[hidden] {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .nav-jour-libelle {
+    font-size: 1.2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .nav-jour {
+    margin-top: var(--espace-5);
+  }
+
+  .nav-jour-libelle {
+    font-size: 1.3rem;
+  }
+}
+
 /* ---------- en-tete ---------- */
 
 .entete {
@@ -332,12 +422,115 @@ main {
   text-align: center;
 }
 
+/* ---------- marees du jour (jour autre qu'aujourd'hui) ---------- */
+/* La jauge mesure un instant present : sur un autre jour, elle n'a pas de
+   sens et est remplacee par la liste des pleines/basses mers de ce jour
+   (prp/01-navigation-temporelle.md). Le teal reste celui des hauteurs
+   d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici. */
+.jauge-jour-titre {
+  margin: 0 0 var(--espace-3);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--sable-100);
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.jour-extrema-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+
+.jour-extremum {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espace-2);
+  padding: var(--espace-2) var(--espace-3);
+  border-radius: var(--rayon-petit);
+  background: var(--encre-800);
+}
+
+.jour-extremum-type {
+  flex: 1 1 auto;
+  font-weight: 700;
+  color: var(--eau-400);
+}
+
+.jour-extremum-heure {
+  color: var(--sable-200);
+  font-variant-numeric: tabular-nums;
+}
+
+.jour-extremum-hauteur {
+  min-width: 4.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.jour-extremum-coef {
+  color: var(--sable-300);
+  font-size: 0.92rem;
+}
+
+@media (min-width: 640px) {
+  .jauge-jour-titre {
+    font-size: 1.2rem;
+  }
+
+  .jour-extremum {
+    font-size: 1.1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .jauge-jour-titre {
+    font-size: 1.3rem;
+  }
+
+  .jour-extremum {
+    font-size: 1.15rem;
+  }
+}
+
 /* ---------- prevision a 5 heures ---------- */
 
 .heures-rangee {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: var(--espace-2);
+}
+
+/* Sur un jour autre qu'aujourd'hui, les 24 heures defilent horizontalement
+   plutot que de forcer 24 colonnes etroites (prp/01-navigation-temporelle.md).
+   Les tailles des cartes/textes restent celles deja posees ci-dessous : seule
+   la disposition change. */
+.heures-rangee--jour {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  gap: var(--espace-2);
+  padding-bottom: var(--espace-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.heures-rangee--jour .heure-carte {
+  flex: 0 0 auto;
+  width: 5.5rem;
+  scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+  .heures-rangee--jour .heure-carte {
+    width: 6.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .heures-rangee--jour .heure-carte {
+    width: 6.75rem;
+  }
 }
 
 .heure-carte {
@@ -413,13 +606,36 @@ main {
   border: 1px solid rgba(244, 236, 216, 0.06);
 }
 
+/* Chaque ligne de la tendance est un bouton (mene directement au jour
+   qu'elle decrit, prp/01-navigation-temporelle.md) : remise a plat des
+   styles par defaut d'un <button> pour garder l'apparence d'une ligne. */
 .jour-ligne {
+  display: block;
+  width: 100%;
+  appearance: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   padding: var(--espace-2) var(--espace-3);
   background: var(--encre-700);
 }
 
 .jour-ligne:nth-child(even) {
   background: var(--encre-800);
+}
+
+.jour-ligne:hover {
+  background: var(--encre-600);
+}
+
+/* Le jour regarde est mis en evidence dans la tendance (prp/01-navigation-
+   temporelle.md) : meme signal ambre que le marqueur de la jauge, jamais
+   confondu avec le teal reserve aux hauteurs de maree. */
+.jour-ligne--actif {
+  background: var(--encre-600);
+  box-shadow: inset 3px 0 0 var(--ambre-400);
 }
 
 .jour-principale {
