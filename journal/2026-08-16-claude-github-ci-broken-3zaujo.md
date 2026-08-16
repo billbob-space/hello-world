@@ -114,10 +114,42 @@ utile côté serveur, après bascule, est de renouveler le jeton d'API de
 `dockhand`, dont l'emplacement devient public même si sa valeur ne l'a jamais
 été.
 
+### 4. Le verrou de fusion exige un job qui n'existe plus depuis huit jours
+
+**Symptome** — la CI redevenue verte, la PR reste `mergeable_state: blocked`.
+La règle de branche de `main` exige deux checks : `contrat`, qui existe, et
+**`tests-du-generateur`, qui n'existe plus**. Le job porte le nom
+`tests-de-l-outillage` depuis le 8 août ; l'ancien nom ne survit que dans une
+entrée de journal du 4 août. Un check requis qui n'est jamais rapporté ne passe
+jamais : **toute** pull request est bloquée depuis huit jours, et les fusions de
+cette période sont donc passées en contournant la règle.
+
+**Cause** — le nom du job est la clé du verrou, et il a été renommé d'un côté
+sans l'être de l'autre. Rien ne pouvait le signaler : la règle vit dans les
+réglages GitHub, le job dans `.github/workflows/build.yml`, et aucun des deux
+ne lit l'autre. `--check` vérifie que le workflow existe et que son job
+`contrat` lance `./init.sh --check` ; il ne connaît pas les checks exigés.
+
+Le dommage n'est pas le blocage, qui se voit — c'est ce que le blocage
+**enseigne**. Une règle qu'on ne peut jamais satisfaire s'écarte à chaque
+fusion, et le geste d'écarter devient l'ordinaire ; le jour où `contrat` tombe
+pour de bonnes raisons, il s'écartera du même geste. Un verrou impossible à
+ouvrir ne protège rien : il apprend à passer par la fenêtre.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — le correctif est dans les réglages GitHub, hors du
+dépôt : remplacer `tests-du-generateur` par `tests-de-l-outillage` dans les
+checks requis du ruleset de `main`. Aucun garde-fou du dépôt ne peut rattraper
+cette classe d'écart, puisque la valeur à comparer n'est pas dans le dépôt —
+sauf à faire lire l'API des rulesets par `--check`, ce qui lui ferait dépendre
+du réseau et d'un jeton, prix qu'on ne paie pas pour un contrôle qui doit
+tourner partout et hors ligne.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 13:01 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 13:20 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -125,26 +157,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 14 739 | 0,07 $ |
-| Écriture de cache | 187 544 | 1,06 $ |
-| Lecture de cache | 5 578 783 | 2,75 $ |
-| Sortie | 36 157 | 0,90 $ |
-| **Total** | **5 817 223** | **4,79 $ — 4,16 €** |
+| Entrée | 14 869 | 0,07 $ |
+| Écriture de cache | 261 968 | 1,39 $ |
+| Lecture de cache | 12 559 963 | 6,18 $ |
+| Sortie | 53 797 | 1,34 $ |
+| **Total** | **12 890 597** | **8,99 $ — 7,81 €** |
 
 **Ce qui coûte**
 
-- **55 appel(s) au modèle** — un par réponse, outils compris —, dont 6 par des sous-agents — 91 553 jetons, 0,00 $.
+- **97 appel(s) au modèle** — un par réponse, outils compris —, dont 14 par des sous-agents — 238 610 jetons, 0,00 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 886 jetons, écrits une fois par session puis relus à chaque
-  échange : 2 922 528 jetons de relecture, 52 % de tout ce qui a été relu.
-- **Tours courts** — 19 des 55 tours (34 %) sortent
+  échange : 4 992 652 jetons de relecture, 39 % de tout ce qui a été relu.
+- **Tours courts** — 32 des 97 tours (32 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 1,36 $, soit 28 % de la facture.
+  une sortie de rien. Ils coûtent 2,78 $, soit 30 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 886 jetons relus au premier appel qui relise
-  quelque chose, 169 628 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 224 096 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 5817223 -->
+<!-- cout-total: 12890597 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60886 0 335
 2 principal claude-opus-5 4856 60886 298
@@ -195,11 +227,53 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 47 principal claude-opus-5 658 167322 1554
 48 principal claude-opus-5 1648 167980 1221
 49 principal claude-opus-5 1291 169628 160
-50 agent claude-haiku-4-5-20251001 11535 0 1
-51 agent claude-haiku-4-5-20251001 1428 11535 2
-52 agent claude-haiku-4-5-20251001 3069 12963 1
-53 agent claude-haiku-4-5-20251001 444 16032 2
-54 agent claude-haiku-4-5-20251001 620 16476 2
-55 agent claude-haiku-4-5-20251001 295 17096 2
+50 principal claude-opus-5 4287 170919 1026
+51 principal claude-opus-5 2110 175206 936
+52 principal claude-opus-5 13 178252 298
+53 principal claude-opus-5 318 178265 401
+54 principal claude-opus-5 593 178583 112
+55 principal claude-opus-5 236 179176 202
+56 principal claude-opus-5 1193 179412 623
+57 principal claude-opus-5 1183 180605 202
+58 principal claude-opus-5 2297 181788 778
+59 principal claude-opus-5 1295 184085 218
+60 principal claude-opus-5 276 185380 229
+61 principal claude-opus-5 309 185656 341
+62 principal claude-opus-5 16316 185965 811
+63 principal claude-opus-5 931 202281 298
+64 principal claude-opus-5 349 203510 318
+65 principal claude-opus-5 5930 203859 639
+66 principal claude-opus-5 937 209789 894
+67 principal claude-opus-5 1044 210726 581
+68 principal claude-opus-5 709 211770 118
+69 principal claude-opus-5 236 212479 263
+70 principal claude-opus-5 348 212978 654
+71 principal claude-opus-5 1060 213326 748
+72 principal claude-opus-5 12 215134 239
+73 principal claude-opus-5 1551 215146 133
+74 principal claude-opus-5 174 216697 1301
+75 principal claude-opus-5 1807 216871 189
+76 principal claude-opus-5 429 218678 384
+77 principal claude-opus-5 414 219107 504
+78 principal claude-opus-5 865 219521 1021
+79 principal claude-opus-5 1145 220386 664
+80 principal claude-opus-5 759 221531 443
+81 principal claude-opus-5 766 222290 790
+82 principal claude-opus-5 1040 223056 1112
+83 principal claude-opus-5 1182 224096 146
+84 agent claude-haiku-4-5-20251001 11535 0 1
+85 agent claude-haiku-4-5-20251001 1428 11535 2
+86 agent claude-haiku-4-5-20251001 3069 12963 1
+87 agent claude-haiku-4-5-20251001 444 16032 2
+88 agent claude-haiku-4-5-20251001 620 16476 2
+89 agent claude-haiku-4-5-20251001 295 17096 2
+90 agent claude-haiku-4-5-20251001 11680 0 5
+91 agent claude-haiku-4-5-20251001 1334 11680 2
+92 agent claude-haiku-4-5-20251001 4380 13014 2
+93 agent claude-haiku-4-5-20251001 533 17394 2
+94 agent claude-haiku-4-5-20251001 3113 17927 2
+95 agent claude-haiku-4-5-20251001 484 21040 4
+96 agent claude-haiku-4-5-20251001 554 21524 2
+97 agent claude-haiku-4-5-20251001 232 22078 5
 -->
 <!-- /cout -->
