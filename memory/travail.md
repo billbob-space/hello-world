@@ -172,6 +172,12 @@ de deux, et le resteront : le fichier de conversation qui permettrait de les
 recalculer n'existe plus. Ils se reconnaissent à l'absence de section « Ce qui
 coûte ». Ne les compare pas aux suivants.
 
+**Et les relevés antérieurs au 2026-08-16 sous-comptent les agents de workflow** :
+`cout.sh` ne descendait pas jusqu'à `subagents/workflows/<run>/`. Un sous-agent
+lancé par `Agent(...)` était bien compté, un agent lancé par un workflow pas du
+tout — la branche qui l'a trouvé annonçait 7,24 $ pour environ 35 $ réels.
+Irrécupérable pour le passé, corrigé pour la suite.
+
 | Ce qui est lu | Où | Pourquoi là |
 |---|---|---|
 | jetons consommés | fichier de conversation du conteneur | seule source, éphémère |

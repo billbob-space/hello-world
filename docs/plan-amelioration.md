@@ -607,10 +607,15 @@ Le reste du script suit sans retouche : la détection de sous-agent (ligne 145) 
 `test-cout.sh` sur le modèle des cas de sidechain existants, sans quoi le motif se reperdra.
 
 **La mesure.** Prise sur cette branche même, qui a lancé onze agents en workflow pour produire
-ce plan. Le relevé écrit dans l'entrée de journal annonce **7,24 $ et « aucun appel par des
-sous-agents »**. Les transcriptions des onze agents, lues directement, portent 48,4 M de
-lecture de cache, 2,6 M d'écriture et 21 k de sortie en `sonnet-5`, plus 1,2 M / 0,3 M en
-`opus-5` : **environ 27,4 $**. Le relevé rend donc **21 % du coût réel** de la branche.
+ce plan. Avant correctif, le relevé annonçait **7,24 $ et « aucun appel par des sous-agents »**.
+Après, sur la même branche : **21,99 $, dont 256 appels de sous-agents pour 10,41 $**. La
+moitié du coût était invisible.
+
+Ne mesure pas ces transcriptions à la main pour vérifier : les 642 lignes portant une facture
+ne correspondent qu'à 256 requêtes — une réponse occupe plusieurs lignes qui reportent toutes
+la même facture. Une somme naïve rend 27,4 $, soit 2,5 fois trop. Le groupement par
+`requestId` que fait `cout.sh` est la seule lecture juste, et c'est le piège dans lequel les
+huit premiers relevés du journal sont tombés.
 
 **Ce qu'on gagne.** Le chiffre sur lequel reposent le seuil de coupure (geste 1), le seuil
 bloquant (geste 14) et toute comparaison entre branches. Un plan qui recommande de déléguer

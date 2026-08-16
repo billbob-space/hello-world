@@ -105,11 +105,19 @@ de la fabrique dont on sait qu'il ne peut rien dire sur ce qui vient d'être
 ### 4. `cout.sh` ne voit pas les agents lancés par un workflow
 
 **Symptome** — cette branche a lancé onze agents pour produire le plan
-d'amélioration. Le relevé de coût ci-dessous, écrit par `cout.sh`, annonce
-7,24 $ et « aucun appel par des sous-agents ». Les transcriptions des onze
-agents, lues à la main, portent 48,4 M de lecture de cache, 2,6 M d'écriture et
-21 k de sortie en `sonnet-5`, plus 1,2 M / 0,3 M en `opus-5` : environ 27,4 $.
-**Le relevé rend 21 % du coût réel de la branche.**
+d'amélioration. Le relevé de coût écrit par `cout.sh` annonçait alors **7,24 $
+et « aucun appel par des sous-agents »**. Après correction, le même relevé sur
+la même branche rend **21,99 $, dont 256 appels de sous-agents pour 10,41 $** :
+la moitié du coût de la branche était invisible.
+
+**Une deuxième erreur, la mienne, dans le même geste.** J'ai d'abord mesuré ces
+agents à la main, en sommant les lignes de leurs transcriptions : 27,4 $. Faux,
+et d'un facteur 2,5 — les 642 lignes portant une facture ne correspondent qu'à
+**256 requêtes**, parce qu'une réponse occupe plusieurs lignes (la réflexion, le
+texte, chaque appel d'outil) et que chacune reporte la MÊME facture. C'est
+exactement le bug que `cout.sh` a corrigé le 2026-08-05 en groupant par
+`requestId`, et qui rend faux les huit premiers relevés du journal. Je l'ai
+refait à la main, dans le commit qui répare l'oubli symétrique.
 
 **Cause** — `cout.sh` ligne 73 découvre les transcriptions par
 `"$d"/*.jsonl "$d"/*/subagents/*.jsonl`. Un sous-agent lancé par l'outil `Task`
@@ -132,34 +140,34 @@ branches passées restent faux et ne se recalculent pas.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-16 à 10:02 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-16 à 10:29 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
-claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
+claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
 1 $ = 0,86843 € au 2026-08-04.
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 150 | 0,00 $ |
-| Écriture de cache | 218 954 | 1,37 $ |
-| Lecture de cache | 11 944 669 | 5,97 $ |
-| Sortie | 62 978 | 1,57 $ |
-| **Total** | **12 226 751** | **8,92 $ — 7,74 €** |
+| Entrée | 32 000 | 0,10 $ |
+| Écriture de cache | 1 255 265 | 5,65 $ |
+| Lecture de cache | 37 975 481 | 15,00 $ |
+| Sortie | 81 727 | 2,03 $ |
+| **Total** | **39 344 473** | **22,77 $ — 19,78 €** |
 
 **Ce qui coûte**
 
-- **79 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **359 appel(s) au modèle** — un par réponse, outils compris —, dont 256 par des sous-agents — 21 515 901 jetons, 10,41 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   60 960 jetons, écrits une fois par session puis relus à chaque
-  échange : 4 754 880 jetons de relecture, 39 % de tout ce qui a été relu.
-- **Tours courts** — 35 des 79 tours (44 %) sortent
+  échange : 6 217 920 jetons de relecture, 16 % de tout ce qui a été relu.
+- **Tours courts** — 301 des 359 tours (83 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 3,21 $, soit 35 % de la facture.
+  une sortie de rien. Ils coûtent 14,89 $, soit 65 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 60 960 jetons relus au premier appel qui relise
-  quelque chose, 219 254 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 256 907 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 12226751 -->
+<!-- cout-total: 39344473 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 60960 0 579
 2 principal claude-opus-5 4307 60960 392
@@ -240,5 +248,285 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 77 principal claude-opus-5 374 213678 1133
 78 principal claude-opus-5 5202 214052 596
 79 principal claude-opus-5 659 219254 401
+80 principal claude-opus-5 648 219913 1662
+81 principal claude-opus-5 1702 220561 640
+82 principal claude-opus-5 6349 222903 237
+83 principal claude-opus-5 1170 229252 205
+84 principal claude-opus-5 2224 230422 342
+85 principal claude-opus-5 395 232646 171
+86 principal claude-opus-5 234 233041 71
+87 principal claude-opus-5 34 233346 4037
+88 principal <synthetic> 0 0 0
+89 principal claude-opus-5 6346 233346 3004
+90 principal claude-opus-5 4131 239692 134
+91 principal claude-opus-5 2101 243823 855
+92 principal claude-opus-5 906 245924 93
+93 principal claude-opus-5 736 246830 939
+94 principal claude-opus-5 988 247566 93
+95 principal claude-opus-5 206 248554 380
+96 principal claude-opus-5 503 248760 208
+97 principal claude-opus-5 369 249263 417
+98 principal claude-opus-5 466 249632 124
+99 principal claude-opus-5 4225 250098 238
+100 principal claude-opus-5 466 254323 830
+101 principal claude-opus-5 854 254789 1191
+102 principal claude-opus-5 1264 255643 662
+103 principal claude-opus-5 716 256907 978
+104 agent claude-sonnet-5 19405 27616 5
+105 agent claude-sonnet-5 2535 47021 2
+106 agent claude-sonnet-5 2856 49556 2
+107 agent claude-sonnet-5 633 52412 3
+108 agent claude-sonnet-5 7548 53045 8
+109 agent claude-sonnet-5 599 60593 3
+110 agent claude-sonnet-5 192 61192 3
+111 agent claude-sonnet-5 2011 61384 2
+112 agent claude-sonnet-5 1088 63395 4
+113 agent claude-sonnet-5 1423 64483 5
+114 agent claude-sonnet-5 1742 65906 5
+115 agent claude-sonnet-5 894 67648 3
+116 agent claude-sonnet-5 3234 68542 7
+117 agent claude-sonnet-5 1277 71776 5
+118 agent claude-sonnet-5 2143 73053 8
+119 agent claude-sonnet-5 4271 75196 4
+120 agent claude-sonnet-5 3394 79467 9
+121 agent claude-sonnet-5 219 82861 3
+122 agent claude-sonnet-5 944 83080 6
+123 agent claude-sonnet-5 2267 84024 2
+124 agent claude-sonnet-5 478 86291 2
+125 agent claude-sonnet-5 1869 86769 2
+126 agent claude-sonnet-5 5697 88638 7
+127 agent claude-sonnet-5 3475 94335 3
+128 agent claude-sonnet-5 21733 27616 5
+129 agent claude-sonnet-5 1997 49349 2
+130 agent claude-sonnet-5 564 51346 3
+131 agent claude-sonnet-5 801 51910 2
+132 agent claude-sonnet-5 1901 52711 10
+133 agent claude-sonnet-5 1170 54612 6
+134 agent claude-sonnet-5 6258 55782 7
+135 agent claude-sonnet-5 2569 62040 2
+136 agent claude-sonnet-5 2096 64609 9
+137 agent claude-sonnet-5 2725 66705 6
+138 agent claude-sonnet-5 2753 69430 2
+139 agent claude-sonnet-5 848 72183 3
+140 agent claude-sonnet-5 1679 73031 8
+141 agent claude-sonnet-5 1666 74710 2
+142 agent claude-sonnet-5 2085 76376 2
+143 agent claude-sonnet-5 175 78461 5
+144 agent claude-sonnet-5 251 78636 3
+145 agent claude-sonnet-5 2007 78887 8
+146 agent claude-sonnet-5 3381 80894 8
+147 agent claude-sonnet-5 3418 84275 7
+148 agent claude-sonnet-5 2477 87693 7
+149 agent claude-sonnet-5 493 90170 3
+150 agent claude-sonnet-5 666 90663 3
+151 agent claude-sonnet-5 1281 91329 3
+152 agent claude-sonnet-5 2898 92610 7
+153 agent claude-sonnet-5 1538 95508 3
+154 agent claude-sonnet-5 3433 97046 2
+155 agent claude-sonnet-5 751 100479 2
+156 agent claude-sonnet-5 3404 101230 8
+157 agent claude-sonnet-5 322 104634 3
+158 agent claude-sonnet-5 419 104956 2
+159 agent claude-sonnet-5 15890 27927 5
+160 agent claude-sonnet-5 22940 43817 6
+161 agent claude-sonnet-5 492 66757 20
+162 agent claude-sonnet-5 1526 67249 2
+163 agent claude-sonnet-5 2328 68775 6
+164 agent claude-sonnet-5 2262 71103 3
+165 agent claude-sonnet-5 477 73365 17
+166 agent claude-sonnet-5 3358 73842 7
+167 agent claude-sonnet-5 1135 77200 4
+168 agent claude-sonnet-5 1447 78335 3
+169 agent claude-sonnet-5 236 79782 20
+170 agent claude-sonnet-5 372 80018 2
+171 agent claude-sonnet-5 1857 80390 3
+172 agent claude-sonnet-5 441 82247 6
+173 agent claude-sonnet-5 504 82688 20
+174 agent claude-sonnet-5 1063 83192 20
+175 agent claude-sonnet-5 231 84255 20
+176 agent claude-sonnet-5 931 84486 2
+177 agent claude-sonnet-5 339 85417 20
+178 agent claude-sonnet-5 254 85756 3
+179 agent claude-sonnet-5 411 86010 2
+180 agent claude-sonnet-5 1112 86421 6
+181 agent claude-sonnet-5 1164 87533 3
+182 agent claude-sonnet-5 3441 88697 3
+183 agent claude-sonnet-5 901 92138 2
+184 agent claude-sonnet-5 1953 93039 3
+185 agent claude-sonnet-5 9812 94992 2
+186 agent claude-sonnet-5 436 104804 20
+187 agent claude-sonnet-5 5391 105240 3
+188 agent claude-sonnet-5 3966 110631 4
+189 agent claude-sonnet-5 1659 114597 3
+190 agent claude-sonnet-5 1948 116256 4
+191 agent claude-sonnet-5 551 118204 2
+192 agent claude-sonnet-5 1207 118755 5
+193 agent claude-sonnet-5 9807 119962 3
+194 agent claude-sonnet-5 1245 129769 3
+195 agent claude-sonnet-5 1914 131014 3
+196 agent claude-sonnet-5 1519 132928 8
+197 agent claude-sonnet-5 3690 134447 3
+198 agent claude-sonnet-5 690 138137 2
+199 agent claude-sonnet-5 297 138827 2
+200 agent claude-sonnet-5 46768 0 5
+201 agent claude-sonnet-5 4762 46768 2
+202 agent claude-sonnet-5 7685 51530 6
+203 agent claude-sonnet-5 1695 59215 2
+204 agent claude-sonnet-5 2055 60910 6
+205 agent claude-sonnet-5 3385 62965 2
+206 agent claude-sonnet-5 799 66350 2
+207 agent claude-sonnet-5 3334 67149 2
+208 agent claude-sonnet-5 515 70483 8
+209 agent claude-sonnet-5 1090 70998 7
+210 agent claude-sonnet-5 2463 72088 2
+211 agent claude-sonnet-5 1335 74551 10
+212 agent claude-sonnet-5 1805 75886 8
+213 agent claude-sonnet-5 8098 77691 8
+214 agent claude-sonnet-5 1541 85789 2
+215 agent claude-sonnet-5 873 87330 5
+216 agent claude-sonnet-5 2516 88203 4
+217 agent claude-sonnet-5 4851 90719 8
+218 agent claude-sonnet-5 19479 27616 5
+219 agent claude-sonnet-5 3550 47095 2
+220 agent claude-sonnet-5 1593 50645 3
+221 agent claude-sonnet-5 1283 52238 2
+222 agent claude-sonnet-5 1087 53521 3
+223 agent claude-sonnet-5 1150 54608 6
+224 agent claude-sonnet-5 2953 55758 4
+225 agent claude-sonnet-5 596 58711 5
+226 agent claude-sonnet-5 881 59307 3
+227 agent claude-sonnet-5 1095 60188 3
+228 agent claude-sonnet-5 2642 61283 6
+229 agent claude-sonnet-5 1737 63925 3
+230 agent claude-sonnet-5 1698 65662 3
+231 agent claude-sonnet-5 1786 67360 9
+232 agent claude-sonnet-5 4780 69146 3
+233 agent claude-sonnet-5 2935 73926 5
+234 agent claude-sonnet-5 1226 76861 5
+235 agent claude-sonnet-5 2238 78087 3
+236 agent claude-sonnet-5 5624 80325 3
+237 agent claude-sonnet-5 2995 85949 3
+238 agent claude-sonnet-5 703 88944 8
+239 agent claude-sonnet-5 586 89647 4
+240 agent claude-sonnet-5 2539 90233 7
+241 agent claude-sonnet-5 1479 92772 3
+242 agent claude-sonnet-5 1212 94251 3
+243 agent claude-opus-5 76671 0 5
+244 agent claude-opus-5 8518 76671 5
+245 agent claude-opus-5 3729 85189 4
+246 agent claude-opus-5 1045 88918 3
+247 agent claude-opus-5 4510 89963 2
+248 agent claude-opus-5 3195 94473 3
+249 agent claude-opus-5 21763 97668 3
+250 agent claude-sonnet-5 19889 27616 4
+251 agent claude-sonnet-5 3944 47505 5
+252 agent claude-sonnet-5 1897 51449 2
+253 agent claude-sonnet-5 2051 53346 5
+254 agent claude-sonnet-5 443 55397 2
+255 agent claude-sonnet-5 5481 55840 3
+256 agent claude-sonnet-5 487 61321 7
+257 agent claude-sonnet-5 6930 61808 2
+258 agent claude-sonnet-5 844 68738 6
+259 agent claude-sonnet-5 1008 69582 4
+260 agent claude-sonnet-5 1264 70590 4
+261 agent claude-sonnet-5 733 71854 20
+262 agent claude-sonnet-5 887 72587 2
+263 agent claude-sonnet-5 658 73474 3
+264 agent claude-sonnet-5 194 74132 3
+265 agent claude-sonnet-5 212 74326 3
+266 agent claude-sonnet-5 1438 74538 3
+267 agent claude-sonnet-5 1286 75976 2
+268 agent claude-sonnet-5 1104 77262 2
+269 agent claude-sonnet-5 855 78366 3
+270 agent claude-sonnet-5 1153 79221 3
+271 agent claude-sonnet-5 1845 80374 2
+272 agent claude-sonnet-5 411 82219 20
+273 agent claude-sonnet-5 1246 82630 7
+274 agent claude-sonnet-5 2349 83876 6
+275 agent claude-sonnet-5 205 86225 9
+276 agent claude-sonnet-5 1256 86430 3
+277 agent claude-sonnet-5 748 87686 2
+278 agent claude-sonnet-5 2863 88434 5
+279 agent claude-sonnet-5 283 91297 7
+280 agent claude-sonnet-5 15770 27927 3
+281 agent claude-sonnet-5 5999 43697 4
+282 agent claude-sonnet-5 21487 49696 2
+283 agent claude-sonnet-5 3743 71183 3
+284 agent claude-sonnet-5 1066 74926 2
+285 agent claude-sonnet-5 4736 75992 6
+286 agent claude-sonnet-5 1941 80728 3
+287 agent claude-sonnet-5 3025 82669 3
+288 agent claude-sonnet-5 7430 85694 9
+289 agent claude-sonnet-5 8648 93124 3
+290 agent claude-sonnet-5 329 101772 2
+291 agent claude-sonnet-5 1630 102101 2
+292 agent claude-sonnet-5 15866 27927 3
+293 agent claude-sonnet-5 26225 43793 2
+294 agent claude-sonnet-5 6069 70018 3
+295 agent claude-sonnet-5 12449 76087 4
+296 agent claude-sonnet-5 2806 88536 8
+297 agent claude-sonnet-5 2489 91342 3
+298 agent claude-sonnet-5 1146 93831 2
+299 agent claude-sonnet-5 5598 94977 3
+300 agent claude-sonnet-5 2913 100575 7
+301 agent claude-sonnet-5 4079 103488 3
+302 agent claude-sonnet-5 1745 107567 2
+303 agent claude-sonnet-5 2296 109312 2
+304 agent claude-sonnet-5 4959 111608 2
+305 agent claude-sonnet-5 883 116567 2
+306 agent claude-sonnet-5 4104 117450 2
+307 agent claude-sonnet-5 3820 121554 8
+308 agent claude-sonnet-5 830 125374 3
+309 agent claude-sonnet-5 1553 126204 2
+310 agent claude-sonnet-5 1065 127757 2
+311 agent claude-sonnet-5 4625 128822 3
+312 agent claude-sonnet-5 2118 133447 2
+313 agent claude-sonnet-5 43686 0 5
+314 agent claude-sonnet-5 12642 43686 2
+315 agent claude-sonnet-5 21318 56328 9
+316 agent claude-sonnet-5 1192 77646 2
+317 agent claude-sonnet-5 3150 78838 3
+318 agent claude-sonnet-5 8028 81988 5
+319 agent claude-sonnet-5 11774 90016 3
+320 agent claude-sonnet-5 1116 101790 2
+321 agent claude-sonnet-5 5469 102906 3
+322 agent claude-sonnet-5 255 108375 2
+323 agent claude-sonnet-5 1323 108630 9
+324 agent claude-sonnet-5 6077 109953 3
+325 agent claude-sonnet-5 1999 116030 2
+326 agent claude-sonnet-5 4105 118029 8
+327 agent claude-sonnet-5 15819 27927 5
+328 agent claude-sonnet-5 12204 43746 2
+329 agent claude-sonnet-5 395 55950 3
+330 agent claude-sonnet-5 2019 56345 5
+331 agent claude-sonnet-5 456 58364 3
+332 agent claude-sonnet-5 537 58820 2
+333 agent claude-sonnet-5 11912 59357 6
+334 agent claude-sonnet-5 5009 71269 2
+335 agent claude-sonnet-5 691 76278 20
+336 agent claude-sonnet-5 2045 76969 3
+337 agent claude-sonnet-5 4892 79014 3
+338 agent claude-sonnet-5 269 83906 8
+339 agent claude-sonnet-5 1844 84175 5
+340 agent claude-sonnet-5 1021 86019 2
+341 agent claude-sonnet-5 931 87040 8
+342 agent claude-sonnet-5 3673 87971 3
+343 agent claude-sonnet-5 1072 91644 4
+344 agent claude-sonnet-5 294 92716 8
+345 agent claude-sonnet-5 1403 93010 3
+346 agent claude-sonnet-5 3228 94413 3
+347 agent claude-sonnet-5 4491 97641 3
+348 agent claude-sonnet-5 3022 102132 20
+349 agent claude-sonnet-5 728 105154 2
+350 agent claude-sonnet-5 539 105882 20
+351 agent claude-sonnet-5 776 106421 8
+352 agent claude-sonnet-5 973 107197 7
+353 agent claude-sonnet-5 2179 108170 3
+354 agent claude-sonnet-5 736 110349 3
+355 agent claude-sonnet-5 644 111085 3
+356 agent claude-sonnet-5 1558 111729 3
+357 agent claude-sonnet-5 852 113287 2
+358 agent claude-sonnet-5 530 114139 8
+359 agent claude-sonnet-5 998 114669 2
 -->
 <!-- /cout -->

@@ -68,9 +68,17 @@ cout_dir() {  # le repertoire des conversations de CE depot, ou vide
 # main le 8 aout 2026 en lancant l'artisan pour de vrai : le releve annoncait
 # toujours « aucun [tour] par des sous-agents » juste apres qu'un sous-agent
 # ait rendu son rapport, faute de regarder ce sous-repertoire.
+#
+# Un agent lance par un WORKFLOW ecrit un niveau plus bas encore :
+# <session>/subagents/workflows/<run>/agent-*.jsonl. Meme panne, meme cause,
+# trouve le 16 aout 2026 : une branche qui avait lance onze agents en workflow
+# annoncait 7,24 $ et « aucun sous-agent » pour environ 35 $ reels. Le motif
+# doit donc etre ecrit en toutes lettres — un glob ne descend pas tout seul, et
+# c'est le seul endroit du script a corriger : la detection de sous-agent teste
+# « /subagents/ » n'importe ou dans le chemin, et matche deja le plus profond.
 cout_fichiers() {
   local d="$1" f
-  for f in "$d"/*.jsonl "$d"/*/subagents/*.jsonl; do
+  for f in "$d"/*.jsonl "$d"/*/subagents/*.jsonl "$d"/*/subagents/workflows/*/agent-*.jsonl; do
     [ -e "$f" ] && printf '%s\n' "$f"
   done
 }
