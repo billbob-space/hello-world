@@ -169,6 +169,46 @@ for a in $touchees; do
   printf '%s\n' "$neufs" | sed 's/^/          /'
 done
 
+# Ce qui est fusionne sur main tourne-t-il en ligne ? La CI epingle dans
+# versions.yml le commit qui a construit chaque image, et le fait UNIQUEMENT
+# quand elle deploie. Une fusion dont le run est tombe — panne de runner le
+# 16 aout, quota epuise, job annule — ne laisse donc AUCUNE trace : main est
+# vert, la PR est fusionnee, et l'app tourne dans sa version d'avant. C'est
+# arrive a estran, qui a passe l'apres-midi en ligne sans sa navigation
+# temporelle, et rien dans le depot ne le disait.
+#
+# La comparaison est celle des ARBRES et non des commits : « apps/<nom> » a
+# l'epingle contre le meme repertoire sur origin/main. Un commit de fabrique
+# qui ne touche pas l'app ne la fait donc pas passer pour en retard, et deux
+# commits qui se rattrapent l'un l'autre non plus.
+#
+# Contre origin/main, jamais HEAD : le travail non fusionne de la branche
+# courante n'est PAS cense etre deploye, et le mesurer ferait avertir a chaque
+# commit de chaque branche — un avertissement toujours allume ne se lit plus.
+#
+# Ici et pas dans --check, pour une raison mecanique : --check tourne en CI sur
+# un clone superficiel, ou les commits epingles sont absents. pret.sh tourne en
+# local sur un depot complet. Quand l'historique manque quand meme, on se tait
+# plutot que d'annoncer un retard qu'on ne sait pas mesurer.
+retard=""
+if [ -f versions.yml ] && git rev-parse --verify -q "origin/$BASE" >/dev/null; then
+  for d in apps/*/; do
+    a="${d%/}"; a="${a#apps/}"
+    [ -f "apps/$a/app.yml" ] || continue
+    # Une app absente de versions.yml n'a pas encore d'image publiee : elle
+    # retombe sur le tag mutable « :main », il n'y a pas de retard a mesurer.
+    epingle=$(sed -nE "s/^$a:[[:space:]]*([0-9a-f]{7,})[[:space:]]*$/\1/p" versions.yml)
+    [ -n "$epingle" ] || continue
+    git cat-file -e "$epingle^{commit}" 2>/dev/null || continue
+    livre=$(git rev-parse -q --verify "$epingle:apps/$a" 2>/dev/null) || continue
+    fusionne=$(git rev-parse -q --verify "origin/$BASE:apps/$a" 2>/dev/null) || continue
+    if [ "$livre" != "$fusionne" ]; then retard="$retard $a"; fi
+  done
+fi
+if [ -n "$retard" ]; then
+  warn "livraison :$retard — fusionne sur $BASE, mais l'image en ligne est celle d'un commit anterieur. Relance le workflow build sur $BASE avec « toutes »"
+fi
+
 echo
 [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s) — ne committe pas en l'etat."; exit 1; }
 echo "Etape verifiee. Tu peux committer."
