@@ -415,6 +415,37 @@ FIN
 # controles d'emplacement ne lisaient que « git ls-files », donc rien tant que
 # le fichier n'etait pas indexe, alors que pret.sh tourne AVANT le commit.
 
+# Le refus 409 de renaissance-gym etait promis par trois documents et tenu par
+# aucun test. Un tableau qui NOMME son test rend la promesse verifiable ; encore
+# faut-il verifier que le nom cite existe.
+avertit "un test cite dans un tableau de risques mais absent est signale" "introuvable dans les tests" <<'FIN'
+printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le ciel tombe | On se baisse | `TestCielQuiTombe` |\n' >> apps/renaissance-gym/PRODUCT.md
+FIN
+
+# Et le pendant : un nom qui existe vraiment ne doit rien declencher, sans quoi
+# le garde-fou serait un bruit permanent.
+temoin_trace() {
+  local nom="un test cite qui existe vraiment ne declenche rien" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le volume est perdu | Sauvegarde | `TestFicheSurvitAuRedemarrage` |\n' >> "$d/apps/renaissance-gym/PRODUCT.md"
+  printf '\nfunc TestFicheSurvitAuRedemarrage(t *testing.T) {}\n' >> "$d/apps/renaissance-gym/api_test.go"
+  sortie=$(cd "$d" && ./init.sh --check 2>&1) || true
+  if printf '%s\n' "$sortie" | grep -q "introuvable dans les tests"; then
+    echec "$nom" "un test present a quand meme ete signale absent"
+  else
+    reussi "$nom"
+  fi
+}
+temoin_trace
+
+# La priorite CSS de [hidden] : trois occurrences dans le depot, dont deux dans
+# le meme fichier a une semaine d'intervalle. ramure porte deja la regle globale
+# et doit rester silencieuse — c'est ce que ce cas verifie en la retirant.
+avertit "une app qui ecrase hidden sans regle globale est signalee" "ramure] declare display sur une classe" <<'FIN'
+sed -i 's/^\[hidden\] { display: none !important; }//' apps/ramure/web/ramure.css
+FIN
+
 refuse "un document d'app egare sous docs/ est refuse meme non suivi" "son domicile est apps/" <<'FIN'
 printf '# Note\nUn document qui parle de renaissance-gym.\n' > docs/note-renaissance-gym.md
 FIN

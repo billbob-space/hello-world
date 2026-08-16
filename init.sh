@@ -2397,11 +2397,102 @@ check_applications() {
   echo
   echo "-- applications"
   for a in "${APPS[@]}"; do check_app_files "$a"; done
+  check_traces_risques
+  check_hidden
   check_volume_noms
   ok "noms de volumes distincts entre apps"
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.
+}
+
+# Un tableau de risques ou de cas d'echec PROMET qu'un test tient chaque ligne.
+# memory/produit.md impose une derniere colonne « Test » portant le nom exact du
+# test entre guillemets inverses. Ici on verifie que ce nom existe pour de vrai
+# dans les tests de l'app.
+#
+# Ce que ca aurait attrape : sur renaissance-gym, le refus « pseudonyme deja
+# pris » etait specifie dans le PRD §14, dans le PRP 03 ET dans le PRP 06, et
+# livre cote client sans le moindre test. Trois documents le promettaient, zero
+# ligne le tenait.
+#
+# La colonne d'en-tete sert de declencheur, et c'est ce qui rend le controle
+# sur : sans elle, n'importe quelle cellule entre guillemets inverses — une
+# valeur de app.yml, un nom de fichier — serait prise pour un test. Un tableau
+# sans colonne « Test » n'est donc pas juge ; c'est memory/produit.md qui
+# demande de l'ecrire, pas ce controle qui l'impose.
+check_traces_risques() {
+  local n f ligne cellule nom dans_table cites=0 manquants=0 tests
+  for d in apps/*/; do
+    [ -d "$d" ] || continue
+    n=${d#apps/}; n=${n%/}
+    tests=$(ls "$d"*_test.go "$d"tests/*.test.js 2>/dev/null || true)
+    for f in "$d"PRODUCT.md "$d"prp/*.md; do
+      [ -f "$f" ] || continue
+      dans_table=0
+      while IFS= read -r ligne; do
+        case "$ligne" in
+          '|'*'|') ;;
+          *) dans_table=0; continue ;;
+        esac
+        cellule=${ligne%|}; cellule=${cellule##*|}
+        cellule=${cellule#"${cellule%%[![:space:]]*}"}
+        cellule=${cellule%"${cellule##*[![:space:]]}"}
+        # L'en-tete arme la lecture ; la ligne de separation la laisse armee.
+        case "$cellule" in
+          Test|test) dans_table=1; continue ;;
+          -*|:*) continue ;;
+        esac
+        [ "$dans_table" = 1 ] || continue
+        case "$cellule" in '`'*'`') ;; *) continue ;; esac
+        nom=${cellule#\`}; nom=${nom%\`}
+        cites=$((cites+1))
+        if [ -z "$tests" ] || ! grep -qF -- "$nom" $tests 2>/dev/null; then
+          warn "[$n] $f cite le test « $nom » — introuvable dans les tests de l'app"
+          manquants=$((manquants+1))
+        fi
+      done < "$f"
+    done
+  done
+  [ "$cites" -gt 0 ] && [ "$manquants" -eq 0 ] \
+    && ok "$cites test(s) cite(s) dans un tableau de risques, tous presents"
+  return 0
+}
+
+# La priorite CSS de l'attribut « hidden » : une classe qui declare « display »
+# ecrase le « display: none » que le navigateur applique a [hidden], et
+# l'attribut cesse silencieusement de cacher quoi que ce soit. Trois occurrences
+# dans le depot — ramure le 3 aout, renaissance-gym deux fois le 14, dans le
+# meme fichier et pour la meme cause, la seconde n'ayant pas ete vue en
+# corrigeant la premiere. Le remede est UNE regle globale, pas un correctif
+# classe par classe.
+#
+# Le filtre sur l'usage reel en JS n'est pas decoratif : sans lui, six apps sur
+# dix seraient signalees a tort — un « aria-hidden » ou un « overflow: hidden »
+# n'a rien a voir avec ce defaut de priorite.
+check_hidden() {
+  local n js css expose=0
+  for d in apps/*/; do
+    [ -d "$d" ] || continue
+    n=${d#apps/}; n=${n%/}
+    [ -d "$d"web ] || continue
+    js=$(grep -rlE '\.hidden *= *(true|false)|setAttribute\( *.hidden.' "$d"web --include='*.js' 2>/dev/null || true)
+    [ -n "$js" ] || continue
+    css=$(ls "$d"web/*.css 2>/dev/null || true)
+    [ -n "$css" ] || continue
+    # Aplati : une regle CSS tient sur plusieurs lignes, et une recherche ligne
+    # a ligne ne verrait ni le selecteur ni sa propriete dans le meme motif.
+    plat=$(cat $css 2>/dev/null | tr '\n' ' ')
+    # La regle GLOBALE, et elle seule : « [hidden] » seul en tete de selecteur.
+    # « .bouton--discret[hidden] » est justement le correctif classe par classe
+    # qu'on veut signaler, pas celui qui eteint l'avertissement.
+    printf '%s' "$plat" | grep -qE '(^|[^A-Za-z0-9_.#)-])\[hidden\] *\{[^{}]*display *: *none *!important' && continue
+    printf '%s' "$plat" | grep -qE '\.[a-zA-Z0-9_-]+[^{};]*\{[^{}]*display *:' || continue
+    warn "[$n] declare display sur une classe sans regle globale [hidden]{display:none!important} — deja vu 3 fois ; le remede est une seule regle globale, pas un correctif classe par classe"
+    expose=$((expose+1))
+  done
+  [ "$expose" -eq 0 ] && ok "aucune app n'expose l'attribut hidden a un ecrasement de display"
+  return 0
 }
 
 check_fabrique() {
