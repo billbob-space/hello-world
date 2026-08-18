@@ -487,3 +487,28 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 343 agent claude-haiku-4-5-20251001 369 14772 4
 -->
 <!-- /cout -->
+
+### 6. Un rouge imaginaire sur une pull request, faute d'avoir distingue « annule » de « echoue »
+
+**Symptome** — la CI signale l'echec du controle `tests-de-l-outillage` sur la
+PR 147. Les quatre shards de la matrice sont pourtant vertes ou `cancelled`, et
+aucun test n'a echoue. Cause reelle : deux commits pousses a une minute
+d'intervalle, `cancel-in-progress` annule le premier run, et le job agregateur —
+ecrit avec `if: always()` — se reveille quand meme, lit `cancelled`, tombe dans sa
+branche par defaut et affiche un rouge.
+
+**Cause** — `always()` est trop large. On le voulait pour une raison juste : un
+controle requis qui reste muet bloque la PR au lieu de la refuser, donc
+l'agregateur doit se prononcer meme quand la matrice echoue. Mais « meme quand
+elle echoue » n'est pas « meme quand le run est annule » : dans ce second cas il
+n'y a rien a dire, et le dire quand meme decore la PR d'un echec qui n'existe
+pas. `!cancelled()` couvre exactement le besoin.
+
+Le raisonnement etait ecrit en toutes lettres au-dessus du job, et il etait juste
+sur les trois cas auxquels il pensait — vert, saute, rouge. Le quatrieme etat
+d'un job GitHub, `cancelled`, n'y figurait simplement pas.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — reparee ; l'oubli portait sur une valeur possible, pas sur
+une regle du contrat.

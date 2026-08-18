@@ -103,13 +103,17 @@ jobs:
   # controles de statut nommes. Ce job garde donc le nom historique, stable quoi
   # qu'il arrive a la matrice.
   #
-  # if: always() — sans lui, une shard rouge rendrait CE job « skipped », et un
-  # controle requis qui ne se prononce pas bloque la PR au lieu de la refuser.
-  # Il se prononce donc toujours : vert quand la matrice est verte OU sautee,
-  # rouge sinon. C'est la meme regle que celle qu'applique deploy plus bas.
+  # if: !cancelled() — et non « always() ». Sans condition du tout, une shard
+  # rouge rendrait CE job « skipped », et un controle requis qui ne se prononce
+  # pas bloque la PR au lieu de la refuser : il doit donc se prononcer meme quand
+  # la matrice echoue. Mais « always() » le fait se prononcer une fois de trop —
+  # sur un run ANNULE, ou il lisait « cancelled », tombait dans sa branche par
+  # defaut et affichait un rouge qui ne dit rien d'autre qu'« une poussee plus
+  # recente a pris la place ». Vu des le premier essai : deux commits a une
+  # minute d'intervalle, et une PR ornee d'un echec imaginaire.
   tests-de-l-outillage:
     needs: outillage
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
