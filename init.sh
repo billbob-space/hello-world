@@ -2309,6 +2309,46 @@ check_artefacts() {
     else
       ok "$WORKFLOW : aucune occurrence figee du registre, de l'org ou du depot"
     fi
+
+    # Un bloc `run:` peut etre parfaitement valide en YAML et casse en shell.
+    # Vu le 18 aout 2026 : un heredoc dont le delimiteur, indente par le bloc,
+    # n'etait jamais reconnu. Le YAML etait bon, --check vert, et la CI ne l'a
+    # dit qu'apres dix minutes de construction — l'etape morte avant sa
+    # premiere commande, neuf images publiees pour rien. Un analyseur YAML ne
+    # lit pas le shell qu'il transporte ; celui-ci le lit.
+    #
+    # Les blocs sont numerotes dans l'ordre du fichier plutot que nommes : le
+    # nom d'une etape vit sur une autre ligne que son `run:`, et un garde-fou
+    # qui se trompe de nom envoie chercher au mauvais endroit.
+    run_dir=$(mktemp -d)
+    awk -v d="$run_dir" '
+      /^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*[|>]/ {
+        n++; f = sprintf("%s/%03d.sh", d, n); marge = -1; dans = 1; next
+      }
+      dans && /^[[:space:]]*$/ { if (f != "") print "" >> f; next }
+      dans {
+        i = match($0, /[^ ]/)
+        if (marge < 0) marge = i
+        if (i < marge) { dans = 0; next }
+        print substr($0, marge) >> f
+        next
+      }
+    ' "$WORKFLOW"
+    run_casses=""
+    for run_f in "$run_dir"/*.sh; do
+      [ -e "$run_f" ] || continue
+      # Les expressions ${{ }} ne sont pas du shell : elles sont remplacees par
+      # une valeur inerte, sinon chaque bloc qui en porte une serait declare
+      # casse a tort.
+      sed 's/\${{[^}]*}}/X/g' "$run_f" > "$run_f.shell"
+      bash -n "$run_f.shell" 2>/dev/null || run_casses="$run_casses $(basename "$run_f" .sh)"
+    done
+    if [ -n "$run_casses" ]; then
+      bad "$WORKFLOW : bloc(s) run: invalides en shell —$run_casses (numerotes dans l'ordre du fichier) ; l'etape mourrait avant sa premiere commande"
+    else
+      ok "$WORKFLOW : chaque bloc run: passe bash -n"
+    fi
+    rm -rf "$run_dir"
   else
     bad "$WORKFLOW absent"
   fi
