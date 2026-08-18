@@ -36,6 +36,54 @@ trap 'rm -rf "$TEMP"' EXIT
 VERT=$'\033[32m' ROUGE=$'\033[31m' GRIS=$'\033[90m' NEUTRE=$'\033[0m'
 REUSSIS=0 ECHOUES=0
 
+# --- la campagne, jouee en parallele ---------------------------------------------
+#
+# Les cas sont independants par construction : chacun monte son propre bac sous
+# $TEMP et n'en sort pas. Les jouer en serie coutait 5 min 30 en CI — trente-six
+# fois un ./init.sh complet, l'un apres l'autre, sur une machine qui a quatre
+# coeurs. Mesure : ×3,1 a $(nproc), et sur-souscrire est contre-productif (huit
+# --check simultanes coutent plus du double de quatre).
+#
+# Chaque cas ecrit son rapport dans une FICHE numerotee au lieu de l'imprimer :
+# a quatre cas de front, les lignes s'entrelaceraient. Les fiches sont rejouees
+# dans l'ordre a la fin, si bien que la sortie est identique a celle d'avant, au
+# caractere pres — les titres de section prennent un numero eux aussi, sans quoi
+# ils sortiraient tous en tete.
+PAR=${PAR:-$(nproc 2>/dev/null || echo 4)}
+FICHES=$TEMP/fiches
+mkdir -p "$FICHES"
+IDX=0
+CAS=0
+FICHE=""
+
+# numero pose le nom de la prochaine fiche dans $NUM, et surtout ne l'IMPRIME
+# pas : « f=$(numero) » ferait tourner le compteur dans un sous-shell, ou
+# l'increment est perdu des le retour. Les trente-six cas ont ecrit dans la meme
+# fiche avant qu'on ne le voie, et la suite a rendu « 1 reussi, 0 echec » sans
+# qu'aucun cas n'ait echoue.
+NUM=""
+numero() { IDX=$((IDX+1)); NUM=$(printf '%s/%04d' "$FICHES" "$IDX"); }
+
+section() { numero; printf '\n-- %s\n' "$1" > "$NUM.out"; }
+
+# La porte : jamais plus de $PAR cas en vol. Le « || true » n'est pas
+# decoratif — sous set -e, un « wait -n » qui rapporte le code non nul d'un cas
+# rouge tuerait la campagne au milieu, et les cas suivants disparaitraient sans
+# qu'aucun total ne le signale.
+porte() { while [ "$(jobs -rp | wc -l)" -ge "$PAR" ]; do wait -n 2>/dev/null || true; done; }
+
+# detache <fonction> <args...> — joue un cas en tache de fond. Le sous-shell sort
+# toujours en 0 : le verdict ne voyage pas par le code de sortie mais par les
+# fichiers temoins .ok / .ko, que reussi() et echec() deposent. Un cas qui
+# mourrait sans deposer ni l'un ni l'autre n'apparaitrait nulle part — c'est
+# precisement ce que le controle d'integrite de la fin attrape.
+detache() {
+  local f
+  numero; f=$NUM; CAS=$((CAS+1))
+  porte
+  ( FICHE=$f; "$@" > "$f.out" 2>&1; exit 0 ) &
+}
+
 # --- le bac a sable --------------------------------------------------------------
 #
 # Copie du depot SUIVI PAR GIT, et de lui seul : « git ls-files » ignore les
@@ -72,11 +120,11 @@ bac() {  # bac — cree un bac a sable neuf et en imprime le chemin
 # Deux formes de refus, toutes deux retenues : une ligne « KO » de --check, et
 # le « ERREUR : » d'un manifeste si invalide que la lecture s'arrete avant.
 
-refuse() {  # refuse <nom> <motif attendu> — la mutation est lue sur l'entree standard
+refuse_corps() {  # refuse_corps <nom> <motif attendu> <mutation>
   local nom="$1" motif="$2" d sortie refus code=0
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  local mut="${3}"
   d=$(bac)
-  bash -c "cd '$d' && $(cat)" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
   refus=$(printf '%s\n' "$sortie" | grep -E 'KO|ERREUR' || true)
   if [ "$code" = 0 ]; then
@@ -91,6 +139,13 @@ refuse() {  # refuse <nom> <motif attendu> — la mutation est lue sur l'entree 
   fi
 }
 
+refuse() {
+  local nom="$1" mut
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  mut=$(cat)
+  detache refuse_corps "$1" "$2" "$mut"
+}
+
 # arrete <nom> <motif attendu> — le pendant de « refuse » pour le chemin
 # d'ECRITURE. « refuse » ne juge que --check, qui regarde un depot deja ecrit ;
 # les garde-fous de la generation, eux, doivent arreter AVANT d'ecrire. La
@@ -100,11 +155,11 @@ refuse() {  # refuse <nom> <motif attendu> — la mutation est lue sur l'entree 
 # Le cas exige donc les trois : sortie non nulle, motif dans le message, et
 # arbre de travail INTACT — c'est la troisieme qui distingue « il a refuse »
 # de « il a ecrit puis s'est plaint ».
-arrete() {  # arrete <nom> <motif attendu>
+arrete_corps() {  # arrete_corps <nom> <motif attendu> <mutation>
   local nom="$1" motif="$2" d sortie code=0 sale
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  local mut="${3}"
   d=$(bac)
-  sortie=$(bash -c "cd '$d' && $(cat)" 2>&1) || code=$?
+  sortie=$(bash -c "cd '$d' && $mut" 2>&1) || code=$?
   sale=$(git -C "$d" status --porcelain)
   if [ "$code" = 0 ]; then
     echec "$nom" "la commande a reussi — la valeur est passee"
@@ -119,16 +174,23 @@ arrete() {  # arrete <nom> <motif attendu>
   fi
 }
 
+arrete() {
+  local nom="$1" mut
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  mut=$(cat)
+  detache arrete_corps "$1" "$2" "$mut"
+}
+
 # genere <nom> <ligne attendue> — la mutation est un manifeste VALIDE ; on
 # regenere et on verifie que compose.yaml porte la ligne attendue. Les cas
 # « refuse » ne voient que ce que le script rejette ; celui-ci regarde ce qu'il
 # ECRIT, ou vivent les fautes qu'aucun refus n'attrape parce que le resultat
 # reste coherent avec lui-meme.
-genere() {  # genere <nom> <ligne attendue>
+genere_corps() {  # genere_corps <nom> <ligne attendue> <mutation>
   local nom="$1" attendu="$2" d code=0
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  local mut="${3}"
   d=$(bac)
-  bash -c "cd '$d' && $(cat)" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   ( cd "$d" && ./init.sh >/dev/null 2>&1 ) || code=$?
   if [ "$code" != 0 ]; then
     echec "$nom" "la generation a echoue (sortie $code) sur un manifeste pourtant valide"
@@ -140,17 +202,24 @@ genere() {  # genere <nom> <ligne attendue>
   fi
 }
 
+genere() {
+  local nom="$1" mut
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  mut=$(cat)
+  detache genere_corps "$1" "$2" "$mut"
+}
+
 # genere_dans <nom> <chemin> <ligne attendue> — comme genere, mais regarde un
 # artefact quelconque plutot que compose.yaml. La notice de contexte d'une
 # application est un artefact derive comme les autres, et ce qu'elle DIT est
 # precisement ce qu'aucun refus n'attrape : une notice coherente avec
 # elle-meme mais qui traduit mal un palier d'exposition passerait tous les
 # controles en trompant le seul lecteur qu'elle ait.
-genere_dans() {  # genere_dans <nom> <chemin> <ligne attendue>
+genere_dans_corps() {  # genere_dans_corps <nom> <chemin> <ligne attendue> <mutation>
   local nom="$1" chemin="$2" attendu="$3" d code=0
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  local mut="${4}"
   d=$(bac)
-  bash -c "cd '$d' && $(cat)" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   ( cd "$d" && ./init.sh >/dev/null 2>&1 ) || code=$?
   if [ "$code" != 0 ]; then
     echec "$nom" "la generation a echoue (sortie $code) sur un manifeste pourtant valide"
@@ -164,10 +233,16 @@ genere_dans() {  # genere_dans <nom> <chemin> <ligne attendue>
   fi
 }
 
-# accepte <nom> — le temoin : le bac intact doit passer le contrat.
-accepte() {  # accepte <nom>
-  local nom="$1" d sortie code=0
+genere_dans() {
+  local nom="$1" mut
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  mut=$(cat)
+  detache genere_dans_corps "$1" "$2" "$3" "$mut"
+}
+
+# accepte <nom> — le temoin : le bac intact doit passer le contrat.
+accepte_corps() {  # accepte_corps <nom>
+  local nom="$1" d sortie code=0
   d=$(bac)
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
   if [ "$code" = 0 ]; then
@@ -178,17 +253,23 @@ accepte() {  # accepte <nom>
   fi
 }
 
-reussi() { printf '  %sok%s    %s\n' "$VERT" "$NEUTRE" "$1"; REUSSIS=$((REUSSIS+1)); }
+accepte() {
+  local nom="$1"
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  detache accepte_corps "$nom"
+}
+
+reussi() { printf '  %sok%s    %s\n' "$VERT" "$NEUTRE" "$1"; : > "$FICHE.ok"; }
 echec()  { printf '  %sKO%s    %s\n        %s%s%s\n' "$ROUGE" "$NEUTRE" "$1" "$GRIS" "$2" "$NEUTRE"
-           ECHOUES=$((ECHOUES+1)); }
+           : > "$FICHE.ko"; }
 
 # --------------------------------------------------------------------------------
 
-printf '\n-- temoin\n'
+section 'temoin'
 
 accepte "un depot intact passe le contrat"
 
-printf '\n-- volumes\n'
+section 'volumes'
 
 # Le symptome serait « l'app demarre et perd tout » : Docker cree en root un
 # repertoire hote absent, l'app tourne en non-root et ne peut pas y ecrire.
@@ -225,7 +306,7 @@ genere 'une chaine vide EXPLICITEMENT citee dans command: est preservee' \
 printf 'services:\n  - name: cache\n    image: valkey/valkey:8-alpine\n    command: ["redis-server", "--save", ""]\n' >> apps/hello-world/app.yml
 FIN
 
-printf '\n-- secrets\n'
+section 'secrets'
 
 refuse "une valeur de secret en clair dans un app.yml est refusee" "secret" <<'FIN'
 printf 'password: hunter2\n' >> apps/hello-world/app.yml
@@ -241,7 +322,7 @@ refuse "une valeur dans env: est refusee" "env" <<'FIN'
 printf 'env:\n  - CLE=valeur\n' >> apps/hello-world/app.yml
 FIN
 
-printf '\n-- manifestes\n'
+section 'manifestes'
 
 refuse "un palier d'exposition inconnu est refuse" "exposure" <<'FIN'
 sed -i 's/^exposure: .*/exposure: ouvert-a-tous/' apps/hello-world/app.yml
@@ -255,7 +336,7 @@ refuse "un nom d'app qui n'est pas un label DNS est refuse" "nom" <<'FIN'
 mkdir -p apps/Mon_App && cp apps/hello-world/app.yml apps/Mon_App/app.yml
 FIN
 
-printf '\n-- artefacts derives\n'
+section 'artefacts derives'
 
 # Le cas le plus courant : on edite un app.yml et on oublie de relancer init.sh.
 # Sans ce controle, le compose committe cesse de decrire les manifestes.
@@ -267,7 +348,7 @@ refuse "un compose absent est refuse" "compose" <<'FIN'
 rm -f compose.yaml
 FIN
 
-printf '\n-- versions epinglees\n'
+section 'versions epinglees'
 
 # C'est ce qui rend le deploiement selectif : le tag de l'app livree change,
 # celui des autres non, et le serveur ne recree que ce conteneur-la. Une faute
@@ -308,7 +389,7 @@ genere "--pin ecrit la version et la reporte dans le compose" \
 ./init.sh --pin cadran=0123456789abcdef0123456789abcdef01234567 >/dev/null
 FIN
 
-printf '\n-- notice de contexte\n'
+section 'notice de contexte'
 
 # La notice n'existe que pour etre lue par un agent qui ne lira rien d'autre.
 # Ce qu'elle dit du palier d'exposition est donc la seule chose qui separera
@@ -347,7 +428,7 @@ refuse "une notice desynchronisee est refusee" "apps/cadran/CLAUDE.md desynchron
 printf '\nport: 1\n' >> apps/cadran/CLAUDE.md
 FIN
 
-printf '\n-- outillage\n'
+section 'outillage'
 
 # Le registre des agents est lu au DEMARRAGE de la session : un agent absent
 # du depot ne se remarque qu'a la session suivante, quand quelqu'un l'invoque
@@ -361,11 +442,11 @@ FIN
 # faute : --check doit sortir a ZERO et porter l'avertissement. Un tel controle
 # ne peut pas se tester avec « refuse », qui exige un code de sortie non nul, et
 # sans lui un avertissement peut disparaitre sans que rien ne bouge.
-avertit() {  # avertit <nom> <motif attendu>
+avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
   local nom="$1" motif="$2" d sortie code=0
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  local mut="${3}"
   d=$(bac)
-  bash -c "cd '$d' && $(cat)" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
   if [ "$code" != 0 ]; then
     echec "$nom" "--check a refuse (sortie $code) la ou il devait seulement avertir"
@@ -376,7 +457,14 @@ avertit() {  # avertit <nom> <motif attendu>
   fi
 }
 
-printf '\n-- journal\n'
+avertit() {
+  local nom="$1" mut
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  mut=$(cat)
+  detache avertit_corps "$1" "$2" "$mut"
+}
+
+section 'journal'
 
 # Huit entrees reelles portent deja un total sans detail ; la neuvieme prouve que
 # le compte suit, et qu'il ne s'agit pas d'un nombre ecrit en dur.
@@ -399,7 +487,7 @@ ENTREE
 git add -A
 FIN
 
-printf '\n-- documents\n'
+section 'documents'
 
 refuse "un lien mort entre documents est refuse" "lien mort" <<'FIN'
 printf '\nVoir [le neant](memory/nexistepas.md).\n' >> README.md
@@ -424,9 +512,8 @@ FIN
 
 # Et le pendant : un nom qui existe vraiment ne doit rien declencher, sans quoi
 # le garde-fou serait un bruit permanent.
-temoin_trace() {
+temoin_trace_corps() {
   local nom="un test cite qui existe vraiment ne declenche rien" d sortie
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
   d=$(bac)
   printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le volume est perdu | Sauvegarde | `TestFicheSurvitAuRedemarrage` |\n' >> "$d/apps/renaissance-gym/PRODUCT.md"
   printf '\nfunc TestFicheSurvitAuRedemarrage(t *testing.T) {}\n' >> "$d/apps/renaissance-gym/api_test.go"
@@ -436,6 +523,12 @@ temoin_trace() {
   else
     reussi "$nom"
   fi
+}
+
+temoin_trace() {
+  local nom="un test cite qui existe vraiment ne declenche rien"
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  detache temoin_trace_corps
 }
 temoin_trace
 
@@ -472,6 +565,26 @@ awk 'BEGIN{f=0} {print}
        f=1 }' .github/workflows/build.yml > w.tmp && mv w.tmp .github/workflows/build.yml
 FIN
 
+# Attendre TOUS les cas en vol, puis rejouer les fiches dans l'ordre : la sortie
+# est celle d'avant, au caractere pres.
+wait || true
+for f in "$FICHES"/[0-9]*.out; do [ -e "$f" ] && cat "$f"; done
+
+REUSSIS=$(find "$FICHES" -name '*.ok' | wc -l)
+ECHOUES=$(find "$FICHES" -name '*.ko' | wc -l)
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
+
+# Un cas qui meurt avant de rendre son verdict ne depose ni .ok ni .ko : il
+# DISPARAITRAIT du total, et une suite amputee ressemble trait pour trait a une
+# suite verte. On compte donc les cas lances, et on refuse que la somme des
+# verdicts s'en ecarte.
+rendus=$((REUSSIS + ECHOUES))
+if [ "$rendus" -ne "$CAS" ]; then
+  printf '  %sKO%s    %s cas lance(s), %s verdict(s) rendu(s) — %s cas se sont evanouis\n\n' \
+    "$ROUGE" "$NEUTRE" "$CAS" "$rendus" "$((CAS - rendus))"
+  exit 1
+fi
+
 [ "$ECHOUES" -eq 0 ]

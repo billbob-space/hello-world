@@ -84,3 +84,28 @@ montre la forme juste : son premier cas est un temoin qui compare un total a
 **Action** — `garde-fou` — il manque a `test-jetons.sh` un temoin chiffre sur le
 modele de celui de `test-cout.sh`. Hors du sujet de cette branche, qui optimise
 la duree de la CI et non la qualite de ses tests : signale, pas corrige ici.
+
+### 5. Une suite de tests qui perd trente-cinq cas sur trente-six et s'affiche verte
+
+**Symptome** — premiere version parallelisee de `test-init.sh` : « 1 reussi(s),
+0 echec(s) ». Aucun cas rouge, aucun message d'erreur, code de sortie 0. Trente-
+cinq cas sur trente-six avaient disparu sans laisser de trace.
+
+**Cause** — le compteur de fiches etait appele en substitution de commande,
+`f=$(numero)`, si bien que son `IDX=$((IDX+1))` tournait dans un sous-shell et
+etait perdu au retour. Les trente-six cas ont donc ecrit dans la meme fiche, et
+le decompte des verdicts a lu un seul temoin. Le meme piege — une affectation
+faite dans `$( )` ne survit pas — avait deja ete rencontre le meme jour sur le
+bac partage de `test-cout.sh` : deux fois dans une seule branche, sur deux
+fichiers sans rapport.
+
+Ce qui l'a attrape n'est pas une relecture mais un controle ecrit *avant* d'en
+avoir besoin, par simple mefiance envers le parallelisme : compter les cas
+lances, et refuser que la somme des verdicts s'en ecarte. Sans lui, une suite de
+tests vide serait entree dans la CI en s'affichant verte — et y serait restee,
+puisqu'une suite qui ne teste rien ne peut plus jamais devenir rouge.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — reparee, et le garde-fou qui l'a vue est dans le meme
+commit que le defaut qu'il a attrape.
