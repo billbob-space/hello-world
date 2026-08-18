@@ -78,20 +78,30 @@ bac() {  # bac — cree un bac a sable neuf et en imprime le chemin
   # apparaitrait dans « git status », matcherait le motif init\.sh$ de pret.sh
   # et ferait taire a tort l'avertissement « action garde-fou sans suite ». Les
   # deux derniers cas du fichier reposent sur ce point precis.
-  case "${CHECK:-doublure-rouge}" in
-    reel) : ;;  # le vrai binaire, pour garder un cas sur le chemin reel
-    doublure-verte)
-      printf '#!/bin/sh\n[ "$1" = --check ] || exit 0\necho "  ok    doublure"\nexit 0\n' > "$d/init.sh" ;;
-    *)
-      printf '#!/bin/sh\n[ "$1" = --check ] || exit 0\necho "  KO    doublure"\nexit 1\n' > "$d/init.sh" ;;
+  case "${CHECK:-rouge}" in
+    reel)  : ;;  # le vrai binaire, pour garder un cas sur le chemin reel
+    vert)  doublure_check "$d" ok 0 ;;
+    rouge) doublure_check "$d" KO 1 ;;
+    # Une valeur inconnue tombait dans la branche par defaut et rendait un bac
+    # rouge : le cas devenu muet aurait passe pour un cas qui passe.
+    *) printf 'test-pret.sh : CHECK inconnu « %s »\n' "${CHECK:-}" >&2; exit 1 ;;
   esac
-  chmod +x "$d/init.sh"
   git -C "$d" init -q -b main
   git -C "$d" add -A
   git -C "$d" -c user.email=test@local -c user.name=test commit -qm base
   git -C "$d" update-ref refs/remotes/origin/main main
   git -C "$d" checkout -q -b "$BRANCHE"
   printf '%s' "$d"
+}
+
+# doublure_check <bac> <verdict> <code> — pose le faux ./init.sh dont bac()
+# vient de parler : une ligne de verdict sur sa sortie, puis ce code de retour.
+# Il ne reagit qu'a --check et laisse passer tout autre usage en silence, comme
+# le vrai.
+doublure_check() {
+  printf '#!/bin/sh\n[ "$1" = --check ] || exit 0\necho "  %s    doublure"\nexit %s\n' \
+    "$2" "$3" > "$1/init.sh"
+  chmod +x "$1/init.sh"
 }
 
 # cas <nom> <attendu: avertit|silence> <committe: oui|non> — la situation est
@@ -232,9 +242,10 @@ FIN
 # ce qui rend ces deux cas possibles, et c'est la seconde raison de l'avoir.
 printf '\n-- le verdict du contrat\n'
 
-verdict() {  # verdict <nom> <CHECK=...> <motif attendu>
-  local nom=$1 quelle=$2 motif=$3 d sortie
-  d=$(CHECK="$quelle" bac)
+verdict() {  # verdict <nom> <doublure : vert|rouge> <motif attendu>
+  local nom=$1 doublure=$2 motif=$3 d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(CHECK="$doublure" bac)
   printf 'export const chrono = 1\n' > "$d/apps/$APP/web/chrono.js"
   sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
   if grep -q "$motif" <<< "$sortie"; then
@@ -244,8 +255,8 @@ verdict() {  # verdict <nom> <CHECK=...> <motif attendu>
   fi
 }
 
-verdict "contrat vert : pret.sh l'annonce" doublure-verte "contrat respecte"
-verdict "contrat rouge : pret.sh le dit et cite le KO" doublure-rouge "doublure"
+verdict "contrat vert : pret.sh l'annonce" vert "contrat respecte"
+verdict "contrat rouge : pret.sh le dit et cite le KO" rouge "doublure"
 
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"

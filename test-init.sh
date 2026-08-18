@@ -34,7 +34,6 @@ TEMP=$(mktemp -d)
 trap 'rm -rf "$TEMP"' EXIT
 
 VERT=$'\033[32m' ROUGE=$'\033[31m' GRIS=$'\033[90m' NEUTRE=$'\033[0m'
-REUSSIS=0 ECHOUES=0
 
 # --- la campagne, jouee en parallele ---------------------------------------------
 #
@@ -54,17 +53,20 @@ FICHES=$TEMP/fiches
 mkdir -p "$FICHES"
 IDX=0
 CAS=0
-FICHE=""
 
-# numero pose le nom de la prochaine fiche dans $NUM, et surtout ne l'IMPRIME
-# pas : « f=$(numero) » ferait tourner le compteur dans un sous-shell, ou
+# fiche pose le nom de la prochaine fiche dans $FICHE, et surtout ne l'IMPRIME
+# pas : « f=$(fiche) » ferait tourner le compteur dans un sous-shell, ou
 # l'increment est perdu des le retour. Les trente-six cas ont ecrit dans la meme
 # fiche avant qu'on ne le voie, et la suite a rendu « 1 reussi, 0 echec » sans
 # qu'aucun cas n'ait echoue.
-NUM=""
-numero() { IDX=$((IDX+1)); NUM=$(printf '%s/%04d' "$FICHES" "$IDX"); }
+#
+# $FICHE est aussi ce que lisent reussi() et echec() : un cas detache herite de
+# la valeur au moment du fork, et les tours suivants ne peuvent plus la lui
+# changer.
+FICHE=""
+fiche() { IDX=$((IDX+1)); FICHE=$(printf '%s/%04d' "$FICHES" "$IDX"); }
 
-section() { numero; printf '\n-- %s\n' "$1" > "$NUM.out"; }
+section() { fiche; printf '\n-- %s\n' "$1" > "$FICHE.out"; }
 
 # La porte : jamais plus de $PAR cas en vol. Le « || true » n'est pas
 # decoratif — sous set -e, un « wait -n » qui rapporte le code non nul d'un cas
@@ -72,16 +74,18 @@ section() { numero; printf '\n-- %s\n' "$1" > "$NUM.out"; }
 # qu'aucun total ne le signale.
 porte() { while [ "$(jobs -rp | wc -l)" -ge "$PAR" ]; do wait -n 2>/dev/null || true; done; }
 
-# detache <fonction> <args...> — joue un cas en tache de fond. Le sous-shell sort
+# detache <corps> <nom> <args...> — retient le cas si son nom porte le motif de
+# la ligne de commande, puis le joue en tache de fond. Le sous-shell sort
 # toujours en 0 : le verdict ne voyage pas par le code de sortie mais par les
 # fichiers temoins .ok / .ko, que reussi() et echec() deposent. Un cas qui
 # mourrait sans deposer ni l'un ni l'autre n'apparaitrait nulle part — c'est
 # precisement ce que le controle d'integrite de la fin attrape.
 detache() {
-  local f
-  numero; f=$NUM; CAS=$((CAS+1))
+  case "$2" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  fiche
+  CAS=$((CAS+1))
   porte
-  ( FICHE=$f; "$@" > "$f.out" 2>&1; exit 0 ) &
+  ( "$@" > "$FICHE.out" 2>&1; exit 0 ) &
 }
 
 # --- le bac a sable --------------------------------------------------------------
@@ -133,8 +137,7 @@ bac() {  # bac — cree un bac a sable neuf et en imprime le chemin
 # ferme le tuyau des qu'il a ses N lignes, et sous set -e la fonction mourrait au
 # milieu — sans rendre son verdict, donc en s'evanouissant du total.
 refuse_corps() {  # refuse_corps <nom> <motif attendu> <mutation>
-  local nom="$1" motif="$2" d sortie refus code=0
-  local mut="${3}"
+  local nom="$1" motif="$2" mut="$3" d sortie refus code=0
   d=$(bac)
   bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
@@ -151,12 +154,12 @@ refuse_corps() {  # refuse_corps <nom> <motif attendu> <mutation>
   fi
 }
 
-refuse() {
-  local nom="$1" mut
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  mut=$(cat)
-  detache refuse_corps "$1" "$2" "$mut"
-}
+# Les six verbes du fichier — refuse, arrete, genere, genere_dans, accepte,
+# avertit — ne font qu'une chose : avaler le heredoc du cas et confier le corps
+# a detache, qui filtre et met en tache de fond. La mutation voyage en ARGUMENT
+# et non par l'entree standard, parce que le corps tourne dans un sous-shell
+# detache, qui n'a plus le heredoc sous la main.
+refuse() { detache refuse_corps "$1" "$2" "$(cat)"; }
 
 # arrete <nom> <motif attendu> — le pendant de « refuse » pour le chemin
 # d'ECRITURE. « refuse » ne juge que --check, qui regarde un depot deja ecrit ;
@@ -168,8 +171,7 @@ refuse() {
 # arbre de travail INTACT — c'est la troisieme qui distingue « il a refuse »
 # de « il a ecrit puis s'est plaint ».
 arrete_corps() {  # arrete_corps <nom> <motif attendu> <mutation>
-  local nom="$1" motif="$2" d sortie code=0 sale
-  local mut="${3}"
+  local nom="$1" motif="$2" mut="$3" d sortie code=0 sale
   d=$(bac)
   sortie=$(bash -c "cd '$d' && $mut" 2>&1) || code=$?
   sale=$(git -C "$d" status --porcelain)
@@ -186,12 +188,7 @@ arrete_corps() {  # arrete_corps <nom> <motif attendu> <mutation>
   fi
 }
 
-arrete() {
-  local nom="$1" mut
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  mut=$(cat)
-  detache arrete_corps "$1" "$2" "$mut"
-}
+arrete() { detache arrete_corps "$1" "$2" "$(cat)"; }
 
 # genere <nom> <ligne attendue> — la mutation est un manifeste VALIDE ; on
 # regenere et on verifie que compose.yaml porte la ligne attendue. Les cas
@@ -199,8 +196,7 @@ arrete() {
 # ECRIT, ou vivent les fautes qu'aucun refus n'attrape parce que le resultat
 # reste coherent avec lui-meme.
 genere_corps() {  # genere_corps <nom> <ligne attendue> <mutation>
-  local nom="$1" attendu="$2" d code=0
-  local mut="${3}"
+  local nom="$1" attendu="$2" mut="$3" d code=0
   d=$(bac)
   bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   ( cd "$d" && ./init.sh >/dev/null 2>&1 ) || code=$?
@@ -214,12 +210,7 @@ genere_corps() {  # genere_corps <nom> <ligne attendue> <mutation>
   fi
 }
 
-genere() {
-  local nom="$1" mut
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  mut=$(cat)
-  detache genere_corps "$1" "$2" "$mut"
-}
+genere() { detache genere_corps "$1" "$2" "$(cat)"; }
 
 # genere_dans <nom> <chemin> <ligne attendue> — comme genere, mais regarde un
 # artefact quelconque plutot que compose.yaml. La notice de contexte d'une
@@ -228,8 +219,7 @@ genere() {
 # elle-meme mais qui traduit mal un palier d'exposition passerait tous les
 # controles en trompant le seul lecteur qu'elle ait.
 genere_dans_corps() {  # genere_dans_corps <nom> <chemin> <ligne attendue> <mutation>
-  local nom="$1" chemin="$2" attendu="$3" d code=0
-  local mut="${4}"
+  local nom="$1" chemin="$2" attendu="$3" mut="$4" d code=0
   d=$(bac)
   bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   ( cd "$d" && ./init.sh >/dev/null 2>&1 ) || code=$?
@@ -245,12 +235,7 @@ genere_dans_corps() {  # genere_dans_corps <nom> <chemin> <ligne attendue> <muta
   fi
 }
 
-genere_dans() {
-  local nom="$1" mut
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  mut=$(cat)
-  detache genere_dans_corps "$1" "$2" "$3" "$mut"
-}
+genere_dans() { detache genere_dans_corps "$1" "$2" "$3" "$(cat)"; }
 
 # accepte <nom> — le temoin : le bac intact doit passer le contrat.
 accepte_corps() {  # accepte_corps <nom>
@@ -265,11 +250,7 @@ accepte_corps() {  # accepte_corps <nom>
   fi
 }
 
-accepte() {
-  local nom="$1"
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  detache accepte_corps "$nom"
-}
+accepte() { detache accepte_corps "$1"; }
 
 reussi() { printf '  %sok%s    %s\n' "$VERT" "$NEUTRE" "$1"; : > "$FICHE.ok"; }
 echec()  { printf '  %sKO%s    %s\n        %s%s%s\n' "$ROUGE" "$NEUTRE" "$1" "$GRIS" "$2" "$NEUTRE"
@@ -455,8 +436,7 @@ FIN
 # ne peut pas se tester avec « refuse », qui exige un code de sortie non nul, et
 # sans lui un avertissement peut disparaitre sans que rien ne bouge.
 avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
-  local nom="$1" motif="$2" d sortie code=0
-  local mut="${3}"
+  local nom="$1" motif="$2" mut="$3" d sortie code=0
   d=$(bac)
   bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
@@ -469,12 +449,7 @@ avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
   fi
 }
 
-avertit() {
-  local nom="$1" mut
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  mut=$(cat)
-  detache avertit_corps "$1" "$2" "$mut"
-}
+avertit() { detache avertit_corps "$1" "$2" "$(cat)"; }
 
 section 'journal'
 
@@ -524,8 +499,8 @@ FIN
 
 # Et le pendant : un nom qui existe vraiment ne doit rien declencher, sans quoi
 # le garde-fou serait un bruit permanent.
-temoin_trace_corps() {
-  local nom="un test cite qui existe vraiment ne declenche rien" d sortie
+temoin_trace_corps() {  # temoin_trace_corps <nom>
+  local nom="$1" d sortie
   d=$(bac)
   printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le volume est perdu | Sauvegarde | `TestFicheSurvitAuRedemarrage` |\n' >> "$d/apps/renaissance-gym/PRODUCT.md"
   printf '\nfunc TestFicheSurvitAuRedemarrage(t *testing.T) {}\n' >> "$d/apps/renaissance-gym/api_test.go"
@@ -537,12 +512,7 @@ temoin_trace_corps() {
   fi
 }
 
-temoin_trace() {
-  local nom="un test cite qui existe vraiment ne declenche rien"
-  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  detache temoin_trace_corps
-}
-temoin_trace
+detache temoin_trace_corps "un test cite qui existe vraiment ne declenche rien"
 
 # La priorite CSS de [hidden] : trois occurrences dans le depot, dont deux dans
 # le meme fichier a une semaine d'intervalle. ramure porte deja la regle globale
@@ -564,6 +534,21 @@ FIN
 # apres le depouillage que YAML applique, et n'est jamais reconnu. Le cas
 # reproduit exactement cette forme — celle qui a coute une construction entiere
 # le 18 aout 2026, YAML valide et contrat vert.
+# Le plafond de duree : sans lui un job est au defaut GitHub de six heures, et
+# avec cancel-in-progress: false sur main il tient le groupe de concurrence tout
+# ce temps. Deux cas, parce que le balayage se fait a l'indentation et qu'il a
+# deja rate un job pour une virgule de mise en forme.
+refuse "un job de CI sans plafond de duree est refuse" "sans timeout-minutes" <<'FIN'
+sed -i '0,/^    timeout-minutes: /{/^    timeout-minutes: /d}' .github/workflows/build.yml
+FIN
+
+refuse "un job suivi d'un commentaire ne sort pas du balayage des plafonds" "sans timeout-minutes" <<'FIN'
+# le job garde son nom mais gagne un commentaire en fin de ligne, et perd son
+# plafond : s'il sortait du balayage, l'absence de plafond passerait inapercue.
+sed -i 's/^  build:$/  build:  # la matrice des images/' .github/workflows/build.yml
+sed -i '/^  build:  # la matrice des images$/,/^    strategy:$/{/^    timeout-minutes: /d}' .github/workflows/build.yml
+FIN
+
 refuse "un bloc run: invalide en shell est refuse" "invalides en shell" <<'FIN'
 awk 'BEGIN{f=0} {print}
      !f && /- run: \.\/init\.sh --check/ {

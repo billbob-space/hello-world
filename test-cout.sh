@@ -103,11 +103,16 @@ pose_agent() {
 # comptant ce que son voisin a laisse.
 #
 # Le bac est construit au niveau superieur, jamais paresseusement dans la
-# fonction : « d=$(bac_ls) » s'execute dans un SOUS-SHELL, ou une affectation
-# est perdue des le retour — chaque cas reconstruirait, et le gain serait nul
-# sans que rien ne le dise.
-BAC_LS=""
-bac_ls() { rm -rf "$BAC_LS/home"; printf '%s' "$BAC_LS"; }
+# fonction : « d=$(bac_partage) » s'execute dans un SOUS-SHELL, ou une
+# affectation est perdue des le retour — chaque cas reconstruirait, et le gain
+# serait nul sans que rien ne le dise.
+#
+# « :? » et non une valeur par defaut vide : $BAC_PARTAGE vide ferait de la
+# ligne suivante un « rm -rf /home ». Mieux vaut refuser bruyamment.
+bac_partage() {
+  rm -rf "${BAC_PARTAGE:?bac partage pas encore construit}/home"
+  printf '%s' "$BAC_PARTAGE"
+}
 
 releve() {  # releve <bac> — lance cout.sh en HOME detourne, rend sa sortie
   ( cd "$1" && HOME="$1/home" ./scripts/cout.sh --dry-run 2>&1 )
@@ -121,7 +126,7 @@ releve() {  # releve <bac> — lance cout.sh en HOME detourne, rend sa sortie
 total() {
   local nom="$1" attendu="$2" d sortie vu
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
   vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
@@ -140,7 +145,7 @@ total() {
 porte() {
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
   if grep -qF -- "$motif" <<< "$sortie"; then
@@ -152,7 +157,7 @@ porte() {
 
 # --------------------------------------------------------------------------------
 
-BAC_LS=$(bac)
+BAC_PARTAGE=$(bac)
 
 printf '\n-- le compte\n'
 
@@ -214,7 +219,7 @@ FIN
 sous_agent_fichier_total() {  # <nom> <attendu> — sous-agent dans son propre fichier
   local nom="$1" attendu="$2" d sortie vu
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
@@ -230,7 +235,7 @@ sous_agent_fichier_total "un sous-agent dans son propre fichier compte dans le t
 sous_agent_fichier_porte() {  # <nom> <motif>
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
@@ -260,7 +265,7 @@ pose_agent_workflow() {  # <bac> — la ou un agent de workflow ecrit vraiment
 agent_workflow_total() {  # <nom> <attendu>
   local nom="$1" attendu="$2" d sortie vu
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent_workflow "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
@@ -347,7 +352,7 @@ FIN
 tait() {
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue"; return 0; }
   if grep -qF -- "$motif" <<< "$sortie"; then
@@ -384,7 +389,7 @@ FIN
 code_rappel() {  # code_rappel <nom> <code attendu> — la conversation est lue sur l'entree standard
   local nom="$1" attendu="$2" d code=0
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac_ls)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   ( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel >/dev/null 2>&1 ) || code=$?
   if [ "$code" = "$attendu" ]; then

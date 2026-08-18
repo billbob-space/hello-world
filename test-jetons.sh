@@ -108,11 +108,16 @@ FIN
 # sur les tours courts, deux postes sans rapport qui valent le meme chiffre dans
 # ce bac. Sans ancre, chacun des deux cas se satisfaisait de la ligne de l'autre.
 porte() {
-  local nom="$1" ancre="$2" motif="$3" d sortie ligne
+  local nom="$1" ancre="$2" motif="$3" sortie ligne
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=${BAC:-$(bac)}
-  sortie=$( cd "$d" && ./scripts/jetons.sh 2>&1 ) || {
+  sortie=$( cd "$BAC" && ./scripts/jetons.sh 2>&1 ) || {
     echec "$nom" "jetons.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  # Deux gardes, pour deux facons de mourir en silence. « grep -m1 » plutot que
+  # « grep | head -1 » : c'est le producteur qui s'arrete, personne ne casse le
+  # tuyau de personne. Et « || true » parce que sous pipefail une ancre absente
+  # fait sortir grep en 1, et l'affectation emporterait la suite entiere sans un
+  # mot — or c'est justement le cas que la branche « aucune ligne ne porte
+  # l'ancre » est la pour nommer.
   ligne=$(grep -m1 -F -- "$ancre" <<< "$sortie" || true)
   if [ -z "$ligne" ]; then
     echec "$nom" "aucune ligne ne porte l'ancre « $ancre »"
@@ -125,7 +130,9 @@ porte() {
 
 # Le bac de ce fichier est IMMUABLE — bac() ne prend aucun argument et rend le
 # meme arbre a chaque appel — et jetons.sh ne fait que le lire. Les neuf cas le
-# reconstruisaient neuf fois pour rien.
+# reconstruisaient neuf fois pour rien. Construit ici, au niveau superieur, et
+# jamais dans porte() : une affectation faite dans un sous-shell est perdue des
+# le retour, et chaque cas reconstruirait sans que rien ne le dise.
 BAC=$(bac)
 
 printf '\n-- les chiffres\n'

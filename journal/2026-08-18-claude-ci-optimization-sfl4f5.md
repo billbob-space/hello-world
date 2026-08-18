@@ -676,3 +676,84 @@ facturees. Je l'aurais compte comme un gain de duree sans le mesurer par etape.
 **Action** — `comportement` — un rapport avant/apres nomme la METRIQUE avant les
 nombres, et deux mesures ne se divisent pas tant qu'on n'a pas dit qu'elles
 couvrent le meme perimetre.
+
+### 9. Un controle qui se taisait hors Linux, et un « saute » qui voulait dire deux choses
+
+**Symptome** — une relecture outillee du diff de la branche rend sept constats,
+tous verifies, dont quatre que je n'avais pas vus :
+
+1. `stat -c` est une extension GNU. Sur BSD ou macOS l'option s'ecrit `-f %z`, et
+   mon pre-filtrage par taille renvoyait l'erreur vers `/dev/null` puis passait au
+   suivant : TOUTES les tailles manquaient, aucune paire n'etait comparee, et le
+   controle des doublons rendait un « ok » definitif sans avoir rien regarde.
+2. L'agregateur lisait `skipped` comme « rien n'a bouge ». Or GitHub rapporte
+   AUSSI `skipped` quand la matrice est sautee parce que le job dont elle depend
+   a **echoue** : un controle requis passait au vert sur un run qui n'avait rien
+   verifie.
+3. L'inspection parallele des images jetait les codes de sortie de ses
+   sous-shells — elle le doit, sous `set -e` — sans verifier qu'ils avaient tous
+   rendu un verdict. Un sous-shell tue entre ses deux ecritures laissait passer
+   une image absente, dans l'etape meme qui empeche la stack entiere de tomber.
+4. `--max-time` borne CHAQUE tentative de `curl`, pas l'operation : a 300 s et
+   trois essais, le pire cas valait 1210 s, soit plus que le `timeout-minutes: 20`
+   que je venais de poser sur ce job. Le job aurait ete tue AVANT d'avoir pu dire
+   lequel des trois essais avait echoue.
+
+**Cause** — les quatre sont la meme faute sous quatre formes : j'ai verifie que
+mes changements font ce qu'ils annoncent, jamais qu'ils **echouent bruyamment
+quand ils ne le peuvent pas**. Un `2>/dev/null` suivi d'un `continue`, un `skipped`
+lu sans demander pourquoi, un `wait || true` sans decompte, un plafond pose sans
+regarder ce qu'il plafonne : a chaque fois le chemin nominal est correct et le
+chemin degrade se tait.
+
+C'est d'autant plus net que j'avais ecrit exactement ce garde-fou ailleurs — le
+decompte des cas de `test-init.sh`, qui m'a sauve d'une suite vide — sans penser
+a l'appliquer a l'inspection des images, qui en avait autant besoin.
+
+Corrige : `wc -c` (POSIX) au lieu de `stat -c` ; `detect` ajoute aux `needs` de
+l'agregateur, qui refuse desormais un `skipped` dont l'amont a echoue ; un
+decompte des verdicts d'images, mis en defaut expres — trois images, deux
+verdicts, sortie 1 ; `--max-time 120`, pire cas 370 s sous un plafond de 1200.
+
+Deux autres constats portaient sur des trous de couverture : le garde-fou des
+plafonds de duree n'avait aucun cas de test permanent, et son balayage se faisait
+a l'indentation — un job suivi d'un commentaire en fin de ligne en sortait sans
+bruit. Deux cas neufs, dont un qui echoue bien quand on retire l'elargissement.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — verifier qu'un changement marche ne suffit pas ; il
+faut le priver de ce dont il depend et regarder s'il crie ou s'il se tait.
+
+### 10. Le correctif de portabilite a casse le controle qu'il venait de sauver
+
+**Symptome** — le remplacement de `stat -c` par `wc -c`, fait pour que le controle
+des doublons cesse de se taire hors Linux, fait echouer `test-init.sh` :
+
+```
+KO    un agent declare mais absent est refuse
+      --check est sorti en 1 sans aucune ligne de refus
+```
+
+**Cause** — `git ls-files` liste les fichiers SUIVIS, y compris ceux qu'on vient
+de supprimer du disque sans committer — etat parfaitement normal en cours de
+travail, et exactement ce que fait ce cas de test (`rm -f
+.claude/agents/artisan.md`). `stat -c` renvoyait son erreur vers `/dev/null` ;
+`wc -c`, lui, echoue franchement, et sous `set -euo pipefail` il tue `--check` au
+milieu. Le controle ne disait plus ce qui n'allait pas : il **disparaissait**, en
+laissant un code 1 sans une seule ligne de refus.
+
+Ironie utile : je corrigeais un « se tait quand il ne peut pas travailler » et
+j'ai produit un « meurt sans dire pourquoi ». Les deux ont la meme racine — un
+chemin degrade auquel on n'a pas pense — et seul le second etait rattrapable par
+un test, parce qu'il fait du bruit.
+
+Corrige par un `[ -f "$autre" ] || continue` commente : un document supprime n'a
+rien a comparer, et sortir de la liste est le bon comportement, pas un
+contournement. Le cas passe, le doublon reste detecte, `--check` nomme a nouveau
+le fichier manquant.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — reparee avant d'etre committee ; la suite de tests a fait
+exactement son travail, sur un correctif ecrit en reponse a une relecture.

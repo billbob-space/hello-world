@@ -111,15 +111,27 @@ jobs:
   # defaut et affichait un rouge qui ne dit rien d'autre qu'« une poussee plus
   # recente a pris la place ». Vu des le premier essai : deux commits a une
   # minute d'intervalle, et une PR ornee d'un echec imaginaire.
+  #
+  # « detect » figure dans les needs, et pas seulement « outillage ». Sans lui,
+  # ce job lisait « skipped » et disait « rien n'a bouge » — or GitHub rapporte
+  # AUSSI « skipped » quand la matrice a ete sautee parce que le job dont elle
+  # depend a ECHOUE. Un controle requis passait donc au vert sur un run qui
+  # n'avait rien verifie, et qui ne pouvait pas savoir s'il aurait du. « Saute »
+  # ne veut dire « rien a faire » que si celui qui l'a decide a lui-meme abouti.
   tests-de-l-outillage:
-    needs: outillage
+    needs: [detect, outillage]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: verdict de la matrice outillage
         run: |
+          amont='${{ needs.detect.result }}'
           resultat='${{ needs.outillage.result }}'
+          if [ "$amont" != success ]; then
+            echo "  KO    detect : $amont — la matrice a ete sautee faute d'avoir su quoi lancer"
+            exit 1
+          fi
           case "$resultat" in
             success) echo "  ok    outillage : les quatre scripts sont verts" ;;
             skipped) echo "  ok    outillage : rien n'a bouge, matrice sautee" ;;
@@ -557,9 +569,27 @@ jobs:
           # || true : sous « set -e », un wait qui rapporte le code non nul d'un
           # sous-shell tuerait l'etape avant qu'elle ait dit QUELLE image manque.
           wait || true
+          # Trier, et non rendre les fiches dans l'ordre du glob : numerotees,
+          # elles sortiraient 1, 10, 11, 2. Le tri porte sur la ligne entiere,
+          # ce qui range par image ET remonte les KO en tete, ou on les cherche.
           cat "$rapport"/verdict.* | LC_ALL=C sort
           mapfile -t manquantes < <(cat "$rapport"/manquante.* 2>/dev/null || true)
+
+          # Compter les verdicts rendus, et pas seulement lire ceux qui sont la.
+          # Le « wait || true » ci-dessus jette les codes de sortie — il le doit,
+          # sous set -e — si bien qu'un sous-shell tue entre l'ecriture de son
+          # verdict et celle de sa fiche « manquante » laisserait passer une
+          # image absente. Or c'est l'etape qui empeche la stack entiere de
+          # tomber : elle doit avoir vu les $n images, pas « celles qui ont
+          # repondu ». Meme raisonnement que le decompte des cas de test-init.sh,
+          # et pour la meme raison — une verification amputee ressemble trait
+          # pour trait a une verification qui passe.
+          rendus=$(find "$rapport" -name 'verdict.*' | wc -l)
           rm -rf "$rapport"
+          if [ "$rendus" -ne "$n" ]; then
+            echo "::error::$n image(s) a inspecter, $rendus verdict(s) rendu(s) — l'inspection est incomplete, on ne deploie pas"
+            exit 1
+          fi
           if [ ${#manquantes[@]} -gt 0 ]; then
             printf '::error::image introuvable dans son registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
@@ -948,7 +978,12 @@ jobs:
           # jusqu'au plafond GitHub de six heures — et, avec
           # cancel-in-progress: false sur main, tenait le groupe de concurrence
           # tout ce temps : plus aucun deploiement de la fabrique.
-          code=$(curl -sS -o reponse.txt -w '%{http_code}' --max-time 300 --retry 3 --retry-delay 5 \
+          # --max-time borne CHAQUE tentative, pas l'operation : a 300 s et trois
+          # essais, le pire cas vaut 3x300 + 2x5 = 1210 s, soit plus que le
+          # timeout-minutes: 20 de ce job. Le job serait tue AVANT que cette
+          # etape ait pu dire lequel des trois essais a echoue et pourquoi. A
+          # 120 s le pire cas tombe a 370 s, largement sous le plafond.
+          code=$(curl -sS -o reponse.txt -w '%{http_code}' --max-time 120 --retry 3 --retry-delay 5 \
                    -X POST "$WEBHOOK" -H 'content-type: application/json' "$@" -d "$payload")
           echo "reponse HTTP $code :"
           cat reponse.txt; echo

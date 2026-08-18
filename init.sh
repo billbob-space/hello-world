@@ -2360,16 +2360,23 @@ check_artefacts() {
     #
     # Les jobs se lisent a l'indentation : deux espaces sous « jobs: », et rien
     # d'autre dans le fichier n'a cette forme. On lit les noms, puis on cherche
-    # un timeout-minutes avant le job suivant.
+    # un timeout-minutes avant le job suivant. Un job ne se solde donc qu'en
+    # atteignant le suivant, ou la fin du fichier — d'ou solde(), appele aux
+    # deux endroits.
+    # Le motif de job admet un commentaire de fin de ligne : sans cela,
+    # « build:  # la matrice » ne ressemblait plus a un job, sortait du balayage,
+    # et son absence de plafond passait inapercue. Un garde-fou qu'une
+    # coquetterie de mise en forme desarme ne garde rien.
+    #
+    # Le commentaire est ici et non dans le programme awk : celui-ci vit entre
+    # quotes simples, ou la moindre apostrophe francaise fermerait la chaine.
     sans_plafond=$(awk '
-      /^jobs:[[:space:]]*$/ { dans = 1; next }
-      dans && /^[^[:space:]#]/ { dans = 0 }
-      dans && /^  [a-zA-Z_][a-zA-Z0-9_-]*:[[:space:]]*$/ {
-        if (job != "" && !vu) print job
-        job = $0; sub(/^  /, "", job); sub(/:.*$/, "", job); vu = 0; next
-      }
-      dans && /^    timeout-minutes:/ { vu = 1 }
-      END { if (job != "" && !vu) print job }
+      function solde() { if (job != "" && !vu) print job }
+      /^jobs:[[:space:]]*$/                              { dans = 1; next }
+      dans && /^[^[:space:]#]/                           { dans = 0 }
+      dans && /^  [a-zA-Z_][a-zA-Z0-9_-]*:[[:space:]]*(#.*)?$/ { solde(); job = $1; sub(/:$/, "", job); vu = 0; next }
+      dans && /^    timeout-minutes:/                    { vu = 1 }
+      END                                                { solde() }
     ' "$WORKFLOW" | tr '\n' ' ' | sed 's/ $//')
     if [ -n "$sans_plafond" ]; then
       bad "$WORKFLOW : job(s) sans timeout-minutes — $sans_plafond ; au defaut de six heures, un job pendu tient le groupe de concurrence et bloque tout deploiement"
@@ -2663,7 +2670,7 @@ check_fabrique() {
   # apps peuvent legitimement partager un PRD a leur amorçage, ce n'est pas ce
   # qu'on detecte ici.
   #
-  # La comparaison reste octet a octet et le verdict ne change pas ; seules
+  # La comparaison reste octet a octet et le verdict ne change pas ; seuls
   # deux gaspillages disparaissent. La liste des .md etait rappelee A CHAQUE
   # canonique — deux « git ls-files » et un tri par tour de boucle — et « cmp »
   # etait forke sur CHAQUE paire : dix-neuf canoniques par soixante-dix-sept
@@ -2676,19 +2683,33 @@ check_fabrique() {
   evades=0
   autres_md=()
   while IFS= read -r autre; do
-    [ -n "$autre" ] || continue
-    case "$autre" in apps/*) continue ;; esac
+    case "$autre" in ''|apps/*) continue ;; esac
     autres_md+=("$autre")
   done < <(fichiers_md '*.md')
+  # « wc -c » et non « stat -c » : la seconde forme est une extension GNU, absente
+  # de BSD et de macOS ou l'option s'ecrit « -f %z ». Le premier jet l'utilisait
+  # en renvoyant son erreur vers /dev/null puis en passant au suivant : hors
+  # Linux, TOUTES les tailles manquaient, aucune paire n'etait comparee, et le
+  # controle rendait un « ok » definitif sans avoir rien regarde. Un garde-fou
+  # qui se tait quand il ne peut pas travailler est pire que pas de garde-fou.
+  # « wc -c » est POSIX, coute un fork par fichier — une centaine, contre les
+  # mille quatre cent soixante-trois « cmp » d'avant — et le gain reste entier.
   if [ ${#autres_md[@]} -gt 0 ]; then
     declare -A taille_md=()
-    while read -r taille nom; do taille_md["$nom"]=$taille; done \
-      < <(stat -c '%s %n' -- "${autres_md[@]}" 2>/dev/null)
+    for autre in "${autres_md[@]}"; do
+      # Suivi par git mais absent du disque : etat parfaitement normal en cours
+      # de travail — un document supprime et pas encore committe. Il n'a alors
+      # rien a comparer, et il sort de la liste. Sans ce test, « wc » echoue et
+      # « set -e » tue --check au milieu, sans une ligne de refus : le controle
+      # ne dirait plus ce qui ne va pas, il disparaitrait. Attrape par
+      # test-init.sh, dont un cas supprime justement un fichier suivi.
+      [ -f "$autre" ] || continue
+      taille_md["$autre"]=$(wc -c < "$autre")
+    done
     for canon in apps/*/PRODUCT.md apps/*/README.md; do
       [ -f "$canon" ] || continue
-      taille_canon=$(stat -c '%s' -- "$canon" 2>/dev/null) || continue
+      taille_canon=$(wc -c < "$canon")
       for autre in "${autres_md[@]}"; do
-        [ "$autre" = "$canon" ] && continue
         [ "${taille_md[$autre]-}" = "$taille_canon" ] || continue
         cmp -s "$canon" "$autre" \
           && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
