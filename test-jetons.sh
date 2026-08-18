@@ -98,7 +98,7 @@ FIN
 porte() {
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=${BAC:-$(bac)}
   sortie=$( cd "$d" && ./scripts/jetons.sh 2>&1 ) || {
     echec "$nom" "jetons.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
   if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
@@ -107,6 +107,11 @@ porte() {
     echec "$nom" "la sortie ne porte pas « $motif »"
   fi
 }
+
+# Le bac de ce fichier est IMMUABLE — bac() ne prend aucun argument et rend le
+# meme arbre a chaque appel — et jetons.sh ne fait que le lire. Les neuf cas le
+# reconstruisaient neuf fois pour rien.
+BAC=$(bac)
 
 printf '\n-- les chiffres\n'
 
