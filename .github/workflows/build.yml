@@ -548,12 +548,28 @@ jobs:
             # marge que ni le delimiteur ni Python n'acceptent — essaye et
             # constate le 18 aout 2026.
             brut=$(printf '%s' "$CLE" | tr -d '\r')
+            # Le secret accepte DEUX formes. La seconde, en base64 sur une
+            # seule ligne (`base64 -w0 cle-deploiement`), est la seule qu'un
+            # presse-papier ne puisse pas abimer : ni retour a la ligne a
+            # perdre, ni ligne a tronquer. On la reconnait a ce qu'elle ne
+            # porte aucun en-tete de cle et se decode en un texte qui, lui, en
+            # porte un — jamais a l'aveugle.
+            compact=$(printf '%s' "$brut" | tr -d '[:space:]')
+            case "$compact" in
+              *-----BEGIN*) ;;
+              *)
+                decodee=$(printf '%s' "$compact" | base64 -d 2>/dev/null || true)
+                case "$decodee" in
+                  -----BEGIN*) brut="$decodee" ;;
+                esac
+                ;;
+            esac
             if [ "$(printf '%s\n' "$brut" | wc -l)" -le 1 ]; then
               debut=$(printf '%s' "$brut" | grep -o -m1 -- '-----BEGIN [A-Z0-9 ]*-----' || true)
               fin=$(printf '%s' "$brut" | grep -o -m1 -- '-----END [A-Z0-9 ]*-----' || true)
               corps=$(printf '%s' "$brut" | sed -e "s|.*${debut}||" -e "s|${fin}.*||" | tr -d '[:space:]')
               if [ -z "$debut" ] || [ -z "$fin" ] || [ -z "$corps" ]; then
-                echo "::error::secret DEPLOIEMENT_SSH_KEY : cle privee incomplete — recopie-la de la ligne BEGIN a la ligne END incluses"
+                echo "::error::secret DEPLOIEMENT_SSH_KEY : cle privee incomplete — recopie-la de la ligne BEGIN a la ligne END incluses, ou colle la sortie de « base64 -w0 cle-deploiement »"
                 exit 1
               fi
               # Les espaces du corps sont retires AVANT le repliage : les garder
@@ -568,7 +584,7 @@ jobs:
             # le probleme est la forme du secret. Seule l'empreinte publique est
             # affichee — elle se compare a celle listee dans Deploy keys.
             if ! ssh-keygen -y -f ~/.ssh/deploiement > /dev/null 2>&1; then
-              echo "::error::secret DEPLOIEMENT_SSH_KEY : cle refusee par openssh apres remise en forme — regenere la paire et recolle-la"
+              echo "::error::secret DEPLOIEMENT_SSH_KEY : cle refusee par openssh — le secret n'est pas une cle privee entiere (copie tronquee ?). Recolle la sortie de « base64 -w0 cle-deploiement », insensible aux retours a la ligne"
               exit 1
             fi
             echo "cle de deploiement chargee — empreinte $(ssh-keygen -l -f ~/.ssh/deploiement | cut -d' ' -f2)"
