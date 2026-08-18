@@ -538,8 +538,38 @@ jobs:
           # dit alors exactement quoi poser.
           if [ -n "${CLE:-}" ]; then
             mkdir -p ~/.ssh && chmod 700 ~/.ssh
-            printf '%s\n' "$CLE" > ~/.ssh/deploiement
+            # Une cle privee collee dans un secret perd souvent sa forme : des
+            # retours chariot Windows, ou un corps replie sur UNE seule ligne
+            # par un presse-papier — un telephone le fait sans prevenir. openssh
+            # refuse alors la cle avec « error in libcrypto », message qui ne
+            # dit ni quoi ni ou, puis git accuse les droits d'acces. On la
+            # remet en forme avant de s'en servir. Le script est ecrit sans
+            # indentation propre (sed la retire) : un bloc YAML impose une marge
+            # que Python refuserait.
+            sed 's/^[[:space:]]*//' <<'NORMALISER' > "$RUNNER_TEMP/normaliser.py"
+            import os, re, sys
+            brut = os.environ["CLE"].replace("\r", "").strip()
+            m = re.match(r"^(-----BEGIN [A-Z0-9 ]+-----)(.*?)(-----END [A-Z0-9 ]+-----)$", brut, re.S)
+            if not m: sys.exit("ni en-tete ni pied de cle privee reconnus")
+            debut, corps, fin = m.group(1), m.group(2).strip(), m.group(3)
+            nu = re.sub(r"\s+", "", corps)
+            corps = corps if "\n" in corps else "\n".join(nu[i:i + 70] for i in range(0, len(nu), 70))
+            sys.stdout.write(debut + "\n" + corps + "\n" + fin + "\n")
+            NORMALISER
+            if ! CLE="$CLE" python3 "$RUNNER_TEMP/normaliser.py" > ~/.ssh/deploiement; then
+              echo "::error::secret DEPLOIEMENT_SSH_KEY illisible — recopie la cle privee ENTIERE, de la ligne BEGIN a la ligne END incluses"
+              exit 1
+            fi
             chmod 600 ~/.ssh/deploiement
+            # Verifier la cle AVANT de pousser : sinon son defaut se lit dans un
+            # « Permission denied (publickey) », qui accuse les droits alors que
+            # le probleme est la forme du secret. Seule l'empreinte publique est
+            # affichee — elle se compare a celle listee dans Deploy keys.
+            if ! ssh-keygen -y -f ~/.ssh/deploiement > /dev/null 2>&1; then
+              echo "::error::secret DEPLOIEMENT_SSH_KEY : cle refusee par openssh apres remise en forme — regenere la paire et recolle-la"
+              exit 1
+            fi
+            echo "cle de deploiement chargee — empreinte $(ssh-keygen -l -f ~/.ssh/deploiement | cut -d' ' -f2)"
             # La cle d'hote est epinglee par ssh-keyscan plutot que par
             # StrictHostKeyChecking=no : accepter n'importe quel hote sur un
             # runner jetable n'aurait rien verifie du tout.
