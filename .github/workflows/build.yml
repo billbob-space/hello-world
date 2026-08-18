@@ -35,6 +35,7 @@ jobs:
   # stack partagee, un compose faux fusionne casse toutes les apps a la fois.
   contrat:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - run: ./init.sh --check
@@ -49,38 +50,81 @@ jobs:
   # trait a un total juste, et le sien l'etait d'un facteur deux pendant huit
   # entrees de journal sans que rien ne l'attrape.
   #
-  # C'EST LE JOB LE PLUS LONG DE LA CHAINE — 3 min 20 mesurees, dont 1 min 56
-  # pour le seul test-init.sh, contre 10 s au job contrat. Deux choses le
-  # tiennent desormais a l'ecart du chemin critique :
+  # C'ETAIT LE CHEMIN CRITIQUE DE TOUTE LA CHAINE — 8 min 12 mesurees sur le run
+  # 32162296876, quand tout le reste etait pret a 2 min 15. Les quatre scripts y
+  # etaient joues EN SEQUENCE alors qu'ils sont independants : chacun recopie le
+  # depot dans son propre repertoire temporaire et ne lit rien de ce qu'un autre
+  # ecrit. En matrice, le job vaut desormais son script le plus long au lieu de
+  # leur somme.
+  #
+  # Trois choses le tiennent a l'ecart du chemin critique :
   #   - il ne tourne que si l'outillage a bouge (voir detect.outputs.outillage),
   #     ce qui l'ecarte de 16 fusions sur 20 mesurees sur main ;
   #   - test et build ne l'attendent plus. Il ne teste PAS les applications :
   #     rien de ce qu'il dit ne peut invalider une image. Seul deploy l'attend,
   #     et pour une raison precise : il valide init.sh --check, dont le job
   #     contrat n'est que l'execution. Mettre en ligne sur la foi d'un verrou
-  #     dont on n'a pas verifie le mecanisme, c'est n'avoir aucun verrou.
-  tests-de-l-outillage:
+  #     dont on n'a pas verifie le mecanisme, c'est n'avoir aucun verrou ;
+  #   - ses quatre scripts tournent en parallele.
+  #
+  # fail-fast: false — on veut les quatre verdicts, pas le premier. Une shard
+  # annulee rendrait le job rouge et bloquerait deploy de toute facon, mais sans
+  # dire ce qui va mal ailleurs.
+  outillage:
     needs: detect
     if: needs.detect.outputs.outillage == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # test-init.sh   : le plus long des quatre, et le seul que deploy attende
+        #                  legitimement — voir plus haut.
+        # test-cout.sh   : cout.sh ne casse rien quand il se trompe, il ment.
+        # test-pret.sh   : son garde-fou « le PRD suit-il ? » est le seul de la
+        #                  fabrique a reposer sur une heuristique. Trop bavarde
+        #                  on l'ignore, muette on ne la voit pas — les deux
+        #                  derives passent la relecture, aucune ne passe ses huit
+        #                  cas.
+        # test-jetons.sh : meme raison que cout.sh — des nombres a sept chiffres
+        #                  qu'aucune relecture ne verifie a l'oeil. Sa premiere
+        #                  version comptait trois cents lignes de PROSE comme des
+        #                  tours, parce qu'une entree de journal qui cite un
+        #                  marqueur ouvrait le bloc que ce marqueur delimite. La
+        #                  sortie restait plausible de bout en bout.
+        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh]
     steps:
       - uses: actions/checkout@v4
-      - run: ./test-init.sh
-      - run: ./test-cout.sh
-      # pret.sh est le troisieme, et pour une troisieme raison : son garde-fou
-      # « le PRD suit-il ? » est le seul de la fabrique a reposer sur une
-      # heuristique. Trop bavarde on l'ignore, muette on ne la voit pas — les
-      # deux derives passent la relecture, aucune ne passe ses huit cas.
-      - run: ./test-pret.sh
-      # jetons.sh est le quatrieme, et pour la meme raison que cout.sh : il rend
-      # des nombres a sept chiffres qu'aucune relecture ne verifie a l'oeil. Sa
-      # premiere version comptait trois cents lignes de PROSE comme des tours,
-      # parce qu'une entree de journal qui cite un marqueur ouvrait le bloc que
-      # ce marqueur delimite. La sortie restait plausible de bout en bout.
-      - run: ./test-jetons.sh
+      - run: ./${{ matrix.script }}
+
+  # Un seul nom de controle pour les quatre shards. La matrice ci-dessus publie
+  # « outillage (test-init.sh) » et trois freres, dont les noms changeraient a
+  # chaque fois qu'on redecoupe ; la regle qui protege main, elle, exige des
+  # controles de statut nommes. Ce job garde donc le nom historique, stable quoi
+  # qu'il arrive a la matrice.
+  #
+  # if: always() — sans lui, une shard rouge rendrait CE job « skipped », et un
+  # controle requis qui ne se prononce pas bloque la PR au lieu de la refuser.
+  # Il se prononce donc toujours : vert quand la matrice est verte OU sautee,
+  # rouge sinon. C'est la meme regle que celle qu'applique deploy plus bas.
+  tests-de-l-outillage:
+    needs: outillage
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: verdict de la matrice outillage
+        run: |
+          resultat='${{ needs.outillage.result }}'
+          case "$resultat" in
+            success) echo "  ok    outillage : les quatre scripts sont verts" ;;
+            skipped) echo "  ok    outillage : rien n'a bouge, matrice sautee" ;;
+            *)       echo "  KO    outillage : $resultat" ; exit 1 ;;
+          esac
 
   detect:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       apps: ${{ steps.choix.outputs.apps }}
       deploy: ${{ steps.choix.outputs.deploy }}
@@ -230,6 +274,7 @@ jobs:
     needs: [contrat, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -247,6 +292,7 @@ jobs:
     needs: [contrat, detect, test]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: write
@@ -391,6 +437,7 @@ jobs:
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # contents: write — ce job ECRIT sur main : il y enregistre la version de
     # chaque image qu'il vient de publier. C'est la seule ecriture de toute la
     # chaine, et elle ne porte que sur deux fichiers derives du build.
@@ -403,7 +450,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: docker/setup-buildx-action@v3
+      # Pas de setup-buildx-action ici : ce job ne CONSTRUIT rien. Son seul
+      # usage de buildx est « imagetools inspect », un client de registre pur
+      # qui n'a besoin d'aucun builder — buildx est preinstalle sur
+      # ubuntu-latest, et l'authentification vient du login ci-dessous, pas du
+      # builder. L'installer coutait une dizaine de secondes sur le chemin
+      # critique du deploiement. Le job build, lui, le garde : son cache-to gha
+      # en depend.
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.detect.outputs.registry }}
@@ -866,7 +919,13 @@ jobs:
             set --
           fi
 
-          code=$(curl -sS -o reponse.txt -w '%{http_code}' --retry 3 --retry-delay 5 \
+          # --max-time : c'etait le seul appel reseau non borne du fichier, quand
+          # les deux appels de la livraison unitaire l'etaient deja. Un dockhand
+          # qui accepte la connexion et ne repond jamais faisait pendre ce job
+          # jusqu'au plafond GitHub de six heures — et, avec
+          # cancel-in-progress: false sur main, tenait le groupe de concurrence
+          # tout ce temps : plus aucun deploiement de la fabrique.
+          code=$(curl -sS -o reponse.txt -w '%{http_code}' --max-time 300 --retry 3 --retry-delay 5 \
                    -X POST "$WEBHOOK" -H 'content-type: application/json' "$@" -d "$payload")
           echo "reponse HTTP $code :"
           cat reponse.txt; echo
