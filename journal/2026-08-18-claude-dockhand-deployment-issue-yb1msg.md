@@ -98,7 +98,7 @@ redémarrage, et le README dit pourquoi ce pas existe.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-18 à 13:28 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-18 à 16:03 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -106,26 +106,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 219 | 0,00 $ |
-| Écriture de cache | 473 444 | 2,57 $ |
-| Lecture de cache | 16 999 203 | 8,40 $ |
-| Sortie | 115 150 | 2,35 $ |
-| **Total** | **17 588 016** | **13,32 $ — 11,57 €** |
+| Entrée | 299 | 0,00 $ |
+| Écriture de cache | 1 742 731 | 10,51 $ |
+| Lecture de cache | 28 006 582 | 13,90 $ |
+| Sortie | 129 960 | 2,72 $ |
+| **Total** | **29 879 572** | **27,13 $ — 23,56 €** |
 
 **Ce qui coûte**
 
-- **107 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **147 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   64 054 jetons, écrits une fois par session puis relus à chaque
-  échange : 6 789 724 jetons de relecture, 39 % de tout ce qui a été relu.
-- **Tours courts** — 34 des 107 tours (31 %) sortent
+  échange : 9 351 884 jetons de relecture, 33 % de tout ce qui a été relu.
+- **Tours courts** — 55 des 147 tours (37 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 3,01 $, soit 22 % de la facture.
+  une sortie de rien. Ils coûtent 8,12 $, soit 29 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 64 054 jetons relus au premier appel qui relise
-  quelque chose, 265 271 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 345 574 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 17588016 -->
+<!-- cout-total: 29879572 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 64054 0 580
 2 principal claude-opus-5 6338 64054 396
@@ -234,5 +234,45 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 105 principal claude-opus-5 623 264097 315
 106 principal claude-opus-5 551 264720 1037
 107 principal claude-opus-5 1139 265271 1688
+108 principal claude-opus-5 1939 266410 95
+109 principal claude-opus-5 401 268349 296
+110 principal claude-opus-5 399 268750 188
+111 principal claude-opus-5 2609 269149 84
+112 principal claude-opus-5 465 271758 86
+113 principal claude-opus-5 504 272223 1592
+114 principal claude-opus-5 2202 272727 168
+115 principal claude-opus-5 2183 274929 137
+116 principal claude-opus-5 594 277112 471
+117 principal claude-opus-5 606 277706 860
+118 principal claude-opus-5 378 279172 137
+119 principal claude-opus-5 3577 279550 248
+120 principal claude-opus-5 385 283127 49
+121 principal claude-opus-5 380 283561 134
+122 principal claude-opus-5 276 283941 160
+123 principal claude-opus-5 679 284217 245
+124 principal claude-opus-5 22065 284896 376
+125 principal claude-opus-5 1185 306961 160
+126 principal claude-opus-5 371 308146 26
+127 principal claude-opus-5 379 308543 137
+128 principal claude-opus-5 475 308922 608
+129 principal claude-opus-5 693 309397 499
+130 principal claude-opus-5 317758 0 185
+131 principal claude-opus-5 275210 45264 538
+132 principal claude-opus-5 899 320474 304
+133 principal claude-opus-5 505 321373 531
+134 principal claude-opus-5 579 321878 302
+135 principal claude-opus-5 387 322457 33
+136 principal claude-opus-5 329966 0 720
+137 principal claude-opus-5 286301 45264 476
+138 principal claude-opus-5 618 331565 383
+139 principal claude-opus-5 469 332183 60
+140 principal claude-opus-5 6670 332712 420
+141 principal claude-opus-5 1125 339382 252
+142 principal claude-opus-5 402 340507 119
+143 principal claude-opus-5 731 340909 556
+144 principal claude-opus-5 854 341640 1316
+145 principal claude-opus-5 1663 342494 1095
+146 principal claude-opus-5 1417 344157 405
+147 principal claude-opus-5 988 345574 359
 -->
 <!-- /cout -->
