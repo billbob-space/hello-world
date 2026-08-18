@@ -648,3 +648,31 @@ toutes crierait a tort douze fois sur treize, et on apprendrait a l'ignorer.
 Les trois occurrences reellement exposees — deux sur le contenu d'une feuille de
 style dans `init.sh`, une sur une liste de fichiers dans `scripts/pret.sh` — sont
 corrigees dans le meme commit, verdicts compares a la version d'origine.
+
+### 8. Un gain annonce a 3,3x, mesure a 2,7x — je comparais deux choses differentes
+
+**Symptome** — j'ai annonce « la CI passe de 9 min 45 a 2 min 56 », dans mes
+reponses et dans le corps de la pull request. Le banc d'essai, monte ensuite,
+donne 521 s -> 196 s en mediane sur douze runs comparables : un vrai gain, mais
+pas celui-la.
+
+**Cause** — les deux nombres ne mesuraient pas la meme chose. Le 9 min 45 vient
+d'un run de `main`, qui execute `deploy` ; le 2 min 56 d'un run de pull request,
+ou `deploy` est saute. J'ai compare un trajet avec sa derniere etape a un trajet
+sans. Les deux nombres etaient exacts ; leur rapport ne voulait rien dire.
+
+Ce qui l'a rendu facile : les deux chiffres venaient de mesures REELLES, prises
+avec soin, et chacun etait defendable isolement. Rien dans une mesure juste ne
+signale qu'on la compare a autre chose qu'elle-meme.
+
+Le banc d'essai a aussi corrige une seconde croyance : l'acceleration de
+`test-pret.sh`, `test-cout.sh` et `test-jetons.sh` — 125 s cumulees, le travail
+le plus minutieux de la branche — n'a **rien** rapporte sur l'horloge, parce
+qu'aucun de ces scripts n'etait sur le chemin critique. Elle rapporte des minutes
+facturees. Je l'aurais compte comme un gain de duree sans le mesurer par etape.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — un rapport avant/apres nomme la METRIQUE avant les
+nombres, et deux mesures ne se divisent pas tant qu'on n'a pas dit qu'elles
+couvrent le meme perimetre.
