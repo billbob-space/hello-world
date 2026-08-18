@@ -597,3 +597,54 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 416 agent claude-haiku-4-5-20251001 259 23496 4
 -->
 <!-- /cout -->
+
+### 7. Un motif present, declare absent, parce que grep a trouve trop vite
+
+**Symptome** — la CI refuse la branche sur un cas qui passait en local :
+
+```
+./test-init.sh: line 453: printf: write error: Broken pipe
+  KO    une app qui ecrase hidden sans regle globale est signalee
+        aucune ligne ne porte « ramure] declare display sur une classe »
+```
+
+La ligne etait bel et bien la. `35 reussi(s), 1 echec(s)`.
+
+**Cause** — `printf '%s\n' "$sortie" | grep -q -- "$motif"` est une COURSE.
+`grep -q` sort des qu'il a trouve et ferme le tuyau ; `printf`, qui a encore de
+quoi ecrire, recoit `EPIPE` et rend non nul ; sous `set -o pipefail` le pipeline
+rend donc non nul **alors que le motif a ete trouve**, et l'assertion conclut
+l'inverse de ce qu'elle observe.
+
+La course preexistait — la forme est dans ces fichiers depuis toujours — mais
+elle ne se declenchait qu'a la faveur d'un ordonnancement rare. Jouer quatre cas
+de front l'a rendue frequente. C'est donc une faute a moi : je n'ai pas cree le
+defaut, j'ai supprime les conditions qui le cachaient.
+
+Reproduit hors CI, de facon deterministe : une sortie de 200 000 lignes dont le
+motif est sur la PREMIERE, et l'ancienne forme le declare absent trois fois sur
+trois ; la nouvelle le trouve trois fois sur trois.
+
+Corrige dans les quatre fichiers de test, pas seulement la ou il s'est
+manifeste : douze assertions lisent desormais par herestring (`<<<`), qui n'a pas
+de tuyau a casser. Les pipelines d'AFFICHAGE ont la meme faille par leur
+`head -N` final — il ferme le tuyau des qu'il a ses N lignes — et sous `set -e`
+la fonction mourrait au milieu, sans rendre son verdict : sept d'entre eux
+recoivent une garde.
+
+Le garde-fou d'integrite de `test-init.sh` aurait signale ce second cas — un cas
+qui meurt sans verdict s'evanouit du total — mais pas le premier : un faux rouge
+se compte comme un rouge.
+
+**Detecte par** — `CI`
+
+**Action** — `contrat` — la forme se represente et rien ne la decrivait ; elle
+entre dans `memory/regles-imperatives.md`. **Pas** un garde-fou : distinguer la
+petite valeur de la grande demanderait de deviner ce que contient une variable,
+et le motif est employe LEGITIMEMENT douze fois sur treize dans le depot, sur des
+chaines courtes ou il ne peut pas se declencher. Un `--check` qui les signalerait
+toutes crierait a tort douze fois sur treize, et on apprendrait a l'ignorer.
+
+Les trois occurrences reellement exposees — deux sur le contenu d'une feuille de
+style dans `init.sh`, une sur une liste de fichiers dans `scripts/pret.sh` — sont
+corrigees dans le meme commit, verdicts compares a la version d'origine.

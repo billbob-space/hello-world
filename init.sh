@@ -2553,8 +2553,12 @@ check_hidden() {
     # La regle GLOBALE, et elle seule : « [hidden] » seul en tete de selecteur.
     # « .bouton--discret[hidden] » est justement le correctif classe par classe
     # qu'on veut signaler, pas celui qui eteint l'avertissement.
-    printf '%s' "$plat" | grep -qE '(^|[^A-Za-z0-9_.#)-])\[hidden\] *\{[^{}]*display *: *none *!important' && continue
-    printf '%s' "$plat" | grep -qE '\.[a-zA-Z0-9_-]+[^{};]*\{[^{}]*display *:' || continue
+    # Herestring et non tuyau : « grep -q » sort des qu'il a trouve, et le
+    # printf d'une feuille de style entiere recoit alors EPIPE — sous pipefail,
+    # le pipeline rend non nul ALORS QUE LE MOTIF EST LA, et ce « continue »
+    # n'aurait pas lieu. Vu pour de vrai le 18 aout 2026 dans les tests.
+    grep -qE '(^|[^A-Za-z0-9_.#)-])\[hidden\] *\{[^{}]*display *: *none *!important' <<< "$plat" && continue
+    grep -qE '\.[a-zA-Z0-9_-]+[^{};]*\{[^{}]*display *:' <<< "$plat" || continue
     warn "[$n] declare display sur une classe sans regle globale [hidden]{display:none!important} — deja vu 3 fois ; le remede est une seule regle globale, pas un correctif classe par classe"
     expose=$((expose+1))
   done
@@ -2754,7 +2758,7 @@ check_fabrique() {
     reels=$(cd memory && ls *.md 2>/dev/null | sed 's#^#memory/#' | LC_ALL=C sort -u)
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      printf '%s\n' "$cites" | grep -qxF "$f" \
+      grep -qxF "$f" <<< "$cites" \
         || { bad "sommaire : $f existe mais n'est pas dans le sommaire de CLAUDE.md — il ne sera jamais ouvert"; ecart=$((ecart+1)); }
     done <<<"$reels"
     while IFS= read -r f; do

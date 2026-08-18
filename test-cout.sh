@@ -124,7 +124,7 @@ total() {
   d=$(bac_ls)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
   if [ -z "$vu" ]; then
     echec "$nom" "aucun total dans la sortie"
   elif [ "$vu" != "$attendu" ]; then
@@ -143,7 +143,7 @@ porte() {
   d=$(bac_ls)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  if grep -qF -- "$motif" <<< "$sortie"; then
     reussi "$nom"
   else
     echec "$nom" "la sortie ne porte pas « $motif »"
@@ -218,7 +218,7 @@ sous_agent_fichier_total() {  # <nom> <attendu> — sous-agent dans son propre f
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
   if [ "$vu" != "$attendu" ]; then
     echec "$nom" "total $vu, attendu $attendu"
   else
@@ -234,7 +234,7 @@ sous_agent_fichier_porte() {  # <nom> <motif>
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  if grep -qF -- "$motif" <<< "$sortie"; then
     reussi "$nom"
   else
     echec "$nom" "la sortie ne porte pas « $motif »"
@@ -264,7 +264,7 @@ agent_workflow_total() {  # <nom> <attendu>
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent_workflow "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
   if [ "$vu" != "$attendu" ]; then
     echec "$nom" "total $vu, attendu $attendu"
   else
@@ -330,7 +330,7 @@ ENTREE
   grep -q 'cout-total' "$entree" || { echec "$nom" "le bloc n'a pas ete ecrit dans l'entree"; return 0; }
   sortie=$( cd "$d" && ./init.sh --check 2>&1 ) || code=$?
   if [ "$code" != 0 ]; then
-    echec "$nom" "--check refuse le depot apres le releve : $(printf '%s\n' "$sortie" | grep -E 'KO' | head -1)"
+    echec "$nom" "--check refuse le depot apres le releve : $(grep -m1 -E 'KO' <<< "$sortie")"
   else
     reussi "$nom"
   fi
@@ -350,7 +350,7 @@ tait() {
   d=$(bac_ls)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  if grep -qF -- "$motif" <<< "$sortie"; then
     echec "$nom" "la sortie porte « $motif », qu'elle ne devrait pas"
   else
     reussi "$nom"

@@ -161,7 +161,7 @@ touches=$(fichiers_touches)
 ajoutes=$(fichiers_ajoutes)
 for a in $touchees; do
   [ -f "apps/$a/PRODUCT.md" ] || continue
-  if printf '%s\n' "$touches" | grep -qxF "apps/$a/PRODUCT.md"; then continue; fi
+  if grep -qxF "apps/$a/PRODUCT.md" <<< "$touches"; then continue; fi
   neufs=$(printf '%s\n' "$ajoutes" \
     | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/' || true)
   [ -n "$neufs" ] || continue

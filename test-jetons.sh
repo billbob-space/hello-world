@@ -113,10 +113,10 @@ porte() {
   d=${BAC:-$(bac)}
   sortie=$( cd "$d" && ./scripts/jetons.sh 2>&1 ) || {
     echec "$nom" "jetons.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  ligne=$(printf '%s\n' "$sortie" | grep -F -- "$ancre" | head -1)
+  ligne=$(grep -m1 -F -- "$ancre" <<< "$sortie" || true)
   if [ -z "$ligne" ]; then
     echec "$nom" "aucune ligne ne porte l'ancre « $ancre »"
-  elif printf '%s\n' "$ligne" | grep -qF -- "$motif"; then
+  elif grep -qF -- "$motif" <<< "$ligne"; then
     reussi "$nom"
   else
     echec "$nom" "la ligne « $ancre » ne porte pas « $motif » :$(printf '\n      %s' "$ligne")"

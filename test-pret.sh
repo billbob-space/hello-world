@@ -110,7 +110,7 @@ cas() {
   fi
   sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
   vu=silence
-  printf '%s\n' "$sortie" | grep -q "\[$APP\] du code neuf" && vu=avertit
+  grep -q "\[$APP\] du code neuf" <<< "$sortie" && vu=avertit
   if [ "$vu" = "$attendu" ]; then
     reussi "$nom"
   else
@@ -206,12 +206,12 @@ ENTREE
   ( cd "$d" && bash -euo pipefail -c "$situation" )
   sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
   vu=silence
-  printf '%s\n' "$sortie" | grep -q "action(s) garde-fou/contrat sans suite" && vu=avertit
+  grep -q "action(s) garde-fou/contrat sans suite" <<< "$sortie" && vu=avertit
   if [ "$vu" = "$attendu" ]; then
     reussi "$nom"
   else
     echec "$nom" "attendu : $attendu — obtenu : $vu"
-    printf '%s\n' "$sortie" | grep -E "journal" | sed 's/^/      /' | head -3
+    printf '%s\n' "$sortie" | grep -E "journal" | sed 's/^/      /' | head -3 || true
   fi
 }
 
@@ -237,7 +237,7 @@ verdict() {  # verdict <nom> <CHECK=...> <motif attendu>
   d=$(CHECK="$quelle" bac)
   printf 'export const chrono = 1\n' > "$d/apps/$APP/web/chrono.js"
   sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
-  if printf '%s\n' "$sortie" | grep -q "$motif"; then
+  if grep -q "$motif" <<< "$sortie"; then
     reussi "$nom"
   else
     echec "$nom" "attendu la ligne : $motif"

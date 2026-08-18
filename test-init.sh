@@ -120,6 +120,18 @@ bac() {  # bac — cree un bac a sable neuf et en imprime le chemin
 # Deux formes de refus, toutes deux retenues : une ligne « KO » de --check, et
 # le « ERREUR : » d'un manifeste si invalide que la lecture s'arrete avant.
 
+# Les assertions lisent leur sortie par HERESTRING (<<<) et non par un tuyau
+# depuis printf. Ce n'est pas une preference de style, c'est une correction :
+# « printf ... | grep -q » est une COURSE. grep -q sort des qu'il a trouve, ferme
+# le tuyau, printf recoit EPIPE — et sous « set -o pipefail » le pipeline rend
+# alors non nul, si bien que le cas est declare ECHOUE alors que le motif a bien
+# ete trouve. La course preexistait ; jouer quatre cas de front l'a rendue
+# frequente, et la CI l'a attrapee : « printf: write error: Broken pipe », puis
+# « aucune ligne ne porte ... » sur un motif pourtant present.
+#
+# Meme cause pour les « || true » poses sur les pipelines d'affichage : « head -N »
+# ferme le tuyau des qu'il a ses N lignes, et sous set -e la fonction mourrait au
+# milieu — sans rendre son verdict, donc en s'evanouissant du total.
 refuse_corps() {  # refuse_corps <nom> <motif attendu> <mutation>
   local nom="$1" motif="$2" d sortie refus code=0
   local mut="${3}"
@@ -131,9 +143,9 @@ refuse_corps() {  # refuse_corps <nom> <motif attendu> <mutation>
     echec "$nom" "--check a repondu OUI (sortie 0) — la faute est passee"
   elif [ -z "$refus" ]; then
     echec "$nom" "--check est sorti en $code sans aucune ligne de refus"
-  elif ! printf '%s\n' "$refus" | grep -qi -- "$motif"; then
+  elif ! grep -qi -- "$motif" <<< "$refus"; then
     echec "$nom" "il a refuse, mais aucune ligne de refus ne nomme « $motif »"
-    printf '%s\n' "$refus" | sed 's/^/      /' | head -3
+    printf '%s\n' "$refus" | sed 's/^/      /' | head -3 || true
   else
     reussi "$nom"
   fi
@@ -163,12 +175,12 @@ arrete_corps() {  # arrete_corps <nom> <motif attendu> <mutation>
   sale=$(git -C "$d" status --porcelain)
   if [ "$code" = 0 ]; then
     echec "$nom" "la commande a reussi — la valeur est passee"
-  elif ! printf '%s\n' "$sortie" | grep -qi -- "$motif"; then
+  elif ! grep -qi -- "$motif" <<< "$sortie"; then
     echec "$nom" "elle a echoue, mais son message ne nomme pas « $motif »"
-    printf '%s\n' "$sortie" | sed 's/^/      /' | head -3
+    printf '%s\n' "$sortie" | sed 's/^/      /' | head -3 || true
   elif [ -n "$sale" ]; then
     echec "$nom" "elle a refuse, mais apres avoir ecrit :"
-    printf '%s\n' "$sale" | sed 's/^/      /' | head -5
+    printf '%s\n' "$sale" | sed 's/^/      /' | head -5 || true
   else
     reussi "$nom"
   fi
@@ -196,7 +208,7 @@ genere_corps() {  # genere_corps <nom> <ligne attendue> <mutation>
     echec "$nom" "la generation a echoue (sortie $code) sur un manifeste pourtant valide"
   elif ! grep -qF -- "$attendu" "$d/compose.yaml"; then
     echec "$nom" "compose.yaml ne porte pas « $attendu »"
-    grep -A2 '^volumes:' "$d/compose.yaml" | sed 's/^/      /' | head -3
+    grep -A2 '^volumes:' "$d/compose.yaml" | sed 's/^/      /' | head -3 || true
   else
     reussi "$nom"
   fi
@@ -227,7 +239,7 @@ genere_dans_corps() {  # genere_dans_corps <nom> <chemin> <ligne attendue> <muta
     echec "$nom" "$chemin n'a pas ete ecrit"
   elif ! grep -qF -- "$attendu" "$d/$chemin"; then
     echec "$nom" "$chemin ne porte pas « $attendu »"
-    sed 's/^/      /' "$d/$chemin" | head -8
+    sed 's/^/      /' "$d/$chemin" | head -8 || true
   else
     reussi "$nom"
   fi
@@ -249,7 +261,7 @@ accepte_corps() {  # accepte_corps <nom>
     reussi "$nom"
   else
     echec "$nom" "--check a refuse un depot intact (sortie $code)"
-    printf '%s\n' "$sortie" | grep -E 'KO' | sed 's/^/      /' | head -10
+    printf '%s\n' "$sortie" | grep -E 'KO' | sed 's/^/      /' | head -10 || true
   fi
 }
 
@@ -450,7 +462,7 @@ avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
   if [ "$code" != 0 ]; then
     echec "$nom" "--check a refuse (sortie $code) la ou il devait seulement avertir"
-  elif ! printf '%s\n' "$sortie" | grep -q -- "$motif"; then
+  elif ! grep -q -- "$motif" <<< "$sortie"; then
     echec "$nom" "aucune ligne ne porte « $motif »"
   else
     reussi "$nom"
@@ -518,7 +530,7 @@ temoin_trace_corps() {
   printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le volume est perdu | Sauvegarde | `TestFicheSurvitAuRedemarrage` |\n' >> "$d/apps/renaissance-gym/PRODUCT.md"
   printf '\nfunc TestFicheSurvitAuRedemarrage(t *testing.T) {}\n' >> "$d/apps/renaissance-gym/api_test.go"
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || true
-  if printf '%s\n' "$sortie" | grep -q "introuvable dans les tests"; then
+  if grep -q "introuvable dans les tests" <<< "$sortie"; then
     echec "$nom" "un test present a quand meme ete signale absent"
   else
     reussi "$nom"
