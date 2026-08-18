@@ -538,8 +538,56 @@ jobs:
           # dit alors exactement quoi poser.
           if [ -n "${CLE:-}" ]; then
             mkdir -p ~/.ssh && chmod 700 ~/.ssh
-            printf '%s\n' "$CLE" > ~/.ssh/deploiement
+            # Une cle privee collee dans un secret perd souvent sa forme : des
+            # retours chariot Windows, ou un corps replie sur UNE seule ligne
+            # par un presse-papier — un telephone le fait sans prevenir. openssh
+            # refuse alors la cle avec « error in libcrypto », message qui ne
+            # dit ni quoi ni ou, puis git accuse les droits d'acces. On la remet
+            # en forme avant de s'en servir, en shell : un heredoc ou un script
+            # Python indente ne survivent pas a un bloc YAML, qui impose une
+            # marge que ni le delimiteur ni Python n'acceptent — essaye et
+            # constate le 18 aout 2026.
+            brut=$(printf '%s' "$CLE" | tr -d '\r')
+            # Le secret accepte DEUX formes. La seconde, en base64 sur une
+            # seule ligne (`base64 -w0 cle-deploiement`), est la seule qu'un
+            # presse-papier ne puisse pas abimer : ni retour a la ligne a
+            # perdre, ni ligne a tronquer. On la reconnait a ce qu'elle ne
+            # porte aucun en-tete de cle et se decode en un texte qui, lui, en
+            # porte un — jamais a l'aveugle.
+            compact=$(printf '%s' "$brut" | tr -d '[:space:]')
+            case "$compact" in
+              *-----BEGIN*) ;;
+              *)
+                decodee=$(printf '%s' "$compact" | base64 -d 2>/dev/null || true)
+                case "$decodee" in
+                  -----BEGIN*) brut="$decodee" ;;
+                esac
+                ;;
+            esac
+            if [ "$(printf '%s\n' "$brut" | wc -l)" -le 1 ]; then
+              debut=$(printf '%s' "$brut" | grep -o -m1 -- '-----BEGIN [A-Z0-9 ]*-----' || true)
+              fin=$(printf '%s' "$brut" | grep -o -m1 -- '-----END [A-Z0-9 ]*-----' || true)
+              corps=$(printf '%s' "$brut" | sed -e "s|.*${debut}||" -e "s|${fin}.*||" | tr -d '[:space:]')
+              if [ -z "$debut" ] || [ -z "$fin" ] || [ -z "$corps" ]; then
+                echo "::error::secret DEPLOIEMENT_SSH_KEY : cle privee incomplete — recopie-la de la ligne BEGIN a la ligne END incluses, ou colle la sortie de « base64 -w0 cle-deploiement »"
+                exit 1
+              fi
+              # Les espaces du corps sont retires AVANT le repliage : les garder
+              # rendait une cle toujours invalide, mais joliment presentee.
+              { printf '%s\n' "$debut"; printf '%s' "$corps" | fold -w 70; printf '\n%s\n' "$fin"; } > ~/.ssh/deploiement
+            else
+              printf '%s\n' "$brut" > ~/.ssh/deploiement
+            fi
             chmod 600 ~/.ssh/deploiement
+            # Verifier la cle AVANT de pousser : sinon son defaut se lit dans un
+            # « Permission denied (publickey) », qui accuse les droits alors que
+            # le probleme est la forme du secret. Seule l'empreinte publique est
+            # affichee — elle se compare a celle listee dans Deploy keys.
+            if ! ssh-keygen -y -f ~/.ssh/deploiement > /dev/null 2>&1; then
+              echo "::error::secret DEPLOIEMENT_SSH_KEY : cle refusee par openssh — le secret n'est pas une cle privee entiere (copie tronquee ?). Recolle la sortie de « base64 -w0 cle-deploiement », insensible aux retours a la ligne"
+              exit 1
+            fi
+            echo "cle de deploiement chargee — empreinte $(ssh-keygen -l -f ~/.ssh/deploiement | cut -d' ' -f2)"
             # La cle d'hote est epinglee par ssh-keyscan plutot que par
             # StrictHostKeyChecking=no : accepter n'importe quel hote sur un
             # runner jetable n'aurait rien verifie du tout.
