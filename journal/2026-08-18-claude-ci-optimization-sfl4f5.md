@@ -121,10 +121,36 @@ puisqu'une suite qui ne teste rien ne peut plus jamais devenir rouge.
 **Action** — `rien` — reparee, et le garde-fou qui l'a vue est dans le meme
 commit que le defaut qu'il a attrape.
 
+
+### 6. Un rouge imaginaire sur une pull request, faute d'avoir distingue « annule » de « echoue »
+
+**Symptome** — la CI signale l'echec du controle `tests-de-l-outillage` sur la
+PR 147. Les quatre shards de la matrice sont pourtant vertes ou `cancelled`, et
+aucun test n'a echoue. Cause reelle : deux commits pousses a une minute
+d'intervalle, `cancel-in-progress` annule le premier run, et le job agregateur —
+ecrit avec `if: always()` — se reveille quand meme, lit `cancelled`, tombe dans sa
+branche par defaut et affiche un rouge.
+
+**Cause** — `always()` est trop large. On le voulait pour une raison juste : un
+controle requis qui reste muet bloque la PR au lieu de la refuser, donc
+l'agregateur doit se prononcer meme quand la matrice echoue. Mais « meme quand
+elle echoue » n'est pas « meme quand le run est annule » : dans ce second cas il
+n'y a rien a dire, et le dire quand meme decore la PR d'un echec qui n'existe
+pas. `!cancelled()` couvre exactement le besoin.
+
+Le raisonnement etait ecrit en toutes lettres au-dessus du job, et il etait juste
+sur les trois cas auxquels il pensait — vert, saute, rouge. Le quatrieme etat
+d'un job GitHub, `cancelled`, n'y figurait simplement pas.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — reparee ; l'oubli portait sur une valeur possible, pas sur
+une regle du contrat.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-18 à 21:00 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-18 à 21:20 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -132,26 +158,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 927 | 0,00 $ |
-| Écriture de cache | 980 003 | 4,43 $ |
-| Lecture de cache | 36 203 370 | 16,74 $ |
-| Sortie | 119 414 | 2,10 $ |
-| **Total** | **37 303 714** | **23,27 $ — 20,21 €** |
+| Entrée | 1 189 | 0,00 $ |
+| Écriture de cache | 1 144 975 | 4,74 $ |
+| Lecture de cache | 51 142 678 | 23,97 $ |
+| Sortie | 163 051 | 2,79 $ |
+| **Total** | **52 451 893** | **31,50 $ — 27,35 €** |
 
 **Ce qui coûte**
 
-- **343 appel(s) au modèle** — un par réponse, outils compris —, dont 149 par des sous-agents — 9 494 311 jetons, 6,97 $.
+- **416 appel(s) au modèle** — un par réponse, outils compris —, dont 166 par des sous-agents — 9 761 594 jetons, 6,97 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   0 jetons, écrits une fois par session puis relus à chaque
   échange : 0 jetons de relecture, 0 % de tout ce qui a été relu.
-- **Tours courts** — 157 des 343 tours (45 %) sortent
+- **Tours courts** — 178 des 416 tours (42 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 12,73 $, soit 54 % de la facture.
+  une sortie de rien. Ils coûtent 16,04 $, soit 50 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 80 777 jetons relus au premier appel qui relise
-  quelque chose, 272 402 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 322 026 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 37303714 -->
+<!-- cout-total: 52451893 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal <synthetic> 0 0 0
 2 principal <synthetic> 0 0 0
@@ -347,179 +373,227 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 192 principal claude-opus-4-7 0 40333 130
 193 principal claude-opus-5 1850 270552 379
 194 principal claude-opus-5 619 272402 143
-195 agent claude-haiku-4-5-20251001 5023 6500 4
-196 agent claude-haiku-4-5-20251001 1538 11523 2
-197 agent claude-haiku-4-5-20251001 976 13061 2
-198 agent claude-haiku-4-5-20251001 347 14037 4
-199 agent claude-haiku-4-5-20251001 621 14384 2
-200 agent claude-haiku-4-5-20251001 369 15005 2
-201 agent claude-haiku-4-5-20251001 172 15374 4
-202 agent claude-haiku-4-5-20251001 5000 6500 4
-203 agent claude-haiku-4-5-20251001 1316 11500 2
-204 agent claude-haiku-4-5-20251001 883 12816 2
-205 agent claude-haiku-4-5-20251001 391 13699 1
-206 agent claude-haiku-4-5-20251001 639 14090 3
-207 agent claude-haiku-4-5-20251001 340 14729 4
-208 agent claude-opus-5 16680 25869 1
-209 agent claude-opus-5 1760 42549 5
-210 agent claude-opus-5 2606 44309 105
-211 agent claude-opus-5 4043 46915 20
-212 agent claude-opus-5 4412 50958 105
-213 agent claude-opus-5 5727 55370 17
-214 agent claude-opus-5 4587 61097 5
-215 agent claude-opus-5 1118 65684 17
-216 agent claude-opus-5 716 66802 2
-217 agent claude-opus-5 2563 67518 5
-218 agent claude-opus-5 8097 70081 146
-219 agent claude-opus-5 1588 78178 3
-220 agent claude-opus-5 2139 79766 3
-221 agent claude-opus-5 965 81905 4
-222 agent claude-opus-5 847 82870 8
-223 agent claude-opus-5 3928 83717 7
-224 agent claude-haiku-4-5-20251001 12488 0 4
-225 agent claude-haiku-4-5-20251001 1585 12488 2
-226 agent claude-haiku-4-5-20251001 522 14073 4
-227 agent claude-haiku-4-5-20251001 1218 14595 1
-228 agent claude-haiku-4-5-20251001 1754 15813 3
-229 agent claude-haiku-4-5-20251001 349 17567 4
-230 agent claude-haiku-4-5-20251001 12086 0 4
-231 agent claude-haiku-4-5-20251001 1310 12086 2
-232 agent claude-haiku-4-5-20251001 321 13396 2
-233 agent claude-haiku-4-5-20251001 176 13717 3
-234 agent claude-haiku-4-5-20251001 265 13893 2
-235 agent claude-haiku-4-5-20251001 339 14158 4
-236 agent claude-haiku-4-5-20251001 1330 14497 2
-237 agent claude-haiku-4-5-20251001 283 15827 5
-238 agent claude-opus-5 16102 25869 1
-239 agent claude-opus-5 5714 41971 3
-240 agent claude-opus-5 5782 47685 3
-241 agent claude-opus-5 13799 53467 3
-242 agent claude-opus-5 853 67266 3
-243 agent claude-opus-5 2167 68119 2
-244 agent claude-opus-5 169 70286 195
-245 agent claude-opus-5 997 70455 3
-246 agent claude-opus-5 852 71452 3
-247 agent claude-opus-5 649 72304 3
-248 agent claude-opus-5 4003 72953 5
-249 agent claude-opus-5 3756 76956 21
-250 agent claude-opus-5 515 80712 20
-251 agent claude-opus-5 1353 81227 4
-252 agent claude-opus-5 1357 82580 2
-253 agent claude-opus-5 1614 83937 3
-254 agent claude-opus-5 1501 85551 20
-255 agent claude-opus-5 1585 87052 7
-256 agent claude-opus-5 931 88637 2
-257 agent claude-opus-5 423 89568 2
-258 agent claude-opus-5 482 89991 2
-259 agent claude-opus-5 849 90473 3
-260 agent claude-opus-5 693 91322 2
-261 agent claude-opus-5 1068 92015 3
-262 agent claude-opus-5 585 93083 3
-263 agent claude-opus-5 2426 93668 2
-264 agent claude-opus-5 1423 96094 3
-265 agent claude-opus-5 1016 97517 20
-266 agent claude-opus-5 904 98533 3
-267 agent claude-opus-5 1352 99437 3
-268 agent claude-opus-5 1156 100789 20
-269 agent claude-opus-5 458 101945 2
-270 agent claude-opus-5 1174 102403 3
-271 agent claude-opus-5 1211 103577 3
-272 agent claude-opus-5 1185 104788 164
-273 agent claude-opus-5 310 105973 3
-274 agent claude-opus-5 3354 106283 2
-275 agent claude-opus-5 843 109637 5
-276 agent claude-opus-5 1224 110480 2
-277 agent claude-haiku-4-5-20251001 11679 0 2
-278 agent claude-haiku-4-5-20251001 2546 11679 2
-279 agent claude-haiku-4-5-20251001 1283 14225 2
-280 agent claude-haiku-4-5-20251001 397 15508 2
-281 agent claude-haiku-4-5-20251001 12013 0 4
-282 agent claude-haiku-4-5-20251001 2412 12013 2
-283 agent claude-haiku-4-5-20251001 412 14425 4
-284 agent claude-haiku-4-5-20251001 334 14837 2
-285 agent claude-haiku-4-5-20251001 1089 15171 3
-286 agent claude-haiku-4-5-20251001 308 16260 4
-287 agent claude-opus-5 42122 0 1
-288 agent claude-opus-5 12834 42122 3
-289 agent claude-opus-5 1768 54956 3
-290 agent claude-opus-5 991 56724 2
-291 agent claude-opus-5 1198 57715 2
-292 agent claude-opus-5 404 58913 20
-293 agent claude-opus-5 224 59317 2
-294 agent claude-opus-5 683 59541 2
-295 agent claude-opus-5 1444 60224 3
-296 agent claude-opus-5 579 61668 20
-297 agent claude-opus-5 639 62247 3
-298 agent claude-opus-5 2794 62886 4
-299 agent claude-opus-5 861 65680 2
-300 agent claude-opus-5 894 66541 2
-301 agent claude-opus-5 2460 67435 3
-302 agent claude-opus-5 648 69895 2
-303 agent claude-opus-5 4581 70543 3
-304 agent claude-opus-5 279 75124 3
-305 agent claude-opus-5 5345 75403 3
-306 agent claude-opus-5 761 80748 7
-307 agent claude-opus-5 1170 81509 2
-308 agent claude-opus-5 501 82679 3
-309 agent claude-opus-5 738 83180 17
-310 agent claude-opus-5 1251 83918 2
-311 agent claude-opus-5 965 85169 6
-312 agent claude-opus-5 1944 86134 2
-313 agent claude-opus-5 1576 88078 3
-314 agent claude-opus-5 407 89654 3
-315 agent claude-opus-5 1342 90061 3
-316 agent claude-opus-5 536 91403 2
-317 agent claude-opus-5 450 91939 3
-318 agent claude-opus-5 67467 25869 17
-319 agent claude-opus-5 1510 93336 3
-320 agent claude-opus-5 764 94846 2
-321 agent claude-opus-5 2620 95610 2
-322 agent claude-opus-5 99090 0 17
-323 agent claude-opus-5 1334 99090 8
-324 agent claude-opus-5 1874 100424 3
-325 agent claude-opus-5 5151 102298 20
-326 agent claude-opus-5 490 107449 2
-327 agent claude-opus-5 1861 107939 2
-328 agent claude-opus-5 831 109800 2
-329 agent claude-opus-5 1627 110631 2
-330 agent claude-opus-5 945 112258 3
-331 agent claude-opus-5 756 113203 3
-332 agent claude-opus-5 779 113959 2
-333 agent claude-opus-5 1506 114738 218
-334 agent claude-opus-5 313 116244 3
-335 agent claude-opus-5 1810 116557 2
-336 agent claude-opus-5 1311 118367 3
-337 agent claude-opus-5 1081 119678 2
-338 agent claude-haiku-4-5-20251001 11520 0 4
-339 agent claude-haiku-4-5-20251001 1344 11520 2
-340 agent claude-haiku-4-5-20251001 784 12864 2
-341 agent claude-haiku-4-5-20251001 548 13648 1
-342 agent claude-haiku-4-5-20251001 576 14196 2
-343 agent claude-haiku-4-5-20251001 369 14772 4
+195 principal claude-opus-5 809 273021 164
+196 principal claude-opus-4-7 13492 40333 1078
+197 principal claude-opus-4-7 13500 40333 3038
+198 principal claude-opus-5 636 273830 209
+199 principal claude-opus-5 617 274466 720
+200 principal claude-opus-5 898 275083 214
+201 principal claude-opus-5 746 275981 235
+202 principal claude-opus-5 317 276727 243
+203 principal claude-opus-5 453 277044 736
+204 principal claude-opus-5 1247 277497 197
+205 principal claude-opus-5 369 278744 163
+206 principal claude-opus-5 695 279113 347
+207 principal claude-opus-5 701 279808 1573
+208 principal claude-opus-5 1777 280509 725
+209 principal claude-opus-5 991 282286 856
+210 principal claude-opus-4-7 4009 29200 174
+211 principal claude-opus-5 1288 283277 262
+212 principal claude-opus-5 508 284565 309
+213 principal claude-opus-5 382 285073 292
+214 principal claude-opus-5 824 285455 341
+215 principal claude-opus-5 599 286279 552
+216 principal claude-opus-5 1084 286878 454
+217 principal claude-opus-5 1136 287962 592
+218 principal claude-opus-5 1054 289098 2216
+219 principal claude-opus-5 2281 290152 221
+220 principal claude-opus-5 753 292433 373
+221 principal claude-opus-5 518 293186 346
+222 principal claude-opus-4-7 24649 33209 9559
+223 principal claude-opus-5 576 293704 916
+224 principal claude-opus-4-7 9775 57858 1703
+225 principal claude-opus-4-7 4224 29200 190
+226 principal claude-opus-5 270 295196 120
+227 principal claude-opus-5 471 295466 57
+228 principal claude-opus-5 354 295937 138
+229 principal claude-opus-5 6210 296291 285
+230 principal claude-opus-5 386 302501 41
+231 principal claude-opus-5 269 302928 230
+232 principal claude-opus-5 1099 303197 328
+233 principal claude-opus-5 427 304296 474
+234 principal claude-opus-5 561 304723 930
+235 principal claude-opus-5 1340 305284 281
+236 principal claude-opus-5 707 306624 154
+237 principal claude-opus-5 28 307485 805
+238 principal claude-opus-5 1439 307513 230
+239 principal claude-opus-5 1564 308952 91
+240 principal claude-opus-5 554 310516 1277
+241 principal claude-opus-5 1390 311070 498
+242 principal claude-opus-5 830 312460 687
+243 principal claude-opus-5 987 313290 312
+244 principal claude-opus-5 624 314277 1460
+245 principal claude-opus-5 1833 314901 2121
+246 principal claude-opus-5 2492 316734 842
+247 principal claude-opus-5 1070 319226 1401
+248 principal claude-opus-5 1730 320296 1428
+249 principal claude-opus-4-7 5324 29200 202
+250 principal claude-opus-5 1622 322026 204
+251 agent claude-haiku-4-5-20251001 11894 0 4
+252 agent claude-haiku-4-5-20251001 1147 11894 2
+253 agent claude-haiku-4-5-20251001 340 13041 2
+254 agent claude-haiku-4-5-20251001 303 13381 2
+255 agent claude-haiku-4-5-20251001 998 13684 2
+256 agent claude-haiku-4-5-20251001 339 14682 2
+257 agent claude-haiku-4-5-20251001 163 15021 2
+258 agent claude-haiku-4-5-20251001 5023 6500 4
+259 agent claude-haiku-4-5-20251001 1538 11523 2
+260 agent claude-haiku-4-5-20251001 976 13061 2
+261 agent claude-haiku-4-5-20251001 347 14037 4
+262 agent claude-haiku-4-5-20251001 621 14384 2
+263 agent claude-haiku-4-5-20251001 369 15005 2
+264 agent claude-haiku-4-5-20251001 172 15374 4
+265 agent claude-haiku-4-5-20251001 5000 6500 4
+266 agent claude-haiku-4-5-20251001 1316 11500 2
+267 agent claude-haiku-4-5-20251001 883 12816 2
+268 agent claude-haiku-4-5-20251001 391 13699 1
+269 agent claude-haiku-4-5-20251001 639 14090 3
+270 agent claude-haiku-4-5-20251001 340 14729 4
+271 agent claude-opus-5 16680 25869 1
+272 agent claude-opus-5 1760 42549 5
+273 agent claude-opus-5 2606 44309 105
+274 agent claude-opus-5 4043 46915 20
+275 agent claude-opus-5 4412 50958 105
+276 agent claude-opus-5 5727 55370 17
+277 agent claude-opus-5 4587 61097 5
+278 agent claude-opus-5 1118 65684 17
+279 agent claude-opus-5 716 66802 2
+280 agent claude-opus-5 2563 67518 5
+281 agent claude-opus-5 8097 70081 146
+282 agent claude-opus-5 1588 78178 3
+283 agent claude-opus-5 2139 79766 3
+284 agent claude-opus-5 965 81905 4
+285 agent claude-opus-5 847 82870 8
+286 agent claude-opus-5 3928 83717 7
+287 agent claude-haiku-4-5-20251001 12488 0 4
+288 agent claude-haiku-4-5-20251001 1585 12488 2
+289 agent claude-haiku-4-5-20251001 522 14073 4
+290 agent claude-haiku-4-5-20251001 1218 14595 1
+291 agent claude-haiku-4-5-20251001 1754 15813 3
+292 agent claude-haiku-4-5-20251001 349 17567 4
+293 agent claude-haiku-4-5-20251001 12086 0 4
+294 agent claude-haiku-4-5-20251001 1310 12086 2
+295 agent claude-haiku-4-5-20251001 321 13396 2
+296 agent claude-haiku-4-5-20251001 176 13717 3
+297 agent claude-haiku-4-5-20251001 265 13893 2
+298 agent claude-haiku-4-5-20251001 339 14158 4
+299 agent claude-haiku-4-5-20251001 1330 14497 2
+300 agent claude-haiku-4-5-20251001 283 15827 5
+301 agent claude-opus-5 16102 25869 1
+302 agent claude-opus-5 5714 41971 3
+303 agent claude-opus-5 5782 47685 3
+304 agent claude-opus-5 13799 53467 3
+305 agent claude-opus-5 853 67266 3
+306 agent claude-opus-5 2167 68119 2
+307 agent claude-opus-5 169 70286 195
+308 agent claude-opus-5 997 70455 3
+309 agent claude-opus-5 852 71452 3
+310 agent claude-opus-5 649 72304 3
+311 agent claude-opus-5 4003 72953 5
+312 agent claude-opus-5 3756 76956 21
+313 agent claude-opus-5 515 80712 20
+314 agent claude-opus-5 1353 81227 4
+315 agent claude-opus-5 1357 82580 2
+316 agent claude-opus-5 1614 83937 3
+317 agent claude-opus-5 1501 85551 20
+318 agent claude-opus-5 1585 87052 7
+319 agent claude-opus-5 931 88637 2
+320 agent claude-opus-5 423 89568 2
+321 agent claude-opus-5 482 89991 2
+322 agent claude-opus-5 849 90473 3
+323 agent claude-opus-5 693 91322 2
+324 agent claude-opus-5 1068 92015 3
+325 agent claude-opus-5 585 93083 3
+326 agent claude-opus-5 2426 93668 2
+327 agent claude-opus-5 1423 96094 3
+328 agent claude-opus-5 1016 97517 20
+329 agent claude-opus-5 904 98533 3
+330 agent claude-opus-5 1352 99437 3
+331 agent claude-opus-5 1156 100789 20
+332 agent claude-opus-5 458 101945 2
+333 agent claude-opus-5 1174 102403 3
+334 agent claude-opus-5 1211 103577 3
+335 agent claude-opus-5 1185 104788 164
+336 agent claude-opus-5 310 105973 3
+337 agent claude-opus-5 3354 106283 2
+338 agent claude-opus-5 843 109637 5
+339 agent claude-opus-5 1224 110480 2
+340 agent claude-haiku-4-5-20251001 11679 0 2
+341 agent claude-haiku-4-5-20251001 2546 11679 2
+342 agent claude-haiku-4-5-20251001 1283 14225 2
+343 agent claude-haiku-4-5-20251001 397 15508 2
+344 agent claude-haiku-4-5-20251001 12013 0 4
+345 agent claude-haiku-4-5-20251001 2412 12013 2
+346 agent claude-haiku-4-5-20251001 412 14425 4
+347 agent claude-haiku-4-5-20251001 334 14837 2
+348 agent claude-haiku-4-5-20251001 1089 15171 3
+349 agent claude-haiku-4-5-20251001 308 16260 4
+350 agent claude-opus-5 42122 0 1
+351 agent claude-opus-5 12834 42122 3
+352 agent claude-opus-5 1768 54956 3
+353 agent claude-opus-5 991 56724 2
+354 agent claude-opus-5 1198 57715 2
+355 agent claude-opus-5 404 58913 20
+356 agent claude-opus-5 224 59317 2
+357 agent claude-opus-5 683 59541 2
+358 agent claude-opus-5 1444 60224 3
+359 agent claude-opus-5 579 61668 20
+360 agent claude-opus-5 639 62247 3
+361 agent claude-opus-5 2794 62886 4
+362 agent claude-opus-5 861 65680 2
+363 agent claude-opus-5 894 66541 2
+364 agent claude-opus-5 2460 67435 3
+365 agent claude-opus-5 648 69895 2
+366 agent claude-opus-5 4581 70543 3
+367 agent claude-opus-5 279 75124 3
+368 agent claude-opus-5 5345 75403 3
+369 agent claude-opus-5 761 80748 7
+370 agent claude-opus-5 1170 81509 2
+371 agent claude-opus-5 501 82679 3
+372 agent claude-opus-5 738 83180 17
+373 agent claude-opus-5 1251 83918 2
+374 agent claude-opus-5 965 85169 6
+375 agent claude-opus-5 1944 86134 2
+376 agent claude-opus-5 1576 88078 3
+377 agent claude-opus-5 407 89654 3
+378 agent claude-opus-5 1342 90061 3
+379 agent claude-opus-5 536 91403 2
+380 agent claude-opus-5 450 91939 3
+381 agent claude-opus-5 67467 25869 17
+382 agent claude-opus-5 1510 93336 3
+383 agent claude-opus-5 764 94846 2
+384 agent claude-opus-5 2620 95610 2
+385 agent claude-opus-5 99090 0 17
+386 agent claude-opus-5 1334 99090 8
+387 agent claude-opus-5 1874 100424 3
+388 agent claude-opus-5 5151 102298 20
+389 agent claude-opus-5 490 107449 2
+390 agent claude-opus-5 1861 107939 2
+391 agent claude-opus-5 831 109800 2
+392 agent claude-opus-5 1627 110631 2
+393 agent claude-opus-5 945 112258 3
+394 agent claude-opus-5 756 113203 3
+395 agent claude-opus-5 779 113959 2
+396 agent claude-opus-5 1506 114738 218
+397 agent claude-opus-5 313 116244 3
+398 agent claude-opus-5 1810 116557 2
+399 agent claude-opus-5 1311 118367 3
+400 agent claude-opus-5 1081 119678 2
+401 agent claude-haiku-4-5-20251001 11520 0 4
+402 agent claude-haiku-4-5-20251001 1344 11520 2
+403 agent claude-haiku-4-5-20251001 784 12864 2
+404 agent claude-haiku-4-5-20251001 548 13648 1
+405 agent claude-haiku-4-5-20251001 576 14196 2
+406 agent claude-haiku-4-5-20251001 369 14772 4
+407 agent claude-haiku-4-5-20251001 4981 6500 4
+408 agent claude-haiku-4-5-20251001 1531 11481 2
+409 agent claude-haiku-4-5-20251001 1243 13012 2
+410 agent claude-haiku-4-5-20251001 289 14255 4
+411 agent claude-haiku-4-5-20251001 4856 6500 4
+412 agent claude-haiku-4-5-20251001 1317 11356 2
+413 agent claude-haiku-4-5-20251001 9956 12673 1
+414 agent claude-haiku-4-5-20251001 381 22629 2
+415 agent claude-haiku-4-5-20251001 486 23010 2
+416 agent claude-haiku-4-5-20251001 259 23496 4
 -->
 <!-- /cout -->
-
-### 6. Un rouge imaginaire sur une pull request, faute d'avoir distingue « annule » de « echoue »
-
-**Symptome** — la CI signale l'echec du controle `tests-de-l-outillage` sur la
-PR 147. Les quatre shards de la matrice sont pourtant vertes ou `cancelled`, et
-aucun test n'a echoue. Cause reelle : deux commits pousses a une minute
-d'intervalle, `cancel-in-progress` annule le premier run, et le job agregateur —
-ecrit avec `if: always()` — se reveille quand meme, lit `cancelled`, tombe dans sa
-branche par defaut et affiche un rouge.
-
-**Cause** — `always()` est trop large. On le voulait pour une raison juste : un
-controle requis qui reste muet bloque la PR au lieu de la refuser, donc
-l'agregateur doit se prononcer meme quand la matrice echoue. Mais « meme quand
-elle echoue » n'est pas « meme quand le run est annule » : dans ce second cas il
-n'y a rien a dire, et le dire quand meme decore la PR d'un echec qui n'existe
-pas. `!cancelled()` couvre exactement le besoin.
-
-Le raisonnement etait ecrit en toutes lettres au-dessus du job, et il etait juste
-sur les trois cas auxquels il pensait — vert, saute, rouge. Le quatrieme etat
-d'un job GitHub, `cancelled`, n'y figurait simplement pas.
-
-**Detecte par** — `CI`
-
-**Action** — `rien` — reparee ; l'oubli portait sur une valeur possible, pas sur
-une regle du contrat.
