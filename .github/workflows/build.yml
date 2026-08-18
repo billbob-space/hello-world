@@ -528,15 +528,34 @@ jobs:
           # une fabrique qui tombe TOUTE. Une image tierce reellement privee est
           # le seul faux positif possible, et elle n'aurait de toute facon pas sa
           # place dans un compose que le serveur tire sans identifiants.
-          manquantes=()
+          # Onze images, un aller-retour registre chacune : en serie, une
+          # quinzaine de secondes sur le chemin critique du deploiement. Le
+          # verdict ne change pas d'un iota — toutes sont inspectees, tierces
+          # comprises, et une seule manquante bloque encore.
+          #
+          # Chaque inspection ecrit dans SON fichier, numerote : deux sous-shells
+          # qui appendent au meme fichier se marchent dessus, et une image
+          # manquante disparaitrait en silence — soit exactement ce que cette
+          # etape est la pour empecher.
+          rapport=$(mktemp -d)
+          n=0
           for img in "${images[@]}"; do
-            if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
-              echo "  ok   $img"
-            else
-              echo "  KO   $img"
-              manquantes+=("$img")
-            fi
+            n=$((n + 1))
+            (
+              if docker buildx imagetools inspect "$img" >/dev/null 2>&1; then
+                printf '  ok   %s\n' "$img" > "$rapport/verdict.$n"
+              else
+                printf '  KO   %s\n' "$img" > "$rapport/verdict.$n"
+                printf '%s\n'        "$img" > "$rapport/manquante.$n"
+              fi
+            ) &
           done
+          # || true : sous « set -e », un wait qui rapporte le code non nul d'un
+          # sous-shell tuerait l'etape avant qu'elle ait dit QUELLE image manque.
+          wait || true
+          cat "$rapport"/verdict.* | LC_ALL=C sort
+          mapfile -t manquantes < <(cat "$rapport"/manquante.* 2>/dev/null || true)
+          rm -rf "$rapport"
           if [ ${#manquantes[@]} -gt 0 ]; then
             printf '::error::image introuvable dans son registre : %s\n' "${manquantes[@]}"
             echo "::error::deploiement refuse — il ferait tomber toutes les apps de la stack"
