@@ -280,10 +280,39 @@ un déploiement. Elle n'est donc pas dans ce dépôt, mais dans un secret :
 |---|---|
 | `DOCKHAND_DEPLOY_WEBHOOK` | l'URL de webhook de la stack dans `dockhand` |
 | `DOCKHAND_WEBHOOK_SECRET` | le secret du webhook, configuré côté `dockhand` |
+| `DEPLOIEMENT_SSH_KEY` | la clé privée de la clé de déploiement qui écrit `versions.yml` sur `main` |
 
 À poser dans *Settings → Secrets and variables → Actions*. Sans l'URL, le
 workflow publie les images, émet un avertissement et n'appelle rien — la
 construction reste verte, mais **rien n'est déployé**.
+
+### Pourquoi la CI pousse avec une clé de déploiement
+
+`main` est protégé par une règle qui **exige des contrôles de statut sur tout ce
+qui y est poussé**. Or le commit d'épinglage porte `[skip ci]` : les contrôles
+exigés ne tourneront jamais sur lui, et la règle le refuse donc toujours —
+`GH013: Repository rule violations found`, quatre tentatives, puis « rien n'est
+déployé ». Ce n'est pas une course perdue, c'est une impasse : rien dans le
+dépôt ne peut la lever, et trois contournements ont été essayés puis écartés
+(journal du 18 août 2026).
+
+La seule sortie est un acteur autorisé à contourner la règle. GitHub ne propose
+pas le robot des Actions dans la *Bypass list* ; il propose **Deploy keys**.
+D'où le montage, à poser une fois :
+
+1. `ssh-keygen -t ed25519 -C "chaine-de-deploiement" -f cle-deploiement -N ""` ;
+2. la partie publique en *Settings → Deploy keys*, **Allow write access** coché ;
+3. la partie privée dans le secret `DEPLOIEMENT_SSH_KEY` ;
+4. *Deploy keys* ajouté à la **Bypass list** de la règle qui protège `main`.
+
+Le secret absent, le workflow retombe sur la poussée HTTPS d'avant et le dit en
+avertissement : un fork ou un dépôt dont `main` n'est pas protégé n'a rien à
+configurer.
+
+**Une conséquence à ne pas perdre de vue** : une poussée faite par une clé de
+déploiement **déclenche** les workflows, là où celle du `GITHUB_TOKEN` ne les
+déclenchait pas. Ce qui empêche la boucle « la CI committe, donc la CI repart »,
+c'est désormais le `[skip ci]` du message de commit, et lui seul.
 
 `dockhand` accepte trois façons de s'authentifier ; le workflow suit celle que
 sa documentation recommande pour une CI générique :

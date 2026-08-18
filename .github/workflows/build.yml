@@ -498,16 +498,24 @@ jobs:
       # echouer tous les deploiements suivants ; avant, parce que dockhand clone
       # le depot au moment ou on l'appelle.
       #
-      # Le pousseur est le GITHUB_TOKEN : une poussee faite avec lui ne declenche
-      # aucun workflow, ce qui ferme la boucle « la CI committe, donc la CI
-      # repart ». Le « [skip ci] » du message est une seconde barriere, pour le
-      # jour ou quelqu'un remplacerait ce jeton par un jeton personnel — qui,
-      # lui, redeclencherait.
+      # Le pousseur est la CLE DE DEPLOIEMENT, pas le GITHUB_TOKEN : une regle
+      # de protection de main exige des controles de statut sur tout ce qui y
+      # est pousse, et le commit d'epinglage porte « [skip ci] » — les controles
+      # exiges ne tourneront donc jamais sur lui, et la regle le refuserait
+      # toujours. Seule une cle de deploiement inscrite dans la Bypass list de
+      # la regle peut l'ecrire ; le robot des Actions, lui, ne s'y inscrit pas
+      # (GitHub ne le propose pas dans cette liste).
+      #
+      # Consequence a ne pas perdre de vue : contrairement au GITHUB_TOKEN, une
+      # poussee faite par une cle de deploiement DECLENCHE les workflows. Ce qui
+      # ferme la boucle « la CI committe, donc la CI repart », c'est donc
+      # desormais le « [skip ci] » du message, et lui seul. Ne le retire pas.
       - name: enregistrer les versions deployees
         if: steps.pin.outputs.compose != ''
         env:
           APPS: ${{ needs.detect.outputs.apps }}
           SHA: ${{ github.sha }}
+          CLE: ${{ secrets.DEPLOIEMENT_SSH_KEY }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
@@ -523,6 +531,25 @@ jobs:
           liste=$(printf '%s' "$APPS" | tr -d '[]"' | tr ',' ' ')
           git commit -q -m "deploiement : $liste sur ${SHA:0:7} [skip ci]" \
                         -m "Version epinglee par la CI. Le compose ne change que pour ces apps ; les autres conteneurs de la stack ne sont pas recrees."
+          # La cle absente, on pousse comme avant, en HTTPS avec le GITHUB_TOKEN :
+          # le depot reste utilisable tel quel — un fork, une copie, un depot ou
+          # main n'est pas protege n'ont rien a configurer. La regle de
+          # protection, elle, refusera cette poussee, et l'erreur en fin d'etape
+          # dit alors exactement quoi poser.
+          if [ -n "${CLE:-}" ]; then
+            mkdir -p ~/.ssh && chmod 700 ~/.ssh
+            printf '%s\n' "$CLE" > ~/.ssh/deploiement
+            chmod 600 ~/.ssh/deploiement
+            # La cle d'hote est epinglee par ssh-keyscan plutot que par
+            # StrictHostKeyChecking=no : accepter n'importe quel hote sur un
+            # runner jetable n'aurait rien verifie du tout.
+            ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+            export GIT_SSH_COMMAND="ssh -i ~/.ssh/deploiement -o IdentitiesOnly=yes"
+            git remote set-url origin "git@github.com:${GITHUB_REPOSITORY}.git"
+          else
+            echo "::warning::secret DEPLOIEMENT_SSH_KEY absent — poussee en HTTPS, refusee si main est protege par des controles de statut"
+          fi
+
           # Une poussee peut echouer parce qu'un humain a pousse entre-temps :
           # on se rebase et on retente, sans jamais forcer.
           for essai in 1 2 3 4; do
@@ -533,6 +560,7 @@ jobs:
             git rebase FETCH_HEAD
           done
           echo "::error::impossible d'enregistrer les versions sur main — rien n'est deploye"
+          echo "::error::si le refus est « repository rule violations », la cle de deploiement (secret DEPLOIEMENT_SSH_KEY, avec acces en ecriture) doit figurer dans la Bypass list de la regle qui protege main"
           exit 1
 
       # L'appel vient APRES la publication des images et APRES la poussee des
