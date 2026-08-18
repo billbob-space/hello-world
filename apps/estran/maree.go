@@ -52,7 +52,7 @@ type Maree struct {
 	Extrema []Extremum
 }
 
-// JourMaree resume un jour pour la tendance a 7 jours. HauteM/BasseM/
+// JourMaree resume un jour pour la tendance a 16 jours. HauteM/BasseM/
 // Coefficient restent nil quand le fournisseur n'a rien retourne pour ce
 // jour-la, plutot que de tomber a zero — un zero se lirait comme une mesure.
 type JourMaree struct {

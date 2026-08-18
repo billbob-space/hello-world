@@ -9,13 +9,14 @@
 const RAFRAICHISSEMENT_MS = 5 * 60 * 1000;
 
 // Navigation temporelle (prp/01-navigation-temporelle.md) : choisir le jour
-// regardé, jusqu'à 7 jours en arrière et 7 en avant. decalageJour est en
-// jours par rapport à aujourd'hui (0 = aujourd'hui) ; il ne survit jamais au
-// rechargement — pas de stockage, la variable repart à 0 à chaque ouverture
-// de la page. Le serveur reste seul juge de la marée et de la météo : ce
-// fichier ne fait que choisir QUEL jour demander, jamais calculer une valeur.
+// regardé, jusqu'à 7 jours en arrière et 15 en avant
+// (prp/02-horizon-confiance-vent.md). decalageJour est en jours par rapport
+// à aujourd'hui (0 = aujourd'hui) ; il ne survit jamais au rechargement —
+// pas de stockage, la variable repart à 0 à chaque ouverture de la page. Le
+// serveur reste seul juge de la marée et de la météo : ce fichier ne fait
+// que choisir QUEL jour demander, jamais calculer une valeur.
 const JOURS_ARRIERE_MAX = 7;
-const JOURS_AVANT_MAX = 7;
+const JOURS_AVANT_MAX = 15;
 let decalageJour = 0;
 
 function dateLocale(decalage) {
@@ -117,6 +118,16 @@ function icone(cle, classe) {
   return `<svg class="${classe || "icone"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">${contenu}</svg>`;
 }
 
+// Rose des vents a 8 branches, calculee cote client depuis les degres rendus
+// par le serveur (vent_direction_deg) : c'est un pur affichage, pas une
+// donnée (prp/02-horizon-confiance-vent.md, section 4).
+const ROSE_DES_VENTS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+function roseDesVents(deg) {
+  if (deg == null || Number.isNaN(deg)) return "";
+  const index = (Math.round(deg / 45) % 8 + 8) % 8;
+  return ROSE_DES_VENTS[index];
+}
+
 function horlogeLocale() {
   const el = document.getElementById("horloge");
   function tick() {
@@ -145,15 +156,17 @@ function rendrePrevisions(donnees) {
   const titre = document.getElementById("titre-previsions");
 
   // jour_affiche n'est present que si un `date` a ete demande : sur un jour
-  // autre qu'aujourd'hui, le titre le dit et les vignettes deviennent
-  // vingt-quatre, defilables horizontalement (prp/01-navigation-
-  // temporelle.md).
+  // autre qu'aujourd'hui, le titre le dit et les vignettes sont les
+  // vingt-quatre heures du jour. Aujourd'hui comme un autre jour, la bande
+  // defile horizontalement plutot que d'etre bornee a une grille fixe : le
+  // nombre de vignettes d'aujourd'hui varie desormais avec l'heure (minimum
+  // cinq, prp/02-horizon-confiance-vent.md, section 1).
   const autreJour = Boolean(donnees.jour_affiche);
-  rangee.classList.toggle("heures-rangee--jour", autreJour);
+  rangee.classList.add("heures-rangee--defile");
   if (titre) {
     titre.textContent = autreJour
       ? donnees.jour_affiche_libelle || "Ce jour"
-      : "Les 5 prochaines heures";
+      : "Les prochaines heures";
   }
 
   if (donnees.erreur) {
@@ -168,6 +181,18 @@ function rendrePrevisions(donnees) {
   } else {
     rangee.innerHTML = (donnees.heures || [])
       .map((h) => {
+        // pluie_pct/vent_kmh/vagues_m sont chacun independamment absents
+        // (Open-Meteo rend `null` au bord de sa fenetre) : chaque ligne est
+        // alors laissee de cote plutot que d'afficher un zero invente
+        // (prp/02-horizon-confiance-vent.md, section Degradation).
+        const pluie =
+          h.pluie_pct != null
+            ? `<span class="detail pluie">${icone("goutte")}${h.pluie_pct}%</span>`
+            : "";
+        const vent =
+          h.vent_kmh != null
+            ? `<span class="detail">${icone("vent")}${h.vent_kmh}&nbsp;km/h</span>`
+            : "";
         const vagues =
           h.vagues_m != null
             ? `<span class="detail">${icone("vague")}${h.vagues_m.toFixed(1)} m</span>`
@@ -178,8 +203,8 @@ function rendrePrevisions(donnees) {
           ${icone(h.symbole, "icone")}
           <span class="temperature">${Math.round(h.temperature_c)}°</span>
           <div class="stats">
-            <span class="detail pluie">${icone("goutte")}${h.pluie_pct}%</span>
-            <span class="detail">${icone("vent")}${h.vent_kmh} km/h</span>
+            ${pluie}
+            ${vent}
             ${vagues}
           </div>
         </div>`;
@@ -199,19 +224,54 @@ function rendrePrevisions(donnees) {
 
 // Les prévisions météo et la marée arrivent de deux endpoints indépendants,
 // qui se dégradent chacun de son côté (PRODUCT.md, principe 3). La tendance
-// à 7 jours fusionne les deux par date dès que l'une des deux réponses
+// à 16 jours fusionne les deux par date dès que l'une des deux réponses
 // arrive ou change ; l'absence de données de marée (pas de clé, jour non
 // couvert par le fournisseur) laisse simplement la ligne de marée de côté,
 // jamais une valeur inventée.
 let joursMeteoActuels = null;
 let joursMareeActuels = null;
 
+// confianceBarres rend l'indice de confiance d'un jour de tendance (jamais
+// affiché sur les vignettes horaires, prp/02-horizon-confiance-vent.md,
+// section 3) : trois barres remplies 3/2/1 selon le niveau, avec un texte
+// accessible qui donne le niveau ET le nombre de modèles comparés. Absent ou
+// vide (le serveur omet confiance quand moins de deux modèles portent la
+// température) : marque discrète et explicite, jamais une barre remplie ni
+// une valeur inventée.
+const NIVEAUX_CONFIANCE = { haute: 3, moyenne: 2, basse: 1 };
+function confianceBarres(j) {
+  if (!j.confiance) {
+    return `<span class="confiance confiance--inconnue">confiance inconnue</span>`;
+  }
+  const rempli = NIVEAUX_CONFIANCE[j.confiance] || 0;
+  const barres = [1, 2, 3]
+    .map((n) => `<span class="confiance-barre${n <= rempli ? " confiance-barre--remplie" : ""}"></span>`)
+    .join("");
+  const modeles = j.confiance_modeles || 0;
+  return `<span class="confiance" role="img" aria-label="confiance ${esc(j.confiance)}, ${modeles} modèle${modeles > 1 ? "s" : ""} comparé${modeles > 1 ? "s" : ""}">
+    <span class="confiance-barres">${barres}</span>
+  </span>`;
+}
+
+// titreTendance ecrit "Tendance a N jours" a partir du nombre de lignes
+// REELLEMENT recues, jamais une valeur en dur : le fournisseur peut rendre
+// moins de nombreJoursAffiches (16) jours (un jour sans temperature est omis
+// cote serveur, prp/02-horizon-confiance-vent.md, section Degradation), et
+// le titre doit dire ce qui s'affiche vraiment, pas ce qui etait vise.
+function majTitreTendance(nombreJours) {
+  const titre = document.getElementById("titre-tendance");
+  if (!titre) return;
+  titre.textContent = nombreJours > 0 ? `Tendance à ${nombreJours} jours` : "Tendance";
+}
+
 function actualiserTendance() {
   const rangee = document.getElementById("jours-rangee");
   if (!joursMeteoActuels || !joursMeteoActuels.length) {
+    majTitreTendance(0);
     rangee.innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
     return;
   }
+  majTitreTendance(joursMeteoActuels.length);
 
   const mareeParDate = new Map((joursMareeActuels || []).map((j) => [j.date, j]));
 
@@ -228,6 +288,26 @@ function actualiserTendance() {
              ${maree.coefficient != null ? `<span class="coef">coef&nbsp;${maree.coefficient}</span>` : ""}
            </div>`
         : "";
+      // Vent journalier et indice de confiance : une ligne de plus, sur
+      // chaque ligne de tendance uniquement (prp/02-horizon-confiance-vent.md,
+      // sections 3 et 4). vent_kmh_max/rafales_kmh_max/vent_direction_deg
+      // sont chacun independamment absents (Open-Meteo rend `null` au bord
+      // de sa fenetre) : chaque partie manquante est omise plutot que
+      // d'afficher un zero invente (section Degradation) ; si les trois
+      // manquent, la ligne de vent disparait entierement — la confiance,
+      // elle, reste toujours affichee (barres ou marque « inconnue »).
+      const partiesVent = [];
+      if (j.vent_kmh_max != null) partiesVent.push(`<span>${j.vent_kmh_max}&nbsp;km/h</span>`);
+      if (j.rafales_kmh_max != null) partiesVent.push(`<span>rafales&nbsp;${j.rafales_kmh_max}&nbsp;km/h</span>`);
+      const directionVent = roseDesVents(j.vent_direction_deg);
+      if (directionVent) partiesVent.push(`<span class="vent-direction">${directionVent}</span>`);
+      const jourVent = partiesVent.length
+        ? `<span class="jour-vent">${icone("vent", "jour-vent-icone")}${partiesVent.join('<span class="separateur">·</span>')}</span>`
+        : "";
+      const ligneVent = `<div class="jour-secondaire">
+        ${jourVent}
+        ${confianceBarres(j)}
+      </div>`;
       // Chaque ligne mene directement au jour qu'elle decrit, et le jour
       // regarde y est mis en evidence (prp/01-navigation-temporelle.md).
       const decalage = decalageDepuisISO(j.date);
@@ -237,10 +317,11 @@ function actualiserTendance() {
         <div class="jour-principale">
           <span class="jour-nom">${esc(j.jour_semaine)}</span>
           ${icone(j.symbole, "icone")}
-          <span class="pluie">${icone("goutte")}${j.pluie_pct_max}%</span>
+          <span class="pluie">${j.pluie_pct_max != null ? `${icone("goutte")}${j.pluie_pct_max}%` : ""}</span>
           <span class="temps"><span class="max">${Math.round(j.temp_max_c)}°</span> <span class="min">${Math.round(j.temp_min_c)}°</span></span>
         </div>
         ${ligneMaree}
+        ${ligneVent}
       </button>`;
     })
     .join("");

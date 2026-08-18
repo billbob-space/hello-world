@@ -99,3 +99,27 @@ en parametre explicite pour cette raison ; ce test-la ne le faisait pas.
 
 **Action** — `rien` — repare en comparant au plancher plutot qu'a l'egalite ;
 le vice de forme est connu et deja evite partout ailleurs dans cette app.
+
+### 6. Trois defauts visibles seulement a l'ecran, sous des verifications DOM vertes
+
+**Symptome** — captures prises sur l'app reelle a 390 et 1280 de large : les
+barres de l'indice de confiance se superposaient au texte du vent, la tendance
+avait acquis un defilement interne qui coupait une ligne en deux au bas du
+cadre et cachait dix jours sur quinze derriere une seconde barre de
+defilement, et le titre annoncait « Tendance a 16 jours » au-dessus de quinze
+lignes. Les verifications faites au selecteur — presence des classes, valeurs
+de `getComputedStyle`, comptes d'elements — etaient toutes vertes.
+
+**Cause** — interroger le DOM repond a « l'element est-il la, avec la bonne
+regle CSS ? », jamais a « qu'est-ce qu'on voit ? ». Un chevauchement, une
+troncature et un titre qui contredit son contenu sont exactement les trois
+choses qu'un selecteur ne peut pas voir. Le titre, lui, est un cas a part : il
+etait ecrit en dur alors que le nombre de jours rendus depend desormais du
+fournisseur — la correction de degradation l'a rendu faux sans le toucher.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — sur un changement d'interface, regarder la
+capture avant de conclure ; une assertion DOM verte n'est pas une preuve
+visuelle. Et une valeur ecrite en dur dans le HTML devient un mensonge des que
+la donnee qu'elle resume se met a varier.

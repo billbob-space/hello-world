@@ -5,29 +5,38 @@ import (
 	"time"
 )
 
-func TestVuePrevisions_GardeLes5ProchainesHeures(t *testing.T) {
-	base := time.Date(2026, 8, 9, 14, 0, 0, 0, parisTZ)
+// TestVuePrevisions_HeuresRestantesDuJour_MilieuDeJournee verifie la regle
+// prp/02-horizon-confiance-vent.md section 1 : en milieu de journee, TOUTES
+// les heures restantes du jour sont rendues (pas seulement
+// nombreHeuresMinimum) et pas une de plus (rien du lendemain).
+func TestVuePrevisions_HeuresRestantesDuJour_MilieuDeJournee(t *testing.T) {
+	base := time.Date(2026, 8, 9, 14, 0, 0, 0, parisTZ) // 14h30, tronque a 14h : 10 heures restent avant minuit (14h..23h)
 	p := Previsions{}
-	for i := -2; i < 10; i++ {
+	for i := -2; i < 14; i++ {
 		p.Heures = append(p.Heures, HeureMeteo{
 			Heure:        base.Add(time.Duration(i) * time.Hour),
-			TemperatureC: float64(i),
+			TemperatureC: floatPtr(float64(i)),
 			CodeMeteo:    0,
 		})
 	}
-	for i := range 10 {
-		p.Jours = append(p.Jours, JourMeteo{Date: base.AddDate(0, 0, i)})
+	for i := range 20 {
+		p.Jours = append(p.Jours, JourMeteo{Date: base.AddDate(0, 0, i), TempMinC: floatPtr(10), TempMaxC: floatPtr(20)})
 	}
 
 	v := vuePrevisions(p, base.Add(30*time.Minute), true, nil)
 
-	if len(v.Heures) != nombreHeuresAffichees {
-		t.Fatalf("nombre d'heures = %d, attendu %d", len(v.Heures), nombreHeuresAffichees)
+	// De 14:00 a 23:00 inclus : 10 heures, largement au-dela du minimum, et
+	// rien du lendemain (00:00 du jour suivant n'est pas dans la fixture
+	// avant i=10, qui correspond a 00:00 le 10 aout : absent car > 23h ce
+	// jour-la).
+	if len(v.Heures) != 10 {
+		t.Fatalf("nombre d'heures = %d, attendu 10 (14h a 23h inclus, milieu de journee)", len(v.Heures))
 	}
-	// maintenant = 14:30, tronque a 14:00 : la premiere heure gardee doit
-	// etre celle de 14:00 (i=0), jamais une heure deja passee (i<0).
 	if v.Heures[0].Heure != "14:00" {
 		t.Errorf("premiere heure = %s, attendu 14:00 (pas une heure passee)", v.Heures[0].Heure)
+	}
+	if v.Heures[len(v.Heures)-1].Heure != "23:00" {
+		t.Errorf("derniere heure = %s, attendu 23:00 (rien du lendemain en milieu de journee)", v.Heures[len(v.Heures)-1].Heure)
 	}
 	if len(v.Jours) != nombreJoursAffiches {
 		t.Fatalf("nombre de jours = %d, attendu %d", len(v.Jours), nombreJoursAffiches)
@@ -37,9 +46,79 @@ func TestVuePrevisions_GardeLes5ProchainesHeures(t *testing.T) {
 	}
 }
 
+// TestVuePrevisions_HeuresRestantesDuJour_MinimumEnSoiree verifie le
+// plancher : a 22h, seules deux heures restent avant minuit (22h, 23h), donc
+// la vue deborde sur le lendemain jusqu'a atteindre nombreHeuresMinimum —
+// exactement le comportement d'avant entre 19h et minuit
+// (prp/02-horizon-confiance-vent.md, section 1).
+func TestVuePrevisions_HeuresRestantesDuJour_MinimumEnSoiree(t *testing.T) {
+	base := time.Date(2026, 8, 9, 22, 0, 0, 0, parisTZ)
+	p := Previsions{}
+	for i := 0; i < 10; i++ {
+		p.Heures = append(p.Heures, HeureMeteo{
+			Heure:        base.Add(time.Duration(i) * time.Hour),
+			TemperatureC: floatPtr(float64(i)),
+		})
+	}
+
+	v := vuePrevisions(p, base, true, nil)
+
+	if len(v.Heures) != nombreHeuresMinimum {
+		t.Fatalf("nombre d'heures = %d, attendu %d (minimum atteint en debordant sur le lendemain)", len(v.Heures), nombreHeuresMinimum)
+	}
+	if v.Heures[0].Heure != "22:00" {
+		t.Errorf("premiere heure = %s, attendu 22:00", v.Heures[0].Heure)
+	}
+	// 22h, 23h, puis 00h/01h/02h le lendemain pour atteindre 5 : la derniere
+	// doit deborder sur le jour suivant.
+	if v.Heures[len(v.Heures)-1].Heure != "02:00" {
+		t.Errorf("derniere heure = %s, attendu 02:00 (debordement sur le lendemain)", v.Heures[len(v.Heures)-1].Heure)
+	}
+}
+
+// TestVuePrevisions_SerieQuiSarreteEnCoursDeJournee est le cas de bord
+// signale le 18 aout 2026 (prp/02-horizon-confiance-vent.md, section
+// Degradation) : Open-Meteo peut rendre `null` sur la temperature d'une
+// heure au milieu de la serie (pas seulement en toute fin). Ces heures ne
+// doivent ni apparaitre dans la bande, ni compter pour le plancher de cinq
+// — vuePrevisions doit continuer a chercher plus loin (deborder davantage
+// sur le lendemain) pour l'atteindre quand meme avec les heures REELLEMENT
+// affichees.
+func TestVuePrevisions_SerieQuiSarreteEnCoursDeJournee(t *testing.T) {
+	base := time.Date(2026, 8, 9, 21, 0, 0, 0, parisTZ)
+	p := Previsions{}
+	for i := 0; i < 8; i++ {
+		h := HeureMeteo{Heure: base.Add(time.Duration(i) * time.Hour), TemperatureC: floatPtr(float64(i))}
+		// La serie s'arrete en cours de journee : les heures i=2 et i=3
+		// (23h et 00h) sont sans temperature, exactement comme observe en
+		// direct au bord de la fenetre Open-Meteo.
+		if i == 2 || i == 3 {
+			h.TemperatureC = nil
+		}
+		p.Heures = append(p.Heures, h)
+	}
+
+	v := vuePrevisions(p, base, true, nil)
+
+	if len(v.Heures) != nombreHeuresMinimum {
+		t.Fatalf("nombre d'heures = %d, attendu %d (les heures sans temperature ne comptent pas, il faut chercher plus loin)", len(v.Heures), nombreHeuresMinimum)
+	}
+	for _, h := range v.Heures {
+		if h.Heure == "23:00" || h.Heure == "00:00" {
+			t.Errorf("heure %s attendue absente (temperature nulle dans la fixture), presente dans %+v", h.Heure, v.Heures)
+		}
+	}
+	// 21h, 22h (temperature connue), 23h/00h sautees (nulles), puis 01h, 02h,
+	// 03h : cinq heures REELLEMENT affichees, terminant a 03h — la recherche
+	// va plus loin que si les heures nulles avaient ete comptees a tort.
+	if v.Heures[len(v.Heures)-1].Heure != "03:00" {
+		t.Errorf("derniere heure = %s, attendu 03:00", v.Heures[len(v.Heures)-1].Heure)
+	}
+}
+
 func TestVuePrevisions_VaguesAbsentesRestentAbsentes(t *testing.T) {
 	base := time.Date(2026, 8, 9, 14, 0, 0, 0, parisTZ)
-	p := Previsions{Heures: []HeureMeteo{{Heure: base, VaguesM: nil}}}
+	p := Previsions{Heures: []HeureMeteo{{Heure: base, TemperatureC: floatPtr(18), VaguesM: nil}}}
 
 	v := vuePrevisions(p, base, true, nil)
 	if v.Heures[0].VaguesM != nil {
@@ -62,9 +141,9 @@ func TestVuePrevisions_SansDateAffichePasDeJourAffiche(t *testing.T) {
 }
 
 // TestVuePrevisions_AvecDate_24HeuresDuJour verifie qu'un jour choisi rend
-// les 24 heures de CE jour (pas les 5 prochaines a partir de maintenant) et
-// que la tendance a 7 jours reste ancree sur AUJOURD'HUI, pas sur le jour
-// regarde.
+// les 24 heures de CE jour (pas les heures restantes a partir de maintenant)
+// et que la tendance a 16 jours reste ancree sur AUJOURD'HUI, pas sur le
+// jour regarde.
 func TestVuePrevisions_AvecDate_24HeuresDuJour(t *testing.T) {
 	aujourdhui := time.Date(2026, 8, 16, 14, 0, 0, 0, parisTZ)
 	hier := aujourdhui.AddDate(0, 0, -1)
@@ -74,11 +153,11 @@ func TestVuePrevisions_AvecDate_24HeuresDuJour(t *testing.T) {
 	// Trois jours d'heures (hier, aujourd'hui, demain), 24h chacun.
 	for _, jourDebut := range []time.Time{debutDuJour(hier), debutDuJour(aujourdhui), debutDuJour(demain)} {
 		for h := 0; h < 24; h++ {
-			p.Heures = append(p.Heures, HeureMeteo{Heure: jourDebut.Add(time.Duration(h) * time.Hour)})
+			p.Heures = append(p.Heures, HeureMeteo{Heure: jourDebut.Add(time.Duration(h) * time.Hour), TemperatureC: floatPtr(15)})
 		}
 	}
-	for i := 0; i < 7; i++ {
-		p.Jours = append(p.Jours, JourMeteo{Date: debutDuJour(aujourdhui).AddDate(0, 0, i)})
+	for i := 0; i < nombreJoursAffiches; i++ {
+		p.Jours = append(p.Jours, JourMeteo{Date: debutDuJour(aujourdhui).AddDate(0, 0, i), TempMinC: floatPtr(10), TempMaxC: floatPtr(20)})
 	}
 
 	dateCible := debutDuJour(demain)
@@ -104,6 +183,72 @@ func TestVuePrevisions_AvecDate_24HeuresDuJour(t *testing.T) {
 	}
 }
 
+// TestVuePrevisions_JourEntierementNulNestPasAffiche verifie la regle
+// centrale de prp/02-horizon-confiance-vent.md, section Degradation : un
+// jour sans temperature (TempMinC/TempMaxC nil, bord de la fenetre
+// Open-Meteo) n'est pas affiche DU TOUT — la tendance porte alors moins de
+// nombreJoursAffiches lignes, plutot que d'inventer un jour a 0°C.
+func TestVuePrevisions_JourEntierementNulNestPasAffiche(t *testing.T) {
+	aujourdhui := time.Date(2026, 8, 16, 8, 0, 0, 0, parisTZ)
+	p := Previsions{}
+	for i := 0; i < nombreJoursAffiches; i++ {
+		j := JourMeteo{Date: debutDuJour(aujourdhui).AddDate(0, 0, i), TempMinC: floatPtr(10), TempMaxC: floatPtr(20)}
+		// Le dernier jour de la fenetre (bord de forecast_days=16) est sans
+		// temperature, exactement comme constate en direct le 18 aout 2026.
+		if i == nombreJoursAffiches-1 {
+			j.TempMinC, j.TempMaxC = nil, nil
+		}
+		p.Jours = append(p.Jours, j)
+	}
+
+	v := vuePrevisions(p, aujourdhui, true, nil)
+
+	if len(v.Jours) != nombreJoursAffiches-1 {
+		t.Fatalf("tendance = %d ligne(s), attendu %d (le dernier jour, sans temperature, est omis)", len(v.Jours), nombreJoursAffiches-1)
+	}
+	dernierDate := debutDuJour(aujourdhui).AddDate(0, 0, nombreJoursAffiches-1).Format("2006-01-02")
+	for _, j := range v.Jours {
+		if j.Date == dernierDate {
+			t.Errorf("le jour sans temperature (%s) ne doit apparaitre nulle part dans la tendance", dernierDate)
+		}
+	}
+}
+
+// TestVuePrevisions_PluieVentAbsentsLaissentLeurLigneDeCote verifie qu'une
+// heure avec temperature connue mais pluie et vent absents (nil,
+// independamment de la temperature) rend une VueHeure dont PluiePct/VentKmh/
+// VentDirectionDeg restent nil — jamais un zero invente
+// (prp/02-horizon-confiance-vent.md, section Degradation).
+func TestVuePrevisions_PluieVentAbsentsLaissentLeurLigneDeCote(t *testing.T) {
+	base := time.Date(2026, 8, 9, 14, 0, 0, 0, parisTZ)
+	p := Previsions{Heures: []HeureMeteo{{
+		Heure:            base,
+		TemperatureC:     floatPtr(19.5),
+		PluiePct:         nil,
+		VentKmh:          nil,
+		VentDirectionDeg: nil,
+	}}}
+
+	v := vuePrevisions(p, base, true, nil)
+
+	if len(v.Heures) != 1 {
+		t.Fatalf("nombre d'heures = %d, attendu 1", len(v.Heures))
+	}
+	h := v.Heures[0]
+	if h.TemperatureC != 19.5 {
+		t.Errorf("TemperatureC = %v, attendu 19.5 (seule grandeur connue)", h.TemperatureC)
+	}
+	if h.PluiePct != nil {
+		t.Errorf("PluiePct = %v, attendu nil (absent, jamais 0)", *h.PluiePct)
+	}
+	if h.VentKmh != nil {
+		t.Errorf("VentKmh = %v, attendu nil (absent, jamais 0)", *h.VentKmh)
+	}
+	if h.VentDirectionDeg != nil {
+		t.Errorf("VentDirectionDeg = %v, attendu nil (absent, jamais 0)", *h.VentDirectionDeg)
+	}
+}
+
 // TestVuePrevisions_JoursPasses_TendanceIgnoreLePasse verifie que
 // l'ajout de past_days=7 (meteo.go) ne fait pas remonter des jours passes
 // dans la tendance : elle doit toujours commencer a aujourd'hui, meme quand
@@ -111,8 +256,8 @@ func TestVuePrevisions_AvecDate_24HeuresDuJour(t *testing.T) {
 func TestVuePrevisions_JoursPasses_TendanceIgnoreLePasse(t *testing.T) {
 	aujourdhui := time.Date(2026, 8, 16, 8, 0, 0, 0, parisTZ)
 	p := Previsions{}
-	for i := -7; i <= 6; i++ {
-		p.Jours = append(p.Jours, JourMeteo{Date: debutDuJour(aujourdhui).AddDate(0, 0, i), TempMaxC: float64(i)})
+	for i := -7; i <= nombreJoursAffiches-1; i++ {
+		p.Jours = append(p.Jours, JourMeteo{Date: debutDuJour(aujourdhui).AddDate(0, 0, i), TempMinC: floatPtr(float64(i) - 1), TempMaxC: floatPtr(float64(i))})
 	}
 
 	v := vuePrevisions(p, aujourdhui, true, nil)
@@ -134,6 +279,8 @@ func TestVuePrevisions_JoursPasses_TendanceIgnoreLePasse(t *testing.T) {
 // horaire du meme jour dirait "soleil" (cas du 16 aout 2026, cf. meteo.go).
 func TestVueJourMeteo_UtiliseLesCouchesQuandConnues(t *testing.T) {
 	j := JourMeteo{
+		TempMinC:             floatPtr(15),
+		TempMaxC:             floatPtr(22),
 		CodeMeteo:            3,
 		NebulositeBassePct:   0,
 		NebulositeMoyennePct: 45,
@@ -151,10 +298,71 @@ func TestVueJourMeteo_UtiliseLesCouchesQuandConnues(t *testing.T) {
 // libelleMeteo(CodeMeteo), plutot que de traiter des zeros comme un ciel
 // vide.
 func TestVueJourMeteo_RetombeSurLeCodeOMMSansCouches(t *testing.T) {
-	j := JourMeteo{CodeMeteo: 3, CouchesConnues: false}
+	j := JourMeteo{TempMinC: floatPtr(15), TempMaxC: floatPtr(22), CodeMeteo: 3, CouchesConnues: false}
 	v := vueJourMeteo(j)
 	if v.Symbole != "nuage" || v.Libelle != "couvert" {
 		t.Errorf("libelle/symbole = %q/%q, attendu couvert/nuage (retombee sur le code OMM)", v.Libelle, v.Symbole)
+	}
+}
+
+// TestVueJourMeteo_VentEtConfiance verifie que le vent journalier et
+// l'indice de confiance (quand connu) survivent a la conversion en vue,
+// arrondis a l'entier comme le reste (prp/02-horizon-confiance-vent.md).
+func TestVueJourMeteo_VentEtConfiance(t *testing.T) {
+	j := JourMeteo{
+		TempMinC:         floatPtr(15),
+		TempMaxC:         floatPtr(22),
+		VentKmhMax:       floatPtr(28.6),
+		RafalesKmhMax:    floatPtr(54.4),
+		VentDirectionDeg: floatPtr(224.5),
+		Confiance:        "moyenne",
+		ConfianceModeles: 5,
+	}
+	v := vueJourMeteo(j)
+	if v.VentKmhMax == nil || *v.VentKmhMax != 29 {
+		t.Errorf("VentKmhMax = %v, attendu 29 (arrondi de 28.6)", v.VentKmhMax)
+	}
+	if v.RafalesKmhMax == nil || *v.RafalesKmhMax != 54 {
+		t.Errorf("RafalesKmhMax = %v, attendu 54 (arrondi de 54.4)", v.RafalesKmhMax)
+	}
+	if v.VentDirectionDeg == nil || *v.VentDirectionDeg != 225 {
+		t.Errorf("VentDirectionDeg (jour) = %v, attendu 225 (arrondi de 224.5)", v.VentDirectionDeg)
+	}
+	if v.Confiance != "moyenne" || v.ConfianceModeles != 5 {
+		t.Errorf("Confiance/ConfianceModeles = %q/%d, attendu moyenne/5", v.Confiance, v.ConfianceModeles)
+	}
+}
+
+// TestVueJourMeteo_ConfianceInconnueResteAbsente verifie que Confiance/
+// ConfianceModeles restent a leur zero-valeur quand l'indice n'a pas pu etre
+// calcule : c'est ce qui les rend absents du JSON (omitempty, domaine.go).
+func TestVueJourMeteo_ConfianceInconnueResteAbsente(t *testing.T) {
+	v := vueJourMeteo(JourMeteo{TempMinC: floatPtr(15), TempMaxC: floatPtr(22)})
+	if v.Confiance != "" || v.ConfianceModeles != 0 {
+		t.Errorf("Confiance/ConfianceModeles = %q/%d, attendu vides/0 sans indice calcule", v.Confiance, v.ConfianceModeles)
+	}
+}
+
+// TestVueJourMeteo_VentPartielLaisseSaLigneDeCote verifie qu'une grandeur de
+// vent absente independamment de la temperature (bord de la fenetre
+// Open-Meteo, prp/02-horizon-confiance-vent.md section Degradation) reste
+// nil (donc omise du JSON), sans faire tomber les autres a zero.
+func TestVueJourMeteo_VentPartielLaisseSaLigneDeCote(t *testing.T) {
+	j := JourMeteo{
+		TempMinC:      floatPtr(15),
+		TempMaxC:      floatPtr(22),
+		VentKmhMax:    floatPtr(30),
+		RafalesKmhMax: nil, // rafale absente ce jour-la
+	}
+	v := vueJourMeteo(j)
+	if v.VentKmhMax == nil || *v.VentKmhMax != 30 {
+		t.Errorf("VentKmhMax = %v, attendu 30 (present)", v.VentKmhMax)
+	}
+	if v.RafalesKmhMax != nil {
+		t.Errorf("RafalesKmhMax = %v, attendu nil (absent, jamais un zero invente)", *v.RafalesKmhMax)
+	}
+	if v.PluiePctMax != nil {
+		t.Errorf("PluiePctMax = %v, attendu nil (absent)", *v.PluiePctMax)
 	}
 }
 
