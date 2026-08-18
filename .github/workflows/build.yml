@@ -611,34 +611,239 @@ jobs:
           echo "::error::si le refus est « repository rule violations », la cle de deploiement (secret DEPLOIEMENT_SSH_KEY, avec acces en ecriture) doit figurer dans la Bypass list de la regle qui protege main"
           exit 1
 
+      # LA LIVRAISON UNITAIRE — recreer le conteneur de la seule app livree.
+      #
+      # Le webhook, en dessous, recree TOUTE la stack, et ce n'est pas un
+      # reglage a decocher. Dans le chemin git de dockhand, la variable qui
+      # decide vaut « la synchronisation a vu un fichier changer » :
+      #
+      #   const forceRecreate = syncResult.updated;   src/lib/server/git.ts
+      #
+      # Elle est donc toujours vraie quand on deploie, et « --force-recreate »
+      # est toujours ajoute. Le reglage « Force redeployment » de l'interface
+      # est un SECOND levier, independant : il decide s'il faut deployer quand
+      # RIEN n'a change, et le decocher ne retire pas l'option. Lu dans leur
+      # source le 18 aout 2026, v1.0.42 ; signale chez eux depuis le 31 janvier
+      # — Finsys/dockhand#419, toujours ouvert, sans reponse depuis le 8 aout.
+      #
+      # On passe donc a cote du chemin git pour la livraison ORDINAIRE — celle
+      # ou seules des lignes image: ont bouge — et on demande a dockhand de
+      # remplacer l'image d'un conteneur, un par un. Il le fait en gardant tout
+      # le reste : labels Traefik, reseaux, volumes, limites, sonde. Les autres
+      # conteneurs de la stack ne sont pas touches, et c'est tout l'objet.
+      #
+      # Deux choses tenues ici et nulle part ailleurs :
+      #   - la copie du compose que dockhand garde a cote de la stack est mise a
+      #     jour AVANT les conteneurs, et sans redemarrage : c'est elle que
+      #     servirait un « Restart » depuis l'interface, et la laisser en
+      #     arriere ferait revenir les images d'avant sans un mot ;
+      #   - tout ecart de STRUCTURE — un service qui apparait, une limite, un
+      #     volume, un label — repasse par le webhook : l'API des conteneurs
+      #     sait remplacer une image, elle ne sait pas creer un service.
+      #
+      # Cote serveur, la porte de service doit couvrir les deux chemins appeles
+      # ici, et rien d'autre ; le README donne la regle Traefik exacte.
+      - name: livrer les apps une par une
+        id: unitaire
+        env:
+          DOCKHAND_URL: ${{ secrets.DOCKHAND_URL }}
+          DOCKHAND_TOKEN: ${{ secrets.DOCKHAND_TOKEN }}
+          WEBHOOK: ${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
+          PIN_COMPOSE: ${{ steps.pin.outputs.compose }}
+          PUSH_COMPOSE: ${{ needs.detect.outputs.compose }}
+          AVANT: ${{ github.event.before }}
+          REGISTRE: ${{ needs.detect.outputs.registry }}
+        run: |
+          set -euo pipefail
+
+          # Ce qui empeche la livraison unitaire ne doit jamais empecher la
+          # LIVRAISON : on repasse par le webhook, en disant pourquoi.
+          repli() {
+            echo "webhook=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::livraison unitaire ecartee — $1"
+            echo "le deploiement repasse par le webhook : TOUTE la stack sera recreee"
+            exit 0
+          }
+
+          # Aucun service du compose ne change : il n'y a rien a redeployer. Le
+          # cas existe — une app construite mais encore desactivee, premier des
+          # deux commits d'un ajout.
+          if [ "$PIN_COMPOSE" != true ] && [ "$PUSH_COMPOSE" != true ]; then
+            echo "compose.yaml inchange — images publiees, aucun conteneur a recreer"
+            echo "webhook=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          [ -n "${DOCKHAND_URL:-}" ]   || repli "secret DOCKHAND_URL absent"
+          [ -n "${DOCKHAND_TOKEN:-}" ] || repli "secret DOCKHAND_TOKEN absent"
+
+          # L'identifiant de la pile se lit dans l'URL du webhook : un secret de
+          # moins a poser, et deux valeurs qui ne peuvent pas se contredire.
+          PILE_ID=$(printf '%s' "${WEBHOOK:-}" | sed -nE 's#^.*/api/git/stacks/([0-9]+)/webhook.*$#\1#p')
+          [ -n "$PILE_ID" ] || repli "l URL du webhook ne porte pas d identifiant de pile"
+
+          # Le compose a-t-il bouge AILLEURS que sur des lignes image: depuis ce
+          # que le serveur fait tourner ? « github.event.before » est le dernier
+          # commit deploye des lors que chaque poussee sur main deploie.
+          [ -n "$AVANT" ] && git cat-file -e "${AVANT}^{commit}" 2>/dev/null \
+            || repli "commit precedent inconnu de ce clone — declenchement manuel, ou historique tronque"
+          bouge=$(git diff --no-color "$AVANT" -- compose.yaml | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
+          [ -n "$bouge" ] || repli "compose.yaml identique a celui de $AVANT"
+          if printf '%s\n' "$bouge" | grep -qvE '^[+-][[:space:]]*image:[[:space:]]'; then
+            echo "le compose change ailleurs que sur des lignes image: —"
+            printf '%s\n' "$bouge" | grep -vE '^[+-][[:space:]]*image:[[:space:]]' | head -20
+            repli "changement de structure, que seul le deploiement complet sait poser"
+          fi
+
+          # Un seul point de sortie vers dockhand. Il distingue les trois echecs
+          # qui ne se reparent pas au meme endroit : la porte fermee (redirection
+          # vers Google, cote serveur), le jeton refuse (401, cote dockhand), et
+          # le reste. Le corps de la reponse atterrit dans REPONSE.
+          # La reponse atterrit dans un FICHIER, dont le chemin est dans REP :
+          # les lectures qui suivent sont faites par un python dont le programme
+          # arrive lui-meme par l'entree standard, qui n'est donc pas libre.
+          REP=$(mktemp); export REP
+          trap 'rm -f "$REP"' EXIT
+
+          api() {  # api <methode> <chemin> [corps-json] — la reponse va dans $REP
+            local methode="$1" chemin="$2" corps="${3:-}" code
+            if [ -n "$corps" ]; then
+              code=$(printf '%s' "$corps" | curl -sS -o "$REP" -w '%{http_code}' --max-time 300 \
+                       -X "$methode" -H "Authorization: Bearer $DOCKHAND_TOKEN" \
+                       -H 'content-type: application/json' --data-binary @- "$DOCKHAND_URL$chemin")
+            else
+              code=$(curl -sS -o "$REP" -w '%{http_code}' --max-time 60 \
+                       -X "$methode" -H "Authorization: Bearer $DOCKHAND_TOKEN" "$DOCKHAND_URL$chemin")
+            fi
+            REPONSE=$(cat "$REP")
+            case "$code" in
+              200|201) return 0 ;;
+              30*) echo "::error::$methode $chemin — redirection $code vers l authentification Google : la porte de service ne couvre pas ce chemin (README, « La porte de livraison »)" ;;
+              401) echo "::error::$methode $chemin — 401, jeton refuse par dockhand" ;;
+              *)   echo "::error::$methode $chemin — HTTP $code"; printf '%s' "$REPONSE" | head -c 400; echo ;;
+            esac
+            return 1
+          }
+
+          # Le nom de la pile — pour la copie du compose — et son environnement.
+          api GET "/api/git/stacks/$PILE_ID"
+          PILE=$(printf '%s' "$REPONSE" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("stackName",""))')
+          ENV_ID=$(printf '%s' "$REPONSE" | python3 -c 'import json,sys; v=json.load(sys.stdin).get("environmentId"); print(v if v else "")')
+          [ -n "$PILE" ] || repli "dockhand ne rend pas le nom de la pile $PILE_ID"
+          Q=""
+          if [ -n "$ENV_ID" ]; then Q="?env=$ENV_ID"; fi
+          echo "pile « $PILE »${ENV_ID:+, environnement $ENV_ID}"
+
+          # Les services de la fabrique et l'image que le compose leur donne.
+          # Les annexes tierces — postgres, valkey — n'ont pas ce prefixe : cette
+          # CI ne les construit pas, et leur tag ne bouge pas d'une livraison a
+          # l'autre. Le nom du service EST le nom du conteneur, le generateur y
+          # veille.
+          attendu=$(python3 - "$REGISTRE/$GITHUB_REPOSITORY/" <<'PY'
+          import re, sys
+          prefixe = sys.argv[1]
+          service = None
+          for ligne in open('compose.yaml'):
+              m = re.match(r'^  ([a-z0-9][a-z0-9-]*):\s*$', ligne)
+              if m:
+                  service = m.group(1)
+                  continue
+              m = re.match(r'^    image:\s*(\S+)\s*$', ligne)
+              if m and service and m.group(1).startswith(prefixe):
+                  print(service, m.group(1))
+          PY
+          )
+          [ -n "$attendu" ] || repli "aucun service de la fabrique lu dans compose.yaml"
+
+          # L'ecart entre le depot et l'hote, mesure AVANT le moindre geste. Il
+          # ne se limite pas aux apps livrees a l'instant : une app restee en
+          # arriere — fusion non construite, deploiement rate — est rattrapee
+          # ici, et c'est le seul endroit de la chaine qui la voie.
+          api GET "/api/containers$Q"
+          a_livrer=$(python3 - "$attendu" <<'PY'
+          import json, os, sys
+          etat = {c["name"]: c.get("image", "") for c in json.load(open(os.environ["REP"]))}
+          manque, bouge = [], []
+          for ligne in sys.argv[1].splitlines():
+              service, image = ligne.split()
+              if service not in etat:
+                  manque.append(service)
+              elif etat[service] != image:
+                  bouge.append((service, image))
+          if manque:
+              print("MANQUE " + " ".join(manque))
+          else:
+              for service, image in bouge:
+                  print(service, image)
+          PY
+          )
+          case "$a_livrer" in
+            MANQUE*) repli "conteneur(s) absent(s) de l hote : ${a_livrer#MANQUE }" ;;
+          esac
+          if [ -z "$a_livrer" ]; then
+            echo "les images en ligne sont deja celles du compose — rien a recreer"
+            echo "webhook=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          corps=$(python3 -c 'import json; print(json.dumps({"content": open("compose.yaml").read(), "restart": False}))')
+          api PUT "/api/stacks/$PILE/compose$Q" "$corps"
+          echo "copie du compose mise a jour chez dockhand, sans redemarrage"
+
+          while read -r service image; do
+            [ -n "$service" ] || continue
+            corps=$(python3 -c 'import json,sys; print(json.dumps({"image": sys.argv[1], "repullImage": True, "startAfterUpdate": True}))' "$image")
+            api POST "/api/containers/$service/update$Q" "$corps"
+            echo "  recree   $service   ->   ${image##*:}"
+          done <<< "$a_livrer"
+
+          # Un 200 ne vaut pas mise en ligne : on relit l'hote. Le 6 aout, un
+          # webhook vert cachait un clone en panne, et l'echec ne s'est vu qu'a
+          # l'oeil une heure plus tard sur l'URL de l'app.
+          api GET "/api/containers$Q"
+          ecarts=$(python3 - "$attendu" <<'PY'
+          import json, os, sys
+          etat = {c["name"]: c for c in json.load(open(os.environ["REP"]))}
+          for ligne in sys.argv[1].splitlines():
+              service, image = ligne.split()
+              c = etat.get(service)
+              if c is None:
+                  print("%s : absent de l hote" % service)
+              elif c.get("image", "") != image:
+                  print("%s : tourne sur %s, le compose dit %s" % (service, c.get("image", ""), image))
+              elif c.get("state") != "running":
+                  print("%s : etat %s" % (service, c.get("state")))
+          PY
+          )
+          if [ -n "$ecarts" ]; then
+            printf '::error::%s\n' "$ecarts"
+            echo "::error::livraison unitaire incomplete — l hote n est pas dans l etat du depot"
+            exit 1
+          fi
+          echo "webhook=false" >> "$GITHUB_OUTPUT"
+          echo "livraison unitaire faite — les autres conteneurs de la stack n ont pas bouge"
+
+      # LE DEPLOIEMENT COMPLET, desormais le chemin de REPLI : il recree toute
+      # la stack, quelques secondes d'indisponibilite pour toutes les apps. Il
+      # reste le seul qui sache poser un changement de structure — un service
+      # qui apparait ou disparait, une limite, un volume, un label.
+      #
       # L'appel vient APRES la publication des images et APRES la poussee des
       # versions : dockhand clone le depot lui-meme et tire les images qu'il y
       # lit. Dans l'autre ordre, il deploierait l'etat d'avant.
       #
-      # Il y a desormais un vrai diff a voir — la ligne image: de l'app livree —
-      # ce qui rend « Force redeployment » INUTILE, et meme nuisible : force,
-      # dockhand recree les neuf conteneurs de la stack ; sans force, il ne
-      # recree que les services dont le compose a bouge. Le reglage doit rester
-      # DECOCHE cote serveur, dans les Deploy options de la stack.
+      # « Force redeployment » doit rester DECOCHE cote serveur : il ne commande
+      # pas la recreation — voir le pas precedent —, il fait seulement deployer
+      # quand rien n'a change, ce qui reveillerait la stack pour rien.
       #
       # L'URL est une URL de capacite : qui la connait declenche un
       # deploiement. Elle vit dans un secret du depot, jamais dans ce fichier.
       - name: declencher le deploiement
+        if: steps.unitaire.outputs.webhook == 'true'
         env:
           WEBHOOK: ${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
           WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
-          PIN_COMPOSE: ${{ steps.pin.outputs.compose }}
-          PUSH_COMPOSE: ${{ needs.detect.outputs.compose }}
         run: |
-          # Aucun service du compose ne change : il n'y a rien a redeployer, et
-          # appeler quand meme reveillerait la stack entiere pour rien. Le cas
-          # existe — une app construite mais encore desactivee, premier des deux
-          # commits d'un ajout.
-          if [ "$PIN_COMPOSE" != true ] && [ "$PUSH_COMPOSE" != true ]; then
-            echo "compose.yaml inchange — images publiees, aucun conteneur a recreer"
-            exit 0
-          fi
-
           if [ -z "$WEBHOOK" ]; then
             echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — images publiees, deploiement NON declenche"
             exit 0

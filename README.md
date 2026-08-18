@@ -72,7 +72,7 @@ Trois garde-fous en découlent :
 | Garde-fou | Ce qu'il empêche |
 |---|---|
 | `enabled: false` par défaut | qu'une app entre dans le compose avant que son image existe |
-| garde-fou de CI | que le webhook parte alors qu'**une seule** image référencée par le compose est introuvable — celles de la fabrique, des annexes, des services partagés, et les **tierces** : `docker buildx imagetools inspect` interroge le registre en anonyme, une image publique s'inspecte sans login et une faute de frappe sort en 1 |
+| garde-fou de CI | que le déploiement parte alors qu'**une seule** image référencée par le compose est introuvable — celles de la fabrique, des annexes, des services partagés, et les **tierces** : `docker buildx imagetools inspect` interroge le registre en anonyme, une image publique s'inspecte sans login et une faute de frappe sort en 1 |
 | `./init.sh --check` par service | qu'une app se retrouve sans authentification, qu'un service annexe ou partagé se retrouve routé sans authentification, ou qu'un service soit en écart avec son manifeste |
 
 Le pire cas est donc « rien n'est déployé », jamais « tout tombe ». Un
@@ -170,7 +170,9 @@ Ce même contrôle tourne en CI, en verrou de tous les autres jobs.
 4. **`build`** — une matrice, contexte `apps/<nom>`, publication sur GHCR sous
    `ghcr.io/<org>/<dépôt>/<app>`, cache séparé par app.
 5. **`deploy`** — l'épinglage des versions livrées, le garde-fou d'images, la
-   poussée de `versions.yml` sur `main`, puis **un seul** appel de webhook.
+   poussée de `versions.yml` sur `main`, puis la **livraison unitaire** : les
+   seuls conteneurs dont l'image a bougé sont recréés. Un changement de
+   structure retombe sur le webhook, qui recrée toute la stack.
 
 Sur une *pull request*, tout tourne sauf la publication et le déploiement :
 le Dockerfile est validé sans que le tag `:main` bouge.
@@ -204,13 +206,13 @@ c'est le cas d'une app dont aucune image n'a encore été publiée, et `--check`
 signale en avertissement. Le fichier est **écrit par la CI**, jamais à la main —
 sauf pour un retour en arrière, où l'on change une ligne et relance `./init.sh`.
 
-### Ce que les versions épinglées n'obtiennent PAS : le redémarrage sélectif
+### Le redémarrage sélectif, et le chemin par lequel on l'obtient
 
-L'objectif initial était qu'une livraison ne recrée que le conteneur de l'app
-livrée. **Il n'est pas atteint, et le dépôt n'y peut rien.** Mesuré le 8 août, sur
-une livraison ne touchant que `hello-world` et avec `Force redeployment` décoché :
-les neuf conteneurs de la stack ont été recréés. Le journal de `dockhand` dit
-pourquoi, en trois lignes :
+L'objectif est qu'une livraison ne recrée que le conteneur de l'app livrée. Les
+versions épinglées n'y suffisent pas, et **aucun réglage du serveur n'y change
+rien**. Mesuré le 8 août, sur une livraison ne touchant que `hello-world`, avec
+`Force redeployment` décoché : les neuf conteneurs de la stack ont été recréés.
+Le journal de `dockhand` dit pourquoi, en trois lignes :
 
 ```
 Will force recreate: true (updated=true)
@@ -218,60 +220,112 @@ Force redeploy setting: false
 Command: docker compose ... up -d --remove-orphans --force-recreate
 ```
 
-`dockhand` ajoute `--force-recreate` **de lui-même** dès que sa synchronisation a
-mis à jour ne serait-ce qu'un fichier du dépôt — un `README`, une entrée de
-journal, n'importe lequel. Le réglage `Force redeployment` est un *second* levier,
-indépendant de celui-là : le décocher ne change rien à cette règle interne. Et
-puisqu'un déploiement suppose par définition un fichier modifié, la condition est
-toujours vraie : **toute livraison recrée toute la stack**.
+**La cause, lue dans leur code source** (v1.0.42, le 18 août) plutôt que dans
+leurs traces : le chemin git pose `const forceRecreate = syncResult.updated`, et
+`updated` vaut « un fichier a changé **dans le répertoire du compose** » — notre
+dépôt entier, puisque `compose.yaml` est à la racine. La condition est donc
+toujours vraie quand on déploie, et `--force-recreate` toujours ajouté. Le
+réglage `Force redeployment` est un **second** levier, indépendant : il décide
+s'il faut déployer quand *rien* n'a changé, et le décocher ne retire pas
+l'option. C'est un écart à leur propre manuel, qui promet l'inverse — « Docker
+Compose only recreates containers whose configuration actually changed » —,
+signalé chez eux depuis le 31 janvier :
+[`Finsys/dockhand#419`](https://github.com/Finsys/dockhand/issues/419), toujours
+ouvert, sans réponse depuis le 8 août. Leur correctif tiendrait pourtant en
+quelques lignes : `updateStackService()` fait déjà le bon geste dans leur code,
+et **rien ne l'appelle**.
 
-Trois conséquences pratiques :
+**Le chemin retenu, faute d'attendre.** `dockhand` sait remplacer l'image d'un
+conteneur en gardant tout le reste : labels Traefik, réseaux, volumes, limites,
+sonde. Depuis le 18 août, la livraison **ordinaire** ne passe donc plus par le
+webhook, et le job `deploy` fait trois choses :
 
-- Une livraison coûte quelques secondes d'indisponibilité à **toutes** les apps,
-  pas seulement à celle qu'on livre. Elles reviennent seules.
-- Un commit de documentation sur `main` fait la même chose, par la
-  synchronisation automatique, alors même que la CI ne déclenche aucun
-  déploiement.
-- Le seul levier restant est côté `dockhand`, et **ce n'est pas une option qui
-  manque** : son manuel décrit déjà le comportement voulu — voir ci-dessous.
+1. la copie du `compose.yaml` que `dockhand` garde à côté de la stack est mise à
+   jour, **sans redémarrage** — sans elle, un `Restart` depuis l'interface
+   reviendrait en silence aux images d'avant ;
+2. chaque service dont l'image en ligne diffère de celle du compose est recréé,
+   **un par un** ;
+3. l'hôte est **relu** : l'image et l'état de chaque service doivent correspondre
+   au dépôt, sinon le job échoue. Un `200` de `dockhand` ne vaut pas preuve de
+   mise en ligne — le 6 août l'a montré.
 
-**Ce n'est pas une limite de `dockhand`, c'est un écart à sa propre
-documentation.** Le manuel officiel énumère quatre *Deploy options* — *Build
-images on deploy*, *Disable build cache*, *Re-pull images*, *Force
-redeployment* — dont aucune ne contrôle la recréation, et affirme :
+Ce qui reste au webhook, et recrée donc toujours toute la stack :
 
-> « Even when a redeploy is triggered, Docker Compose only recreates containers
-> whose configuration actually changed. Other containers keep running without
-> interruption. »
+| Ce qui a changé | Chemin |
+|---|---|
+| des lignes `image:`, et rien d'autre | **livraison unitaire** |
+| un service apparaît ou disparaît, une limite, un volume, un label | webhook |
+| secrets `DOCKHAND_URL` / `DOCKHAND_TOKEN` absents | webhook |
+| déclenchement manuel (`workflow_dispatch`), ou historique tronqué | webhook |
 
-C'est exactement ce qu'on cherche, et ce n'est pas ce que fait le serveur : il
-passe `--force-recreate`, ce qui neutralise précisément cette sélectivité. La
-version en place n'est pas en cause — l'image du conteneur `dockhand` date du
-2 août 2026, soit après la dernière version publiée (v1.0.40, 31 juillet).
+Le test est le diff de `compose.yaml` depuis le dernier commit déployé : **une
+seule ligne qui n'est pas une ligne `image:` suffit** à faire replier. L'API des
+conteneurs sait remplacer une image, elle ne sait pas créer un service.
 
-**Le sujet est déjà signalé chez eux, et depuis longtemps** :
-[`Finsys/dockhand#419`](https://github.com/Finsys/dockhand/issues/419), *« Deploy
-always recreates all containers (--force-recreate); need option to update only
-changed services »*, ouvert le 31 janvier 2026. Il décrit le même comportement,
-sur les trois chemins de déploiement — manuel, *Save and deploy*, et
-synchronisation git — et propose les deux issues évidentes : ne plus forcer par
-défaut, ou en faire une case à cocher. Il est **toujours ouvert**, classé
-*enhancement*, rattaché au jalon 1.0.15 — vingt-cinq versions plus tôt que celle
-qui tourne ici. Il n'y a donc rien à attendre à brève échéance.
+Deux effets de bord, gratuits :
 
-Ce qui reste à faire n'appartient pas à ce dépôt et se réduit à un choix : ajouter
-à cette demande l'élément qu'elle ne porte pas — le manuel décrit déjà le
-comportement voulu, ce qui en fait un écart à corriger plutôt qu'une évolution à
-prioriser —, ou changer d'outil de déploiement, ou vivre avec quelques secondes
-d'indisponibilité par livraison.
+- une app **restée en arrière** — fusion non construite, déploiement raté — est
+  rattrapée au passage : la comparaison porte sur l'écart entre le dépôt et
+  l'hôte, pas sur la liste des apps qu'on vient de construire ;
+- un échec de ce chemin **n'invente pas** de déploiement complet : le job
+  échoue, et aucun autre conteneur n'est recréé.
 
-### Le webhook
+### La porte de livraison
 
-Un tag épinglé change bien le `compose.yaml`, donc `dockhand` a désormais un vrai
-diff à voir. C'est pourtant toujours le dernier pas du workflow qui déclenche le
-déploiement, en appelant le webhook de la stack **après** la publication des
-images et **après** la poussée de `versions.yml` — l'ordre importe : `dockhand`
-clone le dépôt lui-même et tire les images qu'il y lit.
+`prod.sh` passe par une porte de service **en lecture seule** — `Method(GET)`,
+voir « Regarder la production ». La livraison unitaire, elle, **écrit** : il lui
+faut deux chemins de plus, et exactement ceux-là. Un second routeur Traefik sur
+le conteneur `dockhand`, à poser à côté du premier :
+
+```
+- "traefik.http.routers.dockhand-livraison.rule=Host(`dockhand.billbob.ovh`) && ((Method(`POST`) && PathRegexp(`^/api/containers/[^/]+/update$`)) || (Method(`PUT`) && PathRegexp(`^/api/stacks/[^/]+/compose$`)))"
+- "traefik.http.routers.dockhand-livraison.priority=300"
+- "traefik.http.routers.dockhand-livraison.entrypoints=websecure"
+- "traefik.http.routers.dockhand-livraison.middlewares=public,security-headers@file"
+- "traefik.http.routers.dockhand-livraison.tls.certresolver=letsencrypt"
+- "traefik.http.routers.dockhand-livraison.service=dockhand"
+```
+
+**Ce que cela déplace, et il faut le dire** : le jeton d'API n'est plus
+inoffensif. `dockhand` en édition libre ignore les rôles — tout jeton y est
+administrateur —, et jusqu'ici seule la méthode `GET` l'empêchait d'agir. Qui
+obtient le jeton peut désormais remplacer l'image d'un conteneur, donc faire
+tourner ce qu'il veut sur l'hôte. Le reste demeure fermé : arrêter la stack, la
+supprimer, en créer une, lire les secrets, tout cela repart vers Google. La
+règle se resserre en une ligne, et le chemin de repli continue de livrer sans
+elle.
+
+**Le contrôle qui prouve que la porte est bien étroite**, à rejouer après toute
+retouche du routeur — les quatre doivent tomber juste. Un `401` dit « la porte
+laisse passer, c'est `dockhand` qui refuse faute de jeton » ; un `307` dit « la
+porte est fermée » :
+
+```bash
+d=https://dockhand.billbob.ovh
+curl -so /dev/null -w '%{http_code}\n' -X PUT    $d/api/stacks/x/compose        # 401
+curl -so /dev/null -w '%{http_code}\n' -X POST   $d/api/containers/x/update     # 401
+curl -so /dev/null -w '%{http_code}\n' -X POST   $d/api/stacks/x/down           # 307
+curl -so /dev/null -w '%{http_code}\n' -X DELETE $d/api/containers/x            # 307
+```
+
+Deux secrets du dépôt, **les mêmes valeurs** que les variables d'environnement de
+la session cloud, à poser dans *Settings → Secrets and variables → Actions* :
+
+| Secret du dépôt | Contenu |
+|---|---|
+| `DOCKHAND_URL` | l'adresse de `dockhand`, sans barre finale |
+| `DOCKHAND_TOKEN` | un jeton créé dans *Settings → API tokens* de `dockhand` |
+
+Absents, le workflow le dit en avertissement et repasse par le webhook : la
+livraison a lieu, son rayon de souffle reste la stack entière.
+
+### Le webhook, chemin de repli
+
+Le webhook de la stack reste le dernier pas du workflow, mais il n'est plus
+appelé qu'en **repli** — changement de structure, ou livraison unitaire
+impossible. Il est appelé **après** la publication des images et **après** la
+poussée de `versions.yml` : l'ordre importe, `dockhand` clone le dépôt lui-même
+et tire les images qu'il y lit.
 
 L'URL de ce webhook est une *URL de capacité* : qui la connaît peut déclencher
 un déploiement. Elle n'est donc pas dans ce dépôt, mais dans un secret :
@@ -326,35 +380,41 @@ sa documentation recommande pour une CI générique :
 Le corps envoyé est `{}` : `dockhand` ne le lit pas, il relit le dépôt lui-même.
 Seule la signature compte.
 
-### Le réglage `Force redeployment`, et pourquoi il doit être décoché
+### Les réglages de la stack, côté serveur
 
-`dockhand` ne redéploie **que s'il voit un changement** dans le dépôt, et ce
-qu'il regarde est plus étroit que sa documentation ne le laisse croire. Constaté
-par l'expérience sur ce dépôt :
+Trois cases dans les *Deploy options* de la stack, une dans ses réglages git.
+Aucune ne rend le déploiement sélectif — c'est le workflow qui s'en charge — mais
+deux d'entre elles réveillent la stack pour rien.
+
+| Réglage | État | Pourquoi |
+|---|---|---|
+| `Force redeployment` | **décoché** | il fait déployer quand *rien* n'a changé : la stack entière recréée pour rien. Il ne commande pas la recréation — voir « Le redémarrage sélectif » |
+| `Enable scheduled sync` | **décoché** | à chaque passage, il déploie dès qu'un fichier du dépôt a changé : un commit de documentation ou une entrée de journal recréaient **toute** la stack, sans que la CI ait rien demandé |
+| `Re-pull images` | décoché | le `pull_policy: always` du `compose.yaml` couvre le même besoin, depuis le dépôt plutôt que depuis une case du serveur |
+| `Build images on deploy` | décoché | les images sont construites par la CI et tirées du registre ; le serveur ne compile rien |
+
+La synchronisation programmée décochée, **plus rien ne déploie sans qu'on le
+demande** : ni le passage de 3 h du matin, ni un commit de documentation. En
+contrepartie, un appel manqué n'est plus rattrapé tout seul — c'est la livraison
+suivante qui le voit, puisqu'elle compare l'hôte au dépôt app par app et recrée
+ce qui est resté en arrière.
+
+Pour mémoire, ce que valait ce réglage avant les versions épinglées : tant que
+toutes les apps portaient le tag mutable `:main`, `compose.yaml` ne changeait pas
+d'un commit applicatif à l'autre, `dockhand` ne voyait donc jamais de diff, et
+**sans `Force redeployment` aucune modification de code n'était déployée**.
 
 | Commit | Fichiers modifiés | Résultat |
 |---|---|---|
 | `2ec90f4` | code applicatif | `No changes detected, skipping redeploy` |
 | `cb7035b` | `compose.yaml` | déploiement exécuté |
 
-Tant que toutes les apps portaient le tag mutable `:main`, `compose.yaml` ne
-changeait pas d'un commit applicatif à l'autre : **sans `Force redeployment`,
-aucune modification de code n'était jamais déployée**. Le réglage était donc
-obligatoire — et il a un coût, celui qui a motivé les versions épinglées : forcer
-un déploiement, c'est recréer **tous** les conteneurs de la stack.
+Le réglage était alors obligatoire, et son coût — recréer tous les conteneurs —
+est ce qui a motivé les versions épinglées, puis la livraison unitaire.
 
-Depuis, chaque livraison change une ligne du `compose.yaml`. `dockhand` voit donc
-le diff de lui-même, et le réglage n'a plus lieu d'être :
-
-> Dans les *Deploy options* de la stack, **`Force redeployment` reste décoché**.
-> Il ne sert plus à rien — mais le décocher **ne rend pas** le déploiement
-> sélectif pour autant : `dockhand` force la recréation de son propre chef dès
-> qu'un fichier du dépôt a changé. Voir la section précédente, mesures à l'appui.
-
-`Re-pull images` n'est toujours **pas** nécessaire : le `pull_policy: always` du
-`compose.yaml` couvre le même besoin, et le fait depuis le dépôt plutôt que depuis
-une case cochée sur le serveur. Le workflow traite toujours un `skipped` comme un
-échec — il ne peut désormais plus vouloir dire « rien à faire ».
+Le workflow traite toujours un `skipped` comme un échec quand il appelle le
+webhook : arrivé là, `compose.yaml` a changé et a été poussé, un saut ne peut
+donc plus vouloir dire « rien à faire ».
 
 La stack `dockhand` elle-même ne change pas avec la fabrique : même dépôt, même
 `composePath: compose.yaml`, mêmes secrets. Seul son contenu grandit.
