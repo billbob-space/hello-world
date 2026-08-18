@@ -2349,6 +2349,33 @@ check_artefacts() {
       ok "$WORKFLOW : chaque bloc run: passe bash -n"
     fi
     rm -rf "$run_dir"
+
+    # Chaque job doit porter un plafond de duree. Sans « timeout-minutes », un
+    # job est au defaut GitHub de SIX HEURES — et le workflow porte
+    # « cancel-in-progress: false » sur main, si bien qu'un seul job pendu tient
+    # le groupe de concurrence tout ce temps : plus aucun deploiement de la
+    # fabrique, sans qu'aucune alerte ne parte. Le vecteur n'est pas theorique :
+    # le job test lance ./apps/<nom>/test.sh, du code applicatif quelconque, et
+    # l'appel du webhook dockhand n'etait pas borne.
+    #
+    # Les jobs se lisent a l'indentation : deux espaces sous « jobs: », et rien
+    # d'autre dans le fichier n'a cette forme. On lit les noms, puis on cherche
+    # un timeout-minutes avant le job suivant.
+    sans_plafond=$(awk '
+      /^jobs:[[:space:]]*$/ { dans = 1; next }
+      dans && /^[^[:space:]#]/ { dans = 0 }
+      dans && /^  [a-zA-Z_][a-zA-Z0-9_-]*:[[:space:]]*$/ {
+        if (job != "" && !vu) print job
+        job = $0; sub(/^  /, "", job); sub(/:.*$/, "", job); vu = 0; next
+      }
+      dans && /^    timeout-minutes:/ { vu = 1 }
+      END { if (job != "" && !vu) print job }
+    ' "$WORKFLOW" | tr '\n' ' ' | sed 's/ $//')
+    if [ -n "$sans_plafond" ]; then
+      bad "$WORKFLOW : job(s) sans timeout-minutes — $sans_plafond ; au defaut de six heures, un job pendu tient le groupe de concurrence et bloque tout deploiement"
+    else
+      ok "$WORKFLOW : chaque job porte un plafond de duree"
+    fi
   else
     bad "$WORKFLOW absent"
   fi
