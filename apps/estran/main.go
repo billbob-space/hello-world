@@ -133,9 +133,10 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 12s : chaque fournisseur fait deux appels sortants sequentiels
-	// (previsions+marine, ou extrema+niveaux) ; 8s s'est revele tangent en
-	// pratique sur une connexion qui demarre a froid.
+	// 12s : le fournisseur meteo fait jusqu'a trois appels sortants
+	// sequentiels (previsions+marine, plus l'accord entre modeles borne a
+	// 4s, meteo.go) ; 8s s'est revele tangent en pratique sur une connexion
+	// qui demarre a froid.
 	ctx, annuler := context.WithTimeout(r.Context(), 12*time.Second)
 	defer annuler()
 

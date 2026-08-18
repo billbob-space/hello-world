@@ -10,25 +10,50 @@ import (
 // une donnee absente reste absente (omitempty), jamais remplacee par un zero
 // qui se lirait comme une mesure.
 
+// VueHeure ne porte que des heures dont la temperature est CONNUE (filtrees
+// en amont dans vuePrevisions) : TemperatureC reste donc un float64 requis.
+// PluiePct/VentKmh/VentDirectionDeg, eux, sont des grandeurs secondaires qui
+// peuvent manquer independamment de la temperature (Open-Meteo rend `null`
+// au bord de sa fenetre, prp/02-horizon-confiance-vent.md, section
+// Degradation) : nullables + omitempty, leur ligne est laissee de cote cote
+// page plutot que d'afficher un zero invente. VaguesM reste le modele deja
+// en place.
 type VueHeure struct {
 	Heure            string   `json:"heure"`
 	TemperatureC     float64  `json:"temperature_c"`
-	PluiePct         int      `json:"pluie_pct"`
-	VentKmh          int      `json:"vent_kmh"`
-	VentDirectionDeg int      `json:"vent_direction_deg"`
+	PluiePct         *int     `json:"pluie_pct,omitempty"`
+	VentKmh          *int     `json:"vent_kmh,omitempty"`
+	VentDirectionDeg *int     `json:"vent_direction_deg,omitempty"`
 	VaguesM          *float64 `json:"vagues_m,omitempty"`
 	Libelle          string   `json:"libelle"`
 	Symbole          string   `json:"symbole"`
 }
 
+// VueJour ne porte que des jours dont la temperature est CONNUE (filtres en
+// amont dans vuePrevisions, qui laisse alors la tendance porter moins de
+// nombreJoursAffiches lignes) : TempMinC/TempMaxC restent donc des float64
+// requis. PluiePctMax/VentKmhMax/RafalesKmhMax/VentDirectionDeg sont des
+// grandeurs secondaires qui peuvent manquer independamment de la
+// temperature : nullables + omitempty, chacune laisse seulement sa propre
+// ligne de cote plutot que d'afficher un zero invente
+// (prp/02-horizon-confiance-vent.md, section Degradation).
 type VueJour struct {
-	Date        string  `json:"date"`
-	JourSemaine string  `json:"jour_semaine"`
-	TempMinC    float64 `json:"temp_min_c"`
-	TempMaxC    float64 `json:"temp_max_c"`
-	PluiePctMax int     `json:"pluie_pct_max"`
-	Libelle     string  `json:"libelle"`
-	Symbole     string  `json:"symbole"`
+	Date             string  `json:"date"`
+	JourSemaine      string  `json:"jour_semaine"`
+	TempMinC         float64 `json:"temp_min_c"`
+	TempMaxC         float64 `json:"temp_max_c"`
+	PluiePctMax      *int    `json:"pluie_pct_max,omitempty"`
+	Libelle          string  `json:"libelle"`
+	Symbole          string  `json:"symbole"`
+	VentKmhMax       *int    `json:"vent_kmh_max,omitempty"`
+	RafalesKmhMax    *int    `json:"rafales_kmh_max,omitempty"`
+	VentDirectionDeg *int    `json:"vent_direction_deg,omitempty"`
+	// Confiance/ConfianceModeles restent absents (omitempty) quand l'accord
+	// entre modeles n'a pas pu etre calcule (moins de deux modeles sur la
+	// temperature, ou appel d'accord en echec, meteo.go) : l'absence se lit,
+	// elle ne s'invente pas (prp/02-horizon-confiance-vent.md, section 3).
+	Confiance        string `json:"confiance,omitempty"`
+	ConfianceModeles int    `json:"confiance_modeles,omitempty"`
 }
 
 type ReponsePrevisions struct {
@@ -44,24 +69,32 @@ type ReponsePrevisions struct {
 	JourAfficheLibelle string `json:"jour_affiche_libelle,omitempty"`
 }
 
-const nombreHeuresAffichees = 5
-const nombreJoursAffiches = 7
+// nombreHeuresMinimum n'est plus le nombre exact de vignettes horaires
+// affichees pour aujourd'hui, mais leur PLANCHER : la vue rend toutes les
+// heures restantes du jour (de l'heure en cours a 23h), et deborde sur le
+// lendemain seulement si cela ne suffit pas a atteindre ce minimum — le cas
+// en soiree, ou s'arreter a minuit laisserait trop peu de vignettes
+// (prp/02-horizon-confiance-vent.md, section 1).
+const nombreHeuresMinimum = 5
+const nombreJoursAffiches = 16
 
 // joursNavigationArriere/Avant bornent la fenetre de navigation temporelle
-// (choisir un autre jour que aujourd'hui) : jusqu'a 7 jours en arriere, 7 en
-// avant (prp/01-navigation-temporelle.md). Utilisees a la fois pour decouper
-// la fenetre recuperee aupres des fournisseurs (maree.go) et pour valider le
-// parametre `date` des routes (main.go).
+// (choisir un autre jour que aujourd'hui) : jusqu'a 7 jours en arriere, 15 en
+// avant (prp/01-navigation-temporelle.md, prp/02-horizon-confiance-vent.md).
+// Utilisees a la fois pour decouper la fenetre recuperee aupres des
+// fournisseurs (maree.go) et pour valider le parametre `date` des routes
+// (main.go).
 const joursNavigationArriere = 7
-const joursNavigationAvant = 7
+const joursNavigationAvant = 15
 
-// vuePrevisions rend soit les prochaines heures a partir de maintenant (sans
-// dateCible, comportement historique, inchange a l'octet pres), soit les 24
-// heures de dateCible quand elle est fournie. La tendance a 7 jours, elle,
-// reste toujours ancree sur aujourd'hui (maintenant), jamais sur dateCible :
-// c'est la meme tendance quel que soit le jour regarde (prp/01-navigation-
-// temporelle.md). maintenant est un parametre explicite, jamais time.Now()
-// appele ici : la fonction reste testable sans horloge reelle.
+// vuePrevisions rend soit les heures restantes d'aujourd'hui a partir de
+// maintenant (sans dateCible, minimum nombreHeuresMinimum, quitte a deborder
+// sur le lendemain), soit les 24 heures de dateCible quand elle est fournie.
+// La tendance a nombreJoursAffiches jours, elle, reste toujours ancree sur
+// aujourd'hui (maintenant), jamais sur dateCible : c'est la meme tendance
+// quel que soit le jour regarde (prp/01-navigation-temporelle.md).
+// maintenant est un parametre explicite, jamais time.Now() appele ici : la
+// fonction reste testable sans horloge reelle.
 func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *time.Time) ReponsePrevisions {
 	v := ReponsePrevisions{
 		GenereA: maintenant.Format(time.RFC3339),
@@ -70,11 +103,25 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 
 	if dateCible == nil {
 		debut := maintenant.Truncate(time.Hour)
+		finAujourdhui := debutDuJour(maintenant).AddDate(0, 0, 1)
 		for _, h := range p.Heures {
 			if h.Heure.Before(debut) {
 				continue
 			}
-			if len(v.Heures) >= nombreHeuresAffichees {
+			if h.TemperatureC == nil {
+				// Heure sans temperature (bord de la fenetre Open-Meteo,
+				// prp/02-horizon-confiance-vent.md section Degradation) :
+				// jamais affichee, et ne compte pas pour le plancher
+				// nombreHeuresMinimum ci-dessous — seules les heures
+				// REELLEMENT affichees comptent.
+				continue
+			}
+			// Toutes les heures restantes d'aujourd'hui sont gardees, meme
+			// au-dela du minimum ; passe minuit, seulement de quoi completer
+			// le minimum (deborde sur le lendemain en soiree, exactement le
+			// comportement d'avant entre 19h et minuit,
+			// prp/02-horizon-confiance-vent.md, section 1).
+			if !h.Heure.Before(finAujourdhui) && len(v.Heures) >= nombreHeuresMinimum {
 				break
 			}
 			v.Heures = append(v.Heures, vueHeureMeteo(h))
@@ -88,6 +135,9 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 			}
 			if !h.Heure.Before(finCible) {
 				break
+			}
+			if h.TemperatureC == nil {
+				continue
 			}
 			v.Heures = append(v.Heures, vueHeureMeteo(h))
 		}
@@ -104,6 +154,14 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 		if j.Date.Before(debutAujourdhui) {
 			continue
 		}
+		if j.TempMinC == nil || j.TempMaxC == nil {
+			// Jour sans temperature (bord de la fenetre Open-Meteo,
+			// prp/02-horizon-confiance-vent.md section Degradation) : jamais
+			// affiche, et ne consomme pas une des nombreJoursAffiches places
+			// — la tendance peut donc porter moins de nombreJoursAffiches
+			// lignes plutot que d'inventer un jour.
+			continue
+		}
 		if len(v.Jours) >= nombreJoursAffiches {
 			break
 		}
@@ -113,20 +171,26 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 	return v
 }
 
+// vueHeureMeteo suppose h.TemperatureC non nil : c'est a l'appelant
+// (vuePrevisions) de filtrer les heures sans temperature avant d'appeler
+// cette fonction, jamais a elle de decider une valeur de repli.
 func vueHeureMeteo(h HeureMeteo) VueHeure {
 	libelle, symbole := libelleCiel(h.CodeMeteo, h.NebulositeBassePct, h.NebulositeMoyennePct, h.NebulositeHautePct)
 	return VueHeure{
 		Heure:            h.Heure.Format("15:04"),
-		TemperatureC:     arrondi1(h.TemperatureC),
-		PluiePct:         int(h.PluiePct + 0.5),
-		VentKmh:          int(h.VentKmh + 0.5),
-		VentDirectionDeg: int(h.VentDirectionDeg + 0.5),
+		TemperatureC:     arrondi1(*h.TemperatureC),
+		PluiePct:         arrondiEntierPtr(h.PluiePct),
+		VentKmh:          arrondiEntierPtr(h.VentKmh),
+		VentDirectionDeg: arrondiEntierPtr(h.VentDirectionDeg),
 		VaguesM:          h.VaguesM,
 		Libelle:          libelle,
 		Symbole:          symbole,
 	}
 }
 
+// vueJourMeteo suppose j.TempMinC et j.TempMaxC non nil : c'est a l'appelant
+// (vuePrevisions) de filtrer les jours sans temperature avant d'appeler
+// cette fonction, jamais a elle de decider une valeur de repli.
 func vueJourMeteo(j JourMeteo) VueJour {
 	var libelle, symbole string
 	if j.CouchesConnues {
@@ -135,13 +199,18 @@ func vueJourMeteo(j JourMeteo) VueJour {
 		libelle, symbole = libelleMeteo(j.CodeMeteo)
 	}
 	return VueJour{
-		Date:        j.Date.Format("2006-01-02"),
-		JourSemaine: jourSemaineFr(j.Date),
-		TempMinC:    arrondi1(j.TempMinC),
-		TempMaxC:    arrondi1(j.TempMaxC),
-		PluiePctMax: int(j.PluiePctMax + 0.5),
-		Libelle:     libelle,
-		Symbole:     symbole,
+		Date:             j.Date.Format("2006-01-02"),
+		JourSemaine:      jourSemaineFr(j.Date),
+		TempMinC:         arrondi1(*j.TempMinC),
+		TempMaxC:         arrondi1(*j.TempMaxC),
+		PluiePctMax:      arrondiEntierPtr(j.PluiePctMax),
+		Libelle:          libelle,
+		Symbole:          symbole,
+		VentKmhMax:       arrondiEntierPtr(j.VentKmhMax),
+		RafalesKmhMax:    arrondiEntierPtr(j.RafalesKmhMax),
+		VentDirectionDeg: arrondiEntierPtr(j.VentDirectionDeg),
+		Confiance:        j.Confiance,
+		ConfianceModeles: j.ConfianceModeles,
 	}
 }
 
@@ -177,7 +246,7 @@ type ReponseMaree struct {
 	JourAfficheLibelle string `json:"jour_affiche_libelle,omitempty"`
 }
 
-// VueJourMaree est le resume de maree d'un jour, pour la tendance a 7 jours.
+// VueJourMaree est le resume de maree d'un jour, pour la tendance a 16 jours.
 // HauteM/BasseM/Coefficient restent absents (omitempty) quand le fournisseur
 // n'a rien retourne pour ce jour — jamais une valeur inventee.
 type VueJourMaree struct {
@@ -274,6 +343,19 @@ func libelleJourFr(t time.Time) string {
 // decoupage de fenetre) sans jamais dependre de l'heure du jour.
 func debutDuJour(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+}
+
+// arrondiEntierPtr arrondit une grandeur secondaire nullable (pluie, vent,
+// rafale, direction) en *int, nil si l'entree est nil : jamais un zero
+// invente pour une donnee absente (prp/02-horizon-confiance-vent.md, section
+// Degradation). Ces grandeurs sont toutes non negatives (pourcentage,
+// vitesse, degres) : arrondi simple, pas besoin du signe de arrondi1/2.
+func arrondiEntierPtr(v *float64) *int {
+	if v == nil {
+		return nil
+	}
+	n := int(*v + 0.5)
+	return &n
 }
 
 func arrondi1(v float64) float64 {

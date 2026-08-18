@@ -95,10 +95,10 @@ func TestParametreDate_Illisible(t *testing.T) {
 
 func TestParametreDate_HorsFenetre(t *testing.T) {
 	maintenant := time.Date(2026, 8, 16, 12, 0, 0, 0, parisTZ)
-	req := httptest.NewRequest(http.MethodGet, "/api/previsions?date=2026-09-15", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/previsions?date=2026-10-15", nil)
 	_, err := parametreDate(req, maintenant)
 	if err == nil {
-		t.Fatal("attendu une erreur pour une date hors de la fenetre +/- 7 jours")
+		t.Fatal("attendu une erreur pour une date hors de la fenetre -7/+15 jours")
 	}
 }
 
@@ -116,13 +116,13 @@ func TestParametreDate_Valide(t *testing.T) {
 
 func TestParametreDate_BornesIncluses(t *testing.T) {
 	maintenant := time.Date(2026, 8, 16, 12, 0, 0, 0, parisTZ)
-	for _, brut := range []string{"2026-08-09", "2026-08-23"} { // J-7 et J+7, exactement sur la borne
+	for _, brut := range []string{"2026-08-09", "2026-08-31"} { // J-7 et J+15, exactement sur la borne
 		req := httptest.NewRequest(http.MethodGet, "/api/previsions?date="+brut, nil)
 		if _, err := parametreDate(req, maintenant); err != nil {
 			t.Errorf("date %s (borne incluse) rejetee : %v", brut, err)
 		}
 	}
-	for _, brut := range []string{"2026-08-08", "2026-08-24"} { // un jour au-dela de chaque borne
+	for _, brut := range []string{"2026-08-08", "2026-09-01"} { // un jour au-dela de chaque borne
 		req := httptest.NewRequest(http.MethodGet, "/api/previsions?date="+brut, nil)
 		if _, err := parametreDate(req, maintenant); err == nil {
 			t.Errorf("date %s (hors borne) acceptee, attendu une erreur", brut)
@@ -131,10 +131,10 @@ func TestParametreDate_BornesIncluses(t *testing.T) {
 }
 
 // construitFixtureMeteo genere une reponse Open-Meteo brute couvrant
-// J-joursNavigationArriere a J+joursNavigationAvant (forecast_days=8,
+// J-joursNavigationArriere a J+joursNavigationAvant (forecast_days=16,
 // past_days=7 : Open-Meteo compte aujourd'hui dans sa fenetre, donc
-// forecast_days=8 est necessaire pour que la borne haute reelle du
-// fournisseur atteigne bien J+7, cf. meteo.go), une heure par heure et un
+// forecast_days=16 est necessaire pour que la borne haute reelle du
+// fournisseur atteigne bien J+15, cf. meteo.go), une heure par heure et un
 // jour par jour. La temperature encode le decalage en jours par rapport a
 // `maintenant`, pour reconnaitre facilement quel jour est rendu dans les
 // assertions.
@@ -146,18 +146,21 @@ func construitFixtureMeteo(maintenant time.Time) reponseForecastBrute {
 		jourDebut := debut.AddDate(0, 0, jour)
 		for h := 0; h < 24; h++ {
 			r.Hourly.Time = append(r.Hourly.Time, jourDebut.Add(time.Duration(h)*time.Hour).Format("2006-01-02T15:04"))
-			r.Hourly.Temperature2m = append(r.Hourly.Temperature2m, float64(decalage))
-			r.Hourly.PrecipitationProbability = append(r.Hourly.PrecipitationProbability, 10)
+			r.Hourly.Temperature2m = append(r.Hourly.Temperature2m, floatPtr(float64(decalage)))
+			r.Hourly.PrecipitationProbability = append(r.Hourly.PrecipitationProbability, floatPtr(10))
 			r.Hourly.CloudCover = append(r.Hourly.CloudCover, 20)
-			r.Hourly.WindSpeed10m = append(r.Hourly.WindSpeed10m, 15)
-			r.Hourly.WindDirection10m = append(r.Hourly.WindDirection10m, 90)
+			r.Hourly.WindSpeed10m = append(r.Hourly.WindSpeed10m, floatPtr(15))
+			r.Hourly.WindDirection10m = append(r.Hourly.WindDirection10m, floatPtr(90))
 			r.Hourly.WeatherCode = append(r.Hourly.WeatherCode, 1)
 		}
 		r.Daily.Time = append(r.Daily.Time, jourDebut.Format("2006-01-02"))
-		r.Daily.Temperature2mMax = append(r.Daily.Temperature2mMax, float64(decalage)+1)
-		r.Daily.Temperature2mMin = append(r.Daily.Temperature2mMin, float64(decalage))
-		r.Daily.PrecipitationProbabilityMax = append(r.Daily.PrecipitationProbabilityMax, 20)
+		r.Daily.Temperature2mMax = append(r.Daily.Temperature2mMax, floatPtr(float64(decalage)+1))
+		r.Daily.Temperature2mMin = append(r.Daily.Temperature2mMin, floatPtr(float64(decalage)))
+		r.Daily.PrecipitationProbabilityMax = append(r.Daily.PrecipitationProbabilityMax, floatPtr(20))
 		r.Daily.WeatherCode = append(r.Daily.WeatherCode, 1)
+		r.Daily.WindSpeed10mMax = append(r.Daily.WindSpeed10mMax, floatPtr(25))
+		r.Daily.WindGusts10mMax = append(r.Daily.WindGusts10mMax, floatPtr(40))
+		r.Daily.WindDirection10mDominant = append(r.Daily.WindDirection10mDominant, floatPtr(180))
 	}
 	return r
 }
@@ -169,7 +172,7 @@ func construitFixtureMarine(maintenant time.Time) reponseMarineBrute {
 		jourDebut := debut.AddDate(0, 0, jour)
 		for h := 0; h < 24; h++ {
 			r.Hourly.Time = append(r.Hourly.Time, jourDebut.Add(time.Duration(h)*time.Hour).Format("2006-01-02T15:04"))
-			r.Hourly.WaveHeight = append(r.Hourly.WaveHeight, 0.5)
+			r.Hourly.WaveHeight = append(r.Hourly.WaveHeight, floatPtr(0.5))
 		}
 	}
 	return r
@@ -214,8 +217,9 @@ func serveurEtRequetePrevisions(t *testing.T, urlChemin string) *httptest.Respon
 
 // TestHandlePrevisions_SansParametre_ReponseInchangee est la contrainte
 // principale de prp/01-navigation-temporelle.md : sans `date`, la reponse
-// doit rester exactement celle d'aujourd'hui (5 prochaines heures, aucun
-// champ jour_affiche).
+// doit rester celle d'aujourd'hui (au moins nombreHeuresMinimum heures —
+// exactement combien depend de l'heure reelle a laquelle le test tourne,
+// prp/02-horizon-confiance-vent.md section 1 —, aucun champ jour_affiche).
 func TestHandlePrevisions_SansParametre_ReponseInchangee(t *testing.T) {
 	rec := serveurEtRequetePrevisions(t, "/api/previsions")
 	if rec.Code != http.StatusOK {
@@ -225,8 +229,8 @@ func TestHandlePrevisions_SansParametre_ReponseInchangee(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
 		t.Fatalf("decodage : %v", err)
 	}
-	if len(reponse.Heures) != nombreHeuresAffichees {
-		t.Errorf("nombre d'heures = %d, attendu %d (comportement inchange)", len(reponse.Heures), nombreHeuresAffichees)
+	if len(reponse.Heures) < nombreHeuresMinimum {
+		t.Errorf("nombre d'heures = %d, attendu au moins %d", len(reponse.Heures), nombreHeuresMinimum)
 	}
 	if len(reponse.Jours) != nombreJoursAffiches {
 		t.Errorf("nombre de jours = %d, attendu %d", len(reponse.Jours), nombreJoursAffiches)
@@ -276,10 +280,11 @@ func TestHandlePrevisions_JourFutur(t *testing.T) {
 }
 
 // TestHandlePrevisions_DernierJourNavigable_A24Heures verifie que le jour le
-// plus eloigne dans le futur qu'on puisse regarder (J+7) porte bien sa
-// meteo, comme il porte deja sa maree : forecast_days doit valoir 8, pas 7,
-// puisque Open-Meteo compte aujourd'hui dans sa propre fenetre (corrige dans
-// prp/01-navigation-temporelle.md le 16 aout 2026).
+// plus eloigne dans le futur qu'on puisse regarder (J+15) porte bien sa
+// meteo, comme il porte deja sa maree : forecast_days doit valoir 16, pas
+// 15, puisque Open-Meteo compte aujourd'hui dans sa propre fenetre (corrige
+// dans prp/01-navigation-temporelle.md le 16 aout 2026, porte a 16 le 18
+// aout 2026, prp/02-horizon-confiance-vent.md).
 func TestHandlePrevisions_DernierJourNavigable_A24Heures(t *testing.T) {
 	dernierJour := time.Now().In(parisTZ).AddDate(0, 0, joursNavigationAvant).Format("2006-01-02")
 	rec := serveurEtRequetePrevisions(t, "/api/previsions?date="+dernierJour)

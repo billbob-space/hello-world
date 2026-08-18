@@ -216,3 +216,42 @@ en cause — les six modèles comparés donnaient la même chose, et leur prévi
 phrase que quelqu'un lit debout sur la plage. Aucun modèle n'est privilégié,
 aucune clé n'apparaît, et la règle « dégrader, jamais casser » tient : quand les
 couches manquent, l'ancienne description reprend la main.
+
+### La journée entière, seize jours, la confiance et le vent — 18 août 2026
+
+**Ce qui existe maintenant** : quatre choses, demandées ensemble et livrées
+ensemble.
+
+- La journée en cours n'est plus coupée à cinq heures : la bande horaire va de
+  l'heure courante à la fin de la journée, et ne descend jamais sous cinq
+  vignettes — le soir, elle déborde sur le lendemain comme avant.
+- La tendance couvre **seize jours** au lieu de sept, et la navigation va
+  jusqu'au dernier d'entre eux. Le passé reste à sept jours en arrière. Le
+  seizième jour n'apparaît que si le fournisseur le donne vraiment : au bord de
+  sa fenêtre il ne donne plus rien, et une ligne manquante vaut mieux qu'une
+  ligne à zéro.
+- Chaque jour de la tendance porte un **indice de confiance**, calculé en
+  comparant ce que six modèles météo prévoient pour ce jour : quand ils
+  s'accordent la confiance est haute, quand ils divergent elle baisse, et
+  quand trop peu d'entre eux portent aussi loin elle se déclare inconnue
+  plutôt que d'être devinée.
+- Chaque jour porte aussi le **vent** : force maximale, rafale maximale,
+  direction dominante.
+
+**Ce qui l'a demandé** : l'usage, le 18 août 2026. D'abord l'impossibilité de
+voir la fin de l'après-midi sans passer par demain puis revenir, puis, dans le
+même échange, la demande d'aller au-delà de sept jours, avec un indice de
+confiance et le vent.
+
+**Ce que le PRD affirmait avant** : « une prévision à 5 heures » et « une
+tendance à 7 jours », deux chiffres écrits comme des propriétés du produit
+alors qu'ils n'étaient que la première portée choisie. Le principe qu'ils
+servaient — prévision courte avant tendance longue — n'est pas touché :
+l'écran d'ouverture montre toujours d'abord la marée et les heures qui
+viennent, et la tendance reste résumée, sans détail horaire.
+
+**Ce que cela ne change pas** : le lieu reste unique, il n'y a toujours ni
+compte ni préférence conservée, et l'indice de confiance ne s'affiche que sur
+les jours — les prochaines heures n'en portent pas, pour que l'écran
+d'ouverture reste lisible d'un coup d'œil. Conception détaillée :
+`prp/02-horizon-confiance-vent.md`.

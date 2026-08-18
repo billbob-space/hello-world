@@ -39,14 +39,15 @@
      genereuse en grand desktop ou main passe en deux colonnes (voir plus
      bas) — sinon le contenu reste un bloc etroit flottant dans du vide. */
   --largeur-contenu: 640px;
-  /* Largeur de la premiere colonne (nom du jour) de la tendance a 7 jours :
+  /* Largeur de la premiere colonne (nom du jour) de la tendance a 16 jours :
      exprimee en rem, la meme unite que .jour-nom, jamais en em relatif au
      conteneur (qui ne grossit pas avec le texte) — sinon le nom deborde de
      sa piste et touche l'icone des qu'il grossit a un palier plus large.
-     Utilisee a la fois par .jour-principale (grille) et .jour-maree (marge),
-     pour que les deux restent alignes l'un sur l'autre. Dimensionnee pour
-     le nom le plus long ("Dimanche", "Mercredi", "Vendredi") a la taille de
-     .jour-nom de ce palier, avec une marge de securite. */
+     Utilisee a la fois par .jour-principale (grille), .jour-maree (marge) et
+     .jour-secondaire (marge, vent + confiance), pour que les trois restent
+     alignes l'un sur l'autre. Dimensionnee pour le nom le plus long
+     ("Dimanche", "Mercredi", "Vendredi") a la taille de .jour-nom de ce
+     palier, avec une marge de securite. */
   --jour-nom-largeur: 7rem;
 }
 
@@ -123,8 +124,8 @@ main {
 /* A partir de ~1024px, le contenu passe en deux colonnes pour vraiment
    utiliser la largeur de l'ecran plutot que de rester une colonne etroite
    recentree dans du vide : la jauge de maree (principe 2 du produit, aussi
-   centrale que la meteo) occupe sa propre colonne, la prevision a 5 heures
-   et la tendance a 7 jours partagent l'autre. */
+   centrale que la meteo) occupe sa propre colonne, la prevision horaire
+   et la tendance a 16 jours partagent l'autre. */
 @media (min-width: 1024px) {
   main {
     display: grid;
@@ -151,7 +152,7 @@ main {
 }
 
 /* ---------- navigation entre les jours ---------- */
-/* Choisir le jour regarde (jusqu'a 7 jours en arriere, 7 en avant), ajout
+/* Choisir le jour regarde (jusqu'a 7 jours en arriere, 15 en avant), ajout
    sans mode d'emploi : deux fleches, un libelle, un retour a aujourd'hui
    qui n'apparait que quand on s'en est eloigne (prp/01-navigation-
    temporelle.md). */
@@ -494,7 +495,7 @@ main {
   }
 }
 
-/* ---------- prevision a 5 heures ---------- */
+/* ---------- prevision horaire ---------- */
 
 .heures-rangee {
   display: grid;
@@ -502,11 +503,15 @@ main {
   gap: var(--espace-2);
 }
 
-/* Sur un jour autre qu'aujourd'hui, les 24 heures defilent horizontalement
-   plutot que de forcer 24 colonnes etroites (prp/01-navigation-temporelle.md).
-   Les tailles des cartes/textes restent celles deja posees ci-dessous : seule
-   la disposition change. */
-.heures-rangee--jour {
+/* Le nombre de vignettes varie desormais avec l'heure (aujourd'hui : les
+   heures restantes du jour, minimum cinq ; un autre jour : ses 24 heures,
+   prp/02-horizon-confiance-vent.md section 1, prp/01-navigation-
+   temporelle.md) : la bande defile horizontalement plutot que de forcer une
+   grille a colonnes fixes. Appliquee par app.js sur les deux (aujourd'hui
+   comme un autre jour), d'ou le nom "defile" plutot que "jour". Les tailles
+   des cartes/textes restent celles deja posees ci-dessous : seule la
+   disposition change. */
+.heures-rangee--defile {
   display: flex;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -515,20 +520,20 @@ main {
   -webkit-overflow-scrolling: touch;
 }
 
-.heures-rangee--jour .heure-carte {
+.heures-rangee--defile .heure-carte {
   flex: 0 0 auto;
   width: 5.5rem;
   scroll-snap-align: start;
 }
 
 @media (min-width: 640px) {
-  .heures-rangee--jour .heure-carte {
+  .heures-rangee--defile .heure-carte {
     width: 6.25rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .heures-rangee--jour .heure-carte {
+  .heures-rangee--defile .heure-carte {
     width: 6.75rem;
   }
 }
@@ -596,8 +601,16 @@ main {
   opacity: 0.9;
 }
 
-/* ---------- tendance 7 jours ---------- */
+/* ---------- tendance 16 jours ---------- */
 
+/* 15 ou 16 lignes selon ce que le fournisseur rend (prp/02-horizon-
+   confiance-vent.md section 2 et section Degradation), chacune plus haute
+   qu'avant (vent + confiance en plus) : la liste reste dans le flux normal
+   de la page, PAS de defilement interne — un cadre a `overflow-y` impose
+   une hauteur qui coupe la derniere ligne visible en deux (constate a
+   1280px) et un defilement imbrique dans une page qui defile deja rend le
+   contenu injoignable (constate a 390px, 5 lignes visibles sur 15). C'est
+   une liste qu'on parcourt avec la page, pas un cadre qu'on fouille a part. */
 .jours-rangee {
   display: flex;
   flex-direction: column;
@@ -695,6 +708,132 @@ main {
   font-weight: 500;
 }
 
+/* Vent journalier (force max, rafale max, direction dominante) et indice de
+   confiance : seconde ligne secondaire, sous la maree quand elle existe,
+   toujours presente (le vent est toujours rendu, prp/02-horizon-confiance-
+   vent.md section 4). Sable neutre, ni le teal de la maree ni l'ambre de la
+   jauge : ce n'est ni une hauteur d'eau ni la position courante. */
+/* En dessous de 640px (base, mobile-first comme le reste de cette feuille),
+   vent et confiance sont EMPILES (grille a une seule colonne : deux
+   enfants, deux lignes automatiques) plutot que cote a cote : sur un jour
+   dont la confiance est inconnue, "confiance inconnue" (texte, ~120px) est
+   bien plus large que les trois barres (~16px), et une seconde colonne
+   dimensionnee sur ce texte ne laissait a la ligne de vent la plus longue
+   ("37 km/h · rafales 81 km/h · SO") qu'une soixantaine de pixels — le
+   texte du vent debordait alors SILENCIEUSEMENT derriere la confiance
+   (aucun retour de getBoundingClientRect ne le signalait, seule une
+   capture d'ecran a 390px l'a montre). Empiler supprime toute competition
+   de largeur : chacun a sa ligne, jamais un survol de l'autre. A partir de
+   640px (voir plus bas), assez de place revient pour les mettre cote a
+   cote. */
+.jour-secondaire {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin: var(--espace-1) 0 0 calc(var(--jour-nom-largeur) + var(--espace-3));
+  padding-top: var(--espace-1);
+  border-top: 1px solid rgba(244, 236, 216, 0.08);
+  font-size: 1.02rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sable-200);
+}
+
+.jour-vent {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 2px;
+  column-gap: 6px;
+  min-width: 0;
+}
+
+/* Chaque groupe (force, rafale, direction) ne casse jamais en son milieu —
+   "31 km/h" reste "31 km/h" (espace insecable pose par app.js) — mais le
+   groupe entier peut passer a la ligne suivante si la colonne est trop
+   etroite pour la ligne la plus longue ("37 km/h · rafales 81 km/h · SO") :
+   un essai avec `white-space: nowrap` sur .jour-vent laissait le texte
+   deborder SILENCIEUSEMENT derriere les barres de confiance a 390px de
+   large — aucun retour de getBoundingClientRect ne le signalait (la boite
+   CSS ne grandit pas, seul son contenu debordait), seule une capture
+   d'ecran l'a montre. */
+.jour-vent > span {
+  white-space: nowrap;
+}
+
+/* Classe dediee (pas .icone) plutot que le selecteur .jour-vent svg : ce
+   dernier (une classe + un type, specificite 0,0,1,1) perdait contre
+   .jour-ligne .icone (deux classes, specificite 0,0,2,0) qui s'applique
+   aussi (icone() pose "icone" par defaut) — l'icone du vent sortait a 32px
+   au lieu de 1em, gonflant la hauteur de la ligne. Une classe dediee evite
+   la guerre de specificite plutot que de la gagner. */
+.jour-vent-icone {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.jour-vent .separateur {
+  color: var(--sable-300);
+  font-weight: 400;
+}
+
+.jour-vent .vent-direction {
+  color: var(--sable-300);
+  font-weight: 700;
+}
+
+/* Indice de confiance : trois barres remplies 3/2/1 selon le niveau (haute/
+   moyenne/basse) — jamais de texte du niveau affiche en clair, le texte
+   accessible (aria-label, app.js) porte le niveau ET le nombre de modeles
+   compares pour qui utilise un lecteur d'ecran. */
+.confiance {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+.confiance-barres {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.confiance-barre {
+  display: inline-block;
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(244, 236, 216, 0.18);
+}
+
+.confiance-barre:nth-child(1) {
+  height: 7px;
+}
+
+.confiance-barre:nth-child(2) {
+  height: 11px;
+}
+
+.confiance-barre:nth-child(3) {
+  height: 15px;
+}
+
+.confiance-barre--remplie {
+  background: var(--eau-400);
+}
+
+/* Confiance inconnue (moins de deux modeles sur la temperature, ou l'appel
+   d'accord a echoue, meteo.go) : marque discrete et explicite en texte,
+   jamais une barre remplie ni une valeur inventee
+   (prp/02-horizon-confiance-vent.md, section 3). */
+.confiance--inconnue {
+  color: var(--sable-300);
+  font-size: 0.88rem;
+  font-weight: 500;
+  font-style: italic;
+  white-space: nowrap;
+}
+
 .jour-ligne .pluie {
   font-size: 1.05rem;
   font-weight: 600;
@@ -742,9 +881,10 @@ main {
    largeur des icones) — jamais la taille du texte : un telephone est
    precisement l'appareil ou la lisibilite compte le plus, la retrecir ici
    defaisait la correction ci-dessus (retour d'usage reel, cf. journal).
-   Seule l'icone des cartes horaires redescend un peu, pour que les 5 cartes
-   restent cote a cote sans se chevaucher (verifie a 360px de large : aucun
-   debordement horizontal, grace aussi a `minmax(0, 1fr)` ci-dessus). */
+   Seule l'icone des cartes horaires redescend un peu ; la largeur des cartes
+   horaires elle-meme est fixee par .heures-rangee--defile ci-dessus (bande
+   defilable, toujours appliquee par app.js), pas par cette grille — qui ne
+   sert plus que de secours si le JS echouait a poser la classe. */
 @media (max-width: 480px) {
   .heures-rangee {
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -764,7 +904,8 @@ main {
        colonnes pluie/temps sur un petit ecran. */
     gap: var(--espace-2);
   }
-  .jour-maree {
+  .jour-maree,
+  .jour-secondaire {
     margin-left: calc(var(--jour-nom-largeur) + var(--espace-2));
   }
 }
@@ -857,8 +998,20 @@ main {
     height: 34px;
   }
 
-  .jour-maree {
+  .jour-maree,
+  .jour-secondaire {
     font-size: 1.08rem;
+  }
+
+  /* A partir de 640px, assez de largeur revient (--largeur-contenu passe a
+     760px) pour remettre vent et confiance cote a cote plutot qu'empiles
+     (voir le commentaire sur .jour-secondaire, base mobile ci-dessus) : la
+     confiance recupere sa propre colonne, dimensionnee sur son contenu
+     (`auto`), sans jamais empieter sur celle du vent (`minmax(0, 1fr)`). */
+  .jour-secondaire {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--espace-2);
   }
 
   .jour-ligne .pluie {
@@ -941,7 +1094,8 @@ main {
     height: 38px;
   }
 
-  .jour-maree {
+  .jour-maree,
+  .jour-secondaire {
     font-size: 1.15rem;
   }
 
