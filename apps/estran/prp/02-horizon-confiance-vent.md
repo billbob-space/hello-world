@@ -71,7 +71,8 @@ Cette disparition est une information, pas une panne.
 
 - on retient les valeurs non nulles de chaque grandeur, modele par modele ;
 - **moins de deux modeles sur la temperature : confiance inconnue**, jamais
-  remplacee par une valeur plausible ;
+  remplacee par une valeur plausible ; **moins de trois : niveau plafonne a
+  « moyenne »**, voir la section Degradation ;
 - sinon on prend l'ecart-type de population de chaque grandeur, on le classe,
   et **le niveau du jour est le plus prudent des deux** :
 
@@ -114,14 +115,39 @@ n'a pas pu etre calcule : l'absence se lit, elle ne s'invente pas.
 
 ## Degradation
 
-Inchangee dans son principe (PRODUCT.md, principe 3), avec une regle de plus qui
-la garde vraie : **l'appel d'accord entre modeles ne peut jamais faire echouer la
-prevision**. Il porte son propre delai, court ; s'il echoue, il est journalise,
-la tendance s'affiche sans indice, et le reste de l'ecran ne s'en apercoit pas.
-C'est un ornement verifiable, pas une dependance.
+Inchangee dans son principe (PRODUCT.md, principe 3), avec deux regles de plus
+qui la gardent vraie a seize jours.
 
-De meme, au-dela de J+7 le fournisseur de vagues peut ne plus rendre de hauteur :
-la vignette horaire omet alors la ligne « vagues » au lieu d'afficher zero.
+**1. L'appel d'accord entre modeles ne peut jamais faire echouer la prevision.**
+Il porte son propre delai, court ; s'il echoue, il est journalise, la tendance
+s'affiche sans indice, et le reste de l'ecran ne s'en apercoit pas. C'est un
+ornement verifiable, pas une dependance.
+
+**2. Le bord de la fenetre est troue, et le trou doit se voir.** Constate en
+interrogeant l'application le 18 aout 2026 : au 16e jour, Open-Meteo rend `null`
+sur les grandeurs journalieres (temperature, vent, rafales), sur la probabilite
+de pluie horaire, et le fournisseur de vagues rend `null` sur toute la journee.
+Decodees en `float64`, ces absences devenaient des **zeros** — « 0 °C, vent
+0 km/h, pluie 0 % », soit precisement la valeur inventee que le principe 3
+interdit, et la seule des trois qui soit credible sans etre vraie. Le seuil
+exact ou le fournisseur s'arrete bouge d'une heure a l'autre : le corriger a la
+main en reduisant la fenetre ne tiendrait pas.
+
+La regle est donc : **une absence se decode comme une absence** (valeurs
+nullables jusqu'au JSON de sortie), et
+
+- un jour de tendance sans temperature n'est pas affiche — la tendance porte
+  quinze ou seize lignes selon ce que le fournisseur donne ce jour-la ;
+- une heure sans temperature n'est pas affichee ;
+- une pluie, une vague, un vent absents laissent leur ligne de cote au lieu
+  d'afficher zero, exactement comme la vague le fait deja quand la mer n'est
+  pas couverte.
+
+**Sous trois modeles concordants, la confiance ne peut plus etre « haute ».**
+Deux modeles qui s'accordent ne font pas un accord : au-dela de J+10, les
+modeles disparaissent un a un et les deux survivants affichaient une confiance
+haute la ou l'incertitude est maximale. Le niveau est donc plafonne a
+« moyenne » quand moins de trois modeles portent la temperature.
 
 ## Ce qui est ecarte
 
