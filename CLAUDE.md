@@ -183,9 +183,12 @@ les apps à la fois.
 
 **Le déploiement ne part pas à chaque fusion** : il est sauté tant qu'aucune image d'app ni
 `compose.yaml` n'a changé — un commit de documentation ne redémarre rien. Quand il part, il
-prend deux à trois minutes, et `dockhand` recrée alors **toute** la stack, pas seulement les
-apps livrées : le dépôt n'y peut rien, c'est mesuré au `README`. Ce que fait l'app **une fois
-déployée** se regarde en lecture seule avec `./scripts/prod.sh`, expliqué là aussi.
+prend deux à trois minutes, et **ne recrée que les conteneurs dont l'image a bougé** : la CI
+les remplace un par un chez `dockhand`, qui recréerait sinon la stack entière. Un changement
+de **structure** — un service qui apparaît, une limite, un volume, un label — retombe sur
+l'ancien chemin et recrée tout. Le détail, et les deux réglages serveur qui en dépendent,
+sont au `README`. Ce que fait l'app **une fois déployée** se regarde en lecture seule avec
+`./scripts/prod.sh`, expliqué là aussi.
 
 ## Le sommaire de `memory/`
 
