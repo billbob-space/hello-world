@@ -542,23 +542,25 @@ jobs:
             # retours chariot Windows, ou un corps replie sur UNE seule ligne
             # par un presse-papier — un telephone le fait sans prevenir. openssh
             # refuse alors la cle avec « error in libcrypto », message qui ne
-            # dit ni quoi ni ou, puis git accuse les droits d'acces. On la
-            # remet en forme avant de s'en servir. Le script est ecrit sans
-            # indentation propre (sed la retire) : un bloc YAML impose une marge
-            # que Python refuserait.
-            sed 's/^[[:space:]]*//' <<'NORMALISER' > "$RUNNER_TEMP/normaliser.py"
-            import os, re, sys
-            brut = os.environ["CLE"].replace("\r", "").strip()
-            m = re.match(r"^(-----BEGIN [A-Z0-9 ]+-----)(.*?)(-----END [A-Z0-9 ]+-----)$", brut, re.S)
-            if not m: sys.exit("ni en-tete ni pied de cle privee reconnus")
-            debut, corps, fin = m.group(1), m.group(2).strip(), m.group(3)
-            nu = re.sub(r"\s+", "", corps)
-            corps = corps if "\n" in corps else "\n".join(nu[i:i + 70] for i in range(0, len(nu), 70))
-            sys.stdout.write(debut + "\n" + corps + "\n" + fin + "\n")
-            NORMALISER
-            if ! CLE="$CLE" python3 "$RUNNER_TEMP/normaliser.py" > ~/.ssh/deploiement; then
-              echo "::error::secret DEPLOIEMENT_SSH_KEY illisible — recopie la cle privee ENTIERE, de la ligne BEGIN a la ligne END incluses"
-              exit 1
+            # dit ni quoi ni ou, puis git accuse les droits d'acces. On la remet
+            # en forme avant de s'en servir, en shell : un heredoc ou un script
+            # Python indente ne survivent pas a un bloc YAML, qui impose une
+            # marge que ni le delimiteur ni Python n'acceptent — essaye et
+            # constate le 18 aout 2026.
+            brut=$(printf '%s' "$CLE" | tr -d '\r')
+            if [ "$(printf '%s\n' "$brut" | wc -l)" -le 1 ]; then
+              debut=$(printf '%s' "$brut" | grep -o -m1 -- '-----BEGIN [A-Z0-9 ]*-----' || true)
+              fin=$(printf '%s' "$brut" | grep -o -m1 -- '-----END [A-Z0-9 ]*-----' || true)
+              corps=$(printf '%s' "$brut" | sed -e "s|.*${debut}||" -e "s|${fin}.*||" | tr -d '[:space:]')
+              if [ -z "$debut" ] || [ -z "$fin" ] || [ -z "$corps" ]; then
+                echo "::error::secret DEPLOIEMENT_SSH_KEY : cle privee incomplete — recopie-la de la ligne BEGIN a la ligne END incluses"
+                exit 1
+              fi
+              # Les espaces du corps sont retires AVANT le repliage : les garder
+              # rendait une cle toujours invalide, mais joliment presentee.
+              { printf '%s\n' "$debut"; printf '%s' "$corps" | fold -w 70; printf '\n%s\n' "$fin"; } > ~/.ssh/deploiement
+            else
+              printf '%s\n' "$brut" > ~/.ssh/deploiement
             fi
             chmod 600 ~/.ssh/deploiement
             # Verifier la cle AVANT de pousser : sinon son defaut se lit dans un
