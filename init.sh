@@ -2658,17 +2658,39 @@ check_fabrique() {
   # aucune dependance nouvelle. Les autres apps/ sont hors perimetre : deux
   # apps peuvent legitimement partager un PRD a leur amorçage, ce n'est pas ce
   # qu'on detecte ici.
+  #
+  # La comparaison reste octet a octet et le verdict ne change pas ; seules
+  # deux gaspillages disparaissent. La liste des .md etait rappelee A CHAQUE
+  # canonique — deux « git ls-files » et un tri par tour de boucle — et « cmp »
+  # etait forke sur CHAQUE paire : dix-neuf canoniques par soixante-dix-sept
+  # documents, mille quatre cent soixante-trois forks pour au plus une poignee
+  # de vrais doublons. Or deux fichiers de tailles differentes ne peuvent pas
+  # etre identiques : la taille, lue en un seul « stat », ecarte tout sauf les
+  # candidats serieux. Mesure : 3,65 s -> 0,09 s sur ce bloc, et un --check
+  # complet passe de 19,4 s a 16,2 s — dont le job contrat de la CI profite
+  # aussi, puisqu'il ne fait que lancer --check.
   evades=0
-  for canon in apps/*/PRODUCT.md apps/*/README.md; do
-    [ -f "$canon" ] || continue
-    while IFS= read -r autre; do
-      [ -n "$autre" ] || continue
-      [ "$autre" = "$canon" ] && continue
-      case "$autre" in apps/*) continue ;; esac
-      cmp -s "$canon" "$autre" \
-        && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
-    done < <(fichiers_md '*.md')
-  done
+  autres_md=()
+  while IFS= read -r autre; do
+    [ -n "$autre" ] || continue
+    case "$autre" in apps/*) continue ;; esac
+    autres_md+=("$autre")
+  done < <(fichiers_md '*.md')
+  if [ ${#autres_md[@]} -gt 0 ]; then
+    declare -A taille_md=()
+    while read -r taille nom; do taille_md["$nom"]=$taille; done \
+      < <(stat -c '%s %n' -- "${autres_md[@]}" 2>/dev/null)
+    for canon in apps/*/PRODUCT.md apps/*/README.md; do
+      [ -f "$canon" ] || continue
+      taille_canon=$(stat -c '%s' -- "$canon" 2>/dev/null) || continue
+      for autre in "${autres_md[@]}"; do
+        [ "$autre" = "$canon" ] && continue
+        [ "${taille_md[$autre]-}" = "$taille_canon" ] || continue
+        cmp -s "$canon" "$autre" \
+          && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
+      done
+    done
+  fi
   [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
 
   # Le controle ci-dessus n'attrape qu'une copie CONFORME. Le cas courant est
