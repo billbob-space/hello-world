@@ -63,27 +63,38 @@ fichier passe de dix a douze cas en tournant sept fois plus vite.
 
 **Action** — `rien` — reparee dans le meme commit.
 
-### 4. test-jetons.sh ne verifie pas les nombres qu'il existe pour verifier
+### 4. Un nombre juste ailleurs masquait un nombre faux ici
 
-**Symptome** — `scripts/jetons.sh` sabote de deux facons independantes — compteur
-de tours qui n'incremente plus, total de jetons qui ne s'accumule plus — laisse
-`test-jetons.sh` a « 9 reussi(s), 0 echec(s) ». Verifie sur la version d'origine
-du fichier, avant toute modification de cette branche : l'aveuglement preexiste,
-il n'a pas ete introduit ici.
+**Symptome** — `scripts/jetons.sh` sabote de quatre facons independantes —
+compteur de tours bloque, total general qui n'accumule plus l'ecriture, lecture
+de cache non comptee, cout par branche fige — laissait `test-jetons.sh` a
+« 9 reussi(s), 0 echec(s) », code de sortie 0.
 
-**Cause** — ses neuf cas cherchent des MOTIFS dans la sortie, jamais des valeurs :
-ils prouvent que le rapport a la bonne forme, pas qu'il porte les bons chiffres.
-Or la raison d'etre de ce fichier, ecrite dans le workflow, est que `jetons.sh`
-« rend des nombres a sept chiffres qu'aucune relecture ne verifie a l'oeil ». La
-garantie annoncee n'est pas celle qui est tenue. `test-cout.sh` fait l'inverse et
-montre la forme juste : son premier cas est un temoin qui compare un total a
-1115, precisement pour qu'un `cout.sh` rendant zero partout ne passe pas au vert.
+**Cause** — et ce n'est PAS celle que cette entree affirmait d'abord. J'avais
+ecrit que les cas « cherchent des motifs dans la sortie, jamais des valeurs » :
+c'est faux, ils comparent bel et bien des nombres — `502 000`, `0,88 $`,
+`1 502 000`. Le defaut est ailleurs, et plus interessant. Chaque cas cherchait sa
+valeur **n'importe ou dans la sortie**, au lieu de la chercher sur la ligne qui la
+porte. Or `jetons.sh` imprime le meme nombre a deux endroits calcules par deux
+compteurs differents : en empechant le total general d'accumuler, la ligne TOTAL
+tombe a `402 000` — mais `502 000` subsiste sur la ligne « par branche », et
+l'assertion passe. Meme piege sur les pourcentages : `23 %` figure sur la lecture
+de cache ET sur les tours courts, deux postes sans rapport qui valent le meme
+chiffre dans ce bac ; chacun des deux cas se satisfaisait de la ligne de l'autre.
+
+Ma premiere lecture s'etait arretee au verdict vert sans regarder la sortie du
+script sabote. C'est la meme faute que celle que le fichier lui-meme commettait —
+conclure d'une correspondance sans verifier ou elle tombe.
+
+Corrige : `porte` prend desormais une ancre et n'examine que la ligne qui la
+porte. La ligne « par branche », precisement parce qu'elle masquait les fautes du
+total, gagne ses propres cas. Neuf cas -> quinze, et les quatre sabotages
+ci-dessus rendent tous une suite rouge et une sortie 1.
 
 **Detecte par** — `auteur`
 
-**Action** — `garde-fou` — il manque a `test-jetons.sh` un temoin chiffre sur le
-modele de celui de `test-cout.sh`. Hors du sujet de cette branche, qui optimise
-la duree de la CI et non la qualite de ses tests : signale, pas corrige ici.
+**Action** — `rien` — reparee dans la meme branche ; l'entree portait un
+diagnostic faux, reecrit ici plutot qu'ajoute a la suite.
 
 ### 5. Une suite de tests qui perd trente-cinq cas sur trente-six et s'affiche verte
 

@@ -94,17 +94,32 @@ FIN
   printf '%s' "$d"
 }
 
-# porte <nom> <motif> — la sortie de jetons.sh doit contenir <motif>.
+# porte <nom> <ancre> <motif> — la LIGNE qui porte <ancre> doit porter <motif>.
+#
+# L'ancre n'est pas une precaution de style, c'est ce qui fait la difference
+# entre un test et un test qui a l'air d'en etre un. Cherche « 502 000 » dans
+# toute la sortie et l'assertion passe tant que ce nombre subsiste QUELQUE PART :
+# mesure, en empechant le total general d'accumuler, la ligne TOTAL est tombee a
+# 402 000 et les neuf cas sont restes verts, parce que le meme 502 000 figure
+# aussi sur la ligne « par branche », calculee par un autre compteur. Un nombre
+# juste ailleurs masquait un nombre faux ici.
+#
+# Meme piege sur les pourcentages : « 23 % » apparait sur la lecture de cache ET
+# sur les tours courts, deux postes sans rapport qui valent le meme chiffre dans
+# ce bac. Sans ancre, chacun des deux cas se satisfaisait de la ligne de l'autre.
 porte() {
-  local nom="$1" motif="$2" d sortie
+  local nom="$1" ancre="$2" motif="$3" d sortie ligne
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
   d=${BAC:-$(bac)}
   sortie=$( cd "$d" && ./scripts/jetons.sh 2>&1 ) || {
     echec "$nom" "jetons.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  ligne=$(printf '%s\n' "$sortie" | grep -F -- "$ancre" | head -1)
+  if [ -z "$ligne" ]; then
+    echec "$nom" "aucune ligne ne porte l'ancre « $ancre »"
+  elif printf '%s\n' "$ligne" | grep -qF -- "$motif"; then
     reussi "$nom"
   else
-    echec "$nom" "la sortie ne porte pas « $motif »"
+    echec "$nom" "la ligne « $ancre » ne porte pas « $motif » :$(printf '\n      %s' "$ligne")"
   fi
 }
 
@@ -115,18 +130,28 @@ BAC=$(bac)
 
 printf '\n-- les chiffres\n'
 
-porte "le total en jetons des entrees detaillees" "502 000"
-porte "le cout total"                             "0,88 $"
-porte "la part de la lecture de cache"            "23 %"
-porte "la part de l ecriture de cache"            "71 %"
-porte "l amorce relue"                            "0,05 $"
+porte "le total en jetons des entrees detaillees" "TOTAL"             "502 000 jetons detailles"
+porte "le cout total"                             "TOTAL"             "0,88 $"
+porte "le compte de tours du total"               "TOTAL"             "sur 2 tour(s)"
+porte "la part de la lecture de cache"            "lecture de cache"  "23 %"
+porte "la part de l ecriture de cache"            "ecriture de cache" "71 %"
+porte "le cout de la lecture de cache"            "lecture de cache"  "0,20 $"
+porte "le cout de l ecriture de cache"            "ecriture de cache" "0,62 $"
+porte "l amorce relue"                            "amorce relue"      "0,05 $"
+
+# La ligne « par branche » est calculee par un compteur DIFFERENT de celui du
+# total, et c'est pour cela qu'elle merite ses propres cas : c'est elle qui,
+# faute d'ancre, masquait les fautes du total.
+porte "le nombre de tours de la branche"          "fabrique-a"        "2 tours"
+porte "les jetons de la branche"                  "fabrique-a"        "502 000 jetons"
+porte "le cout de la branche"                     "fabrique-a"        "0,88 $"
 
 printf '\n-- ce qui manque\n'
 
-porte "les tours courts"                          "1 des 2"
-porte "l entree sans detail est comptee a part"   "1 entree(s) sans detail"
-porte "le total du depot, detail ou non"          "1 502 000"
-porte "une phrase qui cite le marqueur n ouvre pas le bloc" "sur 2 tour(s)"
+porte "les tours courts"                          "tours courts"      "1 des 2"
+porte "l entree sans detail est comptee a part"   "sans detail"       "1 entree(s) sans detail"
+porte "le total du depot, detail ou non"          "total du depot"    "1 502 000"
+porte "une phrase qui cite le marqueur n ouvre pas le bloc" "TOTAL"   "sur 2 tour(s)"
 
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
