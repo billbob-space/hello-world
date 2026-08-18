@@ -147,10 +147,171 @@ d'un job GitHub, `cancelled`, n'y figurait simplement pas.
 **Action** — `rien` — reparee ; l'oubli portait sur une valeur possible, pas sur
 une regle du contrat.
 
+
+### 7. Un motif present, declare absent, parce que grep a trouve trop vite
+
+**Symptome** — la CI refuse la branche sur un cas qui passait en local :
+
+```
+./test-init.sh: line 453: printf: write error: Broken pipe
+  KO    une app qui ecrase hidden sans regle globale est signalee
+        aucune ligne ne porte « ramure] declare display sur une classe »
+```
+
+La ligne etait bel et bien la. `35 reussi(s), 1 echec(s)`.
+
+**Cause** — `printf '%s\n' "$sortie" | grep -q -- "$motif"` est une COURSE.
+`grep -q` sort des qu'il a trouve et ferme le tuyau ; `printf`, qui a encore de
+quoi ecrire, recoit `EPIPE` et rend non nul ; sous `set -o pipefail` le pipeline
+rend donc non nul **alors que le motif a ete trouve**, et l'assertion conclut
+l'inverse de ce qu'elle observe.
+
+La course preexistait — la forme est dans ces fichiers depuis toujours — mais
+elle ne se declenchait qu'a la faveur d'un ordonnancement rare. Jouer quatre cas
+de front l'a rendue frequente. C'est donc une faute a moi : je n'ai pas cree le
+defaut, j'ai supprime les conditions qui le cachaient.
+
+Reproduit hors CI, de facon deterministe : une sortie de 200 000 lignes dont le
+motif est sur la PREMIERE, et l'ancienne forme le declare absent trois fois sur
+trois ; la nouvelle le trouve trois fois sur trois.
+
+Corrige dans les quatre fichiers de test, pas seulement la ou il s'est
+manifeste : douze assertions lisent desormais par herestring (`<<<`), qui n'a pas
+de tuyau a casser. Les pipelines d'AFFICHAGE ont la meme faille par leur
+`head -N` final — il ferme le tuyau des qu'il a ses N lignes — et sous `set -e`
+la fonction mourrait au milieu, sans rendre son verdict : sept d'entre eux
+recoivent une garde.
+
+Le garde-fou d'integrite de `test-init.sh` aurait signale ce second cas — un cas
+qui meurt sans verdict s'evanouit du total — mais pas le premier : un faux rouge
+se compte comme un rouge.
+
+**Detecte par** — `CI`
+
+**Action** — `contrat` — la forme se represente et rien ne la decrivait ; elle
+entre dans `memory/regles-imperatives.md`. **Pas** un garde-fou : distinguer la
+petite valeur de la grande demanderait de deviner ce que contient une variable,
+et le motif est employe LEGITIMEMENT douze fois sur treize dans le depot, sur des
+chaines courtes ou il ne peut pas se declencher. Un `--check` qui les signalerait
+toutes crierait a tort douze fois sur treize, et on apprendrait a l'ignorer.
+
+Les trois occurrences reellement exposees — deux sur le contenu d'une feuille de
+style dans `init.sh`, une sur une liste de fichiers dans `scripts/pret.sh` — sont
+corrigees dans le meme commit, verdicts compares a la version d'origine.
+
+### 8. Un gain annonce a 3,3x, mesure a 2,7x — je comparais deux choses differentes
+
+**Symptome** — j'ai annonce « la CI passe de 9 min 45 a 2 min 56 », dans mes
+reponses et dans le corps de la pull request. Le banc d'essai, monte ensuite,
+donne 521 s -> 196 s en mediane sur douze runs comparables : un vrai gain, mais
+pas celui-la.
+
+**Cause** — les deux nombres ne mesuraient pas la meme chose. Le 9 min 45 vient
+d'un run de `main`, qui execute `deploy` ; le 2 min 56 d'un run de pull request,
+ou `deploy` est saute. J'ai compare un trajet avec sa derniere etape a un trajet
+sans. Les deux nombres etaient exacts ; leur rapport ne voulait rien dire.
+
+Ce qui l'a rendu facile : les deux chiffres venaient de mesures REELLES, prises
+avec soin, et chacun etait defendable isolement. Rien dans une mesure juste ne
+signale qu'on la compare a autre chose qu'elle-meme.
+
+Le banc d'essai a aussi corrige une seconde croyance : l'acceleration de
+`test-pret.sh`, `test-cout.sh` et `test-jetons.sh` — 125 s cumulees, le travail
+le plus minutieux de la branche — n'a **rien** rapporte sur l'horloge, parce
+qu'aucun de ces scripts n'etait sur le chemin critique. Elle rapporte des minutes
+facturees. Je l'aurais compte comme un gain de duree sans le mesurer par etape.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — un rapport avant/apres nomme la METRIQUE avant les
+nombres, et deux mesures ne se divisent pas tant qu'on n'a pas dit qu'elles
+couvrent le meme perimetre.
+
+### 9. Un controle qui se taisait hors Linux, et un « saute » qui voulait dire deux choses
+
+**Symptome** — une relecture outillee du diff de la branche rend sept constats,
+tous verifies, dont quatre que je n'avais pas vus :
+
+1. `stat -c` est une extension GNU. Sur BSD ou macOS l'option s'ecrit `-f %z`, et
+   mon pre-filtrage par taille renvoyait l'erreur vers `/dev/null` puis passait au
+   suivant : TOUTES les tailles manquaient, aucune paire n'etait comparee, et le
+   controle des doublons rendait un « ok » definitif sans avoir rien regarde.
+2. L'agregateur lisait `skipped` comme « rien n'a bouge ». Or GitHub rapporte
+   AUSSI `skipped` quand la matrice est sautee parce que le job dont elle depend
+   a **echoue** : un controle requis passait au vert sur un run qui n'avait rien
+   verifie.
+3. L'inspection parallele des images jetait les codes de sortie de ses
+   sous-shells — elle le doit, sous `set -e` — sans verifier qu'ils avaient tous
+   rendu un verdict. Un sous-shell tue entre ses deux ecritures laissait passer
+   une image absente, dans l'etape meme qui empeche la stack entiere de tomber.
+4. `--max-time` borne CHAQUE tentative de `curl`, pas l'operation : a 300 s et
+   trois essais, le pire cas valait 1210 s, soit plus que le `timeout-minutes: 20`
+   que je venais de poser sur ce job. Le job aurait ete tue AVANT d'avoir pu dire
+   lequel des trois essais avait echoue.
+
+**Cause** — les quatre sont la meme faute sous quatre formes : j'ai verifie que
+mes changements font ce qu'ils annoncent, jamais qu'ils **echouent bruyamment
+quand ils ne le peuvent pas**. Un `2>/dev/null` suivi d'un `continue`, un `skipped`
+lu sans demander pourquoi, un `wait || true` sans decompte, un plafond pose sans
+regarder ce qu'il plafonne : a chaque fois le chemin nominal est correct et le
+chemin degrade se tait.
+
+C'est d'autant plus net que j'avais ecrit exactement ce garde-fou ailleurs — le
+decompte des cas de `test-init.sh`, qui m'a sauve d'une suite vide — sans penser
+a l'appliquer a l'inspection des images, qui en avait autant besoin.
+
+Corrige : `wc -c` (POSIX) au lieu de `stat -c` ; `detect` ajoute aux `needs` de
+l'agregateur, qui refuse desormais un `skipped` dont l'amont a echoue ; un
+decompte des verdicts d'images, mis en defaut expres — trois images, deux
+verdicts, sortie 1 ; `--max-time 120`, pire cas 370 s sous un plafond de 1200.
+
+Deux autres constats portaient sur des trous de couverture : le garde-fou des
+plafonds de duree n'avait aucun cas de test permanent, et son balayage se faisait
+a l'indentation — un job suivi d'un commentaire en fin de ligne en sortait sans
+bruit. Deux cas neufs, dont un qui echoue bien quand on retire l'elargissement.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — verifier qu'un changement marche ne suffit pas ; il
+faut le priver de ce dont il depend et regarder s'il crie ou s'il se tait.
+
+### 10. Le correctif de portabilite a casse le controle qu'il venait de sauver
+
+**Symptome** — le remplacement de `stat -c` par `wc -c`, fait pour que le controle
+des doublons cesse de se taire hors Linux, fait echouer `test-init.sh` :
+
+```
+KO    un agent declare mais absent est refuse
+      --check est sorti en 1 sans aucune ligne de refus
+```
+
+**Cause** — `git ls-files` liste les fichiers SUIVIS, y compris ceux qu'on vient
+de supprimer du disque sans committer — etat parfaitement normal en cours de
+travail, et exactement ce que fait ce cas de test (`rm -f
+.claude/agents/artisan.md`). `stat -c` renvoyait son erreur vers `/dev/null` ;
+`wc -c`, lui, echoue franchement, et sous `set -euo pipefail` il tue `--check` au
+milieu. Le controle ne disait plus ce qui n'allait pas : il **disparaissait**, en
+laissant un code 1 sans une seule ligne de refus.
+
+Ironie utile : je corrigeais un « se tait quand il ne peut pas travailler » et
+j'ai produit un « meurt sans dire pourquoi ». Les deux ont la meme racine — un
+chemin degrade auquel on n'a pas pense — et seul le second etait rattrapable par
+un test, parce qu'il fait du bruit.
+
+Corrige par un `[ -f "$autre" ] || continue` commente : un document supprime n'a
+rien a comparer, et sortir de la liste est le bon comportement, pas un
+contournement. Le cas passe, le doublon reste detecte, `--check` nomme a nouveau
+le fichier manquant.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — reparee avant d'etre committee ; la suite de tests a fait
+exactement son travail, sur un correctif ecrit en reponse a une relecture.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-18 à 21:20 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-18 à 22:18 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -158,26 +319,28 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 1 189 | 0,00 $ |
-| Écriture de cache | 1 144 975 | 4,74 $ |
-| Lecture de cache | 51 142 678 | 23,97 $ |
-| Sortie | 163 051 | 2,79 $ |
-| **Total** | **52 451 893** | **31,50 $ — 27,35 €** |
+| Entrée | 1 559 | 0,00 $ |
+| Écriture de cache | 1 751 422 | 8,05 $ |
+| Lecture de cache | 76 760 370 | 36,49 $ |
+| Sortie | 211 914 | 3,92 $ |
+| **Total** | **78 725 265** | **48,45 $ — 42,08 €** |
 
 **Ce qui coûte**
 
-- **416 appel(s) au modèle** — un par réponse, outils compris —, dont 166 par des sous-agents — 9 761 594 jetons, 6,97 $.
+- **563 appel(s) au modèle** — un par réponse, outils compris —, dont 269 par des sous-agents — 23 488 143 jetons, 16,66 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   0 jetons, écrits une fois par session puis relus à chaque
   échange : 0 jetons de relecture, 0 % de tout ce qui a été relu.
-- **Tours courts** — 178 des 416 tours (42 %) sortent
+- **Tours courts** — 263 des 563 tours (46 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 16,04 $, soit 50 % de la facture.
+  une sortie de rien. Ils coûtent 24,32 $, soit 50 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 80 777 jetons relus au premier appel qui relise
-  quelque chose, 322 026 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 441 051 au dernier : une session longue se paie à chaque tour.
+- **Écarté** — 1 autre(s) branche(s) travaillée(s) dans ce conteneur,
+  32 346 242 jetons, qui ne sont pas ceux de celle-ci.
 
-<!-- cout-total: 52451893 -->
+<!-- cout-total: 78725265 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal <synthetic> 0 0 0
 2 principal <synthetic> 0 0 0
@@ -429,331 +592,318 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 248 principal claude-opus-5 1730 320296 1428
 249 principal claude-opus-4-7 5324 29200 202
 250 principal claude-opus-5 1622 322026 204
-251 agent claude-haiku-4-5-20251001 11894 0 4
-252 agent claude-haiku-4-5-20251001 1147 11894 2
-253 agent claude-haiku-4-5-20251001 340 13041 2
-254 agent claude-haiku-4-5-20251001 303 13381 2
-255 agent claude-haiku-4-5-20251001 998 13684 2
-256 agent claude-haiku-4-5-20251001 339 14682 2
-257 agent claude-haiku-4-5-20251001 163 15021 2
-258 agent claude-haiku-4-5-20251001 5023 6500 4
-259 agent claude-haiku-4-5-20251001 1538 11523 2
-260 agent claude-haiku-4-5-20251001 976 13061 2
-261 agent claude-haiku-4-5-20251001 347 14037 4
-262 agent claude-haiku-4-5-20251001 621 14384 2
-263 agent claude-haiku-4-5-20251001 369 15005 2
-264 agent claude-haiku-4-5-20251001 172 15374 4
-265 agent claude-haiku-4-5-20251001 5000 6500 4
-266 agent claude-haiku-4-5-20251001 1316 11500 2
-267 agent claude-haiku-4-5-20251001 883 12816 2
-268 agent claude-haiku-4-5-20251001 391 13699 1
-269 agent claude-haiku-4-5-20251001 639 14090 3
-270 agent claude-haiku-4-5-20251001 340 14729 4
-271 agent claude-opus-5 16680 25869 1
-272 agent claude-opus-5 1760 42549 5
-273 agent claude-opus-5 2606 44309 105
-274 agent claude-opus-5 4043 46915 20
-275 agent claude-opus-5 4412 50958 105
-276 agent claude-opus-5 5727 55370 17
-277 agent claude-opus-5 4587 61097 5
-278 agent claude-opus-5 1118 65684 17
-279 agent claude-opus-5 716 66802 2
-280 agent claude-opus-5 2563 67518 5
-281 agent claude-opus-5 8097 70081 146
-282 agent claude-opus-5 1588 78178 3
-283 agent claude-opus-5 2139 79766 3
-284 agent claude-opus-5 965 81905 4
-285 agent claude-opus-5 847 82870 8
-286 agent claude-opus-5 3928 83717 7
-287 agent claude-haiku-4-5-20251001 12488 0 4
-288 agent claude-haiku-4-5-20251001 1585 12488 2
-289 agent claude-haiku-4-5-20251001 522 14073 4
-290 agent claude-haiku-4-5-20251001 1218 14595 1
-291 agent claude-haiku-4-5-20251001 1754 15813 3
-292 agent claude-haiku-4-5-20251001 349 17567 4
-293 agent claude-haiku-4-5-20251001 12086 0 4
-294 agent claude-haiku-4-5-20251001 1310 12086 2
-295 agent claude-haiku-4-5-20251001 321 13396 2
-296 agent claude-haiku-4-5-20251001 176 13717 3
-297 agent claude-haiku-4-5-20251001 265 13893 2
-298 agent claude-haiku-4-5-20251001 339 14158 4
-299 agent claude-haiku-4-5-20251001 1330 14497 2
-300 agent claude-haiku-4-5-20251001 283 15827 5
-301 agent claude-opus-5 16102 25869 1
-302 agent claude-opus-5 5714 41971 3
-303 agent claude-opus-5 5782 47685 3
-304 agent claude-opus-5 13799 53467 3
-305 agent claude-opus-5 853 67266 3
-306 agent claude-opus-5 2167 68119 2
-307 agent claude-opus-5 169 70286 195
-308 agent claude-opus-5 997 70455 3
-309 agent claude-opus-5 852 71452 3
-310 agent claude-opus-5 649 72304 3
-311 agent claude-opus-5 4003 72953 5
-312 agent claude-opus-5 3756 76956 21
-313 agent claude-opus-5 515 80712 20
-314 agent claude-opus-5 1353 81227 4
-315 agent claude-opus-5 1357 82580 2
-316 agent claude-opus-5 1614 83937 3
-317 agent claude-opus-5 1501 85551 20
-318 agent claude-opus-5 1585 87052 7
-319 agent claude-opus-5 931 88637 2
-320 agent claude-opus-5 423 89568 2
-321 agent claude-opus-5 482 89991 2
-322 agent claude-opus-5 849 90473 3
-323 agent claude-opus-5 693 91322 2
-324 agent claude-opus-5 1068 92015 3
-325 agent claude-opus-5 585 93083 3
-326 agent claude-opus-5 2426 93668 2
-327 agent claude-opus-5 1423 96094 3
-328 agent claude-opus-5 1016 97517 20
-329 agent claude-opus-5 904 98533 3
-330 agent claude-opus-5 1352 99437 3
-331 agent claude-opus-5 1156 100789 20
-332 agent claude-opus-5 458 101945 2
-333 agent claude-opus-5 1174 102403 3
-334 agent claude-opus-5 1211 103577 3
-335 agent claude-opus-5 1185 104788 164
-336 agent claude-opus-5 310 105973 3
-337 agent claude-opus-5 3354 106283 2
-338 agent claude-opus-5 843 109637 5
-339 agent claude-opus-5 1224 110480 2
-340 agent claude-haiku-4-5-20251001 11679 0 2
-341 agent claude-haiku-4-5-20251001 2546 11679 2
-342 agent claude-haiku-4-5-20251001 1283 14225 2
-343 agent claude-haiku-4-5-20251001 397 15508 2
-344 agent claude-haiku-4-5-20251001 12013 0 4
-345 agent claude-haiku-4-5-20251001 2412 12013 2
-346 agent claude-haiku-4-5-20251001 412 14425 4
-347 agent claude-haiku-4-5-20251001 334 14837 2
-348 agent claude-haiku-4-5-20251001 1089 15171 3
-349 agent claude-haiku-4-5-20251001 308 16260 4
-350 agent claude-opus-5 42122 0 1
-351 agent claude-opus-5 12834 42122 3
-352 agent claude-opus-5 1768 54956 3
-353 agent claude-opus-5 991 56724 2
-354 agent claude-opus-5 1198 57715 2
-355 agent claude-opus-5 404 58913 20
-356 agent claude-opus-5 224 59317 2
-357 agent claude-opus-5 683 59541 2
-358 agent claude-opus-5 1444 60224 3
-359 agent claude-opus-5 579 61668 20
-360 agent claude-opus-5 639 62247 3
-361 agent claude-opus-5 2794 62886 4
-362 agent claude-opus-5 861 65680 2
-363 agent claude-opus-5 894 66541 2
-364 agent claude-opus-5 2460 67435 3
-365 agent claude-opus-5 648 69895 2
-366 agent claude-opus-5 4581 70543 3
-367 agent claude-opus-5 279 75124 3
-368 agent claude-opus-5 5345 75403 3
-369 agent claude-opus-5 761 80748 7
-370 agent claude-opus-5 1170 81509 2
-371 agent claude-opus-5 501 82679 3
-372 agent claude-opus-5 738 83180 17
-373 agent claude-opus-5 1251 83918 2
-374 agent claude-opus-5 965 85169 6
-375 agent claude-opus-5 1944 86134 2
-376 agent claude-opus-5 1576 88078 3
-377 agent claude-opus-5 407 89654 3
-378 agent claude-opus-5 1342 90061 3
-379 agent claude-opus-5 536 91403 2
-380 agent claude-opus-5 450 91939 3
-381 agent claude-opus-5 67467 25869 17
-382 agent claude-opus-5 1510 93336 3
-383 agent claude-opus-5 764 94846 2
-384 agent claude-opus-5 2620 95610 2
-385 agent claude-opus-5 99090 0 17
-386 agent claude-opus-5 1334 99090 8
-387 agent claude-opus-5 1874 100424 3
-388 agent claude-opus-5 5151 102298 20
-389 agent claude-opus-5 490 107449 2
-390 agent claude-opus-5 1861 107939 2
-391 agent claude-opus-5 831 109800 2
-392 agent claude-opus-5 1627 110631 2
-393 agent claude-opus-5 945 112258 3
-394 agent claude-opus-5 756 113203 3
-395 agent claude-opus-5 779 113959 2
-396 agent claude-opus-5 1506 114738 218
-397 agent claude-opus-5 313 116244 3
-398 agent claude-opus-5 1810 116557 2
-399 agent claude-opus-5 1311 118367 3
-400 agent claude-opus-5 1081 119678 2
-401 agent claude-haiku-4-5-20251001 11520 0 4
-402 agent claude-haiku-4-5-20251001 1344 11520 2
-403 agent claude-haiku-4-5-20251001 784 12864 2
-404 agent claude-haiku-4-5-20251001 548 13648 1
-405 agent claude-haiku-4-5-20251001 576 14196 2
-406 agent claude-haiku-4-5-20251001 369 14772 4
-407 agent claude-haiku-4-5-20251001 4981 6500 4
-408 agent claude-haiku-4-5-20251001 1531 11481 2
-409 agent claude-haiku-4-5-20251001 1243 13012 2
-410 agent claude-haiku-4-5-20251001 289 14255 4
-411 agent claude-haiku-4-5-20251001 4856 6500 4
-412 agent claude-haiku-4-5-20251001 1317 11356 2
-413 agent claude-haiku-4-5-20251001 9956 12673 1
-414 agent claude-haiku-4-5-20251001 381 22629 2
-415 agent claude-haiku-4-5-20251001 486 23010 2
-416 agent claude-haiku-4-5-20251001 259 23496 4
+251 principal claude-opus-4-7 3946 34524 807
+252 principal claude-opus-5 447 323648 550
+253 principal claude-opus-5 731 324095 2405
+254 principal claude-opus-5 2470 324826 626
+255 principal claude-opus-5 62 327922 3394
+256 principal claude-opus-5 3790 327984 315
+257 principal claude-opus-5 646 331774 1413
+258 principal claude-opus-5 1945 332420 446
+259 principal claude-opus-5 1122 334365 1300
+260 principal claude-opus-5 1832 335487 446
+261 principal claude-opus-5 1267 337319 2876
+262 principal claude-opus-5 3682 338586 426
+263 principal claude-opus-5 1472 342268 160
+264 principal claude-opus-5 3599 343740 2086
+265 principal claude-opus-5 3248 347339 3062
+266 principal claude-opus-5 3600 350587 795
+267 principal claude-opus-5 947 354187 137
+268 principal claude-opus-5 467 355134 330
+269 principal claude-opus-5 717 355601 1023
+270 principal claude-opus-5 1301 356318 1005
+271 principal claude-opus-5 1330 357619 492
+272 principal claude-opus-5 631 358949 1043
+273 principal claude-opus-5 1092 359580 698
+274 principal claude-opus-5 1623 360672 2257
+275 principal claude-opus-5 3091 362295 1201
+276 principal claude-opus-5 1368 365386 210
+277 principal claude-opus-5 791 366754 895
+278 principal claude-opus-5 1252 367545 656
+279 principal claude-opus-5 891 368797 432
+280 principal claude-opus-5 494 369688 176
+281 principal claude-opus-5 923 370182 1377
+282 principal claude-opus-5 1820 371105 278
+283 principal claude-opus-5 432 372925 345
+284 principal claude-opus-5 6880 373357 2621
+285 principal claude-opus-4-7 10283 29200 965
+286 principal claude-opus-4-7 1048 39483 96
+287 principal claude-opus-4-7 265 40531 122
+288 principal claude-opus-4-7 1305 40796 262
+289 principal claude-opus-4-7 1439 42101 1141
+290 principal claude-opus-4-7 18220 29200 212
+291 principal claude-opus-4-7 1096 47420 80
+292 principal claude-opus-4-7 163 48516 95
+293 principal claude-opus-4-7 984 48679 84
+294 principal claude-opus-5 2367 441051 361
+295 agent claude-haiku-4-5-20251001 11894 0 4
+296 agent claude-haiku-4-5-20251001 1147 11894 2
+297 agent claude-haiku-4-5-20251001 340 13041 2
+298 agent claude-haiku-4-5-20251001 303 13381 2
+299 agent claude-haiku-4-5-20251001 998 13684 2
+300 agent claude-haiku-4-5-20251001 339 14682 2
+301 agent claude-haiku-4-5-20251001 163 15021 2
+302 agent claude-haiku-4-5-20251001 5023 6500 4
+303 agent claude-haiku-4-5-20251001 1538 11523 2
+304 agent claude-haiku-4-5-20251001 976 13061 2
+305 agent claude-haiku-4-5-20251001 347 14037 4
+306 agent claude-haiku-4-5-20251001 621 14384 2
+307 agent claude-haiku-4-5-20251001 369 15005 2
+308 agent claude-haiku-4-5-20251001 172 15374 4
+309 agent claude-haiku-4-5-20251001 5000 6500 4
+310 agent claude-haiku-4-5-20251001 1316 11500 2
+311 agent claude-haiku-4-5-20251001 883 12816 2
+312 agent claude-haiku-4-5-20251001 391 13699 1
+313 agent claude-haiku-4-5-20251001 639 14090 3
+314 agent claude-haiku-4-5-20251001 340 14729 4
+315 agent claude-opus-5 16680 25869 1
+316 agent claude-opus-5 1760 42549 5
+317 agent claude-opus-5 2606 44309 105
+318 agent claude-opus-5 4043 46915 20
+319 agent claude-opus-5 4412 50958 105
+320 agent claude-opus-5 5727 55370 17
+321 agent claude-opus-5 4587 61097 5
+322 agent claude-opus-5 1118 65684 17
+323 agent claude-opus-5 716 66802 2
+324 agent claude-opus-5 2563 67518 5
+325 agent claude-opus-5 8097 70081 146
+326 agent claude-opus-5 1588 78178 3
+327 agent claude-opus-5 2139 79766 3
+328 agent claude-opus-5 965 81905 4
+329 agent claude-opus-5 847 82870 8
+330 agent claude-opus-5 3928 83717 7
+331 agent claude-haiku-4-5-20251001 12488 0 4
+332 agent claude-haiku-4-5-20251001 1585 12488 2
+333 agent claude-haiku-4-5-20251001 522 14073 4
+334 agent claude-haiku-4-5-20251001 1218 14595 1
+335 agent claude-haiku-4-5-20251001 1754 15813 3
+336 agent claude-haiku-4-5-20251001 349 17567 4
+337 agent claude-haiku-4-5-20251001 12086 0 4
+338 agent claude-haiku-4-5-20251001 1310 12086 2
+339 agent claude-haiku-4-5-20251001 321 13396 2
+340 agent claude-haiku-4-5-20251001 176 13717 3
+341 agent claude-haiku-4-5-20251001 265 13893 2
+342 agent claude-haiku-4-5-20251001 339 14158 4
+343 agent claude-haiku-4-5-20251001 1330 14497 2
+344 agent claude-haiku-4-5-20251001 283 15827 5
+345 agent claude-haiku-4-5-20251001 2586 14437 3
+346 agent claude-haiku-4-5-20251001 410 17023 5
+347 agent claude-opus-5 16102 25869 1
+348 agent claude-opus-5 5714 41971 3
+349 agent claude-opus-5 5782 47685 3
+350 agent claude-opus-5 13799 53467 3
+351 agent claude-opus-5 853 67266 3
+352 agent claude-opus-5 2167 68119 2
+353 agent claude-opus-5 169 70286 195
+354 agent claude-opus-5 997 70455 3
+355 agent claude-opus-5 852 71452 3
+356 agent claude-opus-5 649 72304 3
+357 agent claude-opus-5 4003 72953 5
+358 agent claude-opus-5 3756 76956 21
+359 agent claude-opus-5 515 80712 20
+360 agent claude-opus-5 1353 81227 4
+361 agent claude-opus-5 1357 82580 2
+362 agent claude-opus-5 1614 83937 3
+363 agent claude-opus-5 1501 85551 20
+364 agent claude-opus-5 1585 87052 7
+365 agent claude-opus-5 931 88637 2
+366 agent claude-opus-5 423 89568 2
+367 agent claude-opus-5 482 89991 2
+368 agent claude-opus-5 849 90473 3
+369 agent claude-opus-5 693 91322 2
+370 agent claude-opus-5 1068 92015 3
+371 agent claude-opus-5 585 93083 3
+372 agent claude-opus-5 2426 93668 2
+373 agent claude-opus-5 1423 96094 3
+374 agent claude-opus-5 1016 97517 20
+375 agent claude-opus-5 904 98533 3
+376 agent claude-opus-5 1352 99437 3
+377 agent claude-opus-5 1156 100789 20
+378 agent claude-opus-5 458 101945 2
+379 agent claude-opus-5 1174 102403 3
+380 agent claude-opus-5 1211 103577 3
+381 agent claude-opus-5 1185 104788 164
+382 agent claude-opus-5 310 105973 3
+383 agent claude-opus-5 3354 106283 2
+384 agent claude-opus-5 843 109637 5
+385 agent claude-opus-5 1224 110480 2
+386 agent claude-opus-5 18256 21296 1
+387 agent claude-opus-5 2731 39552 5
+388 agent claude-opus-5 5766 42283 2
+389 agent claude-opus-5 311 48049 5
+390 agent claude-opus-5 669 48360 2
+391 agent claude-opus-5 502 49029 2
+392 agent claude-opus-5 1153 49531 203
+393 agent claude-opus-5 255 50684 16
+394 agent claude-opus-5 1090 50939 3
+395 agent claude-opus-5 771 52029 20
+396 agent claude-opus-5 628 52800 26
+397 agent claude-opus-5 715 53428 20
+398 agent claude-opus-5 560 54143 22
+399 agent claude-opus-5 715 54703 507
+400 agent claude-opus-5 552 55418 2
+401 agent claude-opus-5 22707 55970 2
+402 agent claude-opus-5 6403 78677 2
+403 agent claude-opus-5 2462 85080 3
+404 agent claude-opus-5 4596 87542 2
+405 agent claude-opus-5 607 92138 28
+406 agent claude-opus-5 22583 92745 3
+407 agent claude-opus-5 1262 115328 3
+408 agent claude-opus-5 23056 116590 843
+409 agent claude-opus-5 881 139646 22
+410 agent claude-opus-5 22597 140527 843
+411 agent claude-opus-5 881 163124 22
+412 agent claude-opus-5 22496 164005 843
+413 agent claude-opus-5 881 186501 28
+414 agent claude-opus-5 22542 187382 843
+415 agent claude-opus-5 881 209924 26
+416 agent claude-opus-5 22473 210805 843
+417 agent claude-opus-5 881 233278 2
+418 agent claude-opus-5 23259 234159 841
+419 agent claude-opus-5 879 257418 163
+420 agent claude-opus-5 4044 258297 2
+421 agent claude-opus-5 411 262341 163
+422 agent claude-opus-5 23073 262752 841
+423 agent claude-opus-5 879 285825 26
+424 agent claude-opus-5 6379 286704 2
+425 agent claude-opus-5 471 293083 28
+426 agent claude-opus-5 6415 293554 349
+427 agent claude-opus-5 387 299969 2
+428 agent claude-opus-5 714 300356 4
+429 agent claude-opus-5 1159 301070 163
+430 agent claude-opus-5 695 302229 17
+431 agent claude-opus-5 1132 302924 28
+432 agent claude-opus-5 695 304056 409
+433 agent claude-opus-5 1132 304751 26
+434 agent claude-opus-5 695 305883 17
+435 agent claude-opus-5 1132 306578 22
+436 agent claude-opus-5 695 307710 409
+437 agent claude-opus-5 1132 308405 1
+438 agent claude-opus-5 2295 309537 3
+439 agent claude-opus-5 1699 311832 3
+440 agent claude-opus-5 1885 313531 5
+441 agent claude-opus-5 1747 315416 3
+442 agent claude-opus-5 2796 317163 2
+443 agent claude-haiku-4-5-20251001 12101 0 1
+444 agent claude-haiku-4-5-20251001 2371 12101 2
+445 agent claude-haiku-4-5-20251001 355 14472 2
+446 agent claude-haiku-4-5-20251001 417 14827 2
+447 agent claude-haiku-4-5-20251001 11679 0 2
+448 agent claude-haiku-4-5-20251001 2546 11679 2
+449 agent claude-haiku-4-5-20251001 1283 14225 2
+450 agent claude-haiku-4-5-20251001 397 15508 2
+451 agent claude-haiku-4-5-20251001 12013 0 4
+452 agent claude-haiku-4-5-20251001 2412 12013 2
+453 agent claude-haiku-4-5-20251001 412 14425 4
+454 agent claude-haiku-4-5-20251001 334 14837 2
+455 agent claude-haiku-4-5-20251001 1089 15171 3
+456 agent claude-haiku-4-5-20251001 308 16260 4
+457 agent claude-opus-5 42122 0 1
+458 agent claude-opus-5 12834 42122 3
+459 agent claude-opus-5 1768 54956 3
+460 agent claude-opus-5 991 56724 2
+461 agent claude-opus-5 1198 57715 2
+462 agent claude-opus-5 404 58913 20
+463 agent claude-opus-5 224 59317 2
+464 agent claude-opus-5 683 59541 2
+465 agent claude-opus-5 1444 60224 3
+466 agent claude-opus-5 579 61668 20
+467 agent claude-opus-5 639 62247 3
+468 agent claude-opus-5 2794 62886 4
+469 agent claude-opus-5 861 65680 2
+470 agent claude-opus-5 894 66541 2
+471 agent claude-opus-5 2460 67435 3
+472 agent claude-opus-5 648 69895 2
+473 agent claude-opus-5 4581 70543 3
+474 agent claude-opus-5 279 75124 3
+475 agent claude-opus-5 5345 75403 3
+476 agent claude-opus-5 761 80748 7
+477 agent claude-opus-5 1170 81509 2
+478 agent claude-opus-5 501 82679 3
+479 agent claude-opus-5 738 83180 17
+480 agent claude-opus-5 1251 83918 2
+481 agent claude-opus-5 965 85169 6
+482 agent claude-opus-5 1944 86134 2
+483 agent claude-opus-5 1576 88078 3
+484 agent claude-opus-5 407 89654 3
+485 agent claude-opus-5 1342 90061 3
+486 agent claude-opus-5 536 91403 2
+487 agent claude-opus-5 450 91939 3
+488 agent claude-opus-5 67467 25869 17
+489 agent claude-opus-5 1510 93336 3
+490 agent claude-opus-5 764 94846 2
+491 agent claude-opus-5 2620 95610 2
+492 agent claude-opus-5 99090 0 17
+493 agent claude-opus-5 1334 99090 8
+494 agent claude-opus-5 1874 100424 3
+495 agent claude-opus-5 5151 102298 20
+496 agent claude-opus-5 490 107449 2
+497 agent claude-opus-5 1861 107939 2
+498 agent claude-opus-5 831 109800 2
+499 agent claude-opus-5 1627 110631 2
+500 agent claude-opus-5 945 112258 3
+501 agent claude-opus-5 756 113203 3
+502 agent claude-opus-5 779 113959 2
+503 agent claude-opus-5 1506 114738 218
+504 agent claude-opus-5 313 116244 3
+505 agent claude-opus-5 1810 116557 2
+506 agent claude-opus-5 1311 118367 3
+507 agent claude-opus-5 1081 119678 2
+508 agent claude-haiku-4-5-20251001 11520 0 4
+509 agent claude-haiku-4-5-20251001 1344 11520 2
+510 agent claude-haiku-4-5-20251001 784 12864 2
+511 agent claude-haiku-4-5-20251001 548 13648 1
+512 agent claude-haiku-4-5-20251001 576 14196 2
+513 agent claude-haiku-4-5-20251001 369 14772 4
+514 agent claude-haiku-4-5-20251001 4981 6500 4
+515 agent claude-haiku-4-5-20251001 1531 11481 2
+516 agent claude-haiku-4-5-20251001 1243 13012 2
+517 agent claude-haiku-4-5-20251001 289 14255 4
+518 agent claude-haiku-4-5-20251001 4856 6500 4
+519 agent claude-haiku-4-5-20251001 1317 11356 2
+520 agent claude-haiku-4-5-20251001 9956 12673 1
+521 agent claude-haiku-4-5-20251001 381 22629 2
+522 agent claude-haiku-4-5-20251001 486 23010 2
+523 agent claude-haiku-4-5-20251001 259 23496 4
+524 agent claude-opus-5 39560 0 1
+525 agent claude-opus-5 1153 39560 2
+526 agent claude-opus-5 809 40713 2
+527 agent claude-opus-5 559 41522 3
+528 agent claude-opus-5 793 42081 3
+529 agent claude-opus-5 7890 42874 3
+530 agent claude-opus-5 5776 50764 2
+531 agent claude-opus-5 2109 56540 20
+532 agent claude-opus-5 2884 58649 4
+533 agent claude-opus-5 4294 61533 3
+534 agent claude-opus-5 5117 65827 3
+535 agent claude-opus-5 10166 70944 3
+536 agent claude-opus-5 7149 81110 3
+537 agent claude-opus-5 3027 88259 5
+538 agent claude-opus-5 710 91286 21
+539 agent claude-opus-5 70986 21296 6
+540 agent claude-opus-5 472 92282 17
+541 agent claude-opus-5 1872 92754 4
+542 agent claude-opus-5 413 94626 16
+543 agent claude-opus-5 514 95039 16
+544 agent claude-opus-5 404 95553 16
+545 agent claude-opus-5 373 95957 17
+546 agent claude-opus-5 392 96330 17
+547 agent claude-opus-5 369 96722 17
+548 agent claude-opus-5 428 97091 17
+549 agent claude-opus-5 389 97519 17
+550 agent claude-opus-5 342 97908 17
+551 agent claude-opus-5 398 98250 17
+552 agent claude-opus-5 373 98648 3
+553 agent claude-opus-5 382 99021 17
+554 agent claude-opus-5 382 99403 20
+555 agent claude-opus-5 630 99785 91
+556 agent claude-opus-5 789 100415 3
+557 agent claude-opus-5 852 101204 2
+558 agent claude-haiku-4-5-20251001 4754 6500 4
+559 agent claude-haiku-4-5-20251001 1332 11254 2
+560 agent claude-haiku-4-5-20251001 12184 12586 1
+561 agent claude-haiku-4-5-20251001 622 24770 2
+562 agent claude-haiku-4-5-20251001 469 25392 3
+563 agent claude-haiku-4-5-20251001 348 25861 4
 -->
 <!-- /cout -->
-
-### 7. Un motif present, declare absent, parce que grep a trouve trop vite
-
-**Symptome** — la CI refuse la branche sur un cas qui passait en local :
-
-```
-./test-init.sh: line 453: printf: write error: Broken pipe
-  KO    une app qui ecrase hidden sans regle globale est signalee
-        aucune ligne ne porte « ramure] declare display sur une classe »
-```
-
-La ligne etait bel et bien la. `35 reussi(s), 1 echec(s)`.
-
-**Cause** — `printf '%s\n' "$sortie" | grep -q -- "$motif"` est une COURSE.
-`grep -q` sort des qu'il a trouve et ferme le tuyau ; `printf`, qui a encore de
-quoi ecrire, recoit `EPIPE` et rend non nul ; sous `set -o pipefail` le pipeline
-rend donc non nul **alors que le motif a ete trouve**, et l'assertion conclut
-l'inverse de ce qu'elle observe.
-
-La course preexistait — la forme est dans ces fichiers depuis toujours — mais
-elle ne se declenchait qu'a la faveur d'un ordonnancement rare. Jouer quatre cas
-de front l'a rendue frequente. C'est donc une faute a moi : je n'ai pas cree le
-defaut, j'ai supprime les conditions qui le cachaient.
-
-Reproduit hors CI, de facon deterministe : une sortie de 200 000 lignes dont le
-motif est sur la PREMIERE, et l'ancienne forme le declare absent trois fois sur
-trois ; la nouvelle le trouve trois fois sur trois.
-
-Corrige dans les quatre fichiers de test, pas seulement la ou il s'est
-manifeste : douze assertions lisent desormais par herestring (`<<<`), qui n'a pas
-de tuyau a casser. Les pipelines d'AFFICHAGE ont la meme faille par leur
-`head -N` final — il ferme le tuyau des qu'il a ses N lignes — et sous `set -e`
-la fonction mourrait au milieu, sans rendre son verdict : sept d'entre eux
-recoivent une garde.
-
-Le garde-fou d'integrite de `test-init.sh` aurait signale ce second cas — un cas
-qui meurt sans verdict s'evanouit du total — mais pas le premier : un faux rouge
-se compte comme un rouge.
-
-**Detecte par** — `CI`
-
-**Action** — `contrat` — la forme se represente et rien ne la decrivait ; elle
-entre dans `memory/regles-imperatives.md`. **Pas** un garde-fou : distinguer la
-petite valeur de la grande demanderait de deviner ce que contient une variable,
-et le motif est employe LEGITIMEMENT douze fois sur treize dans le depot, sur des
-chaines courtes ou il ne peut pas se declencher. Un `--check` qui les signalerait
-toutes crierait a tort douze fois sur treize, et on apprendrait a l'ignorer.
-
-Les trois occurrences reellement exposees — deux sur le contenu d'une feuille de
-style dans `init.sh`, une sur une liste de fichiers dans `scripts/pret.sh` — sont
-corrigees dans le meme commit, verdicts compares a la version d'origine.
-
-### 8. Un gain annonce a 3,3x, mesure a 2,7x — je comparais deux choses differentes
-
-**Symptome** — j'ai annonce « la CI passe de 9 min 45 a 2 min 56 », dans mes
-reponses et dans le corps de la pull request. Le banc d'essai, monte ensuite,
-donne 521 s -> 196 s en mediane sur douze runs comparables : un vrai gain, mais
-pas celui-la.
-
-**Cause** — les deux nombres ne mesuraient pas la meme chose. Le 9 min 45 vient
-d'un run de `main`, qui execute `deploy` ; le 2 min 56 d'un run de pull request,
-ou `deploy` est saute. J'ai compare un trajet avec sa derniere etape a un trajet
-sans. Les deux nombres etaient exacts ; leur rapport ne voulait rien dire.
-
-Ce qui l'a rendu facile : les deux chiffres venaient de mesures REELLES, prises
-avec soin, et chacun etait defendable isolement. Rien dans une mesure juste ne
-signale qu'on la compare a autre chose qu'elle-meme.
-
-Le banc d'essai a aussi corrige une seconde croyance : l'acceleration de
-`test-pret.sh`, `test-cout.sh` et `test-jetons.sh` — 125 s cumulees, le travail
-le plus minutieux de la branche — n'a **rien** rapporte sur l'horloge, parce
-qu'aucun de ces scripts n'etait sur le chemin critique. Elle rapporte des minutes
-facturees. Je l'aurais compte comme un gain de duree sans le mesurer par etape.
-
-**Detecte par** — `relecture`
-
-**Action** — `comportement` — un rapport avant/apres nomme la METRIQUE avant les
-nombres, et deux mesures ne se divisent pas tant qu'on n'a pas dit qu'elles
-couvrent le meme perimetre.
-
-### 9. Un controle qui se taisait hors Linux, et un « saute » qui voulait dire deux choses
-
-**Symptome** — une relecture outillee du diff de la branche rend sept constats,
-tous verifies, dont quatre que je n'avais pas vus :
-
-1. `stat -c` est une extension GNU. Sur BSD ou macOS l'option s'ecrit `-f %z`, et
-   mon pre-filtrage par taille renvoyait l'erreur vers `/dev/null` puis passait au
-   suivant : TOUTES les tailles manquaient, aucune paire n'etait comparee, et le
-   controle des doublons rendait un « ok » definitif sans avoir rien regarde.
-2. L'agregateur lisait `skipped` comme « rien n'a bouge ». Or GitHub rapporte
-   AUSSI `skipped` quand la matrice est sautee parce que le job dont elle depend
-   a **echoue** : un controle requis passait au vert sur un run qui n'avait rien
-   verifie.
-3. L'inspection parallele des images jetait les codes de sortie de ses
-   sous-shells — elle le doit, sous `set -e` — sans verifier qu'ils avaient tous
-   rendu un verdict. Un sous-shell tue entre ses deux ecritures laissait passer
-   une image absente, dans l'etape meme qui empeche la stack entiere de tomber.
-4. `--max-time` borne CHAQUE tentative de `curl`, pas l'operation : a 300 s et
-   trois essais, le pire cas valait 1210 s, soit plus que le `timeout-minutes: 20`
-   que je venais de poser sur ce job. Le job aurait ete tue AVANT d'avoir pu dire
-   lequel des trois essais avait echoue.
-
-**Cause** — les quatre sont la meme faute sous quatre formes : j'ai verifie que
-mes changements font ce qu'ils annoncent, jamais qu'ils **echouent bruyamment
-quand ils ne le peuvent pas**. Un `2>/dev/null` suivi d'un `continue`, un `skipped`
-lu sans demander pourquoi, un `wait || true` sans decompte, un plafond pose sans
-regarder ce qu'il plafonne : a chaque fois le chemin nominal est correct et le
-chemin degrade se tait.
-
-C'est d'autant plus net que j'avais ecrit exactement ce garde-fou ailleurs — le
-decompte des cas de `test-init.sh`, qui m'a sauve d'une suite vide — sans penser
-a l'appliquer a l'inspection des images, qui en avait autant besoin.
-
-Corrige : `wc -c` (POSIX) au lieu de `stat -c` ; `detect` ajoute aux `needs` de
-l'agregateur, qui refuse desormais un `skipped` dont l'amont a echoue ; un
-decompte des verdicts d'images, mis en defaut expres — trois images, deux
-verdicts, sortie 1 ; `--max-time 120`, pire cas 370 s sous un plafond de 1200.
-
-Deux autres constats portaient sur des trous de couverture : le garde-fou des
-plafonds de duree n'avait aucun cas de test permanent, et son balayage se faisait
-a l'indentation — un job suivi d'un commentaire en fin de ligne en sortait sans
-bruit. Deux cas neufs, dont un qui echoue bien quand on retire l'elargissement.
-
-**Detecte par** — `relecture`
-
-**Action** — `comportement` — verifier qu'un changement marche ne suffit pas ; il
-faut le priver de ce dont il depend et regarder s'il crie ou s'il se tait.
-
-### 10. Le correctif de portabilite a casse le controle qu'il venait de sauver
-
-**Symptome** — le remplacement de `stat -c` par `wc -c`, fait pour que le controle
-des doublons cesse de se taire hors Linux, fait echouer `test-init.sh` :
-
-```
-KO    un agent declare mais absent est refuse
-      --check est sorti en 1 sans aucune ligne de refus
-```
-
-**Cause** — `git ls-files` liste les fichiers SUIVIS, y compris ceux qu'on vient
-de supprimer du disque sans committer — etat parfaitement normal en cours de
-travail, et exactement ce que fait ce cas de test (`rm -f
-.claude/agents/artisan.md`). `stat -c` renvoyait son erreur vers `/dev/null` ;
-`wc -c`, lui, echoue franchement, et sous `set -euo pipefail` il tue `--check` au
-milieu. Le controle ne disait plus ce qui n'allait pas : il **disparaissait**, en
-laissant un code 1 sans une seule ligne de refus.
-
-Ironie utile : je corrigeais un « se tait quand il ne peut pas travailler » et
-j'ai produit un « meurt sans dire pourquoi ». Les deux ont la meme racine — un
-chemin degrade auquel on n'a pas pense — et seul le second etait rattrapable par
-un test, parce qu'il fait du bruit.
-
-Corrige par un `[ -f "$autre" ] || continue` commente : un document supprime n'a
-rien a comparer, et sortir de la liste est le bon comportement, pas un
-contournement. Le cas passe, le doublon reste detecte, `--check` nomme a nouveau
-le fichier manquant.
-
-**Detecte par** — `test`
-
-**Action** — `rien` — reparee avant d'etre committee ; la suite de tests a fait
-exactement son travail, sur un correctif ecrit en reponse a une relecture.
