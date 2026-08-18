@@ -480,3 +480,55 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 322 agent claude-sonnet-5 698 432451 1
 -->
 <!-- /cout -->
+
+## Suite : la mise en ligne, apres la fusion
+
+Perimetre de cette seconde partie : `estran` et la fabrique (chaine de
+deploiement).
+
+### 7. La CI ne peut plus enregistrer les versions sur main — rien ne se deploie
+
+**Symptome** — PR #139 fusionnee, tous les jobs verts, image publiee, puis le
+job `deploy` echoue a l'etape « enregistrer les versions deployees » :
+`GH013: Repository rule violations found for refs/heads/main`, « 2 of 2
+required status checks are expected », quatre tentatives, puis
+« impossible d'enregistrer les versions sur main — rien n'est deploye ». Le
+webhook dockhand n'est pas appele, le conteneur en ligne affiche toujours
+`Up 43 hours`.
+
+**Cause** — une regle de protection de `main` exige des controles de statut sur
+tout ce qui y est pousse. La CI, elle, pousse un commit d'epinglage
+directement, avec `[skip ci]` — donc les controles exiges ne s'executeront
+jamais sur ce commit, et la regle le refusera toujours. Ce n'est pas une
+condition de course : c'est une impasse structurelle, et la meme panne avait
+deja eu lieu le 16 aout (run 31963069804), avant ce travail.
+
+**Ce qui ne repare PAS** — trois pistes essayees sur le papier et ecartees
+avant d'ecrire une ligne :
+
+- *ouvrir une pull request depuis la CI et la fusionner automatiquement* :
+  GitHub ne declenche aucun workflow pour un evenement produit par
+  `GITHUB_TOKEN`. Les controles exiges ne tourneraient donc pas sur cette PR,
+  la fusion automatique attendrait indefiniment, et la fusion elle-meme ne
+  declencherait pas le deploiement ;
+- *rendre l'echec non bloquant et appeler quand meme le webhook* : dockhand
+  clone le depot et deploie ce qu'il y lit. Sans le commit d'epinglage, il
+  redeploierait l'ancienne image en croyant travailler ;
+- *renoncer a l'epinglage* (tag mouvant du genre `:main`) : le compose ne
+  changerait plus jamais, et dockhand recreerait les neuf conteneurs a chaque
+  appel au lieu du seul service livre.
+
+**Ce qui repare vraiment** — deux gestes, tous deux hors du depot : autoriser
+le robot de la CI a contourner la regle (acteur de contournement sur la
+ruleset), ou lui donner un jeton qui la contourne. Le depot ne peut pas se
+sortir seul d'une regle qui s'applique a lui.
+
+**Contournement applique en attendant** — l'epinglage pousse par pull request
+depuis une branche ordinaire, comme le 16 aout : les controles tournent
+normalement, la fusion pousse sur `main`, et c'est cette poussee qui declenche
+le deploiement.
+
+**Detecte par** — `CI`
+
+**Action** — `arbitrage` — le correctif durable est un reglage GitHub, pas un
+changement de code : il appartient a l'exploitant du depot.
