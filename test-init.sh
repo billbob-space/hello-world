@@ -454,6 +454,24 @@ refuse "un doublon de PRODUCT.md est refuse meme non suivi" "doublon exact" <<'F
 cp apps/renaissance-gym/PRODUCT.md docs/copie-du-prd.md
 FIN
 
+# Un bloc run: peut etre valide en YAML et casse en shell : le delimiteur d'un
+# heredoc, indente PLUS que la marge du bloc, ne revient pas en debut de ligne
+# apres le depouillage que YAML applique, et n'est jamais reconnu. Le cas
+# reproduit exactement cette forme — celle qui a coute une construction entiere
+# le 18 aout 2026, YAML valide et contrat vert.
+refuse "un bloc run: invalide en shell est refuse" "invalides en shell" <<'FIN'
+awk 'BEGIN{f=0} {print}
+     !f && /- run: \.\/init\.sh --check/ {
+       print "      - name: etape volontairement cassee";
+       print "        run: |";
+       print "          if true; then";
+       print "            cat <<X > /tmp/y";
+       print "            bonjour";
+       print "            X";
+       print "          fi";
+       f=1 }' .github/workflows/build.yml > w.tmp && mv w.tmp .github/workflows/build.yml
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]
