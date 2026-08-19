@@ -28,6 +28,27 @@ décide de ce qu'on construit, et ne lit pas le code.
 de commit, entrées de `journal/`, `README` et corps de PR gardent toute leur précision
 technique : leur lecteur est un développeur ou un agent.
 
+## Un choix qui revient à l'utilisateur se montre
+
+**Ne pose pas en prose un choix qui a une forme visible** — une mise en page, un
+parcours, un écran, la place d'une information. Fabrique **deux ou trois maquettes**,
+donne-lui un lien pour les ouvrir, et demande laquelle il retient. Deux écrans côte à
+côte se comparent d'un coup d'œil ; deux paragraphes qui les décrivent, non — et celui
+qui te lit ne lit pas le code.
+
+Elles se dessinent avec la compétence `frontend-design`, ou `impeccable` quand le rendu
+doit être abouti : HTML autonome, contenu plausible plutôt que texte bouché, les
+variantes assez différentes pour que le choix en soit un. Publie-les en artefact ; à
+défaut, une capture par variante.
+
+**Les maquettes sont jetables, la décision ne l'est pas.** Elles ne s'installent pas
+dans le dépôt : ce qui survit est ce qui a été retenu, écrit dans le `PRODUCT.md` de
+l'app ou dans son PRP, avec ce qui a été écarté. Une variante préférée dont rien ne
+garde la trace se rediscute deux mois plus tard.
+
+**Un choix sans forme visible reste une question** — un palier d'exposition, une
+technologie, un arbitrage de périmètre ne se dessinent pas.
+
 ## Arborescence
 
 ```
