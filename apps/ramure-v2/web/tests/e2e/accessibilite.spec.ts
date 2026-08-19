@@ -86,15 +86,12 @@ for (const disposition of DISPOSITIONS) {
       await page.locator("#recherche button[type=submit]").click();
       await expect(page.locator('.noeud[data-id="centre"]')).toBeVisible();
       await expect(page.locator("#fiche")).toBeVisible();
-      // ANOMALIE DECOUVERTE PAR CETTE RECETTE (rapportee au chantier, pas
-      // corrigee ici) : "color-contrast" -- .fiche-lien-artiste et
-      // .discographie-lien (web/index.html) ne recoivent AUCUNE couleur de
-      // texte explicite ; le navigateur retombe sur le bleu de lien par
-      // defaut (#0000ee), illisible sur le fond sombre du panneau
-      // (#161617 -- ratio mesure 1.92:1, WCAG 2 AA exige 4.5:1). Violation
-      // "serious" confirmee par axe-core, sur un ecran que jsdom ne peut
-      // pas evaluer (aucun calcul de contraste reel).
-      await scanner(page, ["color-contrast"]);
+      // Defaut #4 (REFERENCE.md, "color-contrast") corrige : .fiche-lien-artiste
+      // et .discographie-lien (web/index.html) declarent desormais l'accent
+      // #f0a828 (ratio mesure 8.90:1 sur le fond #161617 du panneau, WCAG 2 AA
+      // exige 4.5:1) plutot que de retomber sur le bleu de lien par defaut du
+      // navigateur.
+      await scanner(page);
     });
 
     test("panneau collection ouvert (F-30, plusieurs artistes gardes)", async ({ page }) => {
@@ -118,18 +115,15 @@ for (const disposition of DISPOSITIONS) {
       await page.fill("#graine", "Tyop");
       await page.locator("#recherche button[type=submit]").click();
       await expect(page.locator("#correction")).toBeVisible();
-      // ANOMALIE DECOUVERTE PAR CETTE RECETTE (rapportee au chantier, pas
-      // corrigee ici) : "aria-command-name" -- avant que la correction ne
-      // soit acceptee, le centre reste "aucun_voisin" avec un artiste dont
-      // le NOM EST VIDE (aucune resolution reussie) ; reconstruireScene()
-      // (web/src/main.ts) dessine pourtant le noeud central INCONDITIONNEL-
-      // LEMENT (F-38, "toujours un contenu"), avec aria-label="" -- une
-      // commande ARIA (role="button", tabindex=0) SANS NOM ACCESSIBLE,
-      // violation "serious" du critere WCAG 4.1.2. Meme famille que le
-      // defaut d'annonce vocale trouve en pannes.spec.ts (F-36/F-37) : les
-      // deux viennent du meme choix de toujours dessiner un centre, meme
-      // vide de sens.
-      await scanner(page, ["aria-command-name"]);
+      // Defaut #5 (REFERENCE.md, "aria-command-name") corrige : avant que la
+      // correction ne soit acceptee, le centre reste "aucun_voisin" avec un
+      // artiste dont le nom n'a resolu vers rien -- reconstruireScene()
+      // (web/src/main.ts) dessine quand meme le noeud central (F-38, "toujours
+      // un contenu"), desormais avec le nom REELLEMENT demande ("Tyop") comme
+      // repli, jamais une chaine vide : la commande ARIA (role="button",
+      // tabindex=0) garde un nom accessible en toute circonstance.
+      await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Tyop");
+      await scanner(page);
     });
 
     test("banniere de mise a jour affichee (F-42)", async ({ page }) => {

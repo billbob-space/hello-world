@@ -84,23 +84,16 @@ test("F-33 -- cycle hors ligne reel : garder hors ligne, puis reconciliation au 
   expect(scenario.collection[0]?.nom).toBe("Artiste Hors Ligne");
   expect(scenario.collection[0]?.mbid).toBeTruthy();
 
-  // ANOMALIE DECOUVERTE PAR CETTE RECETTE (rapportee au chantier, pas
-  // corrigee ici) : le miroir local N'EST PAS purge apres une
-  // reconciliation reussie. `synchroniserMiroir()` (web/src/main.ts, sur
-  // l'evenement "online") reussit bien le PUT puis appelle
-  // `actualiserCollection()` -- mais n'appelle JAMAIS `miroir.confirmer()`,
-  // contrairement a `ajouterALaCollection`/`retirerDeLaCollection`
-  // (le chemin "en ligne au moment du clic"), qui l'appellent tous les
-  // deux. Consequence : l'entree confirmee reste indefiniment dans
-  // localStorage et sera RENVOYEE (PUT) a chaque futur evenement "online",
-  // meme des annees plus tard -- pas de perte ni de doublon VISIBLE
-  // (le serveur dedoublonne par mbid), mais un miroir qui ne se vide
-  // jamais et des appels reseau inutiles a chaque reconnexion.
+  // Defaut #6 (REFERENCE.md) corrige : `synchroniserMiroir()` (web/src/main.ts,
+  // sur l'evenement "online") appelle desormais `miroir.confirmer()` apres le
+  // rafraichissement de `collectionServeur` -- le miroir local est PURGE des
+  // qu'une entree est reconnue par le serveur, jamais renvoye (PUT) a un
+  // futur evenement "online".
   const ajoutsRestants = await page.evaluate(() => {
     const brut = window.localStorage.getItem("ramure:collection:miroir");
     return (JSON.parse(brut ?? "{}") as { ajouts?: { nom: string }[] }).ajouts?.map((a) => a.nom) ?? [];
   });
-  expect(ajoutsRestants).toEqual(["Artiste Hors Ligne"]);
+  expect(ajoutsRestants).toEqual([]);
 
   // Le bouton reste coherent apres la reconciliation -- aucun "sursaut"
   // visuel (F-28) alors que la source de verite vient de changer sous lui.

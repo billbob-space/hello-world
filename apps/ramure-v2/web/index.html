@@ -212,6 +212,16 @@
   .lecteur-bouton, .fiche-lien-artiste, .discographie-lien {
     font-size: var(--texte-second);
   }
+  /* Defaut #4 (REFERENCE.md, "color-contrast") corrige : ces deux liens ne
+     declaraient aucune couleur de texte et retombaient sur le bleu de lien
+     par defaut du navigateur (#0000ee), illisible sur le fond sombre du
+     panneau (#161617 -- ratio mesure 1.92:1, WCAG 2 AA exige 4.5:1). Repli
+     sur l'accent deja utilise ailleurs dans cet ecran (lien d'evitement,
+     contour de focus) plutot qu'une nouvelle couleur : ratio mesure 8.90:1
+     sur #161617. */
+  .fiche-lien-artiste, .discographie-lien {
+    color: #f0a828; text-decoration: underline;
+  }
 
   /* Garder/retirer (F-28) et collection (F-30, F-31, F-33). */
   .fiche-garder {

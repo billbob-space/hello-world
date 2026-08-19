@@ -43,22 +43,19 @@ cette suite a été écrite, `/opt/pw-browsers/chromium`), et le binaire `go`
 sur le `PATH` (chaque fichier démarre son propre serveur réel via `go run .`
 — voir `web/tests/e2e/support/serveur.ts`).
 
-## Anomalies découvertes en écrivant cette recette, pas corrigées ici
+## Anomalies découvertes en écrivant cette recette
 
-Hors périmètre de la tâche 1 (recette seule) : chacune est **assertée telle
-quelle**, avec un commentaire au site d'assertion qui explique le mécanisme
-exact. Un correctif futur fera échouer l'assertion correspondante — c'est le
-signal qu'il faut la retirer, pas la laisser traîner.
+Hors périmètre de la tâche 1 (recette seule). Les anomalies 1 à 7 ont été
+**corrigées** dans un chantier ultérieur (recette avant mise en ligne) : les
+assertions correspondantes ont été **retournées** pour vérifier le
+comportement correct, et retirées de cette liste — voir le message de commit
+et les commentaires laissés au site d'assertion pour le détail du mécanisme
+corrigé. Seule l'anomalie 8 reste hors périmètre, documentée ci-dessous, non
+corrigée : une décision de conception (un vrai algorithme d'évitement de
+collision), délibérément exclue de ce chantier.
 
 | # | Où l'observer | Résumé |
 |---|---|---|
-| 1 | `parcours.spec.ts`, étape 5 (F-14) | Après une faute de frappe corrigée PUIS une promotion, `lignee.lignee` (identifiants, `promotion.ts`) et `ligneeNoms` (noms, `main.ts`) se désynchronisent d'une entrée : `GestionnaireLignee.commencerPromotion` pousse dès que `#centreId !== null`, `main.ts` ne pousse sur `ligneeNoms` que `if (nomCentreCourant)` (une chaîne vide, rendue par la plantation ratée, est fausse). « Remonter d'un cran » laisse alors le bouton visible un cran de trop. |
-| 2 | `parcours.spec.ts`, étape 7 (F-30) | `ajouterALaCollection` (`main.ts`) construit `EntreeAPI.lignee` à partir de `lignee.lignee` (identifiants opaques) au lieu de `ligneeNoms` (noms lisibles) — composé avec l'anomalie 1, le préfixe technique `racine:` et le nom **mal orthographié** de la recherche corrigée fuient tous deux, durablement, dans la collection affichée à l'utilisateur. |
-| 3 | `pannes.spec.ts`, cas 1/5 et 2/5 (F-36/F-37) | `reconstruireScene()`/`promouvoirVers()` (`main.ts`) posent le bon message distinctif dans `#etat`, puis appellent `annoncer()` **inconditionnellement** juste après ; `annoncerNouveauCentre` diffère d'un tour de boucle (`setTimeout(fn, 0)`) et écrase toujours le premier message avant qu'une technologie d'assistance n'ait pu le lire. La région `aria-live="polite"` finit par annoncer « Nouveau centre : … » — un message trompeur — au lieu du message F-36/F-37 attendu. |
-| 4 | `accessibilite.spec.ts`, « arbre et fiche du centre » | `color-contrast` (axe-core, impact *serious*) : `.fiche-lien-artiste` et `.discographie-lien` (`web/index.html`) n'ont aucune couleur de texte déclarée ; le navigateur retombe sur le bleu de lien par défaut (`#0000ee`), illisible sur le fond sombre du panneau (ratio mesuré 1.92:1, WCAG 2 AA exige 4.5:1). |
-| 5 | `accessibilite.spec.ts`, « correction orthographique proposée » | `aria-command-name` (axe-core, impact *serious*) : même cause que l'anomalie 3 côté visuel — un centre `aucun_voisin` sans artiste résolu est quand même dessiné (F-38, « toujours un contenu »), avec `aria-label=""` : une commande ARIA sans nom accessible. |
-| 6 | `collection-hors-ligne.spec.ts`, premier test | `synchroniserMiroir()` (`main.ts`, déclenchée par l'événement `"online"`) réussit la synchronisation mais n'appelle jamais `MiroirHorsLigne.confirmer()` — contrairement à `ajouterALaCollection`/`retirerDeLaCollection`, qui l'appellent tous les deux sur le chemin « en ligne au moment du clic ». Le miroir local ne se vide donc jamais après une reconnexion réussie : pas de perte ni de doublon visible (le serveur dédoublonne par `mbid`), mais des envois réseau inutiles à chaque futur événement `"online"`. |
-| 7 | `parcours.spec.ts`, étape 2 (disposition étroite) | La liste de suggestions (`#suggestions`) ne se ferme jamais automatiquement quand la bannière de correction apparaît ; en disposition étroite, elle recouvre physiquement le bouton « Oui, planter … » (confirmé par le refus de clic de Playwright pendant 45 s : *« … intercepts pointer events »*). Un doigt réel rencontrerait le même obstacle. |
 | 8 | `geometrie.spec.ts`, en-tête du fichier (documenté, pas asserté) | Aucun algorithme d'évitement de collision n'existe pour les libellés texte (`canevas.ts` place chaque libellé à une position fixe dérivée du nœud). Avec des noms d'artistes voisins **longs** sur des héritiers rapprochés (`RAYON_HERITIER = 34px`, `geometrie.ts`), les libellés se recouvrent réellement — reproduit manuellement pendant l'écriture de ce fichier, non gardé comme assertion automatique pour ne pas lier ce test au choix arbitraire d'un jeu de noms « longs ». |
 
 Aucun échec **non applicable** (faux positif d'environnement) n'est

@@ -395,7 +395,12 @@ async function actualiserCollection(): Promise<void> {
 }
 
 async function ajouterALaCollection(nom: string, mbid: string): Promise<void> {
-  const e: EntreeAPI = { nom, mbid, lignee: [...lignee.lignee, nom], ajoute: new Date().toISOString() };
+  // Defaut #2 (REFERENCE.md), compose du #1 : `lignee.lignee` porte des
+  // IDENTIFIANTS opaques ("racine:<nom>", des mbid d'heritiers) — jamais ce
+  // que F-30 promet ("le chemin de decouverte", en noms lisibles). `ligneeNoms`
+  // existe precisement pour cet usage (voir sa doc plus haut) ; seul lui est
+  // affiche a l'utilisateur.
+  const e: EntreeAPI = { nom, mbid, lignee: [...ligneeNoms, nom], ajoute: new Date().toISOString() };
   miroir.ajouter(e); // F-33 : visible immediatement, meme hors ligne
   panneauFiche?.actualiserGarde(true); // retour visuel immediat (F-28)
   try {
@@ -456,6 +461,16 @@ async function synchroniserMiroir(): Promise<void> {
     }
   }
   await actualiserCollection();
+  // Defaut #6 (REFERENCE.md) corrige : contrairement a ajouterALaCollection,
+  // cette reconciliation ne confirmait jamais aupres du miroir hors ligne
+  // (MiroirHorsLigne.confirmer(), collection.ts) -- chaque entree deja
+  // reussie restait indefiniment dans localStorage et etait renvoyee (PUT)
+  // a chaque futur evenement "online", meme des annees plus tard.
+  // actualiserCollection() vient de rafraichir `collectionServeur` : s'en
+  // servir ici purge du miroir tout changement desormais reconnu par le
+  // serveur, sans jamais effacer un changement qu'il ignore encore
+  // (confirmer() ne compare qu'aux mbid presents cote serveur).
+  miroir.confirmer(collectionServeur);
 }
 
 window.addEventListener("online", () => void synchroniserMiroir());
@@ -489,6 +504,22 @@ async function chargerSuggestions(q: string): Promise<SuggestionAPI[]> {
   }
 }
 
+// fermerSuggestions (defaut #7, REFERENCE.md) : ferme la liste de
+// suggestions ET invalide toute requete debattue (debounce, 200ms) encore en
+// vol -- un simple `suggestions.effacer(); peindreSuggestions();` ne suffit
+// pas, puisque le minuteur pose par l'ecouteur "input" continue de courir
+// independamment et rouvrirait la liste, INCHANGEE, des qu'il se declenche
+// (chargerSuggestions resolue), meme apres que la banniere de correction ou
+// une plantation reussie a deja repris l'ecran. C'est exactement le
+// mecanisme qui, en disposition etroite, recouvrait le bouton "Oui,
+// planter…" : Playwright refusait le clic pendant 45s.
+function fermerSuggestions(): void {
+  window.clearTimeout(minuteurSuggestions);
+  requeteSuggestionsEnCours += 1; // perime toute reponse encore en vol (§09)
+  suggestions.effacer();
+  peindreSuggestions();
+}
+
 function peindreSuggestions(): void {
   if (!suggestionsEl || !champGraine) return;
   suggestionsEl.replaceChildren();
@@ -503,9 +534,7 @@ function peindreSuggestions(): void {
     li.textContent = s.nom;
     li.addEventListener("mousedown", (evt) => {
       evt.preventDefault(); // ne vole pas le focus du champ avant le clic
-      void planter(s.nom);
-      suggestions.effacer();
-      peindreSuggestions();
+      void planter(s.nom); // ferme deja la liste synchronement (fermerSuggestions(), defaut #7)
     });
     suggestionsEl.append(li);
   });
@@ -526,6 +555,11 @@ function masquerCorrection(): void {
 
 function afficherCorrection(nomPropose: string): void {
   if (!correctionEl) return;
+  // Defaut #7 (REFERENCE.md) corrige : voir fermerSuggestions(). La banniere
+  // de correction et la liste de suggestions ne montrent jamais rien d'utile
+  // en meme temps : fermer l'une en ouvrant l'autre est donc toujours
+  // correct, jamais une perte.
+  fermerSuggestions();
   correctionEl.replaceChildren();
   correctionEl.hidden = false;
 
@@ -672,7 +706,16 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   groupeRacine = racine;
   groupes = creerGroupes(racine);
   noeudsDessines = new Map();
-  nomCentreCourant = centreAPI.artiste.nom;
+  // Defaut #1 (REFERENCE.md) corrige : sur un centre "aucun_voisin"/"panne",
+  // centreAPI.artiste.nom est une chaine VIDE (Artiste zero-valeur, voir
+  // centreVide()/centrePanne() cote Go) — la garder telle quelle rendait
+  // `nomCentreCourant` faux, donc SAUTE par `if (nomCentreCourant)` plus bas
+  // (planter/promouvoirVers), alors que GestionnaireLignee.commencerPromotion,
+  // lui, avait deja pousse une entree. Repli sur `nomDemande` (le nom
+  // REELLEMENT demande, toujours non vide) : nomCentreCourant ne peut plus
+  // etre faux alors qu'un centre existe deja, ce qui garde `ligneeNoms` et
+  // `lignee.lignee` de MEME longueur en toute circonstance.
+  nomCentreCourant = centreAPI.artiste.nom || nomDemande;
 
   if (centreAPI.etat !== "ok" || !centreAPI.branches || centreAPI.branches.length === 0) {
     if (etat) etat.textContent = centreAPI.message ?? "Aucun voisin connu pour cet artiste.";
@@ -683,14 +726,30 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
     etat.textContent = "";
   }
 
-  const centreNoeud = dessinerNoeud(racine, groupes, { id: "centre", nom: centreAPI.artiste.nom, x: 0, y: 0, r: RAYON_CENTRE });
+  // Defaut #5 (REFERENCE.md, aria-command-name) corrige : sur un centre non
+  // resolu, centreAPI.artiste.nom est vide (meme cause que le defaut #1) --
+  // dessinerNoeud() pose ce nom tel quel dans aria-label (canevas.ts), ce qui
+  // rendait la commande ARIA du centre SANS NOM ACCESSIBLE (WCAG 4.1.2). F-38
+  // exige d'afficher un centre dans tous les cas ; `nomCentreCourant`, deja
+  // replie sur `nomDemande` ci-dessus, porte toujours un nom lisible.
+  const centreNoeud = dessinerNoeud(racine, groupes, { id: "centre", nom: nomCentreCourant, x: 0, y: 0, r: RAYON_CENTRE });
   if (centreAPI.illustration?.moyenne) definirIllustration(centreNoeud, centreAPI.illustration.moyenne);
   centreCourant = centreNoeud;
   noeudsDessines.set("centre", centreNoeud);
 
   dessinerEntourage(centreAPI);
-  annoncer(centreAPI.artiste.nom);
-  if (centreAPI.etat === "ok") void afficherFiche(centreAPI);
+  // Defaut #3 (REFERENCE.md, F-36/F-37) corrige : annoncer() ecrivait TOUJOURS
+  // "Nouveau centre : <nom>" dans #etat un tour de boucle plus tard, ecrasant
+  // systematiquement le message distinctif ("Aucun voisin connu…", "…reessayez
+  // dans un instant.") qui vient d'y etre pose deux lignes plus haut -- #etat
+  // porte deja aria-live="polite" (index.html), donc CE message est deja
+  // annonce tel quel, sans avoir besoin d'un second ecrit differe. "Nouveau
+  // centre" n'a de sens que lorsqu'il y a reellement un nouveau centre --
+  // c'est-a-dire seulement sur un etat "ok".
+  if (centreAPI.etat === "ok") {
+    annoncer(centreAPI.artiste.nom);
+    void afficherFiche(centreAPI);
+  }
 
   const viewport = { x: 0, y: 0, largeur: svg.clientWidth || 800, hauteur: svg.clientHeight || 600 };
   const contenu = { x: -ANNEAU.rayonMax, y: -ANNEAU.rayonMax, largeur: 2 * ANNEAU.rayonMax, hauteur: 2 * ANNEAU.rayonMax };
@@ -709,8 +768,7 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
 async function planter(nom: string, amorce?: "collection" | "partage"): Promise<void> {
   if (!svg) return;
   masquerCorrection();
-  suggestions.effacer();
-  peindreSuggestions();
+  fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   masquerAccueil();
   // F-14 : le centre quitte (s'il en existe un) devient le sommet de la
   // lignee, exactement comme lignee.commencerPromotion() le fait deja
@@ -809,7 +867,10 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
   if (!resultat.applique || !resultat.donnees) return; // perimee ou navigation ailleurs (§09, F-13)
 
   const centreAPI = resultat.donnees;
-  nomCentreCourant = centreAPI.artiste.nom;
+  // Meme repli qu'en (F-14) reconstruireScene : une promotion vers un centre
+  // qui echoue (source tombee entre-temps) ne doit pas non plus rendre
+  // `nomCentreCourant` faux.
+  nomCentreCourant = centreAPI.artiste.nom || nom;
   if (apercuEl) apercuEl.hidden = true; // le survol de l'ancien entourage n'a plus de sens
 
   // Retire tout sauf le noeud promu, deja en place au centre.
@@ -829,8 +890,12 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
   }
 
   dessinerEntourage(centreAPI);
-  annoncer(centreAPI.artiste.nom);
-  if (centreAPI.etat === "ok") void afficherFiche(centreAPI);
+  // Defaut #3 (REFERENCE.md) corrige, meme raison qu'en reconstruireScene :
+  // n'annoncer "Nouveau centre" que lorsqu'il y en a reellement un.
+  if (centreAPI.etat === "ok") {
+    annoncer(centreAPI.artiste.nom);
+    void afficherFiche(centreAPI);
+  }
   actualiserVisibiliteRemonter();
 }
 
@@ -869,8 +934,7 @@ champGraine?.addEventListener("keydown", (evt) => {
     suggestions.precedent();
     peindreSuggestions();
   } else if (evt.key === "Escape") {
-    suggestions.effacer();
-    peindreSuggestions();
+    fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   }
 });
 
@@ -880,8 +944,7 @@ boutonLogo?.addEventListener("click", () => {
   // "remonter d'un cran" : la lignee entiere est videe ici, jamais
   // seulement raccourcie d'une entree (lignee.reinitialiser(), promotion.ts).
   if (champGraine) champGraine.value = "";
-  suggestions.effacer();
-  peindreSuggestions();
+  fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   masquerCorrection();
   nomCentreCourant = null;
   lignee.reinitialiser();

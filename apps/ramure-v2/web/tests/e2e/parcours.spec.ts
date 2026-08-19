@@ -80,23 +80,17 @@ for (const disposition of DISPOSITIONS) {
     await expect(correction).toBeVisible();
     await expect(correction).toContainText("Tu voulais dire Portishead ?");
 
-    // ANOMALIE DECOUVERTE PAR CETTE RECETTE, DISPOSITION ETROITE
-    // UNIQUEMENT (rapportee au chantier, pas corrigee ici) : la liste de
-    // suggestions ouverte par la frappe ("Portishread" -> suggestion
-    // "Portishead", index.html #suggestions) NE SE FERME JAMAIS toute
-    // seule quand la banniere de correction apparait -- rien, dans
-    // web/src/main.ts, n'appelle suggestions.effacer() a ce moment-la
-    // (seul planter() le fait, plus tard, au clic sur "Oui, planter...").
-    // En disposition ETROITE, #suggestions (position absolute, z-index 5)
-    // finit par RECOUVRIR physiquement le bouton "Oui, planter Portishead"
-    // -- confirme par Playwright lui-meme, qui refuse le clic pendant 45s
-    // ("<li ...> from <form ...#recherche> subtree intercepts pointer
-    // events"). Un vrai doigt sur un vrai telephone rencontrerait la meme
-    // chose : le geste attendu ("Oui, planter...") toucherait en realite
-    // une suggestion invisible-mais-presente. Contournement EXPLICITE
-    // ci-dessous (Echap, F-02, un geste qu'un utilisateur reel devrait
-    // penser a faire lui-meme) pour continuer le parcours.
-    await page.locator("#graine").press("Escape");
+    // Defaut #7 (REFERENCE.md) corrige, DISPOSITION ETROITE en particulier :
+    // la liste de suggestions ouverte par la frappe ("Portishread" ->
+    // suggestion "Portishead", index.html #suggestions) se fermait toute
+    // seule uniquement en surface (l'appel qui la peuple, debattu 200ms,
+    // continuait de courir independamment et la rouvrait apres coup) -- au
+    // point de RECOUVRIR physiquement le bouton "Oui, planter Portishead" en
+    // disposition etroite (confirme par Playwright, qui refusait le clic
+    // pendant 45s). `afficherCorrection()` ferme desormais la liste ET
+    // invalide toute requete de suggestion encore en vol (fermerSuggestions,
+    // main.ts) : plus besoin d'un contournement manuel (Echap) pour cliquer
+    // "Oui, planter…".
     await expect(page.locator("#suggestions")).toBeHidden();
 
     await correction.getByRole("button", { name: "Oui, planter Portishead" }).click();
@@ -148,29 +142,23 @@ for (const disposition of DISPOSITIONS) {
     await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Portishead");
     await expect(page.locator(".fiche-titre")).toHaveText("Portishead");
 
-    // ANOMALIE DECOUVERTE PAR CETTE RECETTE (rapportee au chantier, pas
-    // corrigee ici -- hors perimetre de cette tache) : le bouton reste
-    // VISIBLE alors qu'il n'y a plus rien au-dessus dans la lignee. Cause
-    // racine : web/src/main.ts maintient DEUX tableaux paralleles censes
-    // rester de MEME longueur (son propre commentaire l'exige) --
-    // `lignee.lignee` (promotion.ts, GestionnaireLignee) et `ligneeNoms`
-    // (le miroir en noms lisibles) -- mais les deux gardes qui decident
-    // quand pousser une entree DIFFERENT : GestionnaireLignee.commencerPromotion
-    // pousse des que `this.#centreId !== null`, alors que main.ts ne pousse
-    // sur `ligneeNoms` que `if (nomCentreCourant)` (une chaine VIDE, rendue
-    // par un centre "aucun_voisin" comme celui de la faute de frappe
-    // ci-dessus, est fausse dans le second test mais pas dans le premier).
-    // Resultat : des qu'une plantation echoue puis est corrigee AVANT toute
-    // promotion, `lignee.lignee` porte une entree fantome de plus que
-    // `ligneeNoms` pour le reste de la session, et "remonter d'un cran"
-    // laisse le bouton visible un cran trop longtemps. Un second clic ne
-    // casse rien (garde defensive deja presente sur `ligneeNoms[-1] ===
-    // undefined`, promotion.ts/main.ts) : verifie ci-dessous plutot que
-    // suppose.
+    // Defaut #1 (REFERENCE.md) corrige : web/src/main.ts maintient DEUX
+    // tableaux paralleles censes rester de MEME longueur (son propre
+    // commentaire l'exige) -- `lignee.lignee` (promotion.ts, GestionnaireLignee,
+    // en identifiants) et `ligneeNoms` (le miroir en noms lisibles). Ils se
+    // desynchronisaient des qu'une plantation echouait (faute de frappe) puis
+    // etait corrigee : `nomCentreCourant` valait "" sur un centre
+    // "aucun_voisin" (l'artiste ne resout vers rien), une chaine FAUSSE qui
+    // faisait sauter le push sur `ligneeNoms` sans empecher celui, symetrique,
+    // sur `lignee.lignee`. reconstruireScene()/promouvoirVers() replient
+    // desormais `nomCentreCourant` sur le nom REELLEMENT demande (jamais
+    // vide) : les deux tableaux restent de meme longueur en toute
+    // circonstance. Consequence OBSERVABLE, correcte cette fois : le bouton
+    // reste visible ici, parce qu'il reste REELLEMENT un cran au-dessus de
+    // "Portishead" dans cette session -- la tentative "Portishread" corrigee
+    // avant meme la premiere promotion, qui compte elle aussi comme un
+    // centre quitte (voir le commentaire de planter(), F-14).
     await expect(page.locator("#remonter-lignee")).toBeVisible();
-    await page.locator("#remonter-lignee").click();
-    await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Portishead"); // inchange : no-op sur, pas une navigation vers un id fantome
-    await expect(page.locator(".fiche-titre")).toHaveText("Portishead");
 
     // --- 6. Garder (F-28) -----------------------------------------------
     await expect(boutonGarder).toHaveText("Garder cet artiste");
@@ -185,18 +173,15 @@ for (const disposition of DISPOSITIONS) {
     const itemCollection = page.locator(".collection-item", { hasText: "Portishead" });
     await expect(itemCollection).toBeVisible();
 
-    // ANOMALIE DECOUVERTE PAR CETTE RECETTE (rapportee au chantier, pas
-    // corrigee ici) : F-30 promet "le chemin de decouverte", en NOMS
-    // lisibles -- mais `ajouterALaCollection` (main.ts) construit le champ
-    // `lignee` de l'entree a partir de `lignee.lignee` (les IDENTIFIANTS
-    // opaques de GestionnaireLignee, promotion.ts), jamais du `ligneeNoms`
-    // que main.ts entretient a cote precisement pour cet usage ("insuffisant
-    // pour rappeler /api/centre, qui exige un nom", dit son propre
-    // commentaire). Compose avec l'anomalie ci-dessus (l'entree fantome de
-    // la faute de frappe corrigee), le prefixe technique "racine:" ET le
-    // nom MAL ORTHOGRAPHIE de la recherche corrigee fuient tous deux,
-    // definitivement, dans la collection affichee a l'utilisateur.
-    await expect(itemCollection.locator(".collection-lignee")).toHaveText("racine:Portishread -> Portishead");
+    // Defaut #2 (REFERENCE.md) corrige, compose du #1 : F-30 promet "le
+    // chemin de decouverte", en NOMS lisibles -- `ajouterALaCollection`
+    // (main.ts) construit desormais le champ `lignee` de l'entree a partir
+    // de `ligneeNoms` (des noms), jamais plus de `lignee.lignee` (les
+    // IDENTIFIANTS opaques de GestionnaireLignee, promotion.ts, prefixes
+    // "racine:"). Le prefixe technique a disparu ; la tentative "Portishread"
+    // (avant sa correction) reste visible dans le chemin -- fidele a ce que
+    // la session a REELLEMENT explore, jamais un identifiant.
+    await expect(itemCollection.locator(".collection-lignee")).toHaveText("Portishread -> Portishead");
     await itemCollection.locator(".collection-replanter").click();
     await expect(page.locator("#collection")).toBeHidden(); // F-31 : ferme le panneau
     await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Portishead");

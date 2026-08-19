@@ -848,6 +848,52 @@ dire dans son nom ou son commentaire qu'il approxime — sans quoi le prochain
 lecteur croit qu'il garde la cible, alors qu'il garde une syntaxe.
 
 
+### 30. (phase 2) La recette a trouve huit defauts que 175 tests unitaires ne voyaient pas
+
+**Symptome** — au moment de jouer la recette du PRP 09 — parcours complet d'un
+utilisateur, vrai navigateur, vrai serveur —, la série comptait 165 tests client
+et dix paquets Go tous verts, plus une accessibilité déclarée « WCAG 2.2 AA sans
+exception » au PRP 08. La recette a trouvé **huit défauts**, dont trois
+manquements à l'accessibilité confirmés par axe-core :
+
+- l'annonce vocale du message F-36/F-37 était **toujours** écrasée un tour de
+  boucle plus tard par « Nouveau centre » : une technologie d'assistance
+  annonçait un message faux là où l'écran affichait le bon ;
+- les liens d'écoute n'avaient aucune couleur déclarée et retombaient sur le bleu
+  par défaut du navigateur — **1,92:1** sur fond sombre, quand AA exige 4,5:1 ;
+- un centre non résolu était dessiné avec un `aria-label` vide.
+
+Et cinq défauts fonctionnels, dont deux qui cassaient une exigence : la lignée se
+désynchronisait après une correction orthographique, et le nom **mal orthographié**
+de la recherche finissait enregistré durablement dans la collection, à côté
+d'identifiants techniques.
+
+**Cause** — chacun de ces défauts naît d'une **composition** que nul test unitaire
+n'exerce : un message correct suivi d'un second appel une microtâche plus tard ;
+deux tableaux tenus en parallèle par deux fichiers, dont l'un pousse
+inconditionnellement et l'autre sous condition ; une liste ouverte par un minuteur
+de 200 ms qui survit à sa propre fermeture. Les unités testaient chaque moitié, et
+chaque moitié avait raison.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — sept sont corrigés avant toute mise en ligne, et
+**les assertions ont été retournées** : la recette vérifiait « le défaut est
+toujours là », elle vérifie maintenant le bon comportement. Le contraste des liens
+passe de 1,92:1 à **8,90:1**, mesuré. Le huitième — recouvrement des libellés
+quand des noms longs tombent sur des héritiers rapprochés — demande un vrai
+algorithme d'évitement de collision : il reste documenté, et c'est une décision de
+conception, pas un correctif.
+
+Ce que la branche en retient, et qui vaut pour la fabrique entière : **la recette
+n'est pas la formalité de fin de série, c'est le seul test qui éprouve le produit
+plutôt que ses pièces.** Elle est ici derrière `RAMURE_E2E`, donc jouée à la main
+et absente de la CI. Sur cette app, la proportion est nette : trois défauts
+sérieux trouvés au PRP 08 en mesurant dans un navigateur, huit de plus par la
+recette, **zéro** par les tests unitaires — qui restaient verts pendant tout ce
+temps.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre

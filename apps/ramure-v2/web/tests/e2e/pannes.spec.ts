@@ -46,20 +46,14 @@ test("panne 1/5 -- source vide (F-36, aucun voisin connu)", async ({ page }) => 
   await installerAPI(page, scenario);
   await planter(page, "Artiste Solitaire");
 
-  // ANOMALIE CRITIQUE DECOUVERTE PAR CETTE RECETTE (F-36 est marquee
-  // "Critique" au PRD §08 ; rapportee au chantier, pas corrigee ici) :
-  // reconstruireScene() (web/src/main.ts) pose bien le message distinctif
-  // ("Aucun voisin connu...") dans #etat -- MAIS annonce()
-  // INCONDITIONNELLEMENT, juste apres, un "Nouveau centre : <nom>" DIFFERE
-  // d'un tour de boucle (annoncerNouveauCentre, promotion.ts,
-  // `setTimeout(fn, 0)`). Ce second appel efface TOUJOURS le premier avant
-  // qu'une technologie d'assistance n'ait pu le lire : la region
-  // aria-live="polite" #etat finit systematiquement par annoncer "Nouveau
-  // centre : Artiste Solitaire" -- un message FAUX (il n'y a pas de
-  // nouveau centre, la resolution a echoue) -- jamais le message que F-36
-  // exige. Cette assertion verifie l'etat REELLEMENT percu, pas celui que
-  // le code ecrit un instant avant de l'ecraser.
-  await expect(page.locator("#etat")).toHaveText("Nouveau centre : Artiste Solitaire");
+  // Defaut #3 (REFERENCE.md, F-36 marquee "Critique" au PRD §08) corrige :
+  // reconstruireScene() (web/src/main.ts) pose le message distinctif
+  // ("Aucun voisin connu...") dans #etat, ET n'appelle plus annoncer()
+  // ("Nouveau centre : <nom>", differe d'un tour de boucle) que sur un etat
+  // "ok" -- il n'ecrase donc plus jamais ce message avant qu'une technologie
+  // d'assistance n'ait pu le lire. #etat porte deja aria-live="polite"
+  // (index.html) : ce texte est lui-meme l'annonce.
+  await expect(page.locator("#etat")).toHaveText("Aucun voisin connu pour cet artiste.");
   // reconstruireScene() dessine le centre INCONDITIONNELLEMENT (F-38 :
   // toujours un contenu, jamais un vide) -- ici un unique cercle nomme
   // "Artiste Solitaire", sans branche autour, ce qui est le comportement
@@ -85,18 +79,19 @@ test("panne 2/5 -- source en erreur (F-37, invite a reessayer)", async ({ page }
 
   await planter(page, "Artiste Malchanceux");
 
-  // Meme anomalie que le cas 1/5 ci-dessus (F-36/F-37, annonce() efface
-  // systematiquement le message distinctif) : artiste.nom est vide sur un
-  // centre de panne (centrePanne() ne resout jamais d'identite), d'ou une
-  // annonce finale VIDE de sens plutot que le texte "reessayez dans un
-  // instant" pourtant pose un instant plus tot.
-  await expect(page.locator("#etat")).toHaveText("Nouveau centre : ");
-  // Meme dessin inconditionnel que le cas 1/5 -- ici avec un nom VIDE
-  // (centrePanne() n'a jamais resolu d'identite), donc un cercle SANS
-  // libelle accessible : une pastille orpheline plutot qu'une absence
-  // d'ecran (ni mieux, ni pire que le cas vide -- note complementaire,
-  // pas une seconde anomalie critique).
+  // Meme defaut #3 corrige que le cas 1/5 ci-dessus : le message distinctif
+  // de panne, pose dans #etat par reconstruireScene(), n'est plus ecrase par
+  // une annonce "Nouveau centre" qui n'a plus lieu d'etre puisqu'il n'y a
+  // pas de nouveau centre (etat "panne", pas "ok").
+  await expect(page.locator("#etat")).toHaveText(
+    "les voisins de cet artiste n'ont pas pu etre charges, reessayez dans un instant.",
+  );
+  // Meme dessin inconditionnel que le cas 1/5 -- ici avec une identite
+  // JAMAIS resolue (centrePanne() ne porte aucun artiste), mais un cercle
+  // qui garde neanmoins un nom accessible (defaut #5, REFERENCE.md, corrige) :
+  // reconstruireScene() replie sur le nom REELLEMENT demande.
   await expect(page.locator(".noeud")).toHaveCount(1);
+  await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Artiste Malchanceux");
   // internal/api/centre.go : une panne repond 503, jamais 200 -- le JSON
   // reste neanmoins exploitable (chargerCentre() ne teste jamais
   // response.ok, voir web/src/main.ts) : c'est le CONTENU qui distingue.
