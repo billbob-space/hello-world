@@ -16,7 +16,7 @@ erreur ici casse le deploiement de toutes les autres applications.
 - Nom : `ramure-v2` — c'est aussi son sous-domaine, son conteneur et sa route.
 - URL : https://ramure-v2.apps.billbob.ovh
 - Qui entre : n'importe quel compte Google authentifie (`exposure: google`).
-- Deployee : pas encore — son bloc n'entre pas dans `compose.yaml`.
+- Deployee : oui.
 
 ## Comment elle tourne
 

@@ -1,5 +1,20 @@
 # RAMURE
 
+> **Archive — cette version n'est plus en ligne depuis le 19 août 2026.**
+>
+> `apps/ramure` a été retirée de la stack au profit de `apps/ramure-v2`, qui la
+> remplace et ne cohabite pas avec elle (décision du commanditaire, PRD de la v2,
+> §19). Ce document décrit donc un produit **retiré** : il ne dit plus ce qui est
+> en ligne, et ne doit plus servir de référence.
+>
+> Ce qui fait autorité aujourd'hui : [`../ramure-v2/PRODUCT.md`](../ramure-v2/PRODUCT.md).
+>
+> Le code reste dans le dépôt à dessein — c'est l'étalon auquel comparer la v2,
+> et le lot V2 s'y regarde avant d'être réécrit. Ce qui **ne suit pas** vers la
+> v2 : les artistes gardés dans cette version vivaient dans le navigateur de
+> chaque visiteur, sous l'ancienne adresse ; ils ne sont pas transférés, et ce
+> qui devait l'être se replante à la main.
+
 > **Product Requirements Document · Spécification de construction**
 
 **Plante un nom, saute de branche en branche.**
