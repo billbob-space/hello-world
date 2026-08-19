@@ -90,6 +90,30 @@ pose_agent() {
   cat > "$p/agent-1.jsonl"
 }
 
+# --- le bac partage des cas en lecture seule -------------------------------------
+#
+# Dix-neuf des vingt cas ne touchent NI l'arbre suivi par git NI le journal :
+# ils deposent une conversation sous $d/home, lancent cout.sh --dry-run, et
+# lisent sa sortie. Leur reconstruire un depot chacun coutait 0,9 s vingt fois
+# pour un arbre qu'aucun d'eux ne modifie.
+#
+# Seul $d/home change d'un cas a l'autre, et on le vide entre deux : sans cela,
+# la conversation d'un cas et les sous-agents poses par un autre s'additionnent,
+# et un cas qui verifie qu'on ne compte PAS quelque chose passerait au vert en
+# comptant ce que son voisin a laisse.
+#
+# Le bac est construit au niveau superieur, jamais paresseusement dans la
+# fonction : « d=$(bac_partage) » s'execute dans un SOUS-SHELL, ou une
+# affectation est perdue des le retour — chaque cas reconstruirait, et le gain
+# serait nul sans que rien ne le dise.
+#
+# « :? » et non une valeur par defaut vide : $BAC_PARTAGE vide ferait de la
+# ligne suivante un « rm -rf /home ». Mieux vaut refuser bruyamment.
+bac_partage() {
+  rm -rf "${BAC_PARTAGE:?bac partage pas encore construit}/home"
+  printf '%s' "$BAC_PARTAGE"
+}
+
 releve() {  # releve <bac> — lance cout.sh en HOME detourne, rend sa sortie
   ( cd "$1" && HOME="$1/home" ./scripts/cout.sh --dry-run 2>&1 )
 }
@@ -102,10 +126,10 @@ releve() {  # releve <bac> — lance cout.sh en HOME detourne, rend sa sortie
 total() {
   local nom="$1" attendu="$2" d sortie vu
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
   if [ -z "$vu" ]; then
     echec "$nom" "aucun total dans la sortie"
   elif [ "$vu" != "$attendu" ]; then
@@ -121,10 +145,10 @@ total() {
 porte() {
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  if grep -qF -- "$motif" <<< "$sortie"; then
     reussi "$nom"
   else
     echec "$nom" "la sortie ne porte pas « $motif »"
@@ -132,6 +156,8 @@ porte() {
 }
 
 # --------------------------------------------------------------------------------
+
+BAC_PARTAGE=$(bac)
 
 printf '\n-- le compte\n'
 
@@ -193,11 +219,11 @@ FIN
 sous_agent_fichier_total() {  # <nom> <attendu> — sous-agent dans son propre fichier
   local nom="$1" attendu="$2" d sortie vu
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
   if [ "$vu" != "$attendu" ]; then
     echec "$nom" "total $vu, attendu $attendu"
   else
@@ -209,11 +235,11 @@ sous_agent_fichier_total "un sous-agent dans son propre fichier compte dans le t
 sous_agent_fichier_porte() {  # <nom> <motif>
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  if grep -qF -- "$motif" <<< "$sortie"; then
     reussi "$nom"
   else
     echec "$nom" "la sortie ne porte pas « $motif »"
@@ -239,11 +265,11 @@ pose_agent_workflow() {  # <bac> — la ou un agent de workflow ecrit vraiment
 agent_workflow_total() {  # <nom> <attendu>
   local nom="$1" attendu="$2" d sortie vu
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" <<<"$(requete req_1 "$BRANCHE" 0 claude-opus-5 10 100 1000 5)"
   pose_agent_workflow "$d" <<<"$(requete req_2 "$BRANCHE" 1 claude-opus-5 10 100 1000 5)"
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  vu=$(printf '%s\n' "$sortie" | grep -o 'cout-total: [0-9]*' | head -1 | tr -dc '0-9')
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
   if [ "$vu" != "$attendu" ]; then
     echec "$nom" "total $vu, attendu $attendu"
   else
@@ -309,7 +335,7 @@ ENTREE
   grep -q 'cout-total' "$entree" || { echec "$nom" "le bloc n'a pas ete ecrit dans l'entree"; return 0; }
   sortie=$( cd "$d" && ./init.sh --check 2>&1 ) || code=$?
   if [ "$code" != 0 ]; then
-    echec "$nom" "--check refuse le depot apres le releve : $(printf '%s\n' "$sortie" | grep -E 'KO' | head -1)"
+    echec "$nom" "--check refuse le depot apres le releve : $(grep -m1 -E 'KO' <<< "$sortie")"
   else
     reussi "$nom"
   fi
@@ -326,10 +352,10 @@ FIN
 tait() {
   local nom="$1" motif="$2" d sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  if grep -qF -- "$motif" <<< "$sortie"; then
     echec "$nom" "la sortie porte « $motif », qu'elle ne devrait pas"
   else
     reussi "$nom"
@@ -363,7 +389,7 @@ FIN
 code_rappel() {  # code_rappel <nom> <code attendu> — la conversation est lue sur l'entree standard
   local nom="$1" attendu="$2" d code=0
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
+  d=$(bac_partage)
   pose "$d" < <(cat)
   ( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel >/dev/null 2>&1 ) || code=$?
   if [ "$code" = "$attendu" ]; then

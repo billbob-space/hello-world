@@ -94,34 +94,71 @@ FIN
   printf '%s' "$d"
 }
 
-# porte <nom> <motif> — la sortie de jetons.sh doit contenir <motif>.
+# porte <nom> <ancre> <motif> — la LIGNE qui porte <ancre> doit porter <motif>.
+#
+# L'ancre n'est pas une precaution de style, c'est ce qui fait la difference
+# entre un test et un test qui a l'air d'en etre un. Cherche « 502 000 » dans
+# toute la sortie et l'assertion passe tant que ce nombre subsiste QUELQUE PART :
+# mesure, en empechant le total general d'accumuler, la ligne TOTAL est tombee a
+# 402 000 et les neuf cas sont restes verts, parce que le meme 502 000 figure
+# aussi sur la ligne « par branche », calculee par un autre compteur. Un nombre
+# juste ailleurs masquait un nombre faux ici.
+#
+# Meme piege sur les pourcentages : « 23 % » apparait sur la lecture de cache ET
+# sur les tours courts, deux postes sans rapport qui valent le meme chiffre dans
+# ce bac. Sans ancre, chacun des deux cas se satisfaisait de la ligne de l'autre.
 porte() {
-  local nom="$1" motif="$2" d sortie
+  local nom="$1" ancre="$2" motif="$3" sortie ligne
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
-  d=$(bac)
-  sortie=$( cd "$d" && ./scripts/jetons.sh 2>&1 ) || {
+  sortie=$( cd "$BAC" && ./scripts/jetons.sh 2>&1 ) || {
     echec "$nom" "jetons.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
-  if printf '%s\n' "$sortie" | grep -qF -- "$motif"; then
+  # Deux gardes, pour deux facons de mourir en silence. « grep -m1 » plutot que
+  # « grep | head -1 » : c'est le producteur qui s'arrete, personne ne casse le
+  # tuyau de personne. Et « || true » parce que sous pipefail une ancre absente
+  # fait sortir grep en 1, et l'affectation emporterait la suite entiere sans un
+  # mot — or c'est justement le cas que la branche « aucune ligne ne porte
+  # l'ancre » est la pour nommer.
+  ligne=$(grep -m1 -F -- "$ancre" <<< "$sortie" || true)
+  if [ -z "$ligne" ]; then
+    echec "$nom" "aucune ligne ne porte l'ancre « $ancre »"
+  elif grep -qF -- "$motif" <<< "$ligne"; then
     reussi "$nom"
   else
-    echec "$nom" "la sortie ne porte pas « $motif »"
+    echec "$nom" "la ligne « $ancre » ne porte pas « $motif » :$(printf '\n      %s' "$ligne")"
   fi
 }
 
+# Le bac de ce fichier est IMMUABLE — bac() ne prend aucun argument et rend le
+# meme arbre a chaque appel — et jetons.sh ne fait que le lire. Les neuf cas le
+# reconstruisaient neuf fois pour rien. Construit ici, au niveau superieur, et
+# jamais dans porte() : une affectation faite dans un sous-shell est perdue des
+# le retour, et chaque cas reconstruirait sans que rien ne le dise.
+BAC=$(bac)
+
 printf '\n-- les chiffres\n'
 
-porte "le total en jetons des entrees detaillees" "502 000"
-porte "le cout total"                             "0,88 $"
-porte "la part de la lecture de cache"            "23 %"
-porte "la part de l ecriture de cache"            "71 %"
-porte "l amorce relue"                            "0,05 $"
+porte "le total en jetons des entrees detaillees" "TOTAL"             "502 000 jetons detailles"
+porte "le cout total"                             "TOTAL"             "0,88 $"
+porte "le compte de tours du total"               "TOTAL"             "sur 2 tour(s)"
+porte "la part de la lecture de cache"            "lecture de cache"  "23 %"
+porte "la part de l ecriture de cache"            "ecriture de cache" "71 %"
+porte "le cout de la lecture de cache"            "lecture de cache"  "0,20 $"
+porte "le cout de l ecriture de cache"            "ecriture de cache" "0,62 $"
+porte "l amorce relue"                            "amorce relue"      "0,05 $"
+
+# La ligne « par branche » est calculee par un compteur DIFFERENT de celui du
+# total, et c'est pour cela qu'elle merite ses propres cas : c'est elle qui,
+# faute d'ancre, masquait les fautes du total.
+porte "le nombre de tours de la branche"          "fabrique-a"        "2 tours"
+porte "les jetons de la branche"                  "fabrique-a"        "502 000 jetons"
+porte "le cout de la branche"                     "fabrique-a"        "0,88 $"
 
 printf '\n-- ce qui manque\n'
 
-porte "les tours courts"                          "1 des 2"
-porte "l entree sans detail est comptee a part"   "1 entree(s) sans detail"
-porte "le total du depot, detail ou non"          "1 502 000"
-porte "une phrase qui cite le marqueur n ouvre pas le bloc" "sur 2 tour(s)"
+porte "les tours courts"                          "tours courts"      "1 des 2"
+porte "l entree sans detail est comptee a part"   "sans detail"       "1 entree(s) sans detail"
+porte "le total du depot, detail ou non"          "total du depot"    "1 502 000"
+porte "une phrase qui cite le marqueur n ouvre pas le bloc" "TOTAL"   "sur 2 tour(s)"
 
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"

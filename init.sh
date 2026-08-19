@@ -2349,6 +2349,40 @@ check_artefacts() {
       ok "$WORKFLOW : chaque bloc run: passe bash -n"
     fi
     rm -rf "$run_dir"
+
+    # Chaque job doit porter un plafond de duree. Sans « timeout-minutes », un
+    # job est au defaut GitHub de SIX HEURES — et le workflow porte
+    # « cancel-in-progress: false » sur main, si bien qu'un seul job pendu tient
+    # le groupe de concurrence tout ce temps : plus aucun deploiement de la
+    # fabrique, sans qu'aucune alerte ne parte. Le vecteur n'est pas theorique :
+    # le job test lance ./apps/<nom>/test.sh, du code applicatif quelconque, et
+    # l'appel du webhook dockhand n'etait pas borne.
+    #
+    # Les jobs se lisent a l'indentation : deux espaces sous « jobs: », et rien
+    # d'autre dans le fichier n'a cette forme. On lit les noms, puis on cherche
+    # un timeout-minutes avant le job suivant. Un job ne se solde donc qu'en
+    # atteignant le suivant, ou la fin du fichier — d'ou solde(), appele aux
+    # deux endroits.
+    # Le motif de job admet un commentaire de fin de ligne : sans cela,
+    # « build:  # la matrice » ne ressemblait plus a un job, sortait du balayage,
+    # et son absence de plafond passait inapercue. Un garde-fou qu'une
+    # coquetterie de mise en forme desarme ne garde rien.
+    #
+    # Le commentaire est ici et non dans le programme awk : celui-ci vit entre
+    # quotes simples, ou la moindre apostrophe francaise fermerait la chaine.
+    sans_plafond=$(awk '
+      function solde() { if (job != "" && !vu) print job }
+      /^jobs:[[:space:]]*$/                              { dans = 1; next }
+      dans && /^[^[:space:]#]/                           { dans = 0 }
+      dans && /^  [a-zA-Z_][a-zA-Z0-9_-]*:[[:space:]]*(#.*)?$/ { solde(); job = $1; sub(/:$/, "", job); vu = 0; next }
+      dans && /^    timeout-minutes:/                    { vu = 1 }
+      END                                                { solde() }
+    ' "$WORKFLOW" | tr '\n' ' ' | sed 's/ $//')
+    if [ -n "$sans_plafond" ]; then
+      bad "$WORKFLOW : job(s) sans timeout-minutes — $sans_plafond ; au defaut de six heures, un job pendu tient le groupe de concurrence et bloque tout deploiement"
+    else
+      ok "$WORKFLOW : chaque job porte un plafond de duree"
+    fi
   else
     bad "$WORKFLOW absent"
   fi
@@ -2526,8 +2560,12 @@ check_hidden() {
     # La regle GLOBALE, et elle seule : « [hidden] » seul en tete de selecteur.
     # « .bouton--discret[hidden] » est justement le correctif classe par classe
     # qu'on veut signaler, pas celui qui eteint l'avertissement.
-    printf '%s' "$plat" | grep -qE '(^|[^A-Za-z0-9_.#)-])\[hidden\] *\{[^{}]*display *: *none *!important' && continue
-    printf '%s' "$plat" | grep -qE '\.[a-zA-Z0-9_-]+[^{};]*\{[^{}]*display *:' || continue
+    # Herestring et non tuyau : « grep -q » sort des qu'il a trouve, et le
+    # printf d'une feuille de style entiere recoit alors EPIPE — sous pipefail,
+    # le pipeline rend non nul ALORS QUE LE MOTIF EST LA, et ce « continue »
+    # n'aurait pas lieu. Vu pour de vrai le 18 aout 2026 dans les tests.
+    grep -qE '(^|[^A-Za-z0-9_.#)-])\[hidden\] *\{[^{}]*display *: *none *!important' <<< "$plat" && continue
+    grep -qE '\.[a-zA-Z0-9_-]+[^{};]*\{[^{}]*display *:' <<< "$plat" || continue
     warn "[$n] declare display sur une classe sans regle globale [hidden]{display:none!important} — deja vu 3 fois ; le remede est une seule regle globale, pas un correctif classe par classe"
     expose=$((expose+1))
   done
@@ -2631,17 +2669,53 @@ check_fabrique() {
   # aucune dependance nouvelle. Les autres apps/ sont hors perimetre : deux
   # apps peuvent legitimement partager un PRD a leur amorçage, ce n'est pas ce
   # qu'on detecte ici.
+  #
+  # La comparaison reste octet a octet et le verdict ne change pas ; seuls
+  # deux gaspillages disparaissent. La liste des .md etait rappelee A CHAQUE
+  # canonique — deux « git ls-files » et un tri par tour de boucle — et « cmp »
+  # etait forke sur CHAQUE paire : dix-neuf canoniques par soixante-dix-sept
+  # documents, mille quatre cent soixante-trois forks pour au plus une poignee
+  # de vrais doublons. Or deux fichiers de tailles differentes ne peuvent pas
+  # etre identiques : la taille, lue en un seul « stat », ecarte tout sauf les
+  # candidats serieux. Mesure : 3,65 s -> 0,09 s sur ce bloc, et un --check
+  # complet passe de 19,4 s a 16,2 s — dont le job contrat de la CI profite
+  # aussi, puisqu'il ne fait que lancer --check.
   evades=0
-  for canon in apps/*/PRODUCT.md apps/*/README.md; do
-    [ -f "$canon" ] || continue
-    while IFS= read -r autre; do
-      [ -n "$autre" ] || continue
-      [ "$autre" = "$canon" ] && continue
-      case "$autre" in apps/*) continue ;; esac
-      cmp -s "$canon" "$autre" \
-        && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
-    done < <(fichiers_md '*.md')
-  done
+  autres_md=()
+  while IFS= read -r autre; do
+    case "$autre" in ''|apps/*) continue ;; esac
+    autres_md+=("$autre")
+  done < <(fichiers_md '*.md')
+  # « wc -c » et non « stat -c » : la seconde forme est une extension GNU, absente
+  # de BSD et de macOS ou l'option s'ecrit « -f %z ». Le premier jet l'utilisait
+  # en renvoyant son erreur vers /dev/null puis en passant au suivant : hors
+  # Linux, TOUTES les tailles manquaient, aucune paire n'etait comparee, et le
+  # controle rendait un « ok » definitif sans avoir rien regarde. Un garde-fou
+  # qui se tait quand il ne peut pas travailler est pire que pas de garde-fou.
+  # « wc -c » est POSIX, coute un fork par fichier — une centaine, contre les
+  # mille quatre cent soixante-trois « cmp » d'avant — et le gain reste entier.
+  if [ ${#autres_md[@]} -gt 0 ]; then
+    declare -A taille_md=()
+    for autre in "${autres_md[@]}"; do
+      # Suivi par git mais absent du disque : etat parfaitement normal en cours
+      # de travail — un document supprime et pas encore committe. Il n'a alors
+      # rien a comparer, et il sort de la liste. Sans ce test, « wc » echoue et
+      # « set -e » tue --check au milieu, sans une ligne de refus : le controle
+      # ne dirait plus ce qui ne va pas, il disparaitrait. Attrape par
+      # test-init.sh, dont un cas supprime justement un fichier suivi.
+      [ -f "$autre" ] || continue
+      taille_md["$autre"]=$(wc -c < "$autre")
+    done
+    for canon in apps/*/PRODUCT.md apps/*/README.md; do
+      [ -f "$canon" ] || continue
+      taille_canon=$(wc -c < "$canon")
+      for autre in "${autres_md[@]}"; do
+        [ "${taille_md[$autre]-}" = "$taille_canon" ] || continue
+        cmp -s "$canon" "$autre" \
+          && { bad "$autre est un doublon exact de $canon — un domicile par app, renvoie plutot vers ce fichier"; evades=$((evades+1)); }
+      done
+    done
+  fi
   [ "$evades" -eq 0 ] && ok "aucun PRODUCT.md ou README.md d'app duplique hors de son repertoire"
 
   # Le controle ci-dessus n'attrape qu'une copie CONFORME. Le cas courant est
@@ -2705,7 +2779,7 @@ check_fabrique() {
     reels=$(cd memory && ls *.md 2>/dev/null | sed 's#^#memory/#' | LC_ALL=C sort -u)
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      printf '%s\n' "$cites" | grep -qxF "$f" \
+      grep -qxF "$f" <<< "$cites" \
         || { bad "sommaire : $f existe mais n'est pas dans le sommaire de CLAUDE.md — il ne sera jamais ouvert"; ecart=$((ecart+1)); }
     done <<<"$reels"
     while IFS= read -r f; do

@@ -62,12 +62,46 @@ bac() {  # bac — cree un bac a sable neuf et en imprime le chemin
   printf 'export const deja = 1\n'               > "$d/apps/$APP/web/deja.js"
   printf '#!/bin/sh\nexit 0\n'                   > "$d/apps/$APP/test.sh"
   chmod +x "$d/apps/$APP/test.sh"
+  # Une DOUBLURE d'init.sh, et le fichier le plus lent de la suite passe de
+  # 2 min 13 a une vingtaine de secondes. Ce que pret.sh fait du verdict de
+  # --check ne participe a AUCUNE assertion d'ici — l'en-tete le dit deja plus
+  # haut, « on n'observe que cette ligne, jamais son code de sortie » — et le
+  # payer dix fois coutait 209 s sur 210. Un vrai --check dure 21 s ; les dix
+  # cas n'en tiraient rien.
+  #
+  # La doublure rejoue le CONTRAT DE PROCESSUS plutot que de rendre 0
+  # aveuglement : elle ecrit un KO sur sa sortie et sort en 1, exactement comme
+  # le vrai --check dans un bac neuf. La branche rouge de pret.sh — le bad, puis
+  # le grep -E 'KO' qui en extrait les lignes — reste donc exercee dix fois.
+  #
+  # Posee AVANT le commit de base, jamais apres : ecrite ensuite, elle
+  # apparaitrait dans « git status », matcherait le motif init\.sh$ de pret.sh
+  # et ferait taire a tort l'avertissement « action garde-fou sans suite ». Les
+  # deux derniers cas du fichier reposent sur ce point precis.
+  case "${CHECK:-rouge}" in
+    reel)  : ;;  # le vrai binaire, pour garder un cas sur le chemin reel
+    vert)  doublure_check "$d" ok 0 ;;
+    rouge) doublure_check "$d" KO 1 ;;
+    # Une valeur inconnue tombait dans la branche par defaut et rendait un bac
+    # rouge : le cas devenu muet aurait passe pour un cas qui passe.
+    *) printf 'test-pret.sh : CHECK inconnu « %s »\n' "${CHECK:-}" >&2; exit 1 ;;
+  esac
   git -C "$d" init -q -b main
   git -C "$d" add -A
   git -C "$d" -c user.email=test@local -c user.name=test commit -qm base
   git -C "$d" update-ref refs/remotes/origin/main main
   git -C "$d" checkout -q -b "$BRANCHE"
   printf '%s' "$d"
+}
+
+# doublure_check <bac> <verdict> <code> — pose le faux ./init.sh dont bac()
+# vient de parler : une ligne de verdict sur sa sortie, puis ce code de retour.
+# Il ne reagit qu'a --check et laisse passer tout autre usage en silence, comme
+# le vrai.
+doublure_check() {
+  printf '#!/bin/sh\n[ "$1" = --check ] || exit 0\necho "  %s    doublure"\nexit %s\n' \
+    "$2" "$3" > "$1/init.sh"
+  chmod +x "$1/init.sh"
 }
 
 # cas <nom> <attendu: avertit|silence> <committe: oui|non> — la situation est
@@ -86,7 +120,7 @@ cas() {
   fi
   sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
   vu=silence
-  printf '%s\n' "$sortie" | grep -q "\[$APP\] du code neuf" && vu=avertit
+  grep -q "\[$APP\] du code neuf" <<< "$sortie" && vu=avertit
   if [ "$vu" = "$attendu" ]; then
     reussi "$nom"
   else
@@ -96,6 +130,11 @@ cas() {
 
 printf '\n-- ce qui doit avertir\n'
 
+# CHECK=reel : ce cas-ci, et lui seul, lance le VRAI ./init.sh --check. Il coute
+# les 21 s que les neuf autres ne paient plus, et les rachete : sans lui, plus
+# rien n'exercerait le chemin ou pret.sh fork le vrai verificateur, survit a son
+# code non nul sous set -e, et en extrait les lignes KO.
+CHECK=reel \
 cas "code neuf, PRODUCT.md immobile" avertit non <<'FIN'
   printf 'export const chrono = 1\n' > "apps/bidon/web/chrono.js"
 FIN
@@ -177,12 +216,12 @@ ENTREE
   ( cd "$d" && bash -euo pipefail -c "$situation" )
   sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
   vu=silence
-  printf '%s\n' "$sortie" | grep -q "action(s) garde-fou/contrat sans suite" && vu=avertit
+  grep -q "action(s) garde-fou/contrat sans suite" <<< "$sortie" && vu=avertit
   if [ "$vu" = "$attendu" ]; then
     reussi "$nom"
   else
     echec "$nom" "attendu : $attendu — obtenu : $vu"
-    printf '%s\n' "$sortie" | grep -E "journal" | sed 's/^/      /' | head -3
+    printf '%s\n' "$sortie" | grep -E "journal" | sed 's/^/      /' | head -3 || true
   fi
 }
 
@@ -193,6 +232,31 @@ FIN
 cas_promesse "CLAUDE.md compte comme surface partagee, et fait taire l'avertissement" silence <<'FIN'
   printf '\nUne ligne de plus.\n' >> CLAUDE.md
 FIN
+
+# --- ce que pret.sh fait du verdict du contrat ---------------------------------
+#
+# Personne ne testait ces deux lignes-la. Dans un bac neuf le vrai --check echoue
+# TOUJOURS — compose.yaml desynchronise, CLAUDE.md de l'app factice absent — si
+# bien que la branche verte de pret.sh, le « ok contrat respecte », n'avait
+# jamais ete exercee par cette suite. La doublure, elle, sait rendre 0 : c'est
+# ce qui rend ces deux cas possibles, et c'est la seconde raison de l'avoir.
+printf '\n-- le verdict du contrat\n'
+
+verdict() {  # verdict <nom> <doublure : vert|rouge> <motif attendu>
+  local nom=$1 doublure=$2 motif=$3 d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(CHECK="$doublure" bac)
+  printf 'export const chrono = 1\n' > "$d/apps/$APP/web/chrono.js"
+  sortie=$( cd "$d" && ./scripts/pret.sh 2>&1 ) || true
+  if grep -q "$motif" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "attendu la ligne : $motif"
+  fi
+}
+
+verdict "contrat vert : pret.sh l'annonce" vert "contrat respecte"
+verdict "contrat rouge : pret.sh le dit et cite le KO" rouge "doublure"
 
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
