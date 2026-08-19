@@ -226,36 +226,110 @@ function rendrePrevisions(donnees) {
 //
 // Deux echelles de temps, deux fournisseurs, et le serveur reste seul juge :
 // ce fichier ne calcule aucune pluie, il met en forme ce que /api/pluie rend.
+// Les deux graphes (l'heure qui vient et la journee) partagent desormais UNE
+// SEULE grammaire : un graphe a barres a cinq bandes horizontales nommees.
 //
 // La HAUTEUR d'une barre est une INTENSITE en mm/h, pas la lame d'eau du pas.
 // Sans cette conversion, un quart d'heure a 0,5 mm et une heure a 0,5 mm
 // auraient la meme barre alors que le premier pleut quatre fois plus fort —
 // et la courbe changerait d'aspect en changeant simplement de jour, au gre du
-// pas que le serveur a pu servir. Le CUMUL affiche sous la courbe, lui, reste
-// la somme des lames d'eau : c'est le serveur qui l'a calcule.
+// pas que le serveur a pu servir. Le CUMUL affiche sous le graphe du jour,
+// lui, reste la somme des lames d'eau : c'est le serveur qui l'a calcule.
 const PAS_PAR_HEURE = { quart: 4, heure: 1 };
 
-// Seuils d'intensite (mm/h) qui distinguent pluie faible / moderee / forte :
-// les paliers meteorologiques usuels, qui rejoignent l'echelle a niveaux 1-4
-// que Meteo-France sert deja pour la bande des 60 minutes
-// (prp/03-graphe-de-pluie.md). Utilises a la fois pour colorer les barres de
-// la courbe du jour (niveauBarre) et pour les traits de grille horizontaux
-// du meme graphe : les deux visuels de la carte doivent dire la meme chose
-// avec les memes mots, jamais un debit en mm/h que personne ne sait lire.
-const SEUIL_MODEREE_MMH = 2;
-const SEUIL_FORTE_MMH = 8;
+// NIVEAUX_PLUIE porte les cinq niveaux d'intensite (mm/h), MOTS EXACTS voulus
+// (jamais "pluie" devant). L'echelle VERTICALE des deux graphes est
+// ORDINALE, pas proportionnelle au mm/h : cinq bandes de MEME HAUTEUR,
+// TOUJOURS toutes affichees, meme vides — une bande haute jamais atteinte dit
+// "ca n'est jamais monte jusque-la", ce qu'une echelle proportionnelle ne
+// peut pas dire sans redevenir illisible. Sur une echelle proportionnelle en
+// effet, "tres faible" (moins d'un demi mm/h) serait un trait d'un pixel les
+// jours d'averse — invisible precisement quand on veut savoir s'il bruine.
+// La hauteur d'une barre s'interpole a l'INTERIEUR de sa seule bande (une
+// barre au milieu de la plage "modere" monte au milieu de la bande
+// "modere"), jamais sur le graphe entier.
+//
+// La derniere bande ("tres fort") n'a pas de borne haute reelle : `max` lui
+// donne un plafond D'INTERPOLATION arbitraire et genereux, choisi pour que la
+// barre ait de la place pour bouger a l'interieur de sa bande — une
+// intensite plus forte encore plafonne simplement en haut de la bande,
+// jamais au-dela (elle ne change plus de couleur ni de bande, seulement son
+// exces cesse de se voir).
+const NIVEAUX_PLUIE = [
+  { mot: "très faible", min: 0, max: 0.5 },
+  { mot: "faible", min: 0.5, max: 2 },
+  { mot: "modéré", min: 2, max: 6 },
+  { mot: "fort", min: 6, max: 15 },
+  { mot: "très fort", min: 15, max: 30 },
+];
 
-// Plancher de l'echelle verticale : le seuil "moderee", soit une pluie deja
-// franche. Sans lui, une bruine a 0,1 mm/h remplirait le graphe et se
-// lirait comme un deluge — l'echelle doit rester comparable d'un jour a
-// l'autre.
-const ECHELLE_MIN_MMH = SEUIL_MODEREE_MMH;
+// niveauIndexDepuisMmh rend l'index de bande (0 = tres faible ... 4 = tres
+// fort) atteint par une intensite strictement positive.
+function niveauIndexDepuisMmh(mmh) {
+  for (let i = NIVEAUX_PLUIE.length - 1; i >= 0; i--) {
+    if (mmh >= NIVEAUX_PLUIE[i].min) return i;
+  }
+  return 0;
+}
 
-// MOTS_NIVEAU traduit un niveau (2/3/4, la meme echelle que la bande) en mot
-// affichable — jamais un chiffre brut cote lecteur.
-const MOTS_NIVEAU = { 2: "pluie faible", 3: "pluie modérée", 4: "pluie forte" };
-function niveauMot(niveau) {
-  return MOTS_NIVEAU[niveau] || "pluie faible";
+// hauteurPct rend la hauteur (0-100 % du graphe) d'une barre : le niveau
+// ATTEINT fixe la bande, la fraction n'interpole qu'A L'INTERIEUR d'elle.
+function hauteurPct(mmh, index) {
+  const { min, max } = NIVEAUX_PLUIE[index];
+  const fraction = Math.max(0, Math.min(1, (mmh - min) / (max - min)));
+  return ((index + fraction) / NIVEAUX_PLUIE.length) * 100;
+}
+
+// INDEX_NOWCAST traduit le niveau Meteo-France (2 a 4 ; 1 ne produit aucune
+// barre, ce n'est pas une pluie mais son absence) vers l'index de bande
+// commun aux deux graphes. Les bandes 0 (tres faible) et 4 (tres fort)
+// restent affichees mais ne sont jamais atteintes par ce graphe : c'est le
+// prix de la grammaire commune, et il est juste — ce fournisseur ne
+// distingue rien de plus fin que ces trois crans du milieu.
+const INDEX_NOWCAST = { 2: 1, 3: 2, 4: 3 };
+
+// motNiveauNowcast traduit le niveau (source sure, jamais le texte libre
+// `libelle` envoye par le serveur) vers le mot de bande correspondant — c'est
+// ce qui garantit que la bande de l'heure qui vient et le graphe du jour
+// parlent toujours le meme vocabulaire, meme si le serveur continue d'envoyer
+// un `libelle` different ("pluie modérée").
+function motNiveauNowcast(niveau) {
+  const index = INDEX_NOWCAST[niveau];
+  return index != null ? NIVEAUX_PLUIE[index].mot : NIVEAUX_PLUIE[1].mot;
+}
+
+// bandesFondSVG dessine les cinq bandes horizontales (teintees, discretes) et
+// les filets qui les separent — partagees par les deux graphes, memes
+// proportions, meme rampe que les barres.
+function bandesFondSVG() {
+  const n = NIVEAUX_PLUIE.length;
+  const hauteurBande = 100 / n;
+  const bandes = NIVEAUX_PLUIE
+    .map((_, i) => {
+      const y = 100 - (i + 1) * hauteurBande;
+      return `<rect class="pluie-bande-fond pluie-bande-fond--${i}" x="0" y="${y.toFixed(3)}" width="100" height="${hauteurBande.toFixed(3)}"></rect>`;
+    })
+    .join("");
+  const filets = [];
+  for (let i = 1; i < n; i++) {
+    const y = 100 - i * hauteurBande;
+    filets.push(`<rect class="pluie-bande-filet" x="0" y="${y.toFixed(3)}" width="100" height="0.15"></rect>`);
+  }
+  return bandes + filets.join("");
+}
+
+// colonneNiveaux rend la colonne des cinq noms, a droite du graphe, chacun
+// aligne sur le milieu de sa bande (position posee en pourcentage : les
+// bandes ont toutes la meme hauteur, donc le milieu de chacune est fixe).
+function colonneNiveaux() {
+  const n = NIVEAUX_PLUIE.length;
+  const hauteurBande = 100 / n;
+  return NIVEAUX_PLUIE
+    .map((niv, i) => {
+      const milieu = 100 - (i + 0.5) * hauteurBande;
+      return `<span class="pluie-niveau-nom pluie-niveau-nom--${i}" style="top:${milieu.toFixed(3)}%">${esc(niv.mot)}</span>`;
+    })
+    .join("");
 }
 
 function rendrePluie(donnees) {
@@ -267,71 +341,90 @@ function rendrePluie(donnees) {
     return;
   }
 
-  carte.innerHTML = [bandeHeure(donnees.heure), courbeJour(donnees.jour)]
+  carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour)]
     .filter(Boolean)
     .join("");
 }
 
-// bandeHeure rend les 60 minutes qui viennent, par pas de 5 puis 10 minutes.
-// Absente sur un autre jour que aujourd'hui (le serveur ne l'envoie alors
-// pas) : rien n'est rendu, plutot qu'une bande vide qui serait
+// grapheHeure rend les 60 minutes qui viennent, par pas de 5 puis 10 minutes,
+// dans la MEME grammaire que le graphe du jour (cinq bandes, colonne de
+// noms). Absent sur un autre jour que aujourd'hui (le serveur ne l'envoie
+// alors pas) : rien n'est rendu, plutot qu'un graphe vide qui serait
 // indistinguable d'une heure seche.
-function bandeHeure(heure) {
+//
+// Le fournisseur ne rend pas de millimetres ici mais un niveau 1-4 : la
+// barre monte donc au SOMMET de sa bande (pas d'interpolation) — en inventer
+// une finesse a l'interieur du niveau serait mentir sur ce que Meteo-France
+// sait vraiment dire.
+function grapheHeure(heure) {
   if (!heure || !(heure.pas || []).length) return "";
 
   const pas = heure.pas;
-  const segments = pas
-    .map(
-      (p) =>
-        `<span class="pluie-seg pluie-seg--${p.niveau}" title="${esc(p.heure)} — ${esc(p.libelle)}"></span>`,
-    )
+  const n = pas.length;
+  const largeur = 100 / n;
+
+  const barres = pas
+    .map((p, i) => {
+      if (p.niveau <= 1) return ""; // 1 = il ne pleut pas : aucune barre, pas un sixieme niveau
+      const index = INDEX_NOWCAST[p.niveau];
+      const hauteur = ((index + 1) / NIVEAUX_PLUIE.length) * 100;
+      return `<rect class="pluie-barre pluie-barre--${index}" x="${(i * largeur).toFixed(3)}" y="${(100 - hauteur).toFixed(3)}" width="${(largeur * 0.9).toFixed(3)}" height="${hauteur.toFixed(3)}"><title>${esc(p.heure)} — ${esc(motNiveauNowcast(p.niveau))}</title></rect>`;
+    })
     .join("");
 
   // Le resume dit ce qu'on veut savoir debout sur le pas de la porte : est-ce
   // que ca va tomber, et dans combien de temps. Premier pas mouille (niveau
   // >= 2) plutot que le maximum : c'est l'echeance qui decide si on part
-  // maintenant.
+  // maintenant. Mot tire du niveau (source sure), jamais du `libelle` brut du
+  // serveur, qui peut encore dire "pluie modérée" alors que la bande dit
+  // "modéré".
   const premierMouille = pas.find((p) => p.niveau >= 2);
   const resume = !premierMouille
     ? "temps sec pour l’heure qui vient"
     : premierMouille === pas[0]
-      ? `${esc(premierMouille.libelle)} en cours`
-      : `${esc(premierMouille.libelle)} vers ${esc(premierMouille.heure)}`;
+      ? `niveau ${motNiveauNowcast(premierMouille.niveau)} en cours`
+      : `niveau ${motNiveauNowcast(premierMouille.niveau)} vers ${esc(premierMouille.heure)}`;
+
+  let maxNiveau = 1;
+  let heureMax = "";
+  pas.forEach((p) => {
+    if (p.niveau > maxNiveau) {
+      maxNiveau = p.niveau;
+      heureMax = p.heure;
+    }
+  });
+  const ariaLabel =
+    maxNiveau <= 1
+      ? "pas de pluie prévue dans l’heure qui vient"
+      : `pluie de l’heure qui vient, maximum : ${motNiveauNowcast(maxNiveau)}${heureMax ? ` vers ${esc(heureMax)}` : ""}`;
 
   const maj = heure.mise_a_jour ? ` · relevé de ${esc(heure.mise_a_jour)}` : "";
   const lieu = heure.lieu ? esc(heure.lieu) : "";
 
-  // Trois reperes de temps sous la bande, a leur position REELLE (debut,
-  // milieu, fin des 60 minutes couvertes par les 9 segments) plutot que les
-  // deux heures d'horloge brutes d'avant : "dans combien de temps" se lit
-  // sans compter les segments. La position est posee par le CSS (nth-child),
-  // pas ici : ce sont trois libelles fixes, jamais un space-between
-  // approximatif.
+  // Trois reperes de temps sous le graphe (debut, milieu, fin des 60 minutes
+  // couvertes par les 9 pas), a leur position REELLE : "dans combien de
+  // temps" se lit sans compter les barres. La position est posee par le CSS
+  // (nth-child), pas ici : ce sont trois libelles fixes, jamais un
+  // space-between approximatif.
   return `
     <div class="pluie-heure">
       <p class="pluie-resume">${resume}</p>
-      <div class="pluie-bande" role="img" aria-label="${esc(resumeAccessible(pas))}">${segments}</div>
-      <div class="pluie-bande-axe">
-        <span>maintenant</span>
-        <span>+30&nbsp;min</span>
-        <span>+1&nbsp;h</span>
+      <div class="pluie-graphe-zona pluie-graphe-zona--heure">
+        <div class="pluie-graphe">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${esc(ariaLabel)}">
+            ${bandesFondSVG()}
+            ${barres}
+          </svg>
+        </div>
+        <div class="pluie-niveaux">${colonneNiveaux()}</div>
+        <div class="pluie-bande-axe">
+          <span>maintenant</span>
+          <span>+30&nbsp;min</span>
+          <span>+1&nbsp;h</span>
+        </div>
       </div>
       <p class="pluie-source">Météo-France${lieu ? ` · ${lieu}` : ""}${maj}</p>
     </div>`;
-}
-
-function resumeAccessible(pas) {
-  return pas.map((p) => `${p.heure} ${p.libelle}`).join(", ");
-}
-
-// niveauBarre choisit le niveau de couleur d'une barre de la courbe du jour
-// sur la MEME rampe que la bande des 60 minutes (--pluie-2/3/4) : c'est ce
-// qui fait qu'une averse se repere sans lire l'axe, dans les deux visuels a
-// la fois.
-function niveauBarre(mmh) {
-  if (mmh > SEUIL_FORTE_MMH) return 4;
-  if (mmh >= SEUIL_MODEREE_MMH) return 3;
-  return 2;
 }
 
 // libelleJourGroupePluie donne le libelle qui suit le cumul (ou l'etat sec)
@@ -344,20 +437,15 @@ function libelleJourGroupePluie(decalage) {
   return decalage === 0 ? "aujourd’hui" : libelleJourNav(decalage);
 }
 
-// courbeJour rend la journee entiere. Le pas ("quart" ou "heure") vient du
-// serveur et s'affiche : une courbe qui change de finesse sans le dire
-// laisserait croire a une pluie plus reguliere qu'elle ne l'est.
+// courbeJour rend la journee entiere, MEME grammaire que grapheHeure : cinq
+// bandes, colonne de noms, barre coloree de la bande qu'elle atteint. Le pas
+// ("quart" ou "heure") vient du serveur et s'affiche : une courbe qui change
+// de finesse sans le dire laisserait croire a une pluie plus reguliere
+// qu'elle ne l'est.
 function courbeJour(jour) {
   if (!jour || !(jour.points || []).length) return "";
 
   const parHeure = PAS_PAR_HEURE[jour.pas] || 1;
-  const intensites = jour.points.map((p) => p.mm * parHeure);
-  // maxReel est l'intensite maximale REELLEMENT atteinte ce jour-la, sans le
-  // plancher ECHELLE_MIN_MMH : c'est elle qui decide si un seuil a ete
-  // franchi (plus bas), le plancher n'existe que pour empecher une bruine de
-  // remplir tout le graphe a l'echelle.
-  const maxReel = Math.max(...intensites);
-  const plafond = Math.max(ECHELLE_MIN_MMH, maxReel);
   const finesse = jour.pas === "quart" ? "au quart d’heure" : "par heure";
 
   // Le titre de l'etat sec nomme le jour exactement comme le titre pluvieux
@@ -376,12 +464,22 @@ function courbeJour(jour) {
 
   const n = jour.points.length;
   const largeur = 100 / n;
+  // indexMax/heureMax suivent le niveau le plus haut REELLEMENT atteint (et
+  // son heure), pour l'aria-label — jamais un chiffre en mm/h que personne
+  // ne sait lire.
+  let indexMax = -1;
+  let heureMax = "";
   const barres = jour.points
     .map((p, i) => {
       const intensite = p.mm * parHeure;
-      const hauteur = (intensite * 100) / plafond;
-      if (hauteur <= 0) return "";
-      return `<rect class="pluie-barre pluie-barre--${niveauBarre(intensite)}" x="${(i * largeur).toFixed(3)}" y="${(100 - hauteur).toFixed(3)}" width="${(largeur * 0.9).toFixed(3)}" height="${hauteur.toFixed(3)}"></rect>`;
+      if (intensite <= 0) return ""; // pas de pluie sur ce pas : aucune barre
+      const index = niveauIndexDepuisMmh(intensite);
+      if (index > indexMax) {
+        indexMax = index;
+        heureMax = p.heure;
+      }
+      const hauteur = hauteurPct(intensite, index);
+      return `<rect class="pluie-barre pluie-barre--${index}" x="${(i * largeur).toFixed(3)}" y="${(100 - hauteur).toFixed(3)}" width="${(largeur * 0.9).toFixed(3)}" height="${hauteur.toFixed(3)}"></rect>`;
     })
     .join("");
 
@@ -419,24 +517,10 @@ function courbeJour(jour) {
     .map((h) => `<rect class="pluie-grille" x="${((h / 24) * 100).toFixed(3)}" y="0" width="0.15" height="100"></rect>`)
     .join("");
 
-  // Traits de grille horizontaux EN MOTS ("pluie modérée", "pluie forte"),
-  // jamais en mm/h : la bande juste au-dessus parle deja "pluie faible /
-  // moderee / forte", les deux visuels de la carte doivent dire la meme
-  // chose avec les memes mots — un debit en millimetres par heure ne parle a
-  // personne. Un trait n'est dessine QUE si le jour a REELLEMENT franchi ce
-  // seuil (compare a maxReel, jamais au plafond qui inclut le plancher
-  // d'echelle) : sur une journee de bruine, aucun des deux n'apparait, il
-  // n'y a rien a franchir.
-  const seuilsGraphe = [
-    { valeur: SEUIL_MODEREE_MMH, mot: "pluie modérée" },
-    { valeur: SEUIL_FORTE_MMH, mot: "pluie forte" },
-  ].filter((s) => maxReel >= s.valeur);
-  const grilleHorizontale = seuilsGraphe
-    .map((s) => `<rect class="pluie-grille" x="0" y="${(100 * (1 - s.valeur / plafond)).toFixed(3)}" width="100" height="0.15"></rect>`)
-    .join("");
-  const etiquettesSeuils = seuilsGraphe
-    .map((s) => `<span class="pluie-graphe-etiquette" style="top:${(100 * (1 - s.valeur / plafond)).toFixed(3)}%">${s.mot}</span>`)
-    .join("");
+  const ariaLabel =
+    indexMax >= 0
+      ? `Pluie de la journée, ${finesse}, cumul ${jour.total_mm} millimètres, maximum : ${NIVEAUX_PLUIE[indexMax].mot}${heureMax ? ` vers ${esc(heureMax)}` : ""}`
+      : `Pluie de la journée, ${finesse}, cumul ${jour.total_mm} millimètres`;
 
   return `
     <div class="pluie-jour">
@@ -444,18 +528,19 @@ function courbeJour(jour) {
         <p class="pluie-cumul"><strong>${jour.total_mm.toString().replace(".", ",")} mm</strong> <span class="pluie-jour-libelle">${esc(libelleJourGroupePluie(decalageJour))}</span></p>
         <p class="pluie-finesse">${finesse}</p>
       </div>
-      ${ligneMaintenant}
-      <div class="pluie-graphe">
-        ${etiquettesSeuils}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
-             aria-label="Pluie de la journée, ${finesse}, cumul ${jour.total_mm} millimètres, maximum : ${niveauMot(niveauBarre(maxReel))}">
-          ${grilleHorizontale}
-          ${graduations}
-          ${barres}
-          ${repere}
-        </svg>
+      <div class="pluie-graphe-zona pluie-graphe-zona--jour">
+        ${ligneMaintenant}
+        <div class="pluie-graphe">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${esc(ariaLabel)}">
+            ${bandesFondSVG()}
+            ${graduations}
+            ${barres}
+            ${repere}
+          </svg>
+        </div>
+        <div class="pluie-niveaux">${colonneNiveaux()}</div>
+        <div class="pluie-axe"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
       </div>
-      <div class="pluie-axe"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
       <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
     </div>`;
 }
