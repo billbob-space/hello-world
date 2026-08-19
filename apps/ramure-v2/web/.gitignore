@@ -4,3 +4,8 @@
 # cette app, d'ou ce .gitignore imbrique plutot qu'une edition a la racine.
 node_modules/
 dist/
+
+# Sorties de la recette bout en bout (PRP 09, RAMURE_E2E=1) : traces et
+# rapports Playwright, jamais suivis par git, regeneres a chaque run.
+test-results/
+playwright-report/
