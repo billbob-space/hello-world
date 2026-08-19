@@ -1,9 +1,11 @@
 # PRP 07 — Identité, collection persistante, et mesure
 
 > **Ce PRP livre** ce qui appartient à quelqu'un : l'identité lue de
-> `X-Forwarded-User` et de nulle part ailleurs (N-08), la collection cloisonnée
-> par utilisateur et **persistante** (F-28 à F-33), et l'agrégation de mesure
-> côté serveur (N-09, N-10). C'est l'étape où le palier `google` cesse d'être une
+> `X-Forwarded-User` et de nulle part ailleurs (N-08), la collection cloisonnée,
+> **persistante** et **affichée** (F-28 à F-33), le réglage qui suit son
+> propriétaire d'un appareil à l'autre (F-25), la part équitable du quota entre
+> visiteurs (N-14), et l'agrégation de mesure côté serveur avec l'export de
+> session (N-09, N-10). C'est l'étape où le palier `google` cesse d'être une
 > ligne d'`app.yml` et devient une contrainte de code.
 >
 > **Ce PRP consomme :**
@@ -38,16 +40,34 @@
 > func NouveauMemoryStore() CollectionStore
 > func NouveauFileStore(repertoire string) (CollectionStore, error)
 >
+type Reglages struct{ ServiceEcoute string }
+> type ReglagesStore interface {
+>     Lire(ctx context.Context, utilisateur string) (Reglages, error)
+>     Ecrire(ctx context.Context, utilisateur string, r Reglages) error
+> }
+>
+> package equite // internal/equite
+> func Garde(suivant http.Handler) http.Handler // un chargement en vol par identite
+>
 > package mesure // internal/mesure
 > type Evenement string
-> const (Plantation, Promotion, LienEcoute, Signet Evenement)
+> const (Plantation, Promotion, LienEcoute, Signet,
+>        AmorceCollection, AmorcePartage Evenement)
 > func (a *Agregat) Compter(e Evenement, session string)
 > func (a *Agregat) Instantane() map[string]any
+> func (a *Agregat) JournalDeSession(session string) []byte // N-10
 >
 > // internal/api/collection.go — GET/PUT/DELETE /api/collection
+> // internal/api/reglages.go   — GET/PUT     /api/reglages   (F-25)
+> // internal/api/diagnostic.go — GET         /api/diagnostic (N-10)
+> ```
+>
+> ```ts
+> // web/src/collection.ts  le panneau : lignée de découverte, replanter, miroir hors ligne
 > ```
 
-**Deux tâches**, indépendantes l'une de l'autre.
+**Trois tâches.** Les deux premières sont serveur et indépendantes l'une de
+l'autre ; la troisième est l'écran, et elle consomme la première.
 
 ---
 
@@ -70,14 +90,17 @@ compris. Sans le `chown` du PRP 01, le volume appartient à root, l'app tourne e
 
 ---
 
-### Tâche 1 : identité et collection persistante
+### Tâche 1 : identité, collection persistante, réglage et part équitable
 
-Porte F-28 à F-33 et N-08.
+Porte F-28, F-29, F-32, N-08, **F-25** (la mémoire du choix, dont l'écran est au
+PRP 06) et **N-14**. L'affichage de la collection est la tâche 3.
 
 **Fichiers :**
 - Créer : `internal/identite/identite.go`, `internal/collection/store.go`,
-  `internal/collection/file.go`, `internal/api/collection.go`
-- Modifier : `web/src/collection.ts`, `apps/ramure-v2/README.md`
+  `internal/collection/file.go`, `internal/api/collection.go`,
+  `internal/collection/reglages.go`, `internal/api/reglages.go`,
+  `internal/equite/garde.go`
+- Modifier : `apps/ramure-v2/README.md`
 - Tests : associés à chacun
 
 **Exigence critique de cloisonnement.** L'app est en `exposure: google` :
@@ -103,6 +126,19 @@ qu'elle soit lue par tout le monde et contournée par personne.
    est écrit sur la sortie standard au démarrage.
 8. `TestEcrituresConcurrentesNePerdentRienDeux` — deux ajouts simultanés pour le
    même utilisateur, sous `-race` : les deux entrées sont présentes.
+9. `TestReglageServiceSuitLIdentite` (F-25) — le service écrit par `a@x` est relu
+   par `a@x` depuis une autre session ; `b@x` obtient le service par défaut, pas
+   celui de `a@x`. C'est ce qui rend vraie la promesse *« le choix le suit d'un
+   appareil à l'autre »*, qu'un stockage de navigateur ne tiendrait pas.
+10. `TestReglageInconnuRetombeSurLeDefaut` — un service absent ou inconnu ne
+    casse rien et ne vide aucun lien.
+11. `TestUnSeulChargementEnVolParIdentite` (N-14) — deux chargements de centre
+    demandés par la **même** identité s'exécutent l'un après l'autre ; deux
+    identités différentes ne s'attendent pas, et **aucun n'échoue** : le second
+    attend son tour. Sans ce garde, un visiteur seul mange le quota commun — le
+    palier `google` n'est pas la liste blanche du serveur.
+12. `TestGardeEquiteLibereApresPanne` — un chargement qui échoue rend la place ;
+    un garde qui fuit condamnerait le visiteur à attendre indéfiniment.
 
 - [ ] **Étape 2 : vérifier l'échec, puis implémenter**
 
@@ -139,7 +175,7 @@ des variables, jamais leurs valeurs :
 | Nom | Obligatoire | Rôle |
 |---|---|---|
 | `LASTFM_API_KEY` | non | Clé Last.fm (rôle 1). Absente, l'application bascule sur ListenBrainz : l'affinité est moins fine, rien n'est cassé. |
-| `RAMURE_DATA_DIR` | non | Répertoire de persistance de la collection. Fixé à `/var/lib/ramure` par le `Dockerfile` ; absent, la collection est volatile (développement local). |
+| `RAMURE_DATA_DIR` | non | Répertoire de persistance de la collection **et des réglages**. Fixé à `/var/lib/ramure` par le `Dockerfile` ; absent, les deux sont volatils (développement local). |
 
 ## Persistance
 
@@ -177,6 +213,16 @@ mitigation du risque §14 — et N-10.
 | M-03 écoute | part de sessions avec ≥ 1 `LienEcoute` |
 | M-04 conservation | part de sessions avec ≥ 1 `Signet` |
 | M-05 latence P75 | 75ᵉ centile du temps graine → entourage affiché |
+| M-06 collection réutilisée | part de sessions ouvertes par `AmorceCollection` |
+| M-07 partage | part de sessions ouvertes par `AmorcePartage` |
+
+**M-06 et M-07 sont du lot V1, et elles arrivent ici** — avec les fonctions
+qu'elles mesurent, jamais après. Une collection et un partage livrés sans leur
+compteur, ce sont deux fonctions dont personne ne saura jamais si elles ont
+servi ; c'est le risque §14 « métriques non instrumentées », appliqué au lot qui
+suit. `AmorceCollection` est émis quand une session démarre depuis un artiste
+gardé (F-31), `AmorcePartage` quand elle démarre depuis un lien reçu (F-34) —
+deux amorçages que le PRP 06 distingue déjà pour ne pas replanter deux fois.
 
 **Agrégation côté serveur, pas un journal local** — N-09 est explicite. Un
 instantané est écrit sur la sortie standard **toutes les 5 minutes**, en une
@@ -194,17 +240,68 @@ de réviser le seuil de bascule N-13, aujourd'hui posé sur une **hypothèse** d
 80 % de taux de service — soit environ 5 promotions par seconde tous
 utilisateurs confondus. À réviser dès la première mesure réelle.
 
+**N-10, le journal de session que l'utilisateur emporte.** `GET /api/diagnostic`
+renvoie les événements de **sa seule** session, en JSON, pour qu'il puisse
+l'attacher à un signalement : c'est l'exigence, et c'est indispensable aux
+anomalies mobiles qu'on ne reproduit pas. Trois règles le tiennent : jamais les
+événements d'un autre visiteur, jamais l'identité en clair, et rien qui ne soit
+déjà dans l'agrégat — ce n'est pas un second journal, c'est une vue du premier.
+
 - [ ] **Étape 1 : écrire les tests qui échouent**
 
 Médiane sur un nombre pair **et** impair d'échantillons ; P75 sur 4 échantillons ;
 sessions distinctes non confondues ; **aucune donnée nominative dans
 l'instantané** — le test cherche une adresse électronique dans le JSON produit et
-échoue si elle s'y trouve ; le taux de service apparaît dans l'instantané.
+échoue si elle s'y trouve ; le taux de service apparaît dans l'instantané ;
+`TestInstantanePorteLesMetriquesDuLot` — les sept métriques du périmètre,
+M-06 et M-07 comprises, sont présentes dans l'instantané ;
+`TestDiagnosticNeSortQueLaSessionDemandee` (N-10) — deux sessions, deux
+visiteurs : l'export de l'une ne contient rien de l'autre, et aucune adresse
+électronique.
 
 - [ ] **Étapes 2 à 4**
 
 ```bash
 git commit -m "ramure-v2 : metriques agregees cote serveur"
+```
+
+---
+
+### Tâche 3 : la collection à l'écran, et son miroir hors ligne
+
+Porte **F-30**, **F-31** et **F-33** — les trois moitiés client des exigences que
+la tâche 1 a rangées côté serveur. Sans cette tâche, la collection existe et ne
+se voit pas : F-31 est du lot MVP, et l'oublier laisserait le MVP incomplet.
+
+**Fichiers :** créer `web/src/collection.ts` — le fichier n'existe pas avant ce
+PRP, aucun autre ne le crée — et ses tests.
+
+**Exigences testées :**
+
+- **le chemin parcouru s'affiche** (F-30) — chaque artiste gardé montre la lignée
+  qui y a mené et la date, pas seulement son nom. C'est le contexte de découverte
+  que la tâche 1 conserve ; le garder sans le montrer ne sert personne ;
+- **replanter d'un clic** (F-31) — sélectionner un artiste ferme le panneau et
+  recentre l'arbre sur lui, **sans passer par l'accueil**, et l'amorçage émet
+  `AmorceCollection` (M-06). Il passe par le compteur de génération du PRP 05 :
+  une réponse en vol pour un autre centre ne doit pas écraser celui-ci ;
+- **garder n'interrompt rien** — ajouter un signet ne réinitialise pas le lecteur
+  d'extraits, seul élément à état persistant de l'interface (PRP 06) ;
+- **le miroir hors ligne** (F-33) — la collection reste utilisable sans réseau,
+  et se réconcilie à la reconnexion **sans perte ni doublon**. Trois tests, et
+  ce sont les seuls qui comptent vraiment ici :
+  `un ajout hors ligne remonte a la reconnexion` ;
+  `un retrait hors ligne ne ressuscite pas a la reconnexion` ;
+  `une entree presente des deux cotes ne produit pas de doublon`.
+  La règle qui les tient : **le serveur est la référence, mais la
+  réconciliation ne supprime jamais côté serveur une entrée que le client ignore
+  simplement** — un appareil resté longtemps hors ligne ne doit pas effacer ce
+  qu'un autre a gardé entre-temps.
+
+- [ ] **Étapes 1 à 4 : rouge, implémenter, vert, committer**
+
+```bash
+git commit -m "ramure-v2 : la collection a l'ecran, lignee et miroir hors ligne"
 ```
 
 ---
@@ -265,10 +362,9 @@ cd /home/user/hello-world && ./init.sh --check
    Si une seconde apparaît, le cloisonnement n'a plus de gardien unique. Le
    PRP 08 et le PRP 09 ne doivent pas en introduire une pour leurs besoins de
    test : ils injectent l'en-tête.
-2. **La collection est miroitée côté client** (F-33) pour que l'appareil où
-   l'utilisateur a gardé un artiste ne perde rien hors ligne. Le serveur reste
-   la référence à la reconnexion ; la réconciliation ne doit jamais supprimer
-   côté serveur une entrée que le client ignore simplement.
+2. **Le miroir hors ligne (F-33) est écrit, pas promis** — c'est la tâche 3, et
+   ses trois tests de réconciliation sont ce qui distingue une collection qui
+   survit d'une collection qui se vide au premier appareil resté hors ligne.
 3. **L'instantané de mesure part sur la sortie standard, en une ligne JSON.**
    Le PRP 09 s'en sert pour vérifier en ligne que l'application mesure vraiment.
    Ne l'écrivez pas dans le volume : ce n'est pas de la donnée utilisateur, et

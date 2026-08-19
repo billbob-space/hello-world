@@ -2,9 +2,10 @@
 
 > **Ce PRP livre** tout ce qui entoure l'arbre : l'accueil et son mur de
 > pochettes (F-05, F-06, F-07), la recherche avec suggestions et rattrapage
-> orthographique (F-01 à F-04), la fiche artiste avec discographie classée et
-> lecteur d'extraits (F-19, F-21, F-22, F-24, F-40), et le partage d'un arbre
-> (F-34) — le seul canal d'acquisition du produit selon la §03.
+> orthographique (F-01 à F-04), la fiche artiste avec discographie classée,
+> lecteur d'extraits et **choix du service d'écoute** (F-19, F-21, F-22, F-24,
+> F-25, F-40), et le partage d'un arbre (F-34) — le seul canal de diffusion du
+> produit selon la §03.
 >
 > **Ce PRP consomme :**
 > - du PRP 02 — `source.CorrectionPlausible(demande, propose string) bool`, qui
@@ -113,9 +114,9 @@ git commit -m "ramure-v2 : recherche, suggestions, rattrapage et partage"
 
 ---
 
-### Tâche 3 : la fiche artiste, la discographie et le lecteur
+### Tâche 3 : la fiche artiste, la discographie, le lecteur et le service d'écoute
 
-Porte F-19, F-21, F-22, F-24 et F-40.
+Porte F-19, F-21, F-22, F-24, F-25 et F-40.
 
 **Fichiers :** créer `web/src/fiche.ts`, `internal/api/fiche.go`, tests associés.
 
@@ -132,7 +133,18 @@ Porte F-19, F-21, F-22, F-24 et F-40.
   extrait qui continue après une promotion appartient à un artiste qui n'est plus
   à l'écran ;
 - sans extrait disponible, la commande de lecture est **désactivée et
-  explicite**, jamais un bouton inerte (F-40).
+  explicite**, jamais un bouton inerte (F-40) ;
+- **le service d'écoute se choisit** (F-25) dans une liste des cinq services du
+  PRP 03, et **tous** les liens de l'application le respectent — ceux de la
+  fiche comme ceux de chaque album. Le choix est enregistré par le serveur avec
+  l'identité du visiteur (PRP 07, route `/api/reglages`), jamais dans le seul
+  navigateur : le PRD exige qu'il *« suive d'un appareil à l'autre »*, ce qu'un
+  stockage local ne fait pas. Tant que la route du PRP 07 n'existe pas, le choix
+  reste en mémoire et F-25 n'est pas close.
+
+Tests : `changer de service change tous les liens de la fiche` ;
+`le service choisi est relu du serveur au demarrage, pas du navigateur` ;
+`sans reglage enregistre, le service par defaut est celui du PRD`.
 
 **Budget :** `Profil` et `Extraits` ne sont appelés **qu'ici**, à l'ouverture de
 la fiche, jamais au chargement de l'arbre. Les appeler dans `Composer`
@@ -186,6 +198,9 @@ cd /home/user/hello-world && ./init.sh --check && ./init.sh --list | grep ramure
 3. **Le lecteur d'extraits est le seul élément à état persistant de
    l'interface.** Le PRP 07 ajoute la collection : qu'il ne le réinitialise pas
    en ajoutant un signet, ce qui couperait la lecture sans raison visible.
-4. **`/api/suggest` ne corrige jamais en silence.** S'il renvoyait un artiste
+4. **Le choix du service d'écoute n'est pas fini tant que le PRP 07 n'a pas
+   écrit son réglage.** L'écran existe ici, la mémoire du choix arrive là-bas :
+   F-25 se coche au PRP 07, pas à celui-ci.
+5. **`/api/suggest` ne corrige jamais en silence.** S'il renvoyait un artiste
    corrigé sans le dire, F-03 deviendrait invérifiable et la §09 serait violée
    côté serveur, là où personne ne la relit.

@@ -10,6 +10,21 @@ Le produit est spécifié par [`PRODUCT.md`](PRODUCT.md). Les exigences y sont
 numérotées `F-xx` et `N-xx`, et le code les cite par ces numéros là où il les
 applique. Ce fichier-ci décrit la réalisation.
 
+> **Cette version sera retirée de la stack à la mise en ligne de `ramure-v2`** —
+> décision du commanditaire du 19 août 2026, écrite au §19 du PRD de la v2
+> ([`../ramure-v2/PRODUCT.md`](../ramure-v2/PRODUCT.md)), et exécutée par la
+> troisième tâche du PRP 09 de la série v2. Deux raisons : les deux applications
+> portaient le même document produit **mot pour mot**, ce qui fait mentir l'un
+> dès qu'on corrige l'autre ; et la v2 apporte ce que celle-ci ne peut pas donner
+> — ouverture aux comptes Google, collection qui survit au redéploiement, repli
+> sur une seconde source de proximité.
+>
+> Ce que le retrait fait perdre, et qu'il faut avoir dit avant : cette version ne
+> déclare aucun volume, et les artistes gardés vivent dans le navigateur, sous
+> **son** adresse. Ils ne suivront pas vers `ramure-v2` : ce qui compte se
+> replante à la main. Le répertoire, lui, reste dans le dépôt — son code est
+> l'étalon du lot V2 que la v2 n'a pas encore écrit.
+
 | | |
 |---|---|
 | URL | `ramure.apps.billbob.ovh` |

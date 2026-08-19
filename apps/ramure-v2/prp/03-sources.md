@@ -407,7 +407,11 @@ git commit -m "ramure-v2 : Deezer, illustrations, audience et extraits"
 
 ### Tâche 6 : le rôle 4 — liens d'écoute et repli obligatoire
 
-Porte F-25 et F-26. Le repli n'est pas une politesse : le PRD interdit qu'un lien
+Porte F-26, et la moitié serveur de F-25 — **la moitié seulement** : ce PRP
+produit le type `Service` et la résolution du lien. Le choix du service par
+l'utilisateur est un écran (PRP 06), et le fait qu'il *le suive d'un appareil à
+l'autre* est un réglage par identité, rangé avec la collection (PRP 07). Ni l'un
+ni l'autre n'existe ici, et les trois sont nécessaires pour clore F-25. Le repli n'est pas une politesse : le PRD interdit qu'un lien
 mène *« à une page vide ou erronée »*. Odesli fonctionne sans clé, mais **sa
 limite de débit n'est pas documentée publiquement** — vérifié, non trouvé. D'où
 un usage strictement à la demande, sur clic, et jamais au chargement.
@@ -521,9 +525,12 @@ signatures listées en tête de ce document sont figées.
    un centre, dix branches, trente héritiers — consomme exactement 2 appels
    MusicBrainz et au plus 1 Cover Art Archive. Ce test est le gardien de
    l'exigence critique.
-4. **`Profil` et `Extraits` ne sont pas appelés au chargement de l'arbre.** Ils
-   servent la fiche artiste (PRP 06). Les appeler dans `Composer` doublerait le
-   coût du geste le plus fréquent du produit.
+4. **`Profil` est appelé au chargement de l'arbre, `Extraits` non.** Le PRD §07
+   range le profil du centre parmi les éléments permanents de l'écran : il part
+   donc avec l'arbre, en portée `Centre`, et coûte un second appel Last.fm par
+   promotion — une source qui tolère cinq appels par seconde. Les extraits et les
+   liens d'écoute, eux, ne partent qu'au geste (PRP 06). Appeler `Extraits` dans
+   `Composer` doublerait le coût du geste le plus fréquent du produit.
 5. **`ErrIntrouvable` signale un vide, pas une panne.** Le PRP 04 traduit cette
    distinction en `EtatAucunVoisin` contre `EtatPanne` : ne la perdez pas en
    route en enveloppant toutes les erreurs dans un type unique.

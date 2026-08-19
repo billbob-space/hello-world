@@ -25,9 +25,9 @@
 > apps/ramure-v2/Dockerfile      golang:1.24-alpine -> alpine:3.20, USER ramure (uid 10001)
 > apps/ramure-v2/test.sh         exécutable — go vet ./... && go test ./...
 > apps/ramure-v2/README.md       LASTFM_API_KEY, RAMURE_DATA_DIR (noms seulement)
-> apps/ramure-v2/PRODUCT.md      copie conforme de apps/ramure/PRODUCT.md
+> apps/ramure-v2/PRODUCT.md      deja dans le depot — --add ne l'ecrase pas
 > apps/ramure-v2/go.mod
-> apps/ramure-v2/web/index.html  page d'accueil provisoire, remplacée par PRP 06
+> apps/ramure-v2/web/index.html  page d'accueil provisoire, remplacée par PRP 05
 >
 > en-tête HTTP X-Ramure-Version sur chaque réponse
 > ghcr.io/billbob-space/hello-world/ramure-v2:main
@@ -39,8 +39,8 @@
 
 Ce dépôt est une **fabrique** : une seule stack `dockhand`, un seul
 `docker compose up`, atomique pour l'ensemble des applications. Une erreur dans
-le bloc de `ramure-v2` fait échouer le déploiement de `cadran` et de
-`hello-world`, qui n'y sont pour rien. Ce n'est pas une hypothèse pessimiste,
+le bloc de `ramure-v2` fait échouer le déploiement des neuf autres
+applications, qui n'y sont pour rien. Ce n'est pas une hypothèse pessimiste,
 c'est la conséquence mécanique d'un compose unique.
 
 Trois conséquences pratiques structurent tout ce document, et elles sont
@@ -90,9 +90,8 @@ l'affiche.
 **Fichiers :**
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/app.yml`
 - Créer (par `./init.sh --add`) : `apps/ramure-v2/.dockerignore`
-- Créer (par `./init.sh --add`) : `apps/ramure-v2/test.sh`, `apps/ramure-v2/README.md`, `apps/ramure-v2/PRODUCT.md`
+- Créer (par `./init.sh --add`) : `apps/ramure-v2/test.sh`, `apps/ramure-v2/README.md`
 - Modifier (régénérés par `./init.sh`) : `compose.yaml`, `.gitignore` — **pas** le workflow de CI, qui n'est plus généré
-- Créer : `apps/ramure-v2/PRODUCT.md` — écrasé par la copie de `apps/ramure/PRODUCT.md`
 - Test : bloc bash ci-dessous, lancé depuis la racine du dépôt (non versionné : le livrable est l'échafaudage lui-même)
 
 **Interfaces :**
@@ -145,9 +144,11 @@ grep -qE '^(volumes|env):.*=' "$A"           && echoue "une VALEUR est ecrite da
 [ -x apps/ramure-v2/test.sh ]      || echoue "apps/ramure-v2/test.sh absent ou non executable"
 [ -f apps/ramure-v2/.dockerignore ] || echoue "apps/ramure-v2/.dockerignore absent"
 
-# Le PRD devient la propriete de l'app : c'est lui que liront les PRP suivants.
-cmp -s apps/ramure/PRODUCT.md apps/ramure-v2/PRODUCT.md \
-    || echoue "PRODUCT.md n'est pas la copie conforme de apps/ramure/PRODUCT.md"
+# Le PRD est deja dans le depot, et --add ne l'ecrase JAMAIS : il ecrit le
+# gabarit d'echafaudage seulement si le fichier manque. Ce qu'on verifie ici,
+# c'est qu'il est toujours le vrai PRD, pas le gabarit.
+grep -q '^## 19 · RAMURE v2' apps/ramure-v2/PRODUCT.md \
+    || echoue "apps/ramure-v2/PRODUCT.md n'est pas le PRD — --add l'a-t-il ecrase ?"
 
 # L'app est connue du compose SANS y avoir de service, et connue de la CI.
 grep -q '>>> ramure-v2 — DESACTIVEE' compose.yaml \
@@ -161,8 +162,12 @@ grep -q 'ramure-v2:' compose.yaml \
 grep -qE '^(ramure-v2)$' <<<"$(for d in apps/*/; do a="${d%/}"; a="${a#apps/}"; \
     [ -f "apps/$a/app.yml" ] && printf '%s\n' "$a"; done)" \
     || echoue "la CI ne verra pas ramure-v2 : apps/ramure-v2/app.yml manque"
-grep -qE 'ramure-v2|cadran|hello-world' .github/workflows/build.yml \
-    && echoue "le workflow cite une app en dur — il doit les decouvrir, pas les lister"
+# Et on ne cherche PAS le nom d'une app dans le workflow par simple sous-chaine :
+# « hello-world » est aussi le nom du DEPOT, present dans chaque adresse d'image,
+# et le workflow porte des commentaires qui citent des apps en exemple. Le
+# controle honnete porte sur les lignes actives, et sur le nom de CETTE app.
+grep -vE '^[[:space:]]*#' .github/workflows/build.yml | grep -q 'ramure-v2' \
+    && echoue "le workflow cite ramure-v2 en dur — il doit decouvrir les apps, pas les lister"
 
 echo "OK : echafaudage conforme, application desactivee comme prevu"
 ```
@@ -190,7 +195,6 @@ cd /home/user/hello-world
           --stack go --exposure google --ui \
           --port 8080 --health /healthz \
           --health-cmd 'wget --spider -q http://localhost:8080/healthz'
-cp apps/ramure/PRODUCT.md apps/ramure-v2/PRODUCT.md
 ```
 
 Les quatre sections optionnelles n'ont **aucun équivalent en ligne de commande** :
@@ -210,7 +214,7 @@ après la mise en ligne, il coûterait un déploiement de plus et un
 « l'app démarre et perd tout » entre-temps. Et l'app étant `enabled: false`,
 elle ne contribue encore aucun volume au compose — la déclaration est donc sans
 risque pour les autres apps, et entrera dans la stack en même temps que le
-service, à la tâche 10.
+service, au PRP 09.
 
 Ce que chaque option décide, et pourquoi :
 
@@ -288,7 +292,7 @@ si on l'ignore :
   module nommé `ramure-v2` compilerait aussi, mais divergerait des deux autres
   applications sans raison.
 - **`go mod edit -go=1.24`** : `go mod init` écrit la version du toolchain
-  local en trois composants (`1.24.7`). Les cinq autres apps du dépôt déclarent
+  local en trois composants (`1.24.7`). Les huit autres apps Go du dépôt déclarent
   `go 1.24`, et `go.work` — régénéré par `./init.sh` — déclare `go 1.24.0` :
   cette forme à deux composants est celle que le workspace accepte sans
   discuter. L'étage de construction du `Dockerfile` est `golang:1.24-alpine`
@@ -1595,20 +1599,26 @@ Attendu : ÉCHEC avec
 
 - [ ] **Étape 3 : implémenter**
 
-Pousse la branche et ouvre la pull request :
+Pousse la branche, puis ouvre la pull request. **`gh` n'existe pas dans une
+session cloud** — vérifié : le binaire est absent, et les échanges avec GitHub y
+passent par le serveur MCP (`create_pull_request`, `pull_request_read` pour
+l'état des vérifications). Le nom de la branche ne s'écrit jamais en dur : il est
+assigné par le harnais, et un nom recopié d'un autre document pousse le travail
+sur la branche de quelqu'un d'autre.
 
 ```bash
 cd /home/user/hello-world
-git push -u origin claude/parallel-dev-versions-8d5g9c
-gh pr create --fill --title "ramure-v2 : socle deployable"
-gh pr checks --watch
+git push -u origin "$(git branch --show-current)"
 ```
+
+Puis, par le serveur MCP GitHub : ouvrir la pull request en brouillon, titre
+`ramure-v2 : socle deployable`, et suivre les vérifications jusqu'au vert.
 
 Ce que fait la CI, dans cet ordre, et ce que chaque job prouve :
 
 | Job | Ce qu'il lance | Ce qu'il prouve |
 |---|---|---|
-| `contrat` | `./init.sh --check` | les artefacts dérivés correspondent aux manifestes. Il **verrouille tous les autres jobs** : avec une stack partagée, un compose faux fusionné casserait les trois applications d'un coup. |
+| `contrat` | `./init.sh --check` | les artefacts dérivés correspondent aux manifestes. Il **verrouille tous les autres jobs** : avec une stack partagée, un compose faux fusionné casserait les neuf autres applications d'un coup. |
 | `detect` | un `git diff` sur les chemins `apps/<nom>/` | seule `ramure-v2` a bougé : `cadran` et `hello-world` ne sont ni retestées ni reconstruites. |
 | `test` | `./apps/ramure-v2/test.sh` | `go vet` et `go test` au vert, dans un environnement qui n'est pas le tien. |
 | `build` | `docker build` sur le contexte `apps/ramure-v2` | le `Dockerfile` construit ailleurs que sur ton poste, et l'image ne porte **aucun** label `traefik.*`, hérité compris — ce contrôle-là **bloque**. La taille, elle, ne fait qu'un `::warning::` au-delà de 200 Mo : **rien n'arrête une image trop grosse en CI**, le plafond se tient au moment de la construction locale. **Sur une pull request, `push: false`** : on valide sans publier, pour ne pas bouger le tag `:main` que le serveur suit. |
@@ -1633,12 +1643,9 @@ Attendu : PASS — `OK : contrat respecte, app desactivee, image publiee`.
 - [ ] **Étape 5 : commit**
 
 Le commit qui publie l'image est celui de la fusion — les dix tâches y arrivent
-déjà committées :
-
-```bash
-gh pr merge --squash \
-  --subject "ramure-v2 : pose le socle deployable et publie la premiere image"
-```
+déjà committées. La fusion se demande par le serveur MCP GitHub
+(`merge_pull_request`, méthode `squash`), avec pour titre
+`ramure-v2 : pose le socle deployable et publie la premiere image`.
 
 ---
 
@@ -1679,7 +1686,7 @@ docker run --rm --entrypoint id ramure-v2:verif -u   # attendu : 10001
 docker rm -f ramure-verif
 
 # 6. La CI est verte sur main, et l'image est publiee.
-gh run list --branch main --workflow build --limit 1
+#   l'etat du workflow sur main se lit par le serveur MCP GitHub (actions_list)
 #   attendu : conclusion « success »
 docker buildx imagetools inspect ghcr.io/billbob-space/hello-world/ramure-v2:main
 #   attendu : le manifeste s'affiche
@@ -1687,7 +1694,9 @@ docker buildx imagetools inspect ghcr.io/billbob-space/hello-world/ramure-v2:mai
 # 7. L'outillage de l'agent n'a pas bouge — Go et ui etaient deja dans la
 #    fabrique via cadran, il n'y a donc rien a recoller dans le Setup script.
 ./.claude/check-plugins.sh
-#   attendu : « Outillage : N/N plugins installes, 1/1 serveurs LSP presents. »
+#   attendu : « Outillage : N/N plugins installes, 2/2 serveurs LSP presents. »
+#   Deux, et non un : gopls pour Go, typescript-lsp pour le client — ce dernier
+#   est deja declare par marcq-handball, il n'y a rien a recoller (PRP 05).
 ```
 
 **Ce qui n'est PAS attendu à la fin de cette étape :** un service `ramure-v2`
@@ -1721,7 +1730,7 @@ import (
 )
 ```
 
-**Le `go.mod` déclare `go 1.24`**, comme les cinq autres apps du dépôt et
+**Le `go.mod` déclare `go 1.24`**, comme les huit autres apps Go du dépôt et
 comme `go.work`, pour rester compatible avec l'étage `golang:1.24-alpine` du
 `Dockerfile`. Toute dépendance ajoutée par le PRP 02 ou
 suivants doit s'y accommoder ; relever cette version oblige à relever aussi
@@ -1741,7 +1750,7 @@ poste, où le répertoire est bien là. `.dockerignore` n'est pas un artefact
 régénéré : il s'édite à la main, une fois.
 
 **La page d'accueil est provisoire.** `apps/ramure-v2/web/index.html` et sa
-directive `//go:embed web/index.html` appartiennent au PRP 06, qui les remplace.
+directive `//go:embed web/index.html` appartiennent au PRP 05, qui les remplace.
 Deux choses doivent survivre au remplacement : le motif de route **`GET /{$}`**
 — sans `{$}`, tout chemin inconnu renvoie 200 au lieu de 404 — et l'attribut
 `lang="fr"`, verrouillé par un test.

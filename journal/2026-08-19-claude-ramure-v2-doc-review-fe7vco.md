@@ -6,7 +6,9 @@ Mode : `chaud`
 
 Relecture du PRD (`apps/ramure-v2/PRODUCT.md`, 625 lignes) et de la série de neuf
 PRP (`apps/ramure-v2/prp/`, 6 339 lignes) avant le lancement du développement.
-Aucun document n'a été modifié sur cette branche : l'entrée est le compte rendu.
+Le compte rendu est ci-dessous ; les corrections qu'il appelle ont été écrites
+dans la foulée, sur cette même branche, sauf les garde-fous de fabrique — qui
+restent à écrire et sont nommés anomalie par anomalie.
 
 La série tient : ordre des étapes, signatures figées d'un PRP à l'autre, tests
 nommés avant le code, couverture du périmètre annoncée exigence par exigence,
@@ -42,8 +44,8 @@ changer sa méthode.
 sur un bloc de commande (cf. entrée du 5 août, anomalie 4, même conclusion). Les
 blocs bash des PRP sont exécutables : un contrôle qui les rejoue dans une copie
 jetable du dépôt les prendrait en défaut immédiatement, là où une relecture à
-l'œil ne les voit pas. Aucun correctif sur cette branche : elle ne fait que
-relire.
+l'œil ne les voit pas. L'assertion est corrigée sur cette branche ; le contrôle,
+lui, reste à écrire — rien ne le reverra la prochaine fois.
 
 ### 2. Cinq exigences du périmètre sont annoncées couvertes sans tâche ni test
 
@@ -87,7 +89,9 @@ exigence citée dans un en-tête ressemble beaucoup à une exigence couverte.
 citée dans le tableau de couverture d'un `prp/README.md`, vérifier que son
 identifiant apparaît dans le corps du PRP désigné. Les six trous ci-dessus se
 seraient tous signalés seuls, et le septième aussi — un fichier « modifié » que
-personne ne crée. Aucun correctif sur cette branche : elle ne fait que relire.
+personne ne crée. Les six trous sont comblés sur cette branche — le PRP 06 gagne
+le choix du service, le PRP 07 une tâche pour la collection à l'écran et deux
+événements de mesure ; le contrôle, lui, reste à écrire.
 
 ### 3. Les décisions du PRD vivent dans le README des PRP, pas dans le PRD
 
@@ -132,8 +136,8 @@ au travers.
 **Action** — `garde-fou` — un tableau dont l'en-tête contient « Risque » peut,
 lui, être reconnu sans ambiguïté : c'est le déclencheur qui manque au contrôle
 existant. La règle a été écrite après le défaut livré de `renaissance-gym`, où
-un refus spécifié trois fois n'était testé nulle part. Aucun correctif sur cette
-branche : elle ne fait que relire.
+un refus spécifié trois fois n'était testé nulle part. La colonne est écrite sur
+cette branche ; le déclencheur, lui, manque toujours au contrôle.
 
 ### 5. Les deux PRD de ramure sont identiques, et rien ne dit ce qui les sépare
 
@@ -237,12 +241,31 @@ commande, ils sont exécutables, et rien ne les rejoue. La règle de conduite
 écrite le 5 août (« rejouer l'échafaudage dans une copie du dépôt avant
 d'exécuter un PRP écrit plus d'une semaine plus tôt ») a fonctionné ici : elle
 n'a rien coûté et a trouvé les anomalies 1 et 8, que la lecture seule n'aurait
-pas vues. Aucun correctif sur cette branche : elle ne fait que relire.
+pas vues. Les trois affirmations sont corrigées sur cette branche ; le contrôle
+qui rejouerait les blocs de commande, lui, reste à écrire.
+
+## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
+
+**Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre
+questions (§18), retrait de la v1 et ce que la v2 change (§19), colonne « Test »
+au tableau des risques, exigence N-14 neuve, et le moment où la fiche du centre
+se charge (§07), qui faisait diverger le budget d'appels. La série gagne les six
+tâches et tests qui manquaient, perd ses affirmations d'outillage périmées, et
+son README ne fait plus autorité sur les décisions produit.
+
+**Laissé ouvert, et c'est délibéré** — les trois garde-fous de fabrique que ces
+anomalies appellent : rejouer les blocs de commande des PRP dans une copie
+jetable, vérifier qu'une exigence citée dans un tableau de couverture apparaît
+dans le corps du PRP désigné, et réclamer la colonne « Test » sur un tableau dont
+l'en-tête dit « Risque ». Les trois valent pour toutes les apps, pas pour
+`ramure-v2` : ils appartiennent à une branche `fabrique/`, pas à celle-ci.
+`./scripts/pret.sh` le signale à chaque commit — c'est exact, et c'est bien
+qu'il le dise.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-19 à 14:46 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-19 à 15:04 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -250,26 +273,26 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 106 | 0,00 $ |
-| Écriture de cache | 221 289 | 1,38 $ |
-| Lecture de cache | 7 977 103 | 3,99 $ |
-| Sortie | 37 315 | 0,93 $ |
-| **Total** | **8 235 813** | **6,31 $ — 5,48 €** |
+| Entrée | 190 | 0,00 $ |
+| Écriture de cache | 281 387 | 1,76 $ |
+| Lecture de cache | 18 509 751 | 9,25 $ |
+| Sortie | 84 592 | 2,11 $ |
+| **Total** | **18 875 920** | **13,13 $ — 11,40 €** |
 
 **Ce qui coûte**
 
-- **53 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **95 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   65 451 jetons, écrits une fois par session puis relus à chaque
-  échange : 3 403 452 jetons de relecture, 42 % de tout ce qui a été relu.
-- **Tours courts** — 20 des 53 tours (37 %) sortent
+  échange : 6 152 394 jetons de relecture, 33 % de tout ce qui a été relu.
+- **Tours courts** — 31 des 95 tours (32 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 2,16 $, soit 34 % de la facture.
+  une sortie de rien. Ils coûtent 3,63 $, soit 27 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 65 451 jetons relus au premier appel qui relise
-  quelque chose, 216 326 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 279 852 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 8235813 -->
+<!-- cout-total: 18875920 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 65451 0 224
 2 principal claude-opus-5 1216 65451 209
@@ -324,5 +347,47 @@ claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 51 principal claude-opus-5 1355 207304 7569
 52 principal claude-opus-5 7667 208659 762
 53 principal claude-opus-5 4963 216326 1119
+54 principal claude-opus-5 1360 221289 963
+55 principal claude-opus-5 1267 222649 120
+56 principal claude-opus-5 315 223916 264
+57 principal claude-opus-5 1805 224231 86
+58 principal claude-opus-5 504 226036 1141
+59 principal claude-opus-5 1751 226540 141
+60 principal claude-opus-5 1064 228291 137
+61 principal claude-opus-5 873 229355 551
+62 principal claude-opus-5 636 230228 598
+63 principal claude-opus-5 939 230864 4428
+64 principal claude-opus-5 4583 231803 117
+65 principal claude-opus-5 512 236386 4495
+66 principal claude-opus-5 4514 236898 3645
+67 principal claude-opus-5 3676 241412 653
+68 principal claude-opus-5 834 245088 445
+69 principal claude-opus-5 738 245922 112
+70 principal claude-opus-5 826 246660 1249
+71 principal claude-opus-5 1552 247486 883
+72 principal claude-opus-5 1827 249038 208
+73 principal claude-opus-5 224 250865 233
+74 principal claude-opus-5 590 251089 2433
+75 principal claude-opus-5 2464 251679 158
+76 principal claude-opus-5 735 254143 951
+77 principal claude-opus-5 970 254878 1475
+78 principal claude-opus-5 1506 255848 898
+79 principal claude-opus-5 929 257354 1326
+80 principal claude-opus-5 1485 258283 1113
+81 principal claude-opus-5 1144 259768 760
+82 principal claude-opus-5 899 260912 1275
+83 principal claude-opus-5 1306 261811 2551
+84 principal claude-opus-5 2582 263117 1745
+85 principal claude-opus-5 1776 265699 1565
+86 principal claude-opus-5 1596 267475 466
+87 principal claude-opus-5 1018 269071 2442
+88 principal claude-opus-5 2473 270089 1414
+89 principal claude-opus-5 1651 272562 1153
+90 principal claude-opus-5 1856 274213 557
+91 principal claude-opus-5 870 276069 1047
+92 principal claude-opus-5 1126 276939 297
+93 principal claude-opus-5 710 278065 814
+94 principal claude-opus-5 1077 278775 1471
+95 principal claude-opus-5 1535 279852 897
 -->
 <!-- /cout -->
