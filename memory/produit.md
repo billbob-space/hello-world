@@ -1,8 +1,9 @@
 # Le PRD suit l'application — le détail
 
 Quand lire : avant d'écrire un PRD ou un PRP, avant de livrer un ajout qui ne
-vient d'aucun PRP, avant de retirer une ligne d'un « hors périmètre », et quand
-`pret.sh` signale du code neuf sans `PRODUCT.md`.
+vient d'aucun PRP, avant de retirer une ligne d'un « hors périmètre », après un
+choix tranché sur maquette, et quand `pret.sh` signale du code neuf sans
+`PRODUCT.md`.
 Tenu par : --check — un document d'app égaré sous `docs/` est refusé par son
 nom, le PRD n'a qu'un domicile ; pret.sh — un fichier de code neuf dans une app
 dont le `PRODUCT.md` ne bouge pas, en avertissement, huit cas dans
@@ -55,6 +56,13 @@ dans six mois.
 garde une phrase qui renvoie à ce qui l'a rouverte. *Une exclusion qui disparaît
 sans laisser d'adresse est une décision perdue*, et c'est ainsi qu'on la reprend
 deux mois plus tard sans savoir qu'elle avait été tranchée.
+
+**Une maquette retenue** — le choix s'est fait sur une image, il s'enregistre en
+mots : la maquette est jetable, la décision non. Écris ce qui a été retenu, et en
+une ligne ce qui a été écarté — sans quoi la variante refusée revient à la
+discussion suivante, sans l'argument qui l'avait fait tomber. Dans le PRP quand
+le choix porte sur une implémentation à venir, dans le `PRODUCT.md` quand il
+engage ce que l'app fait.
 
 **Un tableau de risques nomme le test qui tient chacun d'eux.** Tout tableau
 « Risques » d'un PRD et tout tableau de cas d'échec d'un PRP porte une **colonne
