@@ -111,6 +111,36 @@ en etait, sans rien perdre.
 **Action** — `rien` — reparee d'elle-meme. Notee parce qu'elle dit que reprendre
 un agent vaut mieux que le relancer : son contexte, lui, survit.
 
+---
+
+## Suite 2 — les niveaux en bandes horizontales (PR #150 deja fusionnee)
+
+Troisieme reprise de la meme branche, repartie de `main`. Perimetre inchange :
+`apps/estran`. Les anomalies s'ajoutent a la suite des precedentes.
+
+### 6. Trois allers-retours pour une echelle, faute d'avoir montre avant d'ecrire
+
+**Symptome** — la facon de quantifier la pluie a ete refaite TROIS fois : mm/h
+gradue (livre, rejete par l'utilisateur), puis mots aux seuils (livre, rejete a
+son tour : « ce n'est toujours pas l'ideal »), puis enfin cinq niveaux nommes en
+bandes horizontales, choisi sur maquettes. Deux livraisons completes — code,
+tests, PR, fusion, deploiement — pour un choix qui n'etait pas fait.
+
+**Cause** — a chaque tour, une decision de PRESENTATION a ete prise dans le code
+puis soumise au jugement une fois en ligne. Or l'utilisateur ne lit pas le code :
+il ne peut trancher que devant une image. Le troisieme tour, lui, a commence par
+quatre maquettes cote a cote dans les couleurs reelles de l'app — le choix a pris
+un echange, et il a porte sur autre chose que ce qui etait propose (ni la
+reglette, ni le vocabulaire de la decision, mais un graphe a barres a cinq
+niveaux). Aucune quantite de soin dans le code ne remplace une image.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — quand la question porte sur ce que l'ecran MONTRE
+et non sur ce qu'il fait, maquetter d'abord et livrer ensuite. Le cout d'une
+maquette est d'un echange ; celui d'un aller-retour livre est une branche, une
+PR, un deploiement, et la confiance qu'on use a chaque fois.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
