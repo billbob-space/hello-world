@@ -56,10 +56,16 @@ type Centre struct {
 // centre, cablees une seule fois dans main() : un Cache, un Limiteur, un
 // http.Client, une Cascade. Les PRP 06 et 07 elargissent cette structure,
 // jamais en introduisant un second cablage.
+//
+// Odesli n'est JAMAIS lu par Composer ni par illustrerBranches : c'est
+// l'invariant N-03 "0 appel Odesli au chargement" (PRP 03, tableau de
+// budget). Le seul lecteur de ce champ est internal/api/ecouter.go, appele
+// strictement au clic — jamais depuis ce fichier.
 type Dependances struct {
 	Catalogue *source.MusicBrainz
 	Proximite source.Proximite
 	Media     *source.Deezer
+	Odesli    *source.Odesli
 	Limiteur  *budget.Limiteur
 }
 

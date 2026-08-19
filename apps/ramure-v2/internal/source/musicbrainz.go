@@ -90,17 +90,58 @@ func (m *MusicBrainz) Resoudre(ctx context.Context, nom string, p budget.Portee)
 	return Artiste{MBID: candidat.ID, Nom: candidat.Name}, nil
 }
 
+// suggestionsMax borne le nombre de candidats rendus par Suggerer (F-01) :
+// une liste de suggestions plus longue n'aide plus a choisir, elle noie.
+const suggestionsMax = 8
+
+// Suggerer cherche des candidats par nom approchant, pour le fil de la
+// frappe (F-01, F-02) et le rattrapage orthographique (F-03).
+// Contrairement a Resoudre, AUCUNE correspondance stricte n'est appliquee
+// ici : plusieurs candidats sont rendus, dans l'ordre de pertinence de
+// MusicBrainz, et c'est a l'utilisateur — jamais au serveur en silence —
+// de choisir celui qui convient (§09, "aucune substitution silencieuse").
+func (m *MusicBrainz) Suggerer(ctx context.Context, q string, p budget.Portee) ([]Artiste, error) {
+	cle := "musicbrainz:suggestions:" + Normaliser(q)
+	corps, err := m.cache.Obtenir(cle, jour, func() ([]byte, error) {
+		if err := m.limiteur.Attendre(ctx, budget.MusicBrainz, p); err != nil {
+			return nil, err
+		}
+		return m.appeler(ctx, fmt.Sprintf("%s/ws/2/artist?query=%s&limit=%d&fmt=json",
+			m.BaseURL, url.QueryEscape(q), suggestionsMax))
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var reponse mbArtisteReponse
+	if err := json.Unmarshal(corps, &reponse); err != nil {
+		return nil, fmt.Errorf("decodage suggestions musicbrainz : %w", err)
+	}
+
+	suggestions := make([]Artiste, 0, len(reponse.Artists))
+	for _, a := range reponse.Artists {
+		if a.Name == "" {
+			continue
+		}
+		if len(suggestions) >= suggestionsMax {
+			break
+		}
+		suggestions = append(suggestions, Artiste{MBID: a.ID, Nom: a.Name})
+	}
+	return suggestions, nil
+}
+
 type mbReleaseGroupReponse struct {
 	ReleaseGroups []mbReleaseGroup `json:"release-groups"`
 }
 
 type mbReleaseGroup struct {
-	ID              string `json:"id"`
-	Title           string `json:"title"`
-	FirstReleaseDate string `json:"first-release-date"`
-	PrimaryType     string `json:"primary-type"`
-	SecondaryTypes  []string `json:"secondary-types"`
-	Rating          *mbRating `json:"rating"`
+	ID               string    `json:"id"`
+	Title            string    `json:"title"`
+	FirstReleaseDate string    `json:"first-release-date"`
+	PrimaryType      string    `json:"primary-type"`
+	SecondaryTypes   []string  `json:"secondary-types"`
+	Rating           *mbRating `json:"rating"`
 }
 
 type mbRating struct {

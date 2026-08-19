@@ -8,6 +8,13 @@
 <style>
   :root { color-scheme: dark light; }
   * { box-sizing: border-box; }
+  /* Regle GLOBALE unique (deja vu 3 fois ailleurs dans la fabrique,
+     memory/regles-imperatives.md) : toute classe qui declare son propre
+     "display" (grid, flex...) a la MEME specificite que la regle UA par
+     defaut [hidden]{display:none} et peut la gagner selon l'ordre du
+     cascade. Un correctif classe par classe se reproduit a chaque nouvel
+     element cache ; celui-ci couvre tous les elements presents et a venir. */
+  [hidden] { display: none !important; }
   html, body {
     margin: 0;
     height: 100%;
@@ -70,25 +77,139 @@
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); white-space: nowrap;
   }
+
+  .logo {
+    background: none; border: none; color: inherit; cursor: pointer;
+    font: inherit; font-size: var(--texte-titre); letter-spacing: .18em;
+    font-weight: 600; padding: 0;
+  }
+
+  /* Suggestions (F-01, F-02) : liste positionnee sous le champ, jamais un
+     second champ de recherche — une seule instance dans le document,
+     quelle que soit la largeur (parite stricte, PRP 08). */
+  #recherche { position: relative; }
+  .suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 5;
+    margin: .25rem 0 0; padding: .25rem; list-style: none;
+    background: #161617; border: 1px solid #3a3a3a; border-radius: .4rem;
+    max-height: 16rem; overflow-y: auto;
+  }
+  .suggestions li {
+    padding: .5rem .6rem; border-radius: .3rem; cursor: pointer;
+    font-size: var(--texte-corps);
+  }
+  .suggestions li[aria-selected="true"] { background: #2a2a2c; }
+
+  .correction {
+    padding: .4rem .75rem; margin: 0 1rem; border-radius: .4rem;
+    background: #2a2410; color: #f0d090; font-size: var(--texte-second);
+    display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;
+  }
+  .correction button {
+    border: 1px solid #4a4322; background: #1c1c1e; color: inherit;
+    border-radius: .3rem; padding: .2rem .5rem; cursor: pointer;
+    font-size: var(--texte-second);
+  }
+
+  .service { padding: .4rem .5rem; border-radius: .4rem; border: 1px solid #3a3a3a; background: #1c1c1e; color: inherit; }
+  .partager {
+    padding: .5rem .8rem; border-radius: .4rem; border: 1px solid #3a3a3a;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    min-height: 2.5rem; min-width: 2.5rem;
+  }
+
+  /* Etat A — accueil (§07) : mur de pochettes plein ecran, sans defilement,
+     le nombre de colonnes suit la largeur PAR CSS. */
+  .accueil { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  .accueil-barre {
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+    padding: .5rem .75rem; font-size: var(--texte-second); color: #8a867c;
+  }
+  .mur {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    grid-auto-rows: 1fr; gap: .5rem; padding: .5rem; overflow: hidden; height: 100%;
+  }
+  .mur-item { min-height: 0; }
+  .tuile {
+    position: relative; width: 100%; height: 100%; border: none; border-radius: .5rem;
+    cursor: pointer; overflow: hidden; display: flex; align-items: flex-end;
+    padding: 0; color: #ece7dc; min-height: 4rem;
+  }
+  .tuile-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tuile-libelle {
+    position: relative; z-index: 1; width: 100%; padding: .4rem .5rem;
+    background: linear-gradient(transparent, rgba(0,0,0,.65));
+    font-size: var(--texte-second); text-align: left;
+  }
+  .tuile-apparition { animation: apparition .25s ease both; }
+  @keyframes apparition { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .tuile-apparition { animation: none; }
+  }
+
+  /* Fiche (F-19) et apercu de survol : DEUX panneaux distincts, jamais l'un
+     a la place de l'autre. Meme DOM aux deux largeurs ; seule la CSS
+     repositionne (parite stricte, PRP 08). */
+  .fiche-panneau, .apercu-panneau {
+    position: absolute; background: #161617; border: 1px solid #2a2a2a;
+    border-radius: .6rem .6rem 0 0; padding: .75rem; overflow-y: auto;
+    left: 0; right: 0; bottom: 0; max-height: 45vh;
+  }
+  .apercu-panneau { max-height: 8rem; }
+  .fiche-titre { margin: 0 0 .3rem; font-size: var(--texte-titre); }
+  .fiche-presentation, .apercu-nom { font-size: var(--texte-corps); margin: 0 0 .5rem; }
+  .discographie-filtre { font-size: var(--texte-second); margin-bottom: .4rem; }
+  .discographie-album {
+    display: flex; gap: .5rem; align-items: baseline; font-size: var(--texte-second);
+    padding: .25rem 0; border-bottom: 1px solid #232323;
+  }
+  .discographie-titre { flex: 1; }
+  .lecteur-bouton, .fiche-lien-artiste, .discographie-lien {
+    font-size: var(--texte-second);
+  }
+  @media (min-width: 60rem) {
+    .fiche-panneau {
+      left: auto; right: 1rem; bottom: 1rem; top: 4.5rem; width: 22rem;
+      border-radius: .6rem; max-height: none;
+    }
+    .apercu-panneau {
+      left: auto; right: 1rem; top: 4.5rem; bottom: auto; width: 18rem;
+      border-radius: .6rem;
+    }
+  }
 </style>
 </head>
 <body>
 <a class="evitement" href="#contenu">Aller au contenu principal</a>
 <header>
-  <h1>RAMURE</h1>
+  <h1><button type="button" id="logo" class="logo">RAMURE</button></h1>
   <form id="recherche" role="search" aria-label="Planter un artiste">
     <label class="visuellement-cache" for="graine">Nom d'artiste</label>
-    <input id="graine" name="graine" type="text" placeholder="Planter un artiste…" autocomplete="off">
+    <input id="graine" name="graine" type="text" placeholder="Planter un artiste…" autocomplete="off"
+           role="combobox" aria-autocomplete="list" aria-controls="suggestions" aria-expanded="false">
     <button type="submit">Planter</button>
+    <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
   </form>
+  <p id="correction" class="correction" role="status" hidden></p>
+  <select id="service" class="service" aria-label="Service d'ecoute"></select>
   <div class="camera">
     <button type="button" id="zoomer-arriere" aria-label="Dezoomer">−</button>
     <button type="button" id="zoomer-avant" aria-label="Zoomer">+</button>
     <button type="button" id="cadrage-initial" hidden>Revenir au cadrage initial</button>
+    <button type="button" id="partager" class="partager"></button>
   </div>
 </header>
 <main id="contenu">
+  <section id="accueil" class="accueil" hidden>
+    <div class="accueil-barre">
+      <p id="accueil-promesse" class="accueil-promesse"></p>
+      <select id="tri" class="tri" aria-label="Trier le mur"></select>
+    </div>
+    <div id="mur"></div>
+  </section>
   <svg id="canevas" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Arbre des artistes proches"></svg>
+  <aside id="fiche" class="fiche-panneau" hidden></aside>
+  <aside id="apercu-branche" class="apercu-panneau" hidden></aside>
   <p id="etat" role="status" aria-live="polite"></p>
 </main>
 <script type="module" src="/dist/app.js"></script>

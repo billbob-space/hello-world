@@ -109,7 +109,7 @@ func TestReponseCentreNUtiliseQueDesClesJSONMinuscules(t *testing.T) {
 		`"presentation":`, `"genres":`, `"auditeurs":`, // Profil
 		`"petite":`, `"moyenne":`, `"grande":`, // Illustration
 		`"titre":`, `"sortie":`, `"type":`, `"note":`, `"votes":`, // Album
-		`"affinite":`, // Voisin
+		`"affinite":`,                                // Voisin
 		`"voisin":`, `"lienDeezer":`, `"heritiers":`, // Branche, deja bonne
 	} {
 		if !strings.Contains(corps, attendue) {

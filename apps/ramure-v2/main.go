@@ -73,7 +73,8 @@ func dependances() arbre.Dependances {
 		source.NouveauListenBrainz(c, l, client),
 	}}
 	dz := source.NouveauDeezer(c, l, client)
-	return arbre.Dependances{Catalogue: mb, Proximite: prox, Media: dz, Limiteur: l}
+	od := source.NouveauOdesli(c, l, client)
+	return arbre.Dependances{Catalogue: mb, Proximite: prox, Media: dz, Odesli: od, Limiteur: l}
 }
 
 // traceur retient le code de reponse, que http.ResponseWriter ne rend pas.

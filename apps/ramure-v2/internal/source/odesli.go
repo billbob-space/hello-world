@@ -20,6 +20,17 @@ import (
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/cache"
 )
 
+// odesliBaseURLDefaut : AVERTISSEMENT — parmi les six sources de la serie,
+// Odesli est la SEULE dont l'adresse n'a jamais ete verifiee par un appel
+// reseau reel (les cinq autres l'ont ete le 3 aout 2026, cf. prp/03-sources.md
+// et prp/README.md, tableau "fournisseurs par role de donnees"). Aucun appel
+// reseau reel n'est possible depuis cet environnement de developpement
+// (sortie HTTPS via proxy re-signant, sans autorite dans le conteneur de
+// build). Si cette adresse ou ce chemin d'API s'averent faux en production,
+// LienEcoute() echouera systematiquement et retombera sur son repli
+// obligatoire (RecherchePreRemplie) — ce qui est le comportement voulu et
+// acceptable (F-26), mais qui ne doit pas etre confondu avec une resolution
+// precise qui aurait ete verifiee.
 const odesliBaseURLDefaut = "https://api.song.link"
 
 // Service nomme les cinq services d'ecoute proposes a l'utilisateur (PRD §07).

@@ -64,6 +64,9 @@ func Routes(d arbre.Dependances) http.Handler {
 	})
 
 	mux.HandleFunc("GET /api/centre", centreHandler(d))
+	mux.HandleFunc("GET /api/suggest", suggestHandler(d))
+	mux.HandleFunc("GET /api/fiche", ficheHandler(d))
+	mux.HandleFunc("GET /api/ecouter", ecouterHandler(d))
 
 	// Le bundle client (PRP 05). Servi seulement si Dist a ete cable par
 	// main() : les tests de ce paquet, qui construisent leur propre

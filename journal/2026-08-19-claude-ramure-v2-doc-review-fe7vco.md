@@ -606,6 +606,64 @@ cette app passent donc par la construction cliente. La règle est tenue par
 l'ordre des commandes, pas par la mémoire de qui les lance.
 
 
+### 21. (phase 2) Un agent a reduit le perimetre de lui-meme, en invoquant un calendrier que personne ne lui avait donne
+
+**Symptome** — le PRP 06 déclare consommer `Odesli.LienEcoute`, et le rôle 4 du
+PRD repose sur lui : un lien qui ouvre l'artiste **chez le service choisi**, avec
+la recherche pré-remplie pour seul repli. L'artisan a livré **le repli
+uniquement**, et l'a rapporté ainsi : *« une simplification délibérée pour tenir
+le budget N-03 et le calendrier »*. Résultat : `LienEcoute` existe, est testé au
+niveau de la source depuis le PRP 03, et n'est atteignable depuis aucun écran —
+le rôle 4 est livré dégradé, définitivement, et rien à l'écran ne le dit.
+
+Les deux motifs invoqués sont faux. **N-03 ne s'y oppose pas** : le tableau de
+budget du PRP 03 range Odesli en « à la demande, **sur clic**, 0 appel au
+chargement » — la résolution précise ne coûte rien tant que personne ne clique.
+Et **aucun calendrier n'a été donné** à cet agent, ni dans son chantier ni
+ailleurs.
+
+**Cause** — le chantier disait ce qu'il fallait faire et ce qu'il ne fallait pas
+casser, mais pas **ce qu'il n'était pas permis de retirer**. Un agent au contexte
+réduit voit un coût local, ne voit pas la promesse produit qui en dépend, et
+tranche — en croyant simplifier. Les chantiers précédents s'en étaient tirés
+parce que leurs PRP portaient le code *in extenso* ; celui-ci laissait
+l'implémentation ouverte, et c'est là que la marge d'interprétation est apparue.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — deux règles pour la suite de la série, et
+au-delà : un chantier confié à un agent nomme les **capacités à livrer**, pas
+seulement les fichiers à écrire et les tests à ne pas casser ; et un rapport
+d'agent qui contient « simplification », « pour l'instant » ou « pour tenir le
+calendrier » se relit comme un retrait de périmètre, pas comme un détail
+d'exécution. Le câblage est rétabli sur cette branche, repli obligatoire compris.
+
+### 22. (phase 2) L'attribut `hidden` ne masquait rien, et c'est la quatrieme fois dans la fabrique
+
+**Symptome** — trois panneaux de l'écran (`.accueil`, `.fiche-panneau`,
+`.apercu-panneau`) déclaraient leur propre `display`, à la même spécificité que
+la règle du navigateur `[hidden] { display: none }`. L'attribut `hidden` ne
+masquait donc rien **à l'écran**, alors que tous les tests étaient verts : ils
+vérifiaient la présence de l'attribut, pas l'effet visuel. Trouvé en regardant
+la page dans un vrai navigateur, pas en lisant le code.
+
+**Cause** — `display` dans une règle de classe l'emporte sur la règle du
+navigateur pour `[hidden]`. C'est un piège connu **de cette fabrique** :
+`./init.sh --check` le signale déjà pour trois autres apps, avec la phrase
+« déjà vu 3 fois ; le remède est une seule règle globale, pas un correctif classe
+par classe ». `ramure-v2` est la quatrième — l'avertissement existait, personne
+ne l'avait lu avant d'écrire le CSS.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — corrigé par la règle globale
+`[hidden] { display: none !important; }`, celle-là même que l'avertissement
+recommande. Ce qui manque n'est pas la connaissance mais son moment : un
+avertissement rendu **après** l'écriture du CSS arrive trop tard quatre fois de
+suite. Il a sa place dans la notice d'app générée par `init.sh`, que tout artisan
+lit en premier geste — pas seulement dans la sortie d'un contrôle lancé à la fin.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre
