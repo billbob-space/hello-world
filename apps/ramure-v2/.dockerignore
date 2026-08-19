@@ -1,0 +1,16 @@
+# Genere par init.sh — le contexte de construction est ce repertoire, pas la
+# racine du depot. Exclure la doc fige le cache de couches sur les seules
+# modifications de code.
+.git
+*.md
+app.yml
+test.sh
+.dockerignore
+ramure-v2
+node_modules
+build
+target
+__pycache__
+.env
+.env.*
+*.log

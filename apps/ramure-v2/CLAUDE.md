@@ -1,6 +1,6 @@
 # ramure-v2 — notice de contexte
 
-<!-- GENERE par ./init.sh. Cette app n a pas encore de manifeste.
+<!-- GENERE par ./init.sh depuis apps/ramure-v2/app.yml et fabrique.yml.
      Ne l'edite pas : --check refuse une notice qui a derive. -->
 
 ## Ton perimetre
@@ -13,13 +13,31 @@ erreur ici casse le deploiement de toutes les autres applications.
 
 ## Ce que tu ecris
 
-Cette application n'a pas encore de manifeste : le manifeste reste a ecrire.
-Son nom — donc son sous-domaine, son conteneur et sa route — sera `ramure-v2`.
-Echafaude-le avec `./init.sh --add ramure-v2`, puis relance `./init.sh`.
+- Nom : `ramure-v2` — c'est aussi son sous-domaine, son conteneur et sa route.
+- URL : https://ramure-v2.apps.billbob.ovh
+- Qui entre : n'importe quel compte Google authentifie (`exposure: google`).
+- Deployee : pas encore — son bloc n'entre pas dans `compose.yaml`.
+
+## Comment elle tourne
+
+- Technologie : `go`
+- Port : `8080`
+- Memoire : `128m`
+- Healthcheck : `/healthz` — `wget --spider -q http://localhost:8080/healthz`
+
+## Ce qu'elle garde
+
+- Volume `ramure-v2-donnees`, monte sur `/var/lib/ramure` — il survit au redeploiement.
+- Attend le secret `LASTFM_API_KEY` : le NOM est dans le depot, la VALEUR est injectee par l'infrastructure.
+
+## Comment la tester
+
+    ./apps/ramure-v2/test.sh
 
 ## Ses documents
 
 - `apps/ramure-v2/PRODUCT.md` — la fiche produit, puis les exigences.
+- `apps/ramure-v2/README.md` — le mode d'emploi technique.
 - `apps/ramure-v2/prp/` — les documents d'implementation.
 
 ## Les regles qui s'appliquent a son image

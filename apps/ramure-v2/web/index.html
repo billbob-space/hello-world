@@ -1,0 +1,315 @@
+<!-- apps/ramure-v2/web/index.html -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAMURE</title>
+<!-- Installation (N-11, PRP 08) : servis par la route statique EXISTANTE
+     /dist/ (internal/api/routes.go), aucune route serveur ajoutee. -->
+<link rel="manifest" href="/dist/manifest.webmanifest">
+<link rel="icon" href="/dist/icone.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0b0b0c">
+<style>
+  :root { color-scheme: dark light; }
+  * { box-sizing: border-box; }
+  /* Regle GLOBALE unique (deja vu 3 fois ailleurs dans la fabrique,
+     memory/regles-imperatives.md) : toute classe qui declare son propre
+     "display" (grid, flex...) a la MEME specificite que la regle UA par
+     defaut [hidden]{display:none} et peut la gagner selon l'ordre du
+     cascade. Un correctif classe par classe se reproduit a chaque nouvel
+     element cache ; celui-ci couvre tous les elements presents et a venir. */
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #0b0b0c;
+    color: #ece7dc;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+
+    /* Echelle typographique : trois degres, jamais deux voisins a moins d'un
+       rapport de 1,25. En deca, l'oeil ne lit plus une hierarchie mais une
+       imprecision — c'est le defaut releve sur la premiere version de cet
+       ecran, ou 1,1 / 1 / 0,85 se ressemblaient trop pour hierarchiser quoi
+       que ce soit. Rapports tenus ici : 1,375 puis 1,25. */
+    --texte-titre: 1.375rem;
+    --texte-corps: 1rem;
+    --texte-second: .8rem;
+
+    /* Echelle d'espacement : six degres, du plus serre (ce qui va ensemble)
+       au plus large (ce qui separe des sections) — meme logique que
+       l'echelle typographique ci-dessus. Avant cette echelle, quatorze
+       valeurs d'espacement differentes cohabitaient sans aucun rythme
+       lisible : rien ne distinguait "ces elements vont ensemble" de "ces
+       blocs sont deux sections differentes". Chaque degre est reutilise a
+       plusieurs endroits, sauf les deux derniers qui codent chacun un
+       ecart structurel unique. */
+    --espace-1: .25rem;  /* colle : gap interne d'un bouton empile, puce de liste dense */
+    --espace-2: .5rem;   /* pas courant : entre elements d'un meme groupe (icones, boutons, libelle+valeur) */
+    --espace-3: .75rem;  /* bloc : padding des panneaux, cartes et bannieres */
+    --espace-4: 1rem;    /* sous-section : marge entre deux zones proches d'un meme ecran */
+    --espace-5: 3rem;    /* hors-champ : offset qui sort un element du cadre (lien d'evitement) */
+    --espace-6: 4.5rem;  /* rupture : separation entre le bandeau et les panneaux qui le suivent */
+  }
+  body { display: grid; grid-template-rows: auto 1fr; }
+
+  /* Lien d'evitement (§12) : invisible tant qu'il n'a pas le focus. */
+  .evitement {
+    position: absolute; left: 0; top: calc(-1 * var(--espace-5)); z-index: 10;
+    background: #f0a828; color: #0b0b0c; padding: var(--espace-3) var(--espace-4);
+    text-decoration: none; font-weight: 600;
+  }
+  .evitement:focus { top: 0; }
+
+  header {
+    display: flex; align-items: center; gap: var(--espace-3);
+    padding: var(--espace-3) var(--espace-4); border-bottom: 1px solid #232323;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    margin: 0; font-size: var(--texte-titre); letter-spacing: .18em; font-weight: 600;
+  }
+  #recherche { display: flex; gap: var(--espace-2); flex: 1; min-width: 12rem; }
+  #recherche input {
+    flex: 1; min-width: 0; padding: var(--espace-2) var(--espace-3); border-radius: .4rem;
+    border: 1px solid #3a3a3a; background: #161617; color: inherit;
+  }
+  #recherche button, .camera button {
+    padding: var(--espace-2) var(--espace-3); border-radius: .4rem; border: 1px solid #3a3a3a;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    min-height: 2.5rem; min-width: 2.5rem;
+  }
+  .camera { display: flex; gap: var(--espace-2); }
+
+  /* "Remonter d'un cran" (F-14) : memes dimensions minimales que les
+     autres commandes de la barre (§12, cible tactile >= 24x24px), mais sa
+     PROPRE regle plutot qu'un partage de classe avec .camera button — ce
+     n'est pas une commande de camera, la confusion se paierait a la
+     lecture du CSS bien avant celle de l'ecran. */
+  .precedent {
+    padding: var(--espace-2) var(--espace-3); border-radius: .4rem; border: 1px solid #3a3a3a;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    min-height: 2.5rem; min-width: 2.5rem; font-size: var(--texte-corps);
+  }
+
+  /* Banniere de mise a jour (F-42, N-12) : jamais superposee au contenu,
+     jamais un blocage plein ecran — une simple ligne, fermable par
+     l'action elle-meme (le clic recharge la page). */
+  .mise-a-jour {
+    display: flex; align-items: center; justify-content: center; gap: var(--espace-3);
+    flex-wrap: wrap; padding: var(--espace-2) var(--espace-3); background: #2a2410; color: #f0d090;
+    font-size: var(--texte-second);
+  }
+  .mise-a-jour button {
+    padding: var(--espace-2) var(--espace-3); border-radius: .4rem; border: 1px solid #4a4322;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    min-height: 2.5rem; min-width: 2.5rem; font-size: var(--texte-second);
+  }
+
+  main { position: relative; overflow: hidden; }
+  #canevas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .noeud { cursor: pointer; }
+  .noeud:focus-visible circle { outline: 3px solid #f0a828; outline-offset: 2px; }
+  .libelle { fill: #ece7dc; font-size: 13px; pointer-events: none; }
+  .lien { stroke: #4a4a4a; stroke-width: 1.5; }
+
+  #etat {
+    position: absolute; left: var(--espace-3); bottom: var(--espace-3); max-width: 22rem;
+    font-size: var(--texte-second); color: #8a867c;
+  }
+  .visuellement-cache {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  .logo {
+    background: none; border: none; color: inherit; cursor: pointer;
+    font: inherit; font-size: var(--texte-titre); letter-spacing: .18em;
+    font-weight: 600; padding: 0;
+  }
+
+  /* Suggestions (F-01, F-02) : liste positionnee sous le champ, jamais un
+     second champ de recherche — une seule instance dans le document,
+     quelle que soit la largeur (parite stricte, PRP 08). */
+  #recherche { position: relative; }
+  .suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 5;
+    margin: var(--espace-1) 0 0; padding: var(--espace-1); list-style: none;
+    background: #161617; border: 1px solid #3a3a3a; border-radius: .4rem;
+    max-height: 16rem; overflow-y: auto;
+  }
+  .suggestions li {
+    padding: var(--espace-2) var(--espace-2); border-radius: .3rem; cursor: pointer;
+    font-size: var(--texte-corps);
+  }
+  .suggestions li[aria-selected="true"] { background: #2a2a2c; }
+
+  .correction {
+    padding: var(--espace-2) var(--espace-3); margin: 0 var(--espace-4); border-radius: .4rem;
+    background: #2a2410; color: #f0d090; font-size: var(--texte-second);
+    display: flex; gap: var(--espace-2); align-items: center; flex-wrap: wrap;
+  }
+  .correction button {
+    border: 1px solid #4a4322; background: #1c1c1e; color: inherit;
+    border-radius: .3rem; padding: var(--espace-1) var(--espace-2); cursor: pointer;
+    font-size: var(--texte-second);
+  }
+
+  .service { padding: var(--espace-2) var(--espace-2); border-radius: .4rem; border: 1px solid #3a3a3a; background: #1c1c1e; color: inherit; }
+  .partager {
+    padding: var(--espace-2) var(--espace-3); border-radius: .4rem; border: 1px solid #3a3a3a;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    min-height: 2.5rem; min-width: 2.5rem;
+  }
+
+  /* Etat A — accueil (§07) : mur de pochettes plein ecran, sans defilement,
+     le nombre de colonnes suit la largeur PAR CSS. */
+  .accueil { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  .accueil-barre {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--espace-3);
+    padding: var(--espace-2) var(--espace-3); font-size: var(--texte-second); color: #8a867c;
+  }
+  .mur {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    grid-auto-rows: 1fr; gap: var(--espace-2); padding: var(--espace-2); overflow: hidden; height: 100%;
+  }
+  .mur-item { min-height: 0; }
+  .tuile {
+    position: relative; width: 100%; height: 100%; border: none; border-radius: .5rem;
+    cursor: pointer; overflow: hidden; display: flex; align-items: flex-end;
+    padding: 0; color: #ece7dc; min-height: 4rem;
+  }
+  .tuile-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tuile-libelle {
+    position: relative; z-index: 1; width: 100%; padding: var(--espace-2) var(--espace-2);
+    background: linear-gradient(transparent, rgba(0,0,0,.65));
+    font-size: var(--texte-second); text-align: left;
+  }
+  .tuile-apparition { animation: apparition .25s ease both; }
+  @keyframes apparition { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .tuile-apparition { animation: none; }
+  }
+
+  /* Fiche (F-19) et apercu de survol : DEUX panneaux distincts, jamais l'un
+     a la place de l'autre. Meme DOM aux deux largeurs ; seule la CSS
+     repositionne (parite stricte, PRP 08). */
+  .fiche-panneau, .apercu-panneau {
+    position: absolute; background: #161617; border: 1px solid #2a2a2a;
+    border-radius: .6rem .6rem 0 0; padding: var(--espace-3); overflow-y: auto;
+    left: 0; right: 0; bottom: 0; max-height: 45vh;
+  }
+  .apercu-panneau { max-height: 8rem; }
+  .fiche-titre { margin: 0 0 var(--espace-1); font-size: var(--texte-titre); }
+  .fiche-presentation, .apercu-nom { font-size: var(--texte-corps); margin: 0 0 var(--espace-2); }
+  .discographie-filtre { font-size: var(--texte-second); margin-bottom: var(--espace-2); }
+  .discographie-album {
+    display: flex; gap: var(--espace-2); align-items: baseline; font-size: var(--texte-second);
+    padding: var(--espace-1) 0; border-bottom: 1px solid #232323;
+  }
+  .discographie-titre { flex: 1; }
+  .lecteur-bouton, .fiche-lien-artiste, .discographie-lien {
+    font-size: var(--texte-second);
+  }
+  /* Defaut #4 (REFERENCE.md, "color-contrast") corrige : ces deux liens ne
+     declaraient aucune couleur de texte et retombaient sur le bleu de lien
+     par defaut du navigateur (#0000ee), illisible sur le fond sombre du
+     panneau (#161617 -- ratio mesure 1.92:1, WCAG 2 AA exige 4.5:1). Repli
+     sur l'accent deja utilise ailleurs dans cet ecran (lien d'evitement,
+     contour de focus) plutot qu'une nouvelle couleur : ratio mesure 8.90:1
+     sur #161617. */
+  .fiche-lien-artiste, .discographie-lien {
+    color: #f0a828; text-decoration: underline;
+  }
+
+  /* Garder/retirer (F-28) et collection (F-30, F-31, F-33). */
+  .fiche-garder {
+    display: block; margin: 0 0 var(--espace-2); padding: var(--espace-1) var(--espace-3); border-radius: .4rem;
+    border: 1px solid #3a3a3a; background: #1c1c1e; color: inherit; cursor: pointer;
+    font-size: var(--texte-second);
+  }
+  .fiche-garder[aria-pressed="true"] { background: #2a2410; border-color: #4a4322; color: #f0d090; }
+  .collection-vide { font-size: var(--texte-corps); color: #8a867c; margin: 0; }
+  .collection-liste { list-style: none; margin: 0; padding: 0; }
+  .collection-item {
+    display: flex; align-items: center; gap: var(--espace-2);
+    padding: var(--espace-2) 0; border-bottom: 1px solid #232323;
+  }
+  .collection-replanter {
+    flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: var(--espace-1);
+    background: none; border: none; color: inherit; cursor: pointer; padding: 0; text-align: left;
+    font: inherit;
+  }
+  .collection-nom { font-size: var(--texte-corps); }
+  .collection-lignee, .collection-date { font-size: var(--texte-second); color: #8a867c; }
+  .collection-retirer {
+    background: none; border: 1px solid #3a3a3a; border-radius: .3rem; color: inherit;
+    cursor: pointer; min-width: 1.8rem; min-height: 1.8rem; line-height: 1; padding: 0;
+  }
+  @media (min-width: 60rem) {
+    .fiche-panneau {
+      left: auto; right: var(--espace-4); bottom: var(--espace-4); top: var(--espace-6); width: 22rem;
+      border-radius: .6rem; max-height: none;
+    }
+    .apercu-panneau {
+      left: auto; right: var(--espace-4); top: var(--espace-6); bottom: auto; width: 18rem;
+      border-radius: .6rem;
+    }
+  }
+</style>
+</head>
+<body>
+<a class="evitement" href="#contenu">Aller au contenu principal</a>
+<!-- Texte pose par main.ts depuis textes.ts (miseAJourDisponible,
+     miseAJourAppliquer) : jamais fige ici. -->
+<div id="mise-a-jour" class="mise-a-jour" role="status" hidden>
+  <span id="mise-a-jour-texte"></span>
+  <button type="button" id="mise-a-jour-appliquer"></button>
+</div>
+<header>
+  <h1><button type="button" id="logo" class="logo">RAMURE</button></h1>
+  <!-- "remonter d'un cran" (F-14, §12) : action DISTINCTE de "quitter
+       l'exploration" (le logo ci-dessus) — intitule et glyphe differents,
+       jamais les deux memes mots (main.ts pose l'aria-label depuis
+       textes.remonterLaLignee). Masque tant que la lignee est vide. -->
+  <button type="button" id="remonter-lignee" class="precedent" hidden>‹</button>
+  <form id="recherche" role="search" aria-label="Planter un artiste">
+    <label class="visuellement-cache" for="graine">Nom d'artiste</label>
+    <input id="graine" name="graine" type="text" placeholder="Planter un artiste…" autocomplete="off"
+           role="combobox" aria-autocomplete="list" aria-controls="suggestions" aria-expanded="false">
+    <button type="submit">Planter</button>
+    <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
+  </form>
+  <p id="correction" class="correction" role="status" hidden></p>
+  <select id="service" class="service" aria-label="Service d'ecoute"></select>
+  <div class="camera">
+    <button type="button" id="zoomer-arriere" aria-label="Dezoomer">−</button>
+    <button type="button" id="zoomer-avant" aria-label="Zoomer">+</button>
+    <button type="button" id="cadrage-initial" hidden>Revenir au cadrage initial</button>
+    <button type="button" id="partager" class="partager"></button>
+    <button type="button" id="collection-bouton" class="partager"></button>
+  </div>
+</header>
+<main id="contenu">
+  <section id="accueil" class="accueil" hidden>
+    <div class="accueil-barre">
+      <p id="accueil-promesse" class="accueil-promesse"></p>
+      <select id="tri" class="tri" aria-label="Trier le mur"></select>
+    </div>
+    <div id="mur"></div>
+  </section>
+  <!-- role="group", jamais role="img" (PRP 08) : un role="img" masque ses
+       descendants a l'arbre d'accessibilite (aucun enfant expose), ce qui
+       rendrait chaque noeud (role="button" ci-dessous, canevas.ts)
+       INATTEIGNABLE a une technologie d'assistance malgre son tabindex.
+       "group" garde le canevas nomme SANS rien masquer de son contenu. -->
+  <svg id="canevas" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Arbre des artistes proches"></svg>
+  <aside id="fiche" class="fiche-panneau" hidden></aside>
+  <aside id="apercu-branche" class="apercu-panneau" hidden></aside>
+  <aside id="collection" class="fiche-panneau" hidden></aside>
+  <p id="etat" role="status" aria-live="polite"></p>
+</main>
+<script type="module" src="/dist/app.js"></script>
+</body>
+</html>

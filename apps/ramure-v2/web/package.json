@@ -1,0 +1,22 @@
+{
+  "name": "ramure-v2-web",
+  "private": true,
+  "type": "module",
+  "description": "Client TypeScript du canevas RAMURE. Compile vers dist/, embarque par go:embed (voir apps/ramure-v2/main.go). Aucun runtime npm en production : seul dist/ survit dans l'image finale.",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=esm --outfile=dist/app.js --minify && esbuild src/sw.ts --bundle --format=iife --outfile=dist/sw.js --minify && mkdir -p dist && cp manifest.webmanifest dist/manifest.webmanifest && cp icone.svg dist/icone.svg",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "1.56.1",
+    "@types/node": "^26.2.0",
+    "playwright-core": "1.56.1",
+    "esbuild": "^0.24.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

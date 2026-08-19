@@ -21,4 +21,5 @@ use ./apps/hello-world
 use ./apps/marcq-handball
 use ./apps/pilabelle
 use ./apps/ramure
+use ./apps/ramure-v2
 use ./apps/renaissance-gym
