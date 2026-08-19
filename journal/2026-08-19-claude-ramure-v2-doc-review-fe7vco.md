@@ -457,6 +457,91 @@ repli est permanent. À vérifier depuis un poste ayant accès au réseau, avant
 recette du PRP 09 — ou à assumer, en le disant.
 
 
+### 15. (phase 2) La colonne « Test » du PRD est aveugle des que les tests vivent dans un sous-paquet
+
+**Symptome** — `./init.sh --check` signale sept tests « introuvables dans les
+tests de l'app » alors qu'ils **existent** et sont verts :
+`TestBudgetRespecteSurUnChargementComplet`,
+`TestDiscographieRattacheeAuMBIDDemande` et leurs voisins. Le contrôle ne lit
+que `apps/<nom>/*_test.go`, à la racine de l'app, et jamais
+`apps/<nom>/internal/**/*_test.go`. Or c'est là que vit **tout** le code de
+`ramure-v2` à partir du PRP 02 : six paquets internes, et la racine ne garde
+qu'un `main_test.go`.
+
+**Cause** — le contrôle a été écrit pour des apps à un seul paquet, ce qu'étaient
+toutes celles de la fabrique jusqu'ici. `ramure-v2` est la première à se
+découper. La colonne « Test » du tableau des risques a précisément été ajoutée à
+ce PRD lors de la phase 1 de cette branche, pour rendre une promesse vérifiable :
+elle ne l'est pas, et l'avertissement dit le contraire de la vérité — il accuse
+un test présent d'être absent.
+
+C'est le second défaut de cette même famille en une journée : l'anomalie 11
+décrivait un cas de test qui rougissait parce qu'un PRD citait des tests
+légitimement à venir. Les deux viennent du même endroit, et le premier correctif
+n'a pas fait regarder le second.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — le contrôle doit balayer `apps/<nom>/**/*_test.go` et
+non `apps/<nom>/*_test.go`. Tant qu'il ne le fait pas, la colonne « Test » ne
+garantit rien pour une app à plusieurs paquets, et le bruit qu'elle produit
+apprend à ignorer l'avertissement — ce qui est pire que de ne rien avoir. Le
+correctif appartient à une branche `fabrique/`, pas à celle-ci ; il n'est
+qu'un avertissement et ne bloque pas.
+
+### 16. (phase 2) `go:embed` ne traverse pas de repertoire, et deplace la cible du `-ldflags`
+
+**Symptome** — le PRP 04 élargit `routes()` en `Routes(d arbre.Dependances)` et
+le déplace dans `internal/api`, qui devient « le seul routeur » et doit donc
+servir la page d'accueil. Mais `go:embed` **ne peut pas remonter un répertoire** :
+`web/` est à côté de `main.go`, pas de `internal/api`. La page ne peut donc pas
+suivre le routeur.
+
+Résolu par deux variables de paquet, `api.Version` et `api.AccueilHTML`, que
+`main()` renseigne au démarrage. Conséquence non évidente : la cible du
+`-X` dans le `Dockerfile` devait suivre, de `main.version` vers le chemin complet
+`…/internal/api.Version`. Un `-X` dont le chemin ne correspond à rien
+**n'échoue pas** : `go build` l'ignore en silence, la version reste `dev`, et
+l'en-tête `X-Ramure-Version` ment sans que rien ne le dise.
+
+**Cause** — le PRP tranche l'élargissement de la signature sans avoir vu que la
+page d'accueil, embarquée à la compilation, ne peut pas déménager avec elle. La
+contrainte est propre à `go:embed` et ne se lit pas dans la signature.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — vérifié à la main ici : binaire construit avec
+`-X …/internal/api.Version=preuve123`, lancé, et l'en-tête rend bien
+`preuve123`. Aucun test ne le prouve, et aucun ne le peut depuis Go seul — un
+test comparerait la variable à elle-même. Ce qui manque est une vérification
+d'après-construction, du même genre que celles que la CI fait déjà sur l'image
+(labels, taille) : lancer le binaire construit et lire l'en-tête. À écrire dans
+une branche `fabrique/`, puisque toute app versionnée ainsi a le même trou.
+
+### 17. (phase 2) Le profil du centre n'avait aucun chemin dans `Dependances`
+
+**Symptome** — le budget du PRP 04 exige **deux** appels Last.fm : le vivier et
+le profil du centre. Le vivier passe par la cascade (Last.fm puis ListenBrainz) ;
+le profil, lui, n'existe que chez Last.fm et ne doit **pas** basculer en repli.
+Or `Dependances` n'expose qu'un champ `Proximite`, câblé en production sur la
+cascade : le profil n'était atteignable par aucun chemin, et le chiffre
+`Compte(LastFM) == 2` inatteignable.
+
+**Cause** — la cascade a été conçue au PRP 03 pour un rôle, la proximité, dont
+les deux fournisseurs sont interchangeables. Le profil est une capacité que
+**seul** le premier possède : une interface qui ne décrit que le rôle commun ne
+peut pas la porter. Le PRP 03 figeait `Cascade` sans elle, le PRP 04 en a besoin,
+et aucun des deux ne le dit.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — rattrapé par le test de budget, qui n'aurait pas rendu 2
+sans cela : `Cascade` gagne un `Profil` qui délègue à sa première source sans
+repli. Les trente-huit tests du PRP 03 restent verts. C'est exactement ce qu'un
+chiffre testé est censé faire — refuser une implémentation qui « marche » mais ne
+tient pas la promesse.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre

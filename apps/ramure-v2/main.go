@@ -16,6 +16,12 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/api"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/arbre"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/budget"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/cache"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/source"
 )
 
 // adresse d'ecoute, figee. Le port du conteneur est declare dans
@@ -30,52 +36,33 @@ const adresse = ":8080"
 // ajouteront des sources TypeScript et un repertoire de compilation, qui
 // n'ont rien a faire dans le binaire.
 //
+// L'embed reste ICI et non dans internal/api : go:embed n'accepte pas de
+// chemin hors du repertoire du fichier qui le declare, et web/index.html vit
+// au niveau de main.go. main() copie les octets dans api.AccueilHTML avant
+// de servir.
+//
 //go:embed web/index.html
 var accueilHTML []byte
 
-// version identifie l'image qui repond. Elle est posee a la construction par
-// -ldflags "-X main.version=..." — la CI y met le SHA du commit — et vaut
-// "dev" en construction locale. Le tag :main de GHCR etant mutable, c'est le
-// seul moyen de savoir QUELLE image est en ligne.
-var version = "dev"
+// Routes construit desormais le routeur complet (PRP 04) : sonde de sante,
+// page d'accueil, en-tete X-Ramure-Version et /api/centre y sont tous
+// enregistres, cf. internal/api. main() ne fait plus que cabler les
+// dependances et demarrer/arreter le serveur.
 
-// entetes pose sur chaque reponse ce qui ne depend pas de la route.
-// Le Header() est ecrit AVANT que le gestionnaire n'appelle WriteHeader :
-// une fois le statut envoye, les en-tetes sont figes et l'ajout serait perdu
-// sans la moindre erreur.
-func entetes(suivant http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Ramure-Version", version)
-		suivant.ServeHTTP(w, r)
-	})
-}
-
-// routes construit le routeur de l'application. C'est le point de greffe de
-// toutes les etapes suivantes de la serie : chaque PRP y ajoute ses routes,
-// et aucun ne construit son propre ServeMux.
-func routes() http.Handler {
-	mux := http.NewServeMux()
-
-	// La sonde de sante ne depend d'AUCUNE source externe, et c'est une
-	// decision : une sonde qui interrogerait MusicBrainz declarerait le
-	// conteneur malsain a la premiere panne de MusicBrainz, et Docker le
-	// redemarrerait en boucle alors que l'application va bien (N-06).
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("ok\n"))
-	})
-
-	// {$} impose une correspondance EXACTE sur "/". Sans lui, "GET /" est un
-	// motif de prefixe qui capte tous les chemins inconnus : ils repondraient
-	// 200 avec la page d'accueil au lieu de 404.
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(accueilHTML)
-	})
-
-	// L'enveloppe est DANS routes() et non dans main() : les tests appellent
-	// routes(), et un en-tete pose ailleurs ne serait jamais verifie.
-	return entetes(mux)
+// dependances cable les sources externes UNE SEULE FOIS par processus : un
+// Cache, un Limiteur, un http.Client, une Cascade de proximite. Les PRP 06
+// et 07 elargissent arbre.Dependances, jamais un second cablage.
+func dependances() arbre.Dependances {
+	c := cache.Neuf(time.Now)
+	l := budget.Neuf()
+	client := &http.Client{Timeout: 8 * time.Second}
+	mb := source.NouveauMusicBrainz(c, l, client, "ramure-v2/1.0 ( https://ramure-v2.apps.billbob.ovh )")
+	prox := &source.Cascade{Sources: []source.Proximite{
+		source.NouveauLastFM(os.Getenv("LASTFM_API_KEY"), c, l, client),
+		source.NouveauListenBrainz(c, l, client),
+	}}
+	dz := source.NouveauDeezer(c, l, client)
+	return arbre.Dependances{Catalogue: mb, Proximite: prox, Media: dz, Limiteur: l}
 }
 
 // traceur retient le code de reponse, que http.ResponseWriter ne rend pas.
@@ -120,9 +107,13 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
+	// go:embed n'accepte pas de chemin hors du repertoire de ce fichier :
+	// les octets sont donc copies dans le paquet api avant de servir.
+	api.AccueilHTML = accueilHTML
+
 	srv := &http.Server{
 		Addr:    adresse,
-		Handler: journal(routes()),
+		Handler: journal(api.Routes(dependances())),
 		// Un client qui ouvre une connexion sans jamais finir ses en-tetes
 		// immobiliserait une goroutine indefiniment.
 		ReadHeaderTimeout: 10 * time.Second,
@@ -144,7 +135,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("ramure-v2 %s ecoute sur %s", version, adresse)
+	log.Printf("ramure-v2 %s ecoute sur %s", api.Version, adresse)
 	// Shutdown fait rendre ErrServerClosed a ListenAndServe : c'est la sortie
 	// NORMALE. La traiter comme une erreur ferait sortir le conteneur en code
 	// non nul, donc redemarrer par restart: unless-stopped, en boucle.

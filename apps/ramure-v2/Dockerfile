@@ -24,8 +24,11 @@ ARG VERSION=dev
 # finale sans embarquer la libc de l'etage de construction.
 # -trimpath retire les chemins du poste de construction du binaire ;
 # -s -w retirent la table des symboles : quelques megaoctets de moins.
+# La cible du -X est internal/api.Version (PRP 04) : c'est ce paquet qui
+# pose l'en-tete X-Ramure-Version sur chaque reponse, main.go ne portant
+# plus sa propre variable de version.
 RUN CGO_ENABLED=0 go build -trimpath \
-        -ldflags "-s -w -X main.version=${VERSION}" \
+        -ldflags "-s -w -X github.com/billbob-space/hello-world/apps/ramure-v2/internal/api.Version=${VERSION}" \
         -o /out/ramure-v2 .
 
 FROM alpine:3.20

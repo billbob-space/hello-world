@@ -101,3 +101,26 @@ func (c Cascade) Vivier(ctx context.Context, a Artiste, p budget.Portee) ([]Vois
 	}
 	return nil, derniereErr
 }
+
+// profileur est l'extension optionnelle de Proximite qui porte le profil
+// (presentation, genres, audience). Seul Last.fm l'implemente dans la serie
+// (PRP 04) : a la difference du vivier, le profil n'est pas un repli entre
+// plusieurs sources equivalentes — c'est une donnee propre a Last.fm (PRD
+// §07), et ListenBrainz n'a simplement pas de methode Profil.
+type profileur interface {
+	Profil(ctx context.Context, nom string, p budget.Portee) (Profil, error)
+}
+
+// Profil rend le profil de la premiere source de la cascade qui
+// l'implemente, sans repli vers les suivantes : contrairement a Vivier, ce
+// n'est pas une cascade de tolerance entre sources equivalentes, seule
+// Last.fm porte cette donnee. ErrIntrouvable si aucune source de la cascade
+// n'implemente Profil.
+func (c Cascade) Profil(ctx context.Context, nom string, p budget.Portee) (Profil, error) {
+	for _, s := range c.Sources {
+		if pf, ok := s.(profileur); ok {
+			return pf.Profil(ctx, nom, p)
+		}
+	}
+	return Profil{}, ErrIntrouvable
+}
