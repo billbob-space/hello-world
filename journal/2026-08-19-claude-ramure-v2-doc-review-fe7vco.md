@@ -394,6 +394,69 @@ interdits d'avant. Corrigé sur cette branche — `v0.32.0` épinglée, directiv
 ramenée à `go 1.24.0`, cohérente avec `golang:1.24-alpine`.
 
 
+### 13. (phase 2) « Attendre puis Obtenir » fait payer la file d'attente aux appels servis par le cache
+
+**Symptome** — le PRP 03 impose, adaptateur par adaptateur, l'ordre
+« `Attendre(ctx, source, portee)` **avant** toute requête, puis `Obtenir` ».
+Suivi à la lettre, il place le portillon de débit **à l'extérieur** du cache :
+un appel entièrement servi par le cache consomme quand même un billet et
+**attend jusqu'à l'intervalle de la source** — une seconde pour MusicBrainz —
+sans qu'aucune requête ne parte. Une fiche déjà en cache se paie donc le temps
+d'attente d'une fiche neuve.
+
+Rien ne l'aurait dit : les trente-sept tests du paquet passent, le compte
+d'appels annoncé par le PRP 04 (`Compte(MusicBrainz) == 2`) reste juste sur un
+cache froid, et le défaut ne se voit qu'en mesurant une latence que personne ne
+mesure. C'est pourtant la prémisse de N-13 qui tombe : le seuil de « environ
+5 promotions par seconde » est calculé sur « 80 % de taux de service par le
+cache », or avec ce placement le portillon reste à un billet par seconde quoi
+qu'il arrive — le cache n'achète plus rien sur le débit, seulement sur le quota.
+
+**Cause** — « avant toute requête » décrit une **garantie** (aucun appel ne part
+sans passer par le portillon) et a été lu comme un **ordre d'exécution** (appeler
+`Attendre`, puis `Obtenir`). Les deux lectures coïncident tant qu'on ne pense
+qu'au cache froid, qui est le cas que les tests couvrent et celui auquel on pense
+en écrivant. Elles divergent exactement là où le cache sert — c'est-à-dire dans
+le régime nominal.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — l'appel à `Attendre` passe **dans** la fonction de
+chargement, où il garde son sens sans se déclencher à vide ; N-03 reste tenu, un
+cache froid remontant toujours `ErrPorteeInterdite` sans émettre de requête. Et
+la garantie gagne le test qui lui manquait : deux appels sur la même clé ne
+consomment qu'un billet. La leçon vaut au-delà : les tests de ce PRP éprouvaient
+tous le cache froid, et aucun le régime nominal.
+
+### 14. (phase 2) Deux vides de spécification du PRP 03, dont un qu'aucun test ne peut combler
+
+**Symptome** — deux endroits où le PRP 03 ne dit rien là où il dit tout ailleurs :
+
+- `LastFM.Profil` figure dans les signatures figées et dans « ce que la suite
+  attend de vous », mais **aucune tâche ne lui donne de test**, alors que les
+  cinq autres méthodes en ont chacune plusieurs. Écrit selon la convention des
+  voisines, il est le seul morceau du chantier livré sans exigence explicite ;
+- **Odesli est le seul des six fournisseurs sans requête vérifiée en direct.**
+  Les cinq autres portent leur URL exacte et sa date de vérification ; celui-ci
+  n'a que son nom. L'adresse retenue est l'API publique connue, non vérifiée —
+  aucun appel réseau réel n'étant possible depuis une session cloud.
+
+**Cause** — le README de la série l'annonçait déjà : Odesli est le seul dont
+« la limite de débit n'est pas documentée publiquement », et son rôle est classé
+« meilleur-effort strict », avec repli obligatoire. Ce qui n'a pas été fait, c'est
+la conséquence : une source dont on sait qu'on ne sait rien mérite **plus** de
+vérification que les autres, pas moins.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — le risque est borné par construction : si l'adresse est
+fausse, `LienEcoute` retombe silencieusement sur la recherche pré-remplie, qui
+est le repli **obligatoire** du rôle 4 — l'utilisateur perd la précision du lien,
+jamais l'accès. Reste que « silencieusement » est le mot : rien ne dira que le
+repli est permanent. À vérifier depuis un poste ayant accès au réseau, avant la
+recette du PRP 09 — ou à assumer, en le disant.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre
