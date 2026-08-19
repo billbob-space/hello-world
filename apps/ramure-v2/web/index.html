@@ -1,0 +1,44 @@
+<!-- apps/ramure-v2/web/index.html -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAMURE</title>
+<style>
+  :root { color-scheme: dark light; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: clamp(1rem, 5vw, 3rem);
+    background: #0b0b0c;
+    color: #ece7dc;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 34rem; }
+  h1 {
+    margin: 0 0 .4rem;
+    font-size: clamp(1.6rem, 7vw, 2.4rem);
+    letter-spacing: .18em;
+    font-weight: 600;
+  }
+  p.promesse { margin: 0 0 2rem; color: #f0a828; }
+  p.etat { color: #8a867c; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>RAMURE</h1>
+  <p class="promesse">Plante un nom, saute de branche en branche.</p>
+  <p class="etat">
+    Le socle est en ligne : le serveur repond, l'image est publiee, la stack
+    tient debout. Le canevas et l'arbre arrivent aux etapes suivantes de la
+    serie. La version servie est dans l'en-tete <code>X-Ramure-Version</code>.
+  </p>
+</main>
+</body>
+</html>

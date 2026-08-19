@@ -485,6 +485,12 @@ services:
     networks: [apps_net]
   # <<< ramure
 
+  # >>> ramure-v2 — DESACTIVEE (enabled: false dans apps/ramure-v2/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< ramure-v2
+
   # >>> renaissance-gym — apps/renaissance-gym/app.yml — https://renaissance-gym.apps.billbob.ovh
   renaissance-gym:
     image: ghcr.io/billbob-space/hello-world/renaissance-gym:14eecce16c8bea950482b4eff0e62f4855904182
