@@ -12,8 +12,8 @@ et fait repousser l'arbre. Ce document décrit le produit à construire — le *
 | | |
 |---|---|
 | Nom de travail | **RAMURE** |
-| Version | **1.0** |
-| Date | **30 juillet 2026** |
+| Version | **1.1** — décisions tranchées, annexe, retrait de la v1 |
+| Date | **30 juillet 2026**, révisé le **19 août 2026** |
 | Destinataire | **équipe de réalisation** |
 
 > Source : artifact [RAMURE — PRD](https://claude.ai/code/artifact/90f89df8-3ea9-4b03-a5cf-267d701bb28d),
@@ -37,7 +37,9 @@ et fait repousser l'arbre. Ce document décrit le produit à construire — le *
 14. [Risques](#14--risques)
 15. [Découpage en lots](#15--découpage-en-lots)
 16. [Hors scope](#16--hors-scope)
-17. [Décisions déléguées & questions ouvertes](#17--décisions-déléguées--questions-ouvertes)
+17. [Décisions déléguées & questions tranchées](#17--décisions-déléguées--questions-tranchées)
+18. [Annexe — les questions qu'un PRD doit avoir tranchées](#18--annexe--les-questions-quun-prd-doit-avoir-tranchées)
+19. [RAMURE v2 — ce qu'elle change, et le retrait de la première version](#19--ramure-v2--ce-quelle-change-et-le-retrait-de-la-première-version)
 
 ---
 
@@ -165,6 +167,15 @@ mesures ; l'instrumentation qui permet de les calculer fait partie du périmètr
 | M-07 | Le partage fonctionne comme acquisition | Part de nouvelles sessions ouvertes depuis un lien partagé | ≥ 10 % | V1 |
 | M-08 | Le produit reste utilisable par tous | Violations d'accessibilité de niveau critique | 0 | MVP |
 
+> **Chaque métrique est instrumentée avec la fonction qu'elle mesure**
+>
+> M-01 à M-05 et M-08 le sont dès le MVP (N-09). M-06 et M-07 arrivent avec les
+> fonctions qu'elles jugent — la collection et le partage —, jamais après : une
+> fonction livrée sans son compteur est une fonction dont personne ne saura
+> jamais si elle a servi. M-07 se lit sous la décision du §17 n° 2 : le
+> destinataire d'un lien doit posséder un compte Google, la cible mesure donc le
+> partage entre gens déjà équipés.
+
 ### Contre-indicateurs à surveiller
 
 - **Sessions à un seul saut** — l'arbre n'a pas donné envie de continuer : le premier entourage est mal choisi.
@@ -264,6 +275,13 @@ compact : titre, invitation, accès à la recherche, choix de tri.
 - **Les liens** — un trait relie chaque branche au centre et chaque héritier à sa branche.
 - **La lignée** — affichée en permanence, chaque ancêtre cliquable, avec les actions « rebattre », « palmarès » et « collection ».
 - **La fiche** — profil du centre, discographie, lecteur, signet, liens d'écoute.
+
+**Ce que la fiche coûte, et quand.** Le profil et la discographie du centre font
+partie de l'écran : ils sont chargés **avec l'arbre**, à chaque promotion. Les
+extraits et les liens d'écoute, eux, ne sont demandés qu'**au geste** — ouvrir le
+lecteur, cliquer un lien. La distinction n'est pas cosmétique : elle fixe le coût
+du geste le plus fréquent du produit (N-03), et elle doit être la même dans tous
+les documents qui le chiffrent.
 
 ### Deux dispositions
 
@@ -432,6 +450,7 @@ service choisi.
 | N-11 | Installation & hors-ligne | Le produit est installable et démarre sans réseau sur son écran d'accueil ; les illustrations déjà vues restent disponibles | V1 |
 | N-12 | Diffusion des mises à jour | Une version déployée atteint les installations existantes sans action manuelle de l'utilisateur, dans un délai borné | V1 |
 | N-13 | Coût d'exploitation | L'architecture doit tenir sans contrat payant auprès des sources externes pour le volume visé, ou documenter explicitement le seuil de bascule | MVP |
+| N-14 | Équité entre visiteurs | Le quota des sources est partagé par tous les visiteurs. Un visiteur seul ne peut pas le monopoliser : un seul chargement de centre en vol par identité, les suivants attendent leur tour | MVP · **Critique** |
 
 > **Le budget d'appels est une exigence produit, pas un détail**
 >
@@ -531,15 +550,21 @@ passent tous la compilation et les tests unitaires.
 
 ## 14 · Risques
 
-| Risque | Grav. | Mitigation exigée |
-|---|---|---|
-| **Dépendance à une source unique de proximité** — sans elle, il n'y a pas d'arbre du tout | Élevée | Évaluer au moins deux fournisseurs pour le rôle 1 avant de s'engager ; encapsuler l'accès derrière une interface interne pour rendre la substitution possible ; distinguer explicitement « aucun voisin » de « source indisponible » (F-36) |
-| **Dépassement des quotas partagés** — tous les utilisateurs sortent par la même adresse, le geste central est le plus coûteux | Élevée | Budget d'appels borné et documenté (N-03), cache mutualisé côté serveur (N-04), mutualisation des requêtes identiques (N-07), suivi du taux de service par le cache |
-| **Homonymes d'artistes** — un mauvais appariement contamine tout un sous-arbre sans aucun signal d'erreur | Élevée | Correspondance stricte imposée (§09), résolution par identifiant privilégiée, bornes sur la correction orthographique, tests de non-contamination |
-| **Le canevas exige de la place** — le cœur du produit est le moins confortable sur téléphone | Moyenne | Arbitrer explicitement la priorité mobile ou desktop *avant* la conception d'interface ; tester la densité de nœuds sur petit écran dès le premier prototype |
-| **Régressions visuelles invisibles** — géométrie, superpositions, animations | Moyenne | Vérifications mesurées en bout en bout sur grand écran (§13), revue visuelle systématique des écrans modifiés |
-| **Couverture partielle de l'appréciation** — le classement disparaît sur les genres mal couverts | Faible | Ordre d'origine stable en l'absence de note, aucun réordonnancement intermédiaire, état vide explicite plutôt que classement trompeur |
-| **Métriques non instrumentées** — le produit ne peut pas prouver qu'il fonctionne | Moyenne | Agrégation côté serveur dans le périmètre du MVP (N-09), et non repoussée à une phase ultérieure |
+Chaque risque nomme le test qui le tient. Les noms cités sont ceux que la série
+de PRP écrit ; tant que le code n'existe pas, `./init.sh --check` signale qu'il
+ne les trouve pas — c'est le comportement attendu, et il s'éteint à mesure que
+les tests sont écrits.
+
+| Risque | Grav. | Mitigation exigée | Test |
+|---|---|---|---|
+| **Dépendance à une source unique de proximité** — sans elle, il n'y a pas d'arbre du tout | Élevée | Évaluer au moins deux fournisseurs pour le rôle 1 avant de s'engager ; encapsuler l'accès derrière une interface interne pour rendre la substitution possible ; distinguer explicitement « aucun voisin » de « source indisponible » (F-36) | `TestCascadeBasculeSurErreur` |
+| **Dépassement des quotas partagés** — tous les utilisateurs sortent par la même adresse, le geste central est le plus coûteux | Élevée | Budget d'appels borné et documenté (N-03), cache mutualisé côté serveur (N-04), mutualisation des requêtes identiques (N-07), part équitable par visiteur (N-14), suivi du taux de service par le cache | `TestBudgetRespecteSurUnChargementComplet` |
+| **Un visiteur monopolise le quota** — le palier d'exposition n'est pas une liste blanche, et la source la plus contrainte tolère un appel par seconde pour tout le monde | Élevée | Un seul chargement de centre en vol par identité (N-14) ; les autres attendent, aucun n'échoue | `TestUnSeulChargementEnVolParIdentite` |
+| **Homonymes d'artistes** — un mauvais appariement contamine tout un sous-arbre sans aucun signal d'erreur | Élevée | Correspondance stricte imposée (§09), résolution par identifiant privilégiée, bornes sur la correction orthographique, tests de non-contamination | `TestDiscographieRattacheeAuMBIDDemande` |
+| **Le canevas exige de la place** — le cœur du produit est le moins confortable sur téléphone | Moyenne | Parité stricte tranchée (§17) : le nombre de branches et d'héritiers est fonction de la largeur, et les cibles tactiles sont vérifiées aux deux dispositions | `TestCadragePlusEtroitSurEcranEtroit` |
+| **Régressions visuelles invisibles** — géométrie, superpositions, animations | Moyenne | Vérifications mesurées en bout en bout sur grand écran (§13), revue visuelle systématique des écrans modifiés | non testable hors navigateur — la recette bout en bout la couvre, et elle ne tourne pas en intégration continue (§13) |
+| **Couverture partielle de l'appréciation** — le classement disparaît sur les genres mal couverts | Faible | Ordre d'origine stable en l'absence de note, aucun réordonnancement intermédiaire, état vide explicite plutôt que classement trompeur | `TestAlbumSansNoteConserveUnOrdreStable` |
+| **Métriques non instrumentées** — le produit ne peut pas prouver qu'il fonctionne | Moyenne | Agrégation côté serveur dans le périmètre du MVP (N-09), et non repoussée à une phase ultérieure | `TestInstantanePorteLesMetriquesDuLot` |
 
 ---
 
@@ -603,7 +628,7 @@ Explicitement exclu, pour éviter que ces sujets ne reviennent par la porte de d
 
 ---
 
-## 17 · Décisions déléguées & questions ouvertes
+## 17 · Décisions déléguées & questions tranchées
 
 ### Délégué à l'équipe de réalisation
 
@@ -612,14 +637,111 @@ Explicitement exclu, pour éviter que ces sujets ne reviennent par la porte de d
 - **Le mécanisme d'authentification**, dès lors que l'identité de partitionnement est établie côté serveur (N-08).
 - **Les valeurs exactes des paramètres de cadrage** (nombre de branches, taille du vivier, durées d'animation) : les ordres de grandeur de la §05 sont un point de départ, à affiner par test utilisateur.
 
-### Questions ouvertes — à trancher avant la fin du MVP
+### Questions tranchées — le 19 août 2026
 
-1. **Mobile ou desktop en priorité ?** L'usage réel de l'écoute est mobile, mais le canevas s'exprime pleinement sur grand écran. Cette tension doit être arbitrée explicitement : elle détermine la densité de nœuds, la taille des cibles et l'ordre de conception des dispositions.
-2. **Faut-il un compte pour explorer ?** Exiger un compte dès l'entrée protège les quotas et permet la synchronisation, mais coupe le parcours du destinataire d'un lien partagé — c'est-à-dire le seul canal d'acquisition. Un accès invité en lecture seule est la piste recommandée.
-3. **La session est-elle jetable ?** Restaurer la lignée au rechargement (F-18) est une commodité coûteuse ; il faut décider si une exploration est un objet qu'on reprend ou un moment qu'on recommence.
-4. **Quel volume est visé ?** Un usage confidentiel tient sans contrat auprès des sources ; une ouverture large impose de renégocier les accès ou de faire porter les quotas par chaque utilisateur. Le seuil de bascule doit être chiffré (N-13).
-5. **Le produit s'adresse-t-il à un public francophone ou international ?** Le vocabulaire du §05 est fortement idiomatique ; sa traduction n'est pas mécanique et conditionne l'architecture des contenus.
+Les cinq questions que ce document laissait ouvertes sont tranchées. Elles restent
+écrites : une décision dont la question a disparu se reprend six mois plus tard
+sans savoir qu'elle avait été prise.
+
+1. **Mobile ou desktop en priorité ?** — *L'usage réel de l'écoute est mobile,
+   mais le canevas s'exprime pleinement sur grand écran.*
+   → **Parité stricte**, décision du commanditaire. Conséquence : les paramètres
+   de cadrage du §05 deviennent **fonction de la largeur** — 10 branches et
+   3 héritiers sur écran large, 6 branches et 2 héritiers sur écran étroit — pour
+   tenir la lisibilité (§11) et les cibles tactiles (§12). Les deux variantes d'un
+   même contrôle ne coexistent jamais (§07).
+2. **Faut-il un compte pour explorer ?** — *Un accès invité en lecture seule était
+   la piste recommandée.*
+   → **Sans objet, et l'accès invité est abandonné.** L'application est servie
+   derrière une authentification par compte Google appliquée **avant** elle :
+   tout visiteur est authentifié dès sa première requête, et il n'existe pas de
+   palier public. Deux conséquences à assumer : le cloisonnement des données par
+   visiteur n'est pas optionnel (N-08), et le destinataire d'un lien partagé doit
+   posséder un compte Google — la cible M-07 est donc à relire comme une mesure
+   du partage entre gens déjà équipés, pas comme un canal d'acquisition ouvert.
+3. **La session est-elle jetable ?** — *Reprendre une exploration ou la
+   recommencer.*
+   → **Jetable.** La lignée vit en mémoire et dans l'adresse de la page ; F-18
+   reste en lot V2.
+4. **Quel volume est visé ?** — *Le seuil de bascule doit être chiffré.*
+   → **Usage confidentiel**, sans contrat auprès des sources. La contrainte dure
+   est la source de catalogue, un appel par seconde et par adresse, partagée par
+   tous les visiteurs : le seuil est d'environ **un nouveau centre non caché par
+   seconde**, soit près de **cinq promotions par seconde** tous visiteurs
+   confondus à 80 % de service par le cache — une hypothèse, à corriger dès la
+   première mesure réelle. Au-delà : miroir de la source, ou contrat. C'est aussi
+   ce qui rend N-14 nécessaire.
+5. **Francophone ou international ?**
+   → **Francophone.** Le vocabulaire du §05 est idiomatique et contractuel ; les
+   chaînes affichées restent centralisées en un seul endroit pour ne pas fermer
+   la porte.
 
 ---
 
-*RAMURE · Product Requirements Document · version 1.0 · 30 juillet 2026*
+## 18 · Annexe — les questions qu'un PRD doit avoir tranchées
+
+Ces quatre questions ne sont pas là par principe : chacune a coûté un défaut
+livré ailleurs dans le dépôt. Elles trouvent leur réponse ici, avant la première
+ligne de code.
+
+**1 · Combien d'appareils ?** — Plusieurs par personne, et c'est ce qui décide de
+tout le reste : un téléphone pour découvrir en marchant, un ordinateur pour
+explorer le canevas au large. La collection et le choix du service d'écoute
+doivent donc suivre la personne d'un appareil à l'autre (F-25, F-32), ce qu'un
+stockage de navigateur ne fait pas : ils vivent côté serveur, partitionnés par
+l'identité que l'authentification établit (N-08). Le nombre d'utilisateurs, lui,
+ne change rien à cette décision.
+
+**2 · Et si l'utilisateur ne peut pas terminer une étape ?** — RAMURE n'a pas de
+parcours guidé en plusieurs étapes : la seule séquence est *planter → arbre*, et
+elle n'a pas d'état intermédiaire à sauver. Ses quatre issues sont donc :
+reprendre la saisie, accepter la correction proposée (F-03), revenir à l'accueil
+qui réinitialise l'état (F-07), ou repartir d'un artiste gardé (F-31). Aucune ne
+laisse de brouillon derrière elle, et c'est délibéré : une exploration est un
+moment, pas un formulaire.
+
+**3 · Comment quitte-t-on un compte sans l'effacer ?** — L'identité vient de
+l'authentification placée devant l'application : se déconnecter est un geste du
+navigateur, pas une commande du produit. La symétrie qui doit exister côté
+produit est celle de la **donnée** : ce que le serveur conserve d'une personne se
+limite à sa collection et à son service d'écoute, chaque artiste gardé se retire
+d'un geste (F-28), et l'export de la collection (F-35, lot V2) est ce qui rendra
+le départ non destructif. Tant qu'il n'est pas livré, partir signifie retirer ses
+artistes un par un — c'est écrit ici pour que personne ne croie l'inverse.
+
+**4 · L'unité de l'original survit-elle à la transposition ?** — L'original n'est
+pas une feuille de papier mais un catalogue, et son unité est l'**artiste** —
+jamais une date, jamais une session. Le produit ne date donc rien de ce qu'il
+affiche. Une seule exception, assumée : l'artiste gardé porte la date de sa
+découverte et la lignée qui y a mené (F-29), parce que c'est le contexte, pas le
+contenu, qui se perd le premier.
+
+---
+
+## 19 · RAMURE v2 — ce qu'elle change, et le retrait de la première version
+
+Une première version de RAMURE est en ligne. Elle couvre les lots MVP et V1, plus
+le palmarès et la reprise de lignée du lot V2, et sert d'étalon : ce document
+décrit la seconde, qui la **remplace**.
+
+**Ce que la v2 change**, et qui justifie une réécriture plutôt qu'une correction :
+
+- **le palier d'exposition** — la v1 n'est accessible qu'aux comptes de la liste
+  blanche du serveur ; la v2 s'ouvre à tout compte Google, ce qui rend le partage
+  (F-34) réalisable et le cloisonnement par visiteur (N-08) obligatoire ;
+- **la collection qui survit au redéploiement** (F-32, F-33), portée par un
+  espace de stockage nommé et par une identité établie côté serveur ;
+- **la source de proximité et son repli** — deux fournisseurs pour le rôle 1
+  plutôt qu'un, ce qui retire au produit son point de rupture unique (§14) ;
+- **la part équitable du quota entre visiteurs** (N-14), qui n'avait pas lieu
+  d'être tant qu'une liste blanche gardait la porte.
+
+**Le retrait de la v1 est la dernière tâche de la mise en ligne de la v2**, pas
+une intention. Tant que les deux vivent, elles partagent ce document mot pour
+mot : la première correction portée sur l'un des deux exemplaires fait mentir
+l'autre en silence, sans qu'aucun contrôle ne le voie. Le retrait est ce qui rend
+au PRD son domicile unique.
+
+---
+
+*RAMURE · Product Requirements Document · version 1.1 · 19 août 2026*

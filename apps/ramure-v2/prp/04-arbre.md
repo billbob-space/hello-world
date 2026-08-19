@@ -194,8 +194,15 @@ Un artiste sans voisins n'est **pas** une erreur HTTP.
 | discographie + notes + types | MusicBrainz | `Centre` | 1 |
 | pochette du mieux noté | Cover Art Archive | `Centre` | ≤ 1 |
 | vivier du centre | Last.fm, sinon ListenBrainz | `Centre` | 1 |
+| profil du centre — présentation, genres, audience | Last.fm | `Centre` | 1 |
 | illustration du centre et de chaque branche | Deezer | `Entourage` | 1 + 1/branche |
 | héritiers de chaque branche | Last.fm | `Entourage` | 1/branche, **différé** |
+
+**Le profil part avec l'arbre**, et c'est une décision du PRD §07 : le profil du
+centre est un élément permanent de l'écran, pas un contenu qu'on ouvre. Les
+extraits et les liens d'écoute, eux, ne partent qu'au geste (PRP 06). C'est le
+seul tableau de budget de la série ; le README y renvoie plutôt que de le
+recopier.
 
 **Les héritiers sont chargés après l'affichage de l'arbre** (F-39) et bornés par
 le budget : ils ne retardent jamais le premier rendu, qui doit tenir la latence
@@ -215,9 +222,11 @@ séparables.
    avec la source rétablie : la seconde renvoie `EtatOK`. **Ce test échoue si le
    cache du PRP 02 mémorise l'erreur.**
 5. `TestBudgetRespecteSurUnChargementComplet` — **le test qui protège N-03** :
-   après `Composer` avec 10 branches, `budget.Compte(MusicBrainz) == 2` et
-   `budget.Compte(CoverArt) <= 1`. Toute régression qui enrichirait les branches
-   par MusicBrainz le fait échouer.
+   après `Composer` avec 10 branches, `budget.Compte(MusicBrainz) == 2`,
+   `budget.Compte(CoverArt) <= 1` et `budget.Compte(LastFM) == 2` avant la phase
+   différée des héritiers. Toute régression qui enrichirait les branches par
+   MusicBrainz, ou qui ferait partir les extraits avec l'arbre, le fait échouer.
+
 6. `TestReponseTardiveIgnoree` — un contexte annulé pendant le chargement ne
    produit aucune écriture dans la réponse (§09).
 7. `TestLargeurInconnueRetombeSurLarge` — `?largeur=xxl` ne panique pas.
@@ -307,7 +316,13 @@ Attendu : `ramure-v2  8080  128m  google  go  true  desactivee`.
 4. **`Cadrage` est décidé par le serveur à partir de `largeur`**, jamais deviné
    par le client. Deux sources de vérité sur le nombre de branches produiraient
    un arbre dont l'affichage et les données ne s'accordent pas.
-5. **Le `memory: 128m` mérite un réexamen ici.** Le cache mutualisé vit dans le
+5. **N-14 se pose sur cette route, mais s'écrit au PRP 07.** L'équité entre
+   visiteurs — un seul chargement de centre en vol par identité — a besoin de
+   l'identité, qui n'est lue nulle part avant le PRP 07. Ne la devinez pas ici
+   par une adresse IP ou un cookie : `Routes` s'élargira d'un garde placé devant
+   `/api/centre`, et le test `TestUnSeulChargementEnVolParIdentite` vit là-bas.
+   D'ici là, le budget protège la fabrique, pas le partage entre visiteurs.
+6. **Le `memory: 128m` mérite un réexamen ici.** Le cache mutualisé vit dans le
    processus et se remplit vraiment à partir de ce PRP. Un dépassement fait tuer
    le conteneur par l'OOM killer, sans autre message qu'un redémarrage. C'est une
    modification d'`app.yml` suivie d'un `./init.sh`, jamais une édition de

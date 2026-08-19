@@ -68,8 +68,8 @@ même raison — un échec ici ne ressemble en rien à un échec applicatif.
   `web/vitest.config.ts`, `web/src/textes.ts`
 - Modifier : `apps/ramure-v2/test.sh`, `apps/ramure-v2/Dockerfile`,
   `apps/ramure-v2/.dockerignore`, `apps/ramure-v2/main.go` (`//go:embed`)
-- Modifier, **à la main** : `.claude/settings.json`, `.claude/cloud-setup.sh`
-  (voir le cinquième piège — ce ne sont pas des artefacts générés)
+- Ne modifier **ni** `.claude/settings.json` **ni** `.claude/cloud-setup.sh` :
+  l'outillage TypeScript y est déjà déclaré (voir le cinquième piège)
 
 **Les cinq pièges, dans l'ordre où ils se présentent :**
 
@@ -95,14 +95,17 @@ même raison — un échec ici ne ressemble en rien à un échec applicatif.
    la CI fournit Go **et** Node : `npm ci` y fonctionne sans rien installer.
 5. **La fabrique ne connaît qu'un langage par app, et ce sera Go.** Le champ
    `stack:` d'`app.yml` est ce qui fait installer un serveur de langage pour
-   l'agent ; il ne prend qu'une valeur. Résultat : à partir de ce PRP, on écrit
-   du TypeScript **sans assistance de langage**, et `--check` ne s'en plaint
-   pas — il ne réclame que les plugins des `stack:` déclarées. Le remède tient
-   en deux gestes, et aucun n'est automatique : ajouter
-   `typescript-lsp@claude-plugins-official` à `enabledPlugins` dans
-   `.claude/settings.json`, puis **recoller** `.claude/cloud-setup.sh` dans le
-   champ *Setup script* de l'environnement — déclarer un plugin ne l'installe
-   pas. `gopls` reste en place : il est déclaré par les cinq autres apps Go.
+   l'agent ; il ne prend qu'une valeur, et `--check` ne réclame que les plugins
+   des `stack:` déclarées. **Il n'y a pourtant rien à faire ici** :
+   `typescript-lsp@claude-plugins-official` est déjà déclaré dans
+   `.claude/settings.json` depuis l'arrivée de `marcq-handball`
+   (`stack: typescript`), et `gopls` l'est par les huit apps Go. Vérifie-le
+   plutôt que d'éditer un fichier partagé pour rien : le rapport d'ouverture de
+   session doit annoncer **2/2 serveurs LSP présents**. S'il en annonce moins,
+   c'est le *Setup script* de l'environnement qui n'a pas été recollé — déclarer
+   un plugin ne l'installe pas. **Ne modifie ni `.claude/settings.json` ni
+   `.claude/cloud-setup.sh` depuis ce PRP** : ils sont partagés par toute la
+   fabrique, et le périmètre de cette app s'arrête à son répertoire.
 
 ```bash
 #!/usr/bin/env bash
@@ -364,10 +367,12 @@ cd /home/user/hello-world && ./init.sh --check
    PRP 06 et 07 ajoutent des requêtes (suggestions, collection) : elles doivent
    passer par le même mécanisme, sinon une réponse de recherche périmée écrasera
    un centre courant.
-4. **L'outillage TypeScript est déclaré, pas installé.** Si le rapport
-   d'ouverture de session annonce moins de serveurs de langage que prévu, c'est
-   que le *Setup script* de l'environnement n'a pas été recollé. C'est sans
-   effet sur le déploiement, et très coûteux sur la vitesse d'écriture.
+4. **L'outillage TypeScript est déclaré, pas installé.** Il est déjà déclaré
+   pour toute la fabrique ; si le rapport d'ouverture de session annonce moins de
+   deux serveurs de langage, c'est que le *Setup script* de l'environnement n'a
+   pas été recollé — un geste de l'environnement, jamais une édition du dépôt.
+   C'est sans effet sur le déploiement, et très coûteux sur la vitesse
+   d'écriture.
 5. **La parité stricte n'est pas encore vérifiée.** Ce PRP rend l'arbre aux deux
    largeurs, mais c'est le PRP 08 qui teste qu'aucun contrôle n'existe en double.
    N'introduisez pas de variante « mobile » d'un contrôle existant : elle serait

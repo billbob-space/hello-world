@@ -5,8 +5,12 @@ termine par une stack qui tient debout. Cette page porte ce qui est **commun aux
 neuf** : les contraintes, les décisions tranchées, l'ordre d'exécution et la
 couverture du PRD. Chaque PRP s'y réfère plutôt que de la recopier.
 
-**Source :** [`../PRODUCT.md`](../PRODUCT.md) — RAMURE, Product Requirements Document
-v1.0, 30 juillet 2026. Périmètre retenu : **lots MVP et V1**, soit 35 exigences.
+**Source :** [`../PRODUCT.md`](../PRODUCT.md) — RAMURE, Product Requirements
+Document v1.1, révisé le 19 août 2026. Périmètre retenu : **lots MVP et V1**,
+soit **52 exigences** — 38 fonctionnelles et 14 non fonctionnelles. Les décisions
+que ce README avait tranchées pour l'exécution sont désormais **dans le PRD**
+(§17, §18, §19) ; elles sont reprises ici pour n'avoir qu'un document à lire
+pendant l'exécution, jamais pour y faire autorité.
 
 ## Les neuf étapes
 
@@ -24,10 +28,10 @@ avant.
 | 03 | [Les quatre rôles de données](03-sources.md) | les quatre rôles pourvus, cascade de repli | §09, F-20, F-22, F-25, F-26 |
 | 04 | [L'arbre, et la première route](04-arbre.md) | `/api/centre` complet, vide et panne distingués | F-08, F-15, F-16, F-36 à F-39 |
 | 05 | [Le canevas](05-canevas.md) | l'arbre s'affiche et se parcourt — **le MVP se voit** | F-09 à F-14, F-17 |
-| 06 | [Les écrans autour du canevas](06-ecrans.md) | accueil, recherche, fiche, discographie, lecteur | F-01 à F-07, F-19, F-21, F-24, F-34 |
-| 07 | [Identité et collection](07-identite-collection.md) | garder, replanter, cloisonner | F-28 à F-33, N-08 à N-10 |
+| 06 | [Les écrans autour du canevas](06-ecrans.md) | accueil, recherche, fiche, discographie, lecteur, service d'écoute | F-01 à F-07, F-19, F-21, F-24, F-25, F-34 |
+| 07 | [Identité et collection](07-identite-collection.md) | garder, afficher, replanter, cloisonner, part équitable | F-25, F-28 à F-33, N-08 à N-10, N-14 |
 | 08 | [Parité et accessibilité](08-parite-accessibilite.md) | WCAG 2.2 AA, installation, mise à jour | §07, §12, N-11, N-12, F-41, F-42 |
-| 09 | [Recette et mise en ligne](09-recette-mise-en-ligne.md) | bout en bout sur réseau simulé, **branchement** (`enabled: true`) et app en ligne | §13 |
+| 09 | [Recette et mise en ligne](09-recette-mise-en-ligne.md) | bout en bout sur réseau simulé, **branchement** (`enabled: true`), app en ligne, puis **retrait de la v1** | §13, §19 |
 
 **Ordre :** strictement séquentiel de 01 à 09. Chaque PRP déclare en tête ce
 qu'il consomme des précédents, avec les signatures exactes.
@@ -78,6 +82,9 @@ silence. **Elles s'appliquent aux neuf PRP sans être répétées dans chacun.**
 - **Budget d'appels** (N-03) — profondeur maximale au centre, strict minimum sur
   l'entourage. MusicBrainz et Cover Art Archive ne sont **jamais** appelés pour
   une branche ou un héritier.
+- **Part équitable du quota** (N-14) — un seul chargement de centre en vol par
+  identité. Le palier `google` n'est pas la liste blanche du serveur : sans ce
+  garde, un visiteur seul consomme le quota de tous.
 
 **Convention de commit :** français, impératif, préfixé du nom de l'app —
 `ramure-v2 : <ce que ça fait>`.
@@ -121,9 +128,13 @@ Tous vérifiés en direct le 3 août 2026.
 |---|---|---|---|
 | MusicBrainz | **1/s** — la plus contrainte | **le centre uniquement** | 2 |
 | Cover Art Archive | ~1/s par prudence | **le centre uniquement** | 1 |
-| Last.fm | ~5/s | centre + héritiers | 2, puis 1/branche **différé** |
+| Last.fm | ~5/s | centre + héritiers | 2 — le vivier **et** le profil du centre, que le PRD §07 range parmi les éléments permanents de l'écran —, puis 1/branche **différé** |
 | Deezer | généreux | centre + branches | 1 + 1/branche |
 | Odesli | inconnue | à la demande, sur clic | 0 au chargement |
+
+**Ce tableau est un résumé ; le tableau qui fait foi est celui du
+[PRP 04](04-arbre.md), étape par étape.** Un chiffre recopié à deux endroits
+diverge — celui-ci l'avait déjà fait, sur le profil du centre.
 
 **Invariant testable :** aucun appel MusicBrainz ni Cover Art Archive ne part
 pour une branche ou un héritier. La règle est portée par le **type**
@@ -195,6 +206,7 @@ la contrainte qui les gouverne, le palier étant `google`.
 | | F-09, F-10, F-11, F-12, F-13, F-14, F-17 | 05 |
 | | F-19, F-20 | 03, 06 |
 | | F-28, F-31 | 07 |
+| | N-14 | 07 |
 | | F-36, F-37, F-38, F-39 | 04, 05 |
 | | N-01, N-02 | 04, 05 |
 | | N-03 | 02, 04 |
@@ -207,7 +219,8 @@ la contrainte qui les gouverne, le palier étant `google`.
 | | F-15, F-16 | 04 |
 | | F-21, F-22 | 03, 06 |
 | | F-24, F-40 | 03, 06 |
-| | F-25, F-26 | 03 |
+| | F-26 | 03 |
+| | F-25 | 03 (le lien), 06 (l'écran), 07 (la mémoire du choix) |
 | | F-29, F-30, F-32, F-33 | 07 |
 | | F-34 | 06 |
 | | F-41, F-42 | 08 |
@@ -215,11 +228,19 @@ la contrainte qui les gouverne, le palier étant `google`.
 | | N-10 | 07 |
 | | N-11, N-12 | 08 |
 | **Transverse** | §12 accessibilité, M-08 | 08 |
+| | M-01 à M-05 | 07 |
+| | M-06, M-07 | 07 |
 | | §13 recette | 09 |
+| | §19 retrait de la v1 | 09 |
 
 **Hors périmètre — lot V2 :** F-18 (reprise de la lignée), F-23 (signal de
 nouveauté), F-27 (palmarès de l'arbre), F-35 (export de la collection), filtres
 complémentaires sur les branches.
+
+**Une exigence n'est couverte que si le PRP désigné porte une tâche et un test
+pour elle** — pas si son numéro apparaît dans un en-tête. Six l'ont appris à la
+relecture du 19 août : F-25, F-30, F-31, F-33, N-10 et les deux métriques M-06 et
+M-07 étaient annoncées ici et absentes des tâches.
 
 **Rien n'est laissé en attente du serveur :** F-32 et F-33 sont implémentés,
 testés, et leur persistance tient au volume nommé déclaré dans `app.yml` dès le
@@ -296,3 +317,31 @@ contrôle d'échafaudage qui y cherchait le nom de l'app aurait échoué sur un
 dépôt sain ; le workflow et `.claude/` ne sont plus des artefacts générés ;
 le langage passe de 1.23 à **1.24**, version du reste du dépôt ; et le plafond
 de 200 Mo n'est qu'un avertissement en CI, jamais un refus.
+
+**Relecture du 19 août 2026, avant le lancement du développement.** Huit
+anomalies, relevées dans `journal/2026-08-19-claude-ramure-v2-doc-review-fe7vco.md`
+et corrigées ici et dans le PRD :
+
+1. le bloc de vérification de la tâche 1 du PRP 01 **échouait sur un dépôt
+   sain** — son `grep` sur le workflow matchait `hello-world`, qui est aussi le
+   nom du dépôt. C'est la seconde fois qu'un bloc de commande de ce PRP est pris
+   en défaut ; rejouer l'échafaudage dans une copie jetable les trouve tous ;
+2. six exigences étaient annoncées couvertes sans tâche ni test — F-25, F-30,
+   F-31, F-33, N-10, plus les métriques M-06 et M-07. Le PRP 07 déclarait même
+   *modifier* un fichier client qu'aucun PRP ne créait ; il le **crée**
+   désormais, à sa tâche 3 ;
+3. les cinq réponses aux questions du PRD vivaient ici et nulle part dans le
+   PRD, qui les posait toujours. Elles sont remontées à leur place (§17) ; ce
+   README les reprend sans en faire autorité ;
+4. **N-14 est neuve** : un seul chargement de centre en vol par identité. Le
+   palier `google` ouvre l'app à tout compte Google, la source la plus contrainte
+   tolère un appel par seconde pour tout le monde, et rien ne bornait la part
+   d'un visiteur ;
+5. **le retrait de la v1 est décidé** (PRD §19) et devient la tâche 3 du PRP 09 ;
+6. le budget d'appels divergeait — deux appels Last.fm ici, un seul au PRP 04.
+   La question sous-jacente (quand la fiche du centre se charge) est tranchée au
+   PRD §07 : profil et discographie avec l'arbre, extraits et liens au geste ;
+7. trois affirmations d'outillage avaient péri en quatorze jours : `typescript-lsp`
+   est **déjà déclaré** (marcq-handball), l'outillage annonce 2/2 serveurs de
+   langage et non 1/1, et `gh` n'existe pas dans une session cloud — le PRP 01 y
+   poussait de surcroît sur un nom de branche écrit en dur.

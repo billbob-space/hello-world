@@ -1,10 +1,11 @@
 # PRP 09 — Recette bout en bout, et mise en ligne
 
 > **Ce PRP livre** la recette du PRD (§13) — les parcours complets joués dans un
-> vrai navigateur, sur **réseau simulé**, dans les deux dispositions — puis le
+> vrai navigateur, sur **réseau simulé**, dans les deux dispositions —, le
 > **branchement** : `enabled: true`, l'app entre dans `compose.yaml`, et
-> `ramure-v2.apps.billbob.ovh` répond. C'est la dernière tâche de la série, et
-> elle ne peut pas être avancée.
+> `ramure-v2.apps.billbob.ovh` répond, puis le **retrait de la première
+> version** (PRD §19). Ces trois-là ne peuvent pas être avancés, et le retrait
+> vient bien après la vérification en ligne.
 >
 > **Ce PRP consomme** l'application entière, et du PRP 01 l'en-tête
 > `X-Ramure-Version`, qui permet d'affirmer en bout en bout que c'est bien la
@@ -18,10 +19,11 @@
 > web/tests/REFERENCE.md        base de référence des tests (§13)
 > apps/ramure-v2/test.sh        réécrit : bout en bout derrière RAMURE_E2E
 > apps/ramure-v2/app.yml        enabled: true
-> compose.yaml                  un service ramure-v2, régénéré
+> apps/ramure/app.yml           enabled: false — le retrait de la v1
+> compose.yaml                  un service ramure-v2, régénéré ; plus de ramure
 > ```
 
-**Deux tâches**, dans cet ordre et jamais l'inverse.
+**Trois tâches**, dans cet ordre et jamais l'inverse.
 
 ---
 
@@ -182,6 +184,66 @@ ligne est bien celle qu'on croit.
 
 ---
 
+### Tâche 3 : le retrait de la première version
+
+**Décision du commanditaire, écrite au PRD §19** : la v2 remplace `apps/ramure`,
+elle ne cohabite pas avec elle. Tant que les deux vivent, elles partagent le même
+document produit mot pour mot, et la première correction portée sur l'un des deux
+exemplaires fait mentir l'autre en silence — sans qu'aucun contrôle ne le voie.
+
+**Cette tâche ne part qu'après la tâche 2 vérifiée en ligne** : une v2 qui ne
+répond pas et une v1 retirée, cela fait zéro RAMURE.
+
+- [ ] **Étape 1 : dire ce qui est perdu, avant de retirer**
+
+`apps/ramure` ne déclare **aucun volume** : rien de ce qu'elle garde ne survit
+déjà à un redéploiement côté serveur, et les artistes gardés vivent dans le
+navigateur de chaque visiteur, sous son adresse à elle. Ils **ne suivent donc
+pas** vers `ramure-v2` : ce qui doit être conservé se replante à la main. À dire
+au commanditaire avant le retrait, pas après.
+
+- [ ] **Étape 2 : retirer, régénérer, vérifier**
+
+```bash
+cd /home/user/hello-world
+./init.sh --app ramure --disable
+./init.sh --check
+git diff compose.yaml
+```
+
+Attendu : le service `ramure` disparaît du compose, remplacé par sa note de
+désactivation ; `ramure-v2` y reste. **Ne rien éditer à la main.** Le répertoire
+`apps/ramure/` reste dans le dépôt : son code est l'étalon auquel comparer la v2,
+et le lot V2 s'y regarde avant d'être réécrit.
+
+- [ ] **Étape 3 : le PRD n'a plus qu'un domicile**
+
+```bash
+cmp -s apps/ramure/PRODUCT.md apps/ramure-v2/PRODUCT.md \
+  && echo "les deux PRD sont encore identiques — le §19 n'a pas ete ecrit"
+```
+
+Le PRD de la v1 devient l'archive d'un produit retiré : ajoute-lui une ligne en
+tête qui dit *quand* il a cessé de décrire quelque chose en ligne, et vers quoi
+regarder. Un document qui décrit une app retirée sans le dire est exactement le
+défaut que le §19 corrige.
+
+- [ ] **Étape 4 : committer**
+
+```bash
+git add apps/ramure/app.yml apps/ramure/PRODUCT.md compose.yaml
+git commit -m "ramure : retrait de la premiere version, remplacee par ramure-v2"
+```
+
+- [ ] **Étape 5 : vérifier après la fusion**
+
+```bash
+curl -sI https://ramure.apps.billbob.ovh | head -3      # ne repond plus
+curl -sI https://ramure-v2.apps.billbob.ovh | head -3   # repond
+```
+
+---
+
 ## Vérification de l'étape
 
 **1 · La suite complète, bout en bout compris.**
@@ -233,8 +295,10 @@ ouverts, et aucun n'est un oubli :
 2. **Le lot V2 reste hors périmètre**, et volontairement : F-18 (reprise de la
    lignée), F-23 (signal de nouveauté), F-27 (palmarès de l'arbre), F-35 (export
    de la collection), filtres complémentaires sur les branches. `apps/ramure`,
-   la première version, en couvre déjà une partie : c'est là qu'il faut regarder
-   avant de les réécrire.
+   retirée de la stack mais **conservée dans le dépôt**, en couvre déjà une
+   partie : c'est là qu'il faut regarder avant de les réécrire. F-35 mérite d'y
+   passer en premier — c'est lui qui rendra le départ non destructif (PRD §18,
+   question 3).
 3. **Le cache ne borne pas sa taille** (décision du PRP 02). Si la mesure montre
    une croissance problématique, l'ajout se fait derrière `Obtenir`, sans changer
    sa signature — et `memory: 128m` se relit dans `app.yml`, jamais dans
