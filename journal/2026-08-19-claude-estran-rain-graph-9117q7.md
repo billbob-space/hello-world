@@ -26,6 +26,17 @@ comblant les trous.
 **Action** — `comportement` — mesurer la fenetre reelle d'une source fine en la
 forcant sur un modele nomme, avant de croire une serie sans null.
 
+---
+
+## Suite — relisibilite de la section Pluie (PR #148 deja fusionnee)
+
+La premiere PR de cette branche est fusionnee et deployee. Le travail reprend sur
+la meme branche, repartie de `main`, pour retravailler la LISIBILITE de la section
+livree (demande utilisateur, mode `/livrer`). Perimetre inchange : `apps/estran`.
+
+Les anomalies de cette seconde partie s'ajoutent ci-dessous, a la suite de la
+premiere. Aucune pour l'instant.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
