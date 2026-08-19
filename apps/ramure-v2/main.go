@@ -9,12 +9,14 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -22,6 +24,8 @@ import (
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/arbre"
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/budget"
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/cache"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/collection"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/mesure"
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/source"
 )
 
@@ -62,8 +66,10 @@ var distFS embed.FS
 
 // dependances cable les sources externes UNE SEULE FOIS par processus : un
 // Cache, un Limiteur, un http.Client, une Cascade de proximite. Les PRP 06
-// et 07 elargissent arbre.Dependances, jamais un second cablage.
-func dependances() arbre.Dependances {
+// et 07 elargissent arbre.Dependances, jamais un second cablage. Le cache
+// est rendu en second resultat : c'est la seule fenetre sur son
+// TauxDeService (PRP 02), branchee ici sur l'agregat de mesure (PRP 07).
+func dependances() (arbre.Dependances, *cache.Cache) {
 	c := cache.Neuf(time.Now)
 	l := budget.Neuf()
 	client := &http.Client{Timeout: 8 * time.Second}
@@ -74,7 +80,48 @@ func dependances() arbre.Dependances {
 	}}
 	dz := source.NouveauDeezer(c, l, client)
 	od := source.NouveauOdesli(c, l, client)
-	return arbre.Dependances{Catalogue: mb, Proximite: prox, Media: dz, Odesli: od, Limiteur: l}
+	return arbre.Dependances{Catalogue: mb, Proximite: prox, Media: dz, Odesli: od, Limiteur: l}, c
+}
+
+// sousRepertoire derive un sous-repertoire de RAMURE_DATA_DIR pour
+// separer la collection des reglages sur le meme volume. Rend "" (repli
+// en memoire) quand base est vide : ChoisirStore/ChoisirReglagesStore
+// interpretent deja "" comme "pas de RAMURE_DATA_DIR".
+func sousRepertoire(base, nom string) string {
+	if base == "" {
+		return ""
+	}
+	return filepath.Join(base, nom)
+}
+
+// demarrerInstantanesPeriodiques ecrit l'instantane de mesure.Agregat sur
+// la sortie standard toutes les `intervalle` (N-09) — le seul canal de
+// sortie autorise par la fabrique, jamais le volume : ce n'est pas de la
+// donnee utilisateur. Rend une fonction d'arret pour un arret propre.
+func demarrerInstantanesPeriodiques(agregat *mesure.Agregat, intervalle time.Duration) func() {
+	arret := make(chan struct{})
+	go func() {
+		tick := time.NewTicker(intervalle)
+		defer tick.Stop()
+		for {
+			select {
+			case <-tick.C:
+				ecrireInstantane(agregat)
+			case <-arret:
+				return
+			}
+		}
+	}()
+	return func() { close(arret) }
+}
+
+func ecrireInstantane(agregat *mesure.Agregat) {
+	octets, err := json.Marshal(agregat.Instantane())
+	if err != nil {
+		log.Printf("ramure-v2 : instantane de mesure illisible : %v", err)
+		return
+	}
+	log.Printf("ramure-v2 mesure %s", octets)
 }
 
 // traceur retient le code de reponse, que http.ResponseWriter ne rend pas.
@@ -132,9 +179,38 @@ func main() {
 	}
 	api.Dist = dist
 
+	// Collection et reglages (PRP 07) : FileStore en regime nominal des
+	// que RAMURE_DATA_DIR est definie — ce que le Dockerfile garantit en
+	// conteneur, donc toujours en production ; MemoryStore en repli de
+	// developpement hors conteneur, volatile, ANNONCE sur la sortie
+	// standard par ChoisirStore/ChoisirReglagesStore elles-memes.
+	repertoireDonnees := os.Getenv("RAMURE_DATA_DIR")
+	collectionStore, err := collection.ChoisirStore(sousRepertoire(repertoireDonnees, "collection"), os.Stdout)
+	if err != nil {
+		log.Fatalf("ramure-v2 : collection : %v", err)
+	}
+	api.Collection = collectionStore
+
+	reglagesStore, err := collection.ChoisirReglagesStore(sousRepertoire(repertoireDonnees, "reglages"), os.Stdout)
+	if err != nil {
+		log.Fatalf("ramure-v2 : reglages : %v", err)
+	}
+	api.Reglages = reglagesStore
+
+	d, c := dependances()
+
+	// Mesure agregee (N-09) : instantane JSON sur la sortie standard toutes
+	// les 5 minutes, jamais dans le volume (ce n'est pas de la donnee
+	// utilisateur). TauxDeService() (PRP 02) y entre pour reviser N-13.
+	agregat := mesure.Neuf(time.Now)
+	agregat.BrancherTauxDeService(c.TauxDeService)
+	api.Mesure = agregat
+	arreterMesure := demarrerInstantanesPeriodiques(agregat, 5*time.Minute)
+	defer arreterMesure()
+
 	srv := &http.Server{
 		Addr:    adresse,
-		Handler: journal(api.Routes(dependances())),
+		Handler: journal(api.Routes(d)),
 		// Un client qui ouvre une connexion sans jamais finir ses en-tetes
 		// immobiliserait une goroutine indefiniment.
 		ReadHeaderTimeout: 10 * time.Second,

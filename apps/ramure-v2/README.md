@@ -25,8 +25,14 @@ stack tient debout. Le canevas, l'arbre et les sources de données arrivent aux
 
 | Route | Réponse |
 |---|---|
-| `GET /` | la page d'accueil (provisoire à ce stade) |
+| `GET /` | la page d'accueil |
 | `GET /healthz` | `200 ok`, texte brut, dès que le serveur écoute |
+| `GET /dist/*` | le bundle client (JS) |
+| `GET /api/centre` | l'arbre autour d'un artiste (protégé par la part équitable N-14) |
+| `GET /api/suggest`, `GET /api/fiche`, `GET /api/ecouter` | suggestions, fiche artiste, résolution d'un lien d'écoute |
+| `GET/PUT/DELETE /api/collection` | la collection de l'utilisateur (identité requise) |
+| `GET/PUT /api/reglages` | le service d'écoute choisi (identité requise) |
+| `GET /api/diagnostic` | le journal de la session de l'appelant (`X-Ramure-Session`) |
 
 Tout autre chemin renvoie 404.
 
@@ -52,6 +58,28 @@ par utilisateur n'est pas optionnel.
 Le journal d'accès n'écrit **ni** cette adresse **ni** la chaîne de requête, et
 ignore la sonde de santé.
 
+`internal/identite.DepuisRequete` est la **seule** lecture d'identité de toute
+l'application : `GET/PUT/DELETE /api/collection` et `GET/PUT /api/reglages`
+l'exigent (401 sinon), cloisonnent strictement par utilisateur, et ne
+l'acceptent jamais autrement que par cet en-tête.
+
+`GET /api/centre` est la seule route protégée par une **part équitable du
+quota** (N-14) : un seul chargement en vol par identité, les suivants
+attendent leur tour — jamais rejetés. Le palier `google` n'étant pas une liste
+blanche, c'est ce qui empêche un visiteur seul de manger le débit partagé avec
+MusicBrainz.
+
+## Mesure et diagnostic
+
+Un instantané agrégé (M-01 à M-07, plus le taux de service du cache) est
+écrit sur la sortie standard toutes les 5 minutes, en une ligne JSON — jamais
+dans le volume, jamais avec une identité ou une adresse électronique : les
+événements sont rattachés à un jeton de session **opaque**, généré côté
+client, sans rapport avec `X-Forwarded-User`.
+
+`GET /api/diagnostic` (en-tête `X-Ramure-Session`) rend le journal de la
+**seule** session de l'appelant, à joindre à un signalement.
+
 ## Variables d'environnement
 
 Aucune valeur n'est versionnée : seuls les noms le sont. Elles sont injectées
@@ -60,7 +88,7 @@ par l'infrastructure, côté serveur.
 | Nom | À injecter ? | Rôle |
 |---|---|---|
 | `LASTFM_API_KEY` | **oui, côté serveur** — facultative | Clé Last.fm, source de proximité entre artistes. Absente, l'application bascule sur ListenBrainz : l'affinité est moins fine, rien n'est cassé. C'est la seule demande de ce fichier. |
-| `RAMURE_DATA_DIR` | **non — l'image la fixe** à `/var/lib/ramure` | Répertoire de persistance de la collection, point de montage du volume nommé `ramure-v2-donnees` déclaré dans `app.yml`. Rien à injecter, rien à créer sur l'hôte. La redéfinir côté serveur pointerait **hors** du volume : les données ne survivraient plus au redéploiement. |
+| `RAMURE_DATA_DIR` | **non — l'image la fixe** à `/var/lib/ramure` | Répertoire de persistance de la collection **et des réglages** (le service d'écoute choisi, F-25), point de montage du volume nommé `ramure-v2-donnees` déclaré dans `app.yml`. Rien à injecter, rien à créer sur l'hôte. La redéfinir côté serveur pointerait **hors** du volume : les données ne survivraient plus au redéploiement. Absente (développement hors conteneur, `go run .` sans volume), l'application bascule sur une collection et des réglages **en mémoire, volatils** — annoncé explicitement sur la sortie standard au démarrage. |
 
 Aucune n'est lue par le code à ce stade. `LASTFM_API_KEY` est déclarée
 maintenant parce que ce fichier est la demande adressée à l'exploitant, et

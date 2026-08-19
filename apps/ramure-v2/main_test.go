@@ -19,8 +19,9 @@ import (
 func appeler(t *testing.T, methode, chemin string) *httptest.ResponseRecorder {
 	t.Helper()
 	api.AccueilHTML = []byte(`<html lang="fr"><body>RAMURE</body></html>`)
+	d, _ := dependances()
 	rec := httptest.NewRecorder()
-	api.Routes(dependances()).ServeHTTP(rec, httptest.NewRequest(methode, chemin, nil))
+	api.Routes(d).ServeHTTP(rec, httptest.NewRequest(methode, chemin, nil))
 	return rec
 }
 
@@ -101,7 +102,8 @@ func TestLeJournalNEcritPasLIdentite(t *testing.T) {
 func TestLeJournalIgnoreLaSonde(t *testing.T) {
 	tampon := capturerJournal(t)
 
-	journal(api.Routes(dependances())).ServeHTTP(
+	d, _ := dependances()
+	journal(api.Routes(d)).ServeHTTP(
 		httptest.NewRecorder(),
 		httptest.NewRequest(http.MethodGet, "/healthz", nil),
 	)

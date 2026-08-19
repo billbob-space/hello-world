@@ -218,3 +218,68 @@ describe("7 · changer de service change TOUS les liens de la fiche (F-25)", () 
     expect(new Set(hrefs).size).toBe(liens.length);
   });
 });
+
+describe("8 · garder est disponible depuis la fiche, et n'interrompt rien (F-28, PRP 07)", () => {
+  const profil = { presentation: "", genres: [], auditeurs: 0 };
+
+  it("le bouton garder rapporte le geste a l'appelant, sans appel reseau ni etat propre", () => {
+    const surBasculerGarde = vi.fn();
+    const conteneur = document.createElement("div");
+    construireFiche(conteneur, {
+      nom: "Portishead",
+      profil,
+      albums: [],
+      extraits: [],
+      service: new GestionnaireService(),
+      surBasculerGarde,
+      dejaGarde: false,
+    });
+
+    const bouton = conteneur.querySelector<HTMLButtonElement>(".fiche-garder")!;
+    expect(bouton.getAttribute("aria-pressed")).toBe("false");
+    bouton.click();
+    expect(surBasculerGarde).toHaveBeenCalledTimes(1);
+  });
+
+  it("sans surBasculerGarde, aucun bouton garder n'apparait (compatibilite)", () => {
+    const conteneur = document.createElement("div");
+    construireFiche(conteneur, { nom: "Portishead", profil, albums: [], extraits: [], service: new GestionnaireService() });
+    expect(conteneur.querySelector(".fiche-garder")).toBeNull();
+  });
+
+  it("garder un artiste NE reinitialise PAS le lecteur d'extraits en cours (PRP 06, seul element a etat persistant)", () => {
+    const conteneur = document.createElement("div");
+    const panneau = construireFiche(conteneur, {
+      nom: "Portishead",
+      profil,
+      albums: [],
+      extraits: [{ titre: "Extrait", url: "https://x/1.mp3", duree: 30 }],
+      service: new GestionnaireService(),
+      surBasculerGarde: () => {},
+      dejaGarde: false,
+    });
+    panneau.lecteur.jouer(0);
+    expect(panneau.lecteur.enLecture).toBe(true);
+
+    conteneur.querySelector<HTMLButtonElement>(".fiche-garder")!.click();
+
+    expect(panneau.lecteur.enLecture).toBe(true);
+    expect(panneau.lecteur.extraitCourant?.titre).toBe("Extrait");
+  });
+
+  it("actualiserGarde() reflete un changement d'etat externe sans reconstruire le panneau", () => {
+    const conteneur = document.createElement("div");
+    const panneau = construireFiche(conteneur, {
+      nom: "Portishead",
+      profil,
+      albums: [],
+      extraits: [],
+      service: new GestionnaireService(),
+      surBasculerGarde: () => {},
+      dejaGarde: false,
+    });
+    panneau.actualiserGarde(true);
+    const bouton = conteneur.querySelector<HTMLButtonElement>(".fiche-garder")!;
+    expect(bouton.getAttribute("aria-pressed")).toBe("true");
+  });
+});

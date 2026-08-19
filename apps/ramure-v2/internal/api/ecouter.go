@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/arbre"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/mesure"
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/source"
 )
 
@@ -49,6 +50,9 @@ func ecouterHandler(d arbre.Dependances) http.HandlerFunc {
 			// Odesli non cable (dependances minimales, par ex. les tests des
 			// autres routes) : repli seul, jamais une chaine vide (F-26).
 			lien = source.RecherchePreRemplie(service, strings.TrimSpace(artiste+" "+album))
+		}
+		if Mesure != nil {
+			Mesure.Compter(mesure.LienEcoute, sessionDe(r))
 		}
 		ecrireJSON(w, http.StatusOK, lienEcouteJSON{Lien: lien})
 	}

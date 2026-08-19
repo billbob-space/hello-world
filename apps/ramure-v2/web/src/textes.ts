@@ -76,4 +76,18 @@ export const textes = {
     tidal: "Tidal",
   },
   ecouterSur: (nom: string, service: string): string => `Ecouter ${nom} sur ${service}`,
+
+  // Collection : garder, retirer, replanter, lignee (F-28 a F-33, PRP 07).
+  // Le vocabulaire du PRD §05 — collection, replanter, lignee — est
+  // employe tel quel, ici comme dans le code.
+  collectionTitre: "Collection",
+  collectionOuvrir: "Voir la collection",
+  collectionFermer: "Fermer la collection",
+  collectionVide: "Aucun artiste garde pour l'instant.",
+  garder: "Garder cet artiste",
+  garde: "Deja garde",
+  retirerDeLaCollection: (nom: string): string => `Retirer ${nom} de la collection`,
+  replanterDepuisLaCollection: (nom: string): string => `Replanter ${nom}`,
+  ligneeDeDecouverte: (lignee: readonly string[]): string => lignee.join(" -> "),
+  gardeLe: (date: string): string => `Garde le ${date}`,
 } as const;

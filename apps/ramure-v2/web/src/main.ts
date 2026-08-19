@@ -46,6 +46,13 @@ import {
   type PanneauFiche,
   type ProfilAPI,
 } from "./fiche";
+import {
+  MiroirHorsLigne,
+  construireCollection,
+  type EntreeAPI,
+  type PanneauCollection,
+} from "./collection";
+import { EN_TETE_SESSION, sessionId } from "./session";
 
 // Champs du JSON rendu par GET /api/centre : une seule convention
 // d'etiquetage — camelCase minuscule — sur tous les types, y compris
@@ -123,10 +130,23 @@ const correctionEl = document.querySelector<HTMLElement>("#correction");
 const serviceSelect = document.querySelector<HTMLSelectElement>("#service");
 const ficheEl = document.querySelector<HTMLElement>("#fiche");
 const apercuEl = document.querySelector<HTMLElement>("#apercu-branche");
+const collectionEl = document.querySelector<HTMLElement>("#collection");
+const boutonCollection = document.querySelector<HTMLButtonElement>("#collection-bouton");
 
 const lignee = new GestionnaireLignee();
 const suggestions = new GestionnaireSuggestions();
 const gestionnaireService = new GestionnaireService();
+
+// PRP 07 : identite, collection, mesure. session est un jeton OPAQUE,
+// sans rapport avec l'identite Google (lue uniquement cote serveur, dans
+// X-Forwarded-User) — voir session.ts. miroir tient la collection
+// utilisable hors ligne (F-33) ; collectionServeur est la derniere copie
+// connue du serveur.
+const session = sessionId(window.sessionStorage);
+const miroir = new MiroirHorsLigne(window.localStorage);
+let collectionServeur: EntreeAPI[] = [];
+let panneauCollection: PanneauCollection | null = null;
+let mbidCentreCourant: string | null = null;
 
 let vue: Vue = { x: 0, y: 0, echelle: 1 };
 let vueNeutre: Vue = vue;
@@ -263,6 +283,7 @@ async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
   const fiche = await chargerFiche(nom);
   if (nomCentreCourant !== nom) return; // reponse tardive (§09) : ecartee
 
+  mbidCentreCourant = centreAPI.artiste.mbid || null;
   panneauFiche = construireFiche(ficheEl, {
     nom,
     profil: fiche?.profil ?? centreAPI.profil ?? { presentation: "", genres: [], auditeurs: 0 },
@@ -270,9 +291,143 @@ async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
     extraits: fiche?.extraits ?? [],
     service: gestionnaireService,
     lienDeezer: fiche?.lienDeezer,
+    dejaGarde: estGarde(mbidCentreCourant),
+    surBasculerGarde: () => void basculerGarde(nom, mbidCentreCourant),
   });
   ficheEl.hidden = false;
 }
+
+// ---------------------------------------------------------------------
+// Collection : garder, retirer, afficher, replanter, miroir hors ligne
+// (F-28 a F-33, PRP 07). identite.DepuisRequete cote serveur cloisonne
+// deja par X-Forwarded-User (N-08) ; ce module ne porte JAMAIS
+// l'identite, seulement le jeton de session (mesure) dans les en-tetes.
+// ---------------------------------------------------------------------
+
+function enTetesJSON(): HeadersInit {
+  return { "Content-Type": "application/json", [EN_TETE_SESSION]: session };
+}
+
+/** estGarde() lit la vue FUSIONNEE (serveur + miroir hors ligne, F-33) :
+ * c'est elle qui doit refleter l'etat "garde" du bouton de la fiche,
+ * jamais collectionServeur seule, qui ignorerait un ajout hors ligne pas
+ * encore confirme. */
+function estGarde(mbid: string | null): boolean {
+  if (!mbid) return false;
+  return miroir.vue(collectionServeur).some((e) => e.mbid === mbid);
+}
+
+async function chargerCollectionServeur(): Promise<EntreeAPI[]> {
+  try {
+    const reponse = await fetch("/api/collection", { headers: { [EN_TETE_SESSION]: session } });
+    if (!reponse.ok) return [];
+    return (await reponse.json()) as EntreeAPI[];
+  } catch {
+    return []; // hors ligne (F-33) : le miroir local prend le relais dans vue()
+  }
+}
+
+// actualiserCollection recharge la copie serveur ET repeint le panneau
+// (F-30 : lignee et date), sans jamais reconstruire le conteneur une fois
+// le panneau construit (idempotence, meme discipline que fiche.ts).
+async function actualiserCollection(): Promise<void> {
+  collectionServeur = await chargerCollectionServeur();
+  const vue = miroir.vue(collectionServeur);
+
+  if (collectionEl) {
+    if (!panneauCollection) {
+      panneauCollection = construireCollection(collectionEl, {
+        entrees: vue,
+        surReplanter: (e) => {
+          collectionEl.hidden = true; // F-31 : ferme le panneau
+          void planter(e.nom, "collection"); // M-06 : AmorceCollection
+        },
+        surRetirer: (mbid) => void retirerDeLaCollection(mbid),
+      });
+    } else {
+      panneauCollection.actualiser(vue);
+    }
+  }
+  panneauFiche?.actualiserGarde(estGarde(mbidCentreCourant));
+}
+
+async function ajouterALaCollection(nom: string, mbid: string): Promise<void> {
+  const e: EntreeAPI = { nom, mbid, lignee: [...lignee.lignee, nom], ajoute: new Date().toISOString() };
+  miroir.ajouter(e); // F-33 : visible immediatement, meme hors ligne
+  panneauFiche?.actualiserGarde(true); // retour visuel immediat (F-28)
+  try {
+    const reponse = await fetch("/api/collection", {
+      method: "PUT",
+      headers: enTetesJSON(),
+      body: JSON.stringify({ nom, mbid, lignee: e.lignee }),
+    });
+    if (reponse.ok) miroir.confirmer([...collectionServeur, e]);
+  } catch {
+    // Reste en attente dans le miroir : reconcilie a la reconnexion (F-33).
+  }
+  await actualiserCollection();
+}
+
+async function retirerDeLaCollection(mbid: string): Promise<void> {
+  miroir.retirer(mbid);
+  panneauFiche?.actualiserGarde(false);
+  try {
+    await fetch(`/api/collection?mbid=${encodeURIComponent(mbid)}`, {
+      method: "DELETE",
+      headers: { [EN_TETE_SESSION]: session },
+    });
+  } catch {
+    // Reste en attente dans le miroir : reconcilie a la reconnexion (F-33).
+  }
+  await actualiserCollection();
+}
+
+function basculerGarde(nom: string, mbid: string | null): void {
+  if (!mbid) return;
+  if (estGarde(mbid)) {
+    void retirerDeLaCollection(mbid);
+  } else {
+    void ajouterALaCollection(nom, mbid);
+  }
+}
+
+// synchroniserMiroir (F-33) : au retour du reseau, rejoue les ajouts et
+// retraits laisses en attente. Le serveur reste la reference — confirmer()
+// n'efface jamais un changement qu'il ignore encore.
+async function synchroniserMiroir(): Promise<void> {
+  for (const e of miroir.ajoutsEnAttente) {
+    try {
+      await fetch("/api/collection", { method: "PUT", headers: enTetesJSON(), body: JSON.stringify(e) });
+    } catch {
+      break; // toujours hors ligne : on retentera au prochain evenement "online"
+    }
+  }
+  for (const mbid of miroir.retraitsEnAttente) {
+    try {
+      await fetch(`/api/collection?mbid=${encodeURIComponent(mbid)}`, {
+        method: "DELETE",
+        headers: { [EN_TETE_SESSION]: session },
+      });
+    } catch {
+      break;
+    }
+  }
+  await actualiserCollection();
+}
+
+window.addEventListener("online", () => void synchroniserMiroir());
+
+// Le panneau collection partage l'emplacement du panneau fiche (meme
+// classe CSS, memes deux largeurs) : les deux ne sont jamais montres a la
+// fois, comme la fiche et l'apercu de survol (F-19) ne le sont jamais non
+// plus.
+boutonCollection?.addEventListener("click", () => {
+  if (!collectionEl) return;
+  const vaOuvrir = collectionEl.hidden;
+  collectionEl.hidden = !vaOuvrir;
+  if (ficheEl) ficheEl.hidden = vaOuvrir ? true : nomCentreCourant === null;
+  if (vaOuvrir) void actualiserCollection();
+});
 
 // ---------------------------------------------------------------------
 // Suggestions, rattrapage (F-01 a F-04)
@@ -441,15 +596,29 @@ function cablerNoeud(n: NoeudDessine, nom: string): void {
   });
 }
 
-async function chargerCentre(nom: string): Promise<CentreAPI> {
-  const reponse = await fetch(`/api/centre?nom=${encodeURIComponent(nom)}`);
+// chargerCentre porte le jeton de session (mesure) et, sur une plantation
+// seulement, l'amorcage (M-06/M-07) : jamais sur une promotion, que le
+// serveur distingue via origine=promotion (internal/api/centre.go).
+async function chargerCentre(
+  nom: string,
+  options?: { origine?: "promotion"; amorce?: "collection" | "partage" },
+): Promise<CentreAPI> {
+  const params = new URLSearchParams({ nom });
+  if (options?.origine) params.set("origine", options.origine);
+  if (options?.amorce) params.set("amorce", options.amorce);
+  const reponse = await fetch(`/api/centre?${params.toString()}`, {
+    headers: { [EN_TETE_SESSION]: session },
+  });
   return (await reponse.json()) as CentreAPI;
 }
 
 // planter demarre une exploration a partir de zero (recherche, lien
-// partage) : ici seulement, la scene est entierement reconstruite, faute
-// de noeud existant a promouvoir.
-async function planter(nom: string): Promise<void> {
+// partage, collection) : ici seulement, la scene est entierement
+// reconstruite, faute de noeud existant a promouvoir. amorce distingue
+// pour la mesure (M-06, M-07) un depart depuis un artiste garde (F-31)
+// d'un depart depuis un lien recu (F-34) — absent, c'est un depart
+// manuel (recherche), qui ne compte dans aucune des deux metriques.
+async function planter(nom: string, amorce?: "collection" | "partage"): Promise<void> {
   if (!svg) return;
   masquerCorrection();
   suggestions.effacer();
@@ -460,7 +629,7 @@ async function planter(nom: string): Promise<void> {
 
   let centreAPI: CentreAPI;
   try {
-    centreAPI = await chargerCentre(nom);
+    centreAPI = await chargerCentre(nom, { amorce });
   } catch {
     if (!lignee.estPerimee(generation) && etat) {
       etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
@@ -522,7 +691,7 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
 
   const resultat = await promouvoir(lignee, { id: noeud.id, nom }, {
     mouvementReduit: reduit,
-    chargerCentre: () => chargerCentre(nom),
+    chargerCentre: () => chargerCentre(nom, { origine: "promotion" }), // M-01
   });
   if (!resultat.applique || !resultat.donnees) return; // perimee ou navigation ailleurs (§09, F-13)
 
@@ -656,11 +825,42 @@ svg?.addEventListener(
 
 document.title = textes.titre;
 if (boutonLogo) boutonLogo.setAttribute("aria-label", textes.retourAccueil);
+if (boutonCollection) {
+  boutonCollection.textContent = "♥";
+  boutonCollection.setAttribute("aria-label", textes.collectionOuvrir);
+}
 if (boutonPartager) {
   boutonPartager.textContent = "⇪";
   boutonPartager.setAttribute("aria-label", textes.partagerLien);
 }
 construireSelectService();
+
+// F-25 (close) : le service releve du serveur au demarrage — jamais du
+// seul navigateur, pour qu'il suive le proprietaire d'un appareil a
+// l'autre. Ecrit a chaque changement ; un echec reseau laisse le choix en
+// memoire pour la session courante, sans casser l'ecran (degradation
+// gracieuse, comme partout ailleurs dans le client).
+async function chargerReglageServeur(): Promise<void> {
+  try {
+    const reponse = await fetch("/api/reglages", { headers: { [EN_TETE_SESSION]: session } });
+    if (!reponse.ok) return;
+    const corps = (await reponse.json()) as { service?: string };
+    if (corps.service && (SERVICES as readonly string[]).includes(corps.service)) {
+      gestionnaireService.definir(corps.service as (typeof SERVICES)[number]);
+      if (serviceSelect) serviceSelect.value = corps.service;
+    }
+  } catch {
+    // Le service par defaut du client (fiche.ts) reste en vigueur pour
+    // cette session.
+  }
+}
+gestionnaireService.observer((s) => {
+  void fetch("/api/reglages", { method: "PUT", headers: enTetesJSON(), body: JSON.stringify({ service: s }) }).catch(
+    () => {}, // meme echec : le choix reste actif dans cette session (repli, §09)
+  );
+});
+void chargerReglageServeur();
+void actualiserCollection();
 
 const parametres = new URLSearchParams(window.location.search);
 const grainePlantee = extraireGraineDeLURL(parametres);
@@ -669,7 +869,7 @@ const grainePlantee = extraireGraineDeLURL(parametres);
 // navigations internes suivantes.
 const amorcerDepuisURL = creerAmorceurUneFois((nom: string) => {
   if (champGraine) champGraine.value = nom;
-  void planter(nom);
+  void planter(nom, "partage"); // M-07 : AmorcePartage
 });
 
 if (grainePlantee) {

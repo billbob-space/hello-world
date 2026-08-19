@@ -167,6 +167,31 @@
   .lecteur-bouton, .fiche-lien-artiste, .discographie-lien {
     font-size: var(--texte-second);
   }
+
+  /* Garder/retirer (F-28) et collection (F-30, F-31, F-33). */
+  .fiche-garder {
+    display: block; margin: 0 0 .5rem; padding: .35rem .7rem; border-radius: .4rem;
+    border: 1px solid #3a3a3a; background: #1c1c1e; color: inherit; cursor: pointer;
+    font-size: var(--texte-second);
+  }
+  .fiche-garder[aria-pressed="true"] { background: #2a2410; border-color: #4a4322; color: #f0d090; }
+  .collection-vide { font-size: var(--texte-corps); color: #8a867c; margin: 0; }
+  .collection-liste { list-style: none; margin: 0; padding: 0; }
+  .collection-item {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .4rem 0; border-bottom: 1px solid #232323;
+  }
+  .collection-replanter {
+    flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: .1rem;
+    background: none; border: none; color: inherit; cursor: pointer; padding: 0; text-align: left;
+    font: inherit;
+  }
+  .collection-nom { font-size: var(--texte-corps); }
+  .collection-lignee, .collection-date { font-size: var(--texte-second); color: #8a867c; }
+  .collection-retirer {
+    background: none; border: 1px solid #3a3a3a; border-radius: .3rem; color: inherit;
+    cursor: pointer; min-width: 1.8rem; min-height: 1.8rem; line-height: 1; padding: 0;
+  }
   @media (min-width: 60rem) {
     .fiche-panneau {
       left: auto; right: 1rem; bottom: 1rem; top: 4.5rem; width: 22rem;
@@ -197,6 +222,7 @@
     <button type="button" id="zoomer-avant" aria-label="Zoomer">+</button>
     <button type="button" id="cadrage-initial" hidden>Revenir au cadrage initial</button>
     <button type="button" id="partager" class="partager"></button>
+    <button type="button" id="collection-bouton" class="partager"></button>
   </div>
 </header>
 <main id="contenu">
@@ -210,6 +236,7 @@
   <svg id="canevas" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Arbre des artistes proches"></svg>
   <aside id="fiche" class="fiche-panneau" hidden></aside>
   <aside id="apercu-branche" class="apercu-panneau" hidden></aside>
+  <aside id="collection" class="fiche-panneau" hidden></aside>
   <p id="etat" role="status" aria-live="polite"></p>
 </main>
 <script type="module" src="/dist/app.js"></script>

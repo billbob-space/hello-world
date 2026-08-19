@@ -664,6 +664,56 @@ suite. Il a sa place dans la notice d'app générée par `init.sh`, que tout art
 lit en premier geste — pas seulement dans la sortie d'un contrôle lancé à la fin.
 
 
+### 23. (phase 2) La table de verrous de la part equitable ne se vide jamais
+
+**Symptome** — N-14 est tenue par `equite.Garde`, qui retient un verrou **par
+identité vue depuis le démarrage**. La signature imposée par le PRP,
+`func Garde(suivant http.Handler) http.Handler`, ne laisse pas d'endroit où
+ranger un état : la table est donc globale au paquet, et rien ne la réduit. Une
+identité qui a chargé un arbre une fois occupe une entrée jusqu'au prochain
+redéploiement.
+
+**Cause** — le palier d'exposition est `google` : **n'importe quel compte Google
+authentifié entre**, et le nombre d'identités distinctes n'est donc pas borné par
+une liste blanche. Le PRP a figé une signature sans état en pensant au
+comportement — un chargement en vol par identité — et pas à la durée de vie de ce
+qui le mémorise.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — au volume visé par N-13 (quelques promotions par seconde,
+usage confidentiel), une entrée par visiteur distinct est négligeable, et la
+mesure du PRP 09 le dira. C'est documenté en commentaire à l'endroit du code, et
+c'est la bonne réponse tant que le chiffre reste petit : une purge périodique
+ajouterait une horloge et une classe de bogues pour un gain nul aujourd'hui. À
+rouvrir si l'app quitte l'usage confidentiel — pas avant.
+
+### 24. (phase 2) Le signe de la mesure ne pouvait pas exprimer l'une des metriques qu'il devait porter
+
+**Symptome** — le PRP 07 fige `Compter(Evenement, session)`, sans identifiant
+d'artiste. Or **M-02** mesure « la part de centres jamais visités » : elle a
+besoin de savoir *quel* artiste, pas seulement *combien de fois*. Avec la seule
+signature figée, la métrique est annoncée couverte et reste incalculable.
+
+C'est la troisième fois sur cette branche qu'une signature figée se révèle trop
+étroite pour ce que le même document promet : le vivier qui ne transportait qu'un
+nom (PRP 03), le profil sans chemin dans `Dependances` (PRP 04), et celle-ci.
+
+**Cause** — les signatures ont été figées en écrivant l'interface, les métriques
+en écrivant les exigences, et rien ne confronte les deux. Le tableau de couverture
+du README de la série vérifie qu'une exigence est **citée** par un PRP, jamais
+qu'elle est **exprimable** avec ce que ce PRP produit — c'est précisément le
+défaut relevé à la phase 1, anomalie 2, une couche plus bas.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — une méthode `Decouverte(session, artiste)` est ajoutée
+et documentée. Le garde-fou qui manque est le même que celui de l'anomalie 2, et
+il gagnerait à descendre d'un cran : pour chaque métrique ou exigence citée dans
+un en-tête de PRP, vérifier non seulement qu'une tâche la porte, mais qu'un test
+la calcule. Les trois cas de cette branche se seraient signalés seuls.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre

@@ -326,11 +326,23 @@ export interface OptionsFiche {
    * Absent, le clic sur le lien artiste retombe sur la recherche
    * pre-remplie — jamais un appel Odesli sans indice a resoudre. */
   lienDeezer?: string;
+  /** F-28 : garder/retirer cet artiste de la collection, action
+   * disponible DEPUIS LA FICHE. dejaGarde vient du proprietaire de la
+   * collection (main.ts) — construireFiche ne connait ni le reseau ni la
+   * persistance, seulement l'etat courant et un geste a rapporter.
+   * Optionnel : une fiche construite sans collection cablee (tests,
+   * ancien appelant) n'affiche simplement pas le bouton. */
+  dejaGarde?: boolean;
+  surBasculerGarde?: () => void;
 }
 
 export interface PanneauFiche {
   lecteur: GestionnaireLecteur;
   definirFiltre(type: string): void;
+  /** Reflete un changement d'etat "garde" survenu ailleurs (par exemple :
+   * l'artiste a ete retire depuis le panneau collection pendant que sa
+   * fiche restait ouverte) sans reconstruire le panneau. */
+  actualiserGarde(dejaGarde: boolean): void;
   /** Recalcule tous les liens pour le service COURANT de options.service.
    * L'appelant (main.ts) le cable a options.service.observer() lui-meme,
    * plutot que construireFiche : la fiche est reconstruite a chaque
@@ -352,6 +364,26 @@ export function construireFiche(conteneur: HTMLElement, options: OptionsFiche): 
   titre.className = "fiche-titre";
   titre.textContent = options.nom;
   conteneur.append(titre);
+
+  // F-28 : garder/retirer, disponible DEPUIS LA FICHE. N'existe que si
+  // l'appelant a cable la collection (surBasculerGarde) : construireFiche
+  // reste utilisable sans collection (tests, chargement partiel).
+  let boutonGarder: HTMLButtonElement | null = null;
+  if (options.surBasculerGarde) {
+    boutonGarder = document.createElement("button");
+    boutonGarder.type = "button";
+    boutonGarder.className = "fiche-garder";
+    const peindreEtatGarde = (garde: boolean) => {
+      boutonGarder!.setAttribute("aria-pressed", String(garde));
+      boutonGarder!.textContent = garde ? textes.garde : textes.garder;
+    };
+    peindreEtatGarde(options.dejaGarde ?? false);
+    // Le SEUL effet de ce clic est de rapporter le geste a l'appelant
+    // (main.ts) : jamais un appel reseau ici, jamais une touche au
+    // lecteur d'extraits — "garder n'interrompt rien" (PRP 07, tache 3).
+    boutonGarder.addEventListener("click", () => options.surBasculerGarde!());
+    conteneur.append(boutonGarder);
+  }
 
   if (options.profil.presentation) {
     const presentation = document.createElement("p");
@@ -452,6 +484,11 @@ export function construireFiche(conteneur: HTMLElement, options: OptionsFiche): 
       actualiserLiens();
     },
     actualiserLiens,
+    actualiserGarde(dejaGarde: boolean) {
+      if (!boutonGarder) return;
+      boutonGarder.setAttribute("aria-pressed", String(dejaGarde));
+      boutonGarder.textContent = dejaGarde ? textes.garde : textes.garder;
+    },
   };
 }
 

@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/arbre"
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/equite"
 )
 
 // Version identifie l'image qui repond, posee sur chaque reponse par
@@ -63,10 +64,29 @@ func Routes(d arbre.Dependances) http.Handler {
 		_, _ = w.Write(AccueilHTML)
 	})
 
-	mux.HandleFunc("GET /api/centre", centreHandler(d))
+	// /api/centre est le geste le plus couteux du produit (§13) : seule
+	// route enveloppee par equite.Garde, qui impose un seul chargement en
+	// vol par identite (N-14, critique) — le palier google n'est pas une
+	// liste blanche, un visiteur seul ne doit pas pouvoir manger le quota
+	// commun en enchainant les promotions plus vite que le limiteur ne les
+	// espace.
+	mux.Handle("GET /api/centre", equite.Garde(http.HandlerFunc(centreHandler(d))))
 	mux.HandleFunc("GET /api/suggest", suggestHandler(d))
 	mux.HandleFunc("GET /api/fiche", ficheHandler(d))
 	mux.HandleFunc("GET /api/ecouter", ecouterHandler(d))
+
+	// Identite, collection, reglages, mesure (PRP 07). Cloisonnees par
+	// X-Forwarded-User, jamais par un parametre du client (N-08) : voir
+	// internal/identite. Collection/Reglages/Mesure sont des variables de
+	// paquet cablees par main() (comme Dist et AccueilHTML plus haut) ;
+	// rester nil dans un test qui ne les sollicite pas ne fait rien
+	// planter, les gestionnaires le verifient.
+	mux.HandleFunc("GET /api/collection", collectionListerHandler)
+	mux.HandleFunc("PUT /api/collection", collectionAjouterHandler)
+	mux.HandleFunc("DELETE /api/collection", collectionRetirerHandler)
+	mux.HandleFunc("GET /api/reglages", reglagesLireHandler)
+	mux.HandleFunc("PUT /api/reglages", reglagesEcrireHandler)
+	mux.HandleFunc("GET /api/diagnostic", diagnosticHandler)
 
 	// Le bundle client (PRP 05). Servi seulement si Dist a ete cable par
 	// main() : les tests de ce paquet, qui construisent leur propre
