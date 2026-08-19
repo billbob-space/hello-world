@@ -4,6 +4,16 @@
 # c'est ce qui empeche une edition dans cadran ou hello-world d'invalider le
 # cache de couches de celle-ci, et inversement.
 
+# Etage client (PRP 05) : esbuild compile web/src -> web/dist, requis par le
+# //go:embed web/dist de main.go. node_modules ne quitte JAMAIS cet etage :
+# seul web/dist franchit la frontiere vers l'etage Go, via COPY --from.
+FROM node:22-alpine AS client
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/src ./src
+RUN npm run build
+
 FROM golang:1.24-alpine AS serveur
 WORKDIR /src
 
@@ -15,6 +25,10 @@ COPY go.mod go.su[m] ./
 RUN go mod download
 
 COPY . .
+# Le bundle du client, produit par l'etage precedent. Sans cette copie,
+# //go:embed web/dist echouerait a la compilation : le repertoire doit
+# exister et n'etre pas vide (PRP 05, piege 3).
+COPY --from=client /src/web/dist ./web/dist
 
 # Identifiant de la version deployee. La CI passe le SHA du commit
 # (build-args: VERSION=${{ github.sha }}) ; une construction locale garde "dev".

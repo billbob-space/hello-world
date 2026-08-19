@@ -8,6 +8,7 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
 
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/arbre"
@@ -24,6 +25,12 @@ var Version = "dev"
 // la declare, et web/index.html vit au niveau de main.go, pas de ce
 // paquet. main() copie les octets embarques ici avant de servir.
 var AccueilHTML []byte
+
+// Dist porte le bundle esbuild du client (web/dist, PRP 05), embarque et
+// reduit par main.go via fs.Sub avant d'etre confie ici. Meme mecanisme
+// que AccueilHTML : go:embed n'accepte pas de chemin hors du repertoire de
+// main.go, qui copie donc la reference avant que Routes() ne serve.
+var Dist fs.FS
 
 // entetes pose sur chaque reponse ce qui ne depend pas de la route. Le
 // Header() est ecrit AVANT que le gestionnaire n'appelle WriteHeader :
@@ -57,6 +64,14 @@ func Routes(d arbre.Dependances) http.Handler {
 	})
 
 	mux.HandleFunc("GET /api/centre", centreHandler(d))
+
+	// Le bundle client (PRP 05). Servi seulement si Dist a ete cable par
+	// main() : les tests de ce paquet, qui construisent leur propre
+	// routeur sans jamais appeler main(), n'ont pas besoin d'un
+	// repertoire dist et ne doivent pas paniquer pour autant.
+	if Dist != nil {
+		mux.Handle("GET /dist/", http.StripPrefix("/dist/", http.FileServerFS(Dist)))
+	}
 
 	return entetes(mux)
 }

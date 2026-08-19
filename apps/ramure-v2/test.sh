@@ -6,9 +6,20 @@
 # cd : les commandes Go doivent tourner dans le module, pas au-dessus.
 #
 # set -e est indispensable : sans lui, l'echec de go vet serait avale par le
-# code de sortie de la derniere commande, et la CI resterait verte.
+# code de sortie de la derniere commande, et la CI resterait verte. Une
+# commande par outil, aucun `|| true` : un test.sh qui avale un echec rend
+# vert un job qui ne verifie rien (PRP 05, tache 1, piege 4).
 set -euo pipefail
 cd "$(dirname "$0")"
+
+# La chaine TypeScript (PRP 05) construit AVANT Go : //go:embed web/dist
+# n'accepte ni chemin absent ni repertoire vide, donc `go build` seul, sans
+# `npm run build` prealable, ne compile plus (piege 3). Le runner de la CI
+# fournit Go et Node : `npm ci` y fonctionne sans rien installer (piege 4).
+npm ci --prefix web
+npm run --prefix web build        # esbuild -> web/dist, requis par go:embed
+npm run --prefix web typecheck    # tsc --noEmit
+npm run --prefix web test         # vitest
 
 # go vet d'abord : il attrape les fautes que le compilateur laisse passer
 # (verbes de format, copies de mutex) et coute quelques secondes.

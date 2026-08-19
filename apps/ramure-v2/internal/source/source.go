@@ -16,53 +16,53 @@ import (
 // puisse basculer de Last.fm, qui interroge par nom, vers ListenBrainz, qui
 // exige un MBID.
 type Artiste struct {
-	MBID             string
-	Nom              string
-	Pays             string
-	Desambiguisation string
+	MBID             string `json:"mbid"`
+	Nom              string `json:"nom"`
+	Pays             string `json:"pays"`
+	Desambiguisation string `json:"desambiguisation"`
 }
 
 // Voisin est un candidat de proximite, quelle que soit la source qui l'a
 // produit. Affinite est toujours ramenee entre 0 et 1 par l'adaptateur, meme
 // quand la source d'origine ne le fait pas (ListenBrainz, tache 4).
 type Voisin struct {
-	Nom      string
-	MBID     string
-	Affinite float64
+	Nom      string  `json:"nom"`
+	MBID     string  `json:"mbid"`
+	Affinite float64 `json:"affinite"`
 }
 
 // Profil accompagne le centre a l'ecran (PRD §07) : presentation textuelle,
 // genres et taille d'audience.
 type Profil struct {
-	Presentation string
-	Genres       []string
-	Auditeurs    int
+	Presentation string   `json:"presentation"`
+	Genres       []string `json:"genres"`
+	Auditeurs    int      `json:"auditeurs"`
 }
 
 // Illustration porte les trois tailles usuelles d'une image d'artiste.
 type Illustration struct {
-	Petite string
-	Moyenne string
-	Grande  string
+	Petite  string `json:"petite"`
+	Moyenne string `json:"moyenne"`
+	Grande  string `json:"grande"`
 }
 
 // Album resume une entree de discographie, deja classee par ClasserTypeSortie
 // et notee par MusicBrainz quand le seuil de votes est atteint.
 type Album struct {
-	MBID   string
-	Titre  string
-	Sortie string
-	Type   TypeSortie
-	Note   float64
-	Votes  int
+	MBID   string     `json:"mbid"`
+	Titre  string     `json:"titre"`
+	Sortie string     `json:"sortie"`
+	Type   TypeSortie `json:"type"`
+	Note   float64    `json:"note"`
+	Votes  int        `json:"votes"`
 }
 
 // Extrait est une piste ecoutable a la demande (role 4), jamais chargee tant
 // que l'utilisateur ne l'a pas demandee.
 type Extrait struct {
-	Titre string
-	URL   string
-	Duree int
+	Titre string `json:"titre"`
+	URL   string `json:"url"`
+	Duree int    `json:"duree"`
 }
 
 // ErrIntrouvable signale un vide plutot qu'une panne : aucun candidat ne

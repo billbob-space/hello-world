@@ -8,8 +8,9 @@ package main
 
 import (
 	"context"
-	_ "embed" // pour la directive go:embed ci-dessous
+	"embed"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -43,6 +44,16 @@ const adresse = ":8080"
 //
 //go:embed web/index.html
 var accueilHTML []byte
+
+// web/dist est le bundle esbuild du client TypeScript (PRP 05, web/src) :
+// il n'existe qu'apres `npm run build`, ce qui rend l'embed d'un
+// REPERTOIRE indispensable ici (go:embed ne suit pas les liens et refuse
+// un repertoire absent ou vide). `go build` seul, sans construction
+// client prealable, ne compile donc plus : test.sh construit toujours le
+// client avant d'appeler go build/go vet/go test.
+//
+//go:embed web/dist
+var distFS embed.FS
 
 // Routes construit desormais le routeur complet (PRP 04) : sonde de sante,
 // page d'accueil, en-tete X-Ramure-Version et /api/centre y sont tous
@@ -110,6 +121,15 @@ func main() {
 	// go:embed n'accepte pas de chemin hors du repertoire de ce fichier :
 	// les octets sont donc copies dans le paquet api avant de servir.
 	api.AccueilHTML = accueilHTML
+
+	// fs.Sub retire le prefixe "web/dist" : le paquet api sert donc
+	// "app.js" a la racine du sous-systeme de fichiers, pour une URL
+	// /dist/app.js plutot que /dist/web/dist/app.js.
+	dist, err := fs.Sub(distFS, "web/dist")
+	if err != nil {
+		log.Fatalf("ramure-v2 : web/dist illisible (npm run build a-t-il tourne ?) : %v", err)
+	}
+	api.Dist = dist
 
 	srv := &http.Server{
 		Addr:    adresse,

@@ -7,38 +7,90 @@
 <title>RAMURE</title>
 <style>
   :root { color-scheme: dark light; }
-  body {
+  * { box-sizing: border-box; }
+  html, body {
     margin: 0;
-    min-height: 100dvh;
-    display: grid;
-    place-items: center;
-    padding: clamp(1rem, 5vw, 3rem);
+    height: 100%;
     background: #0b0b0c;
     color: #ece7dc;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
                  "Helvetica Neue", Arial, sans-serif;
-    line-height: 1.6;
+
+    /* Echelle typographique : trois degres, jamais deux voisins a moins d'un
+       rapport de 1,25. En deca, l'oeil ne lit plus une hierarchie mais une
+       imprecision — c'est le defaut releve sur la premiere version de cet
+       ecran, ou 1,1 / 1 / 0,85 se ressemblaient trop pour hierarchiser quoi
+       que ce soit. Rapports tenus ici : 1,375 puis 1,25. */
+    --texte-titre: 1.375rem;
+    --texte-corps: 1rem;
+    --texte-second: .8rem;
   }
-  main { max-width: 34rem; }
-  h1 {
-    margin: 0 0 .4rem;
-    font-size: clamp(1.6rem, 7vw, 2.4rem);
-    letter-spacing: .18em;
-    font-weight: 600;
+  body { display: grid; grid-template-rows: auto 1fr; }
+
+  /* Lien d'evitement (§12) : invisible tant qu'il n'a pas le focus. */
+  .evitement {
+    position: absolute; left: 0; top: -3rem; z-index: 10;
+    background: #f0a828; color: #0b0b0c; padding: .6rem 1rem;
+    text-decoration: none; font-weight: 600;
   }
-  p.promesse { margin: 0 0 2rem; color: #f0a828; }
-  p.etat { color: #8a867c; font-size: .9rem; }
+  .evitement:focus { top: 0; }
+
+  header {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 1rem; border-bottom: 1px solid #232323;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    margin: 0; font-size: var(--texte-titre); letter-spacing: .18em; font-weight: 600;
+  }
+  #recherche { display: flex; gap: .5rem; flex: 1; min-width: 12rem; }
+  #recherche input {
+    flex: 1; min-width: 0; padding: .5rem .7rem; border-radius: .4rem;
+    border: 1px solid #3a3a3a; background: #161617; color: inherit;
+  }
+  #recherche button, .camera button {
+    padding: .5rem .8rem; border-radius: .4rem; border: 1px solid #3a3a3a;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    min-height: 2.5rem; min-width: 2.5rem;
+  }
+  .camera { display: flex; gap: .4rem; }
+
+  main { position: relative; overflow: hidden; }
+  #canevas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .noeud { cursor: pointer; }
+  .noeud:focus-visible circle { outline: 3px solid #f0a828; outline-offset: 2px; }
+  .libelle { fill: #ece7dc; font-size: 13px; pointer-events: none; }
+  .lien { stroke: #4a4a4a; stroke-width: 1.5; }
+
+  #etat {
+    position: absolute; left: .75rem; bottom: .75rem; max-width: 22rem;
+    font-size: var(--texte-second); color: #8a867c;
+  }
+  .visuellement-cache {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
 </style>
 </head>
 <body>
-<main>
+<a class="evitement" href="#contenu">Aller au contenu principal</a>
+<header>
   <h1>RAMURE</h1>
-  <p class="promesse">Plante un nom, saute de branche en branche.</p>
-  <p class="etat">
-    Le socle est en ligne : le serveur repond, l'image est publiee, la stack
-    tient debout. Le canevas et l'arbre arrivent aux etapes suivantes de la
-    serie. La version servie est dans l'en-tete <code>X-Ramure-Version</code>.
-  </p>
+  <form id="recherche" role="search" aria-label="Planter un artiste">
+    <label class="visuellement-cache" for="graine">Nom d'artiste</label>
+    <input id="graine" name="graine" type="text" placeholder="Planter un artiste…" autocomplete="off">
+    <button type="submit">Planter</button>
+  </form>
+  <div class="camera">
+    <button type="button" id="zoomer-arriere" aria-label="Dezoomer">−</button>
+    <button type="button" id="zoomer-avant" aria-label="Zoomer">+</button>
+    <button type="button" id="cadrage-initial" hidden>Revenir au cadrage initial</button>
+  </div>
+</header>
+<main id="contenu">
+  <svg id="canevas" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Arbre des artistes proches"></svg>
+  <p id="etat" role="status" aria-live="polite"></p>
 </main>
+<script type="module" src="/dist/app.js"></script>
 </body>
 </html>

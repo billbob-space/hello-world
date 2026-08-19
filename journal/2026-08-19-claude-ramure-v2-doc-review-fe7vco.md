@@ -542,6 +542,70 @@ chiffre testé est censé faire — refuser une implémentation qui « marche »
 tient pas la promesse.
 
 
+### 18. (phase 2) Le JSON de `/api/centre` melange deux conventions de nommage
+
+**Symptome** — `Centre` et `Branche` portent des étiquettes JSON et sortent en
+minuscules ; `Artiste`, `Voisin`, `Illustration`, `Profil` et `Album`, livrés au
+PRP 03, n'en portent **aucune** et sortent donc avec le nom du champ Go — `Nom`,
+`MBID`, `Affinite`. La réponse réelle mélange les deux conventions dans le même
+document. Le client du PRP 05 fonctionne parce qu'il en tient compte
+explicitement, après lecture du Go.
+
+**Cause** — les types du PRP 03 ont été conçus comme des types **internes**, pour
+porter des données entre paquets ; aucun PRP ne prévoyait qu'ils traverseraient
+la frontière HTTP tels quels. Le PRP 04 les a sérialisés sans le dire, et le
+PRP 05 a découvert la surface publique en essayant de la consommer. Rien ne l'a
+signalé parce que rien ne regarde la forme du JSON : les tests Go comparent des
+structures, pas des octets.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — corrigé dans la foulée plutôt que reporté : trois PRP
+sur les quatre restants écrivent du code client contre cette API, et chaque étape
+de plus rend le renommage plus cher. La forme du JSON devient une propriété
+testée, et non une conséquence du nom des champs Go.
+
+### 19. (phase 2) La chaine TypeScript arrive, et le `.gitignore` racine ne la connait pas
+
+**Symptome** — `ramure-v2` est la première app de la fabrique à porter une vraie
+chaîne de construction cliente : `node_modules/` et `web/dist/` apparaissent, et
+le `.gitignore` racine — complété par `init.sh --add` — n'a aucune règle pour
+eux. `marcq-handball`, pourtant déclarée `stack: typescript`, n'a pas de
+répertoire `web/` : le cas ne s'était jamais posé.
+
+**Cause** — `--add` complète le `.gitignore` selon la *pile déclarée*, et la pile
+`typescript` du dépôt n'avait jusqu'ici jamais produit de `node_modules`. Une
+déclaration de pile ne dit pas quels artefacts la construction produit.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — un `.gitignore` **imbriqué** dans `apps/ramure-v2/web/`
+répond au besoin et vaut mieux qu'une règle à la racine : il vit avec ce qu'il
+ignore, il part avec l'app si elle part, et il n'oblige pas une app à modifier un
+fichier partagé pour ranger ses propres artefacts. À reconsidérer seulement si
+plusieurs apps finissent par recopier le même fichier.
+
+### 20. (phase 2) `//go:embed web/dist` fait dependre la compilation d'un artefact non suivi
+
+**Symptome** — `web/dist/` est ignoré par git, et `//go:embed` **refuse** un
+chemin absent ou un répertoire vide. Sur un clone neuf, `go build ./...` et
+`go vet ./...` échouent donc tant que `npm run build` n'a pas tourné — ce qui
+n'est pas une panne mais se lit comme telle, et n'a rien à voir avec le code Go
+qu'on vient d'écrire.
+
+**Cause** — l'embarquement lie la compilation Go à un artefact produit par une
+autre chaîne. C'est le prix du binaire unique, et il est assumé ; ce qui manquait
+était de le dire à l'endroit où quelqu'un le rencontrera.
+
+**Detecte par** — `compilateur`
+
+**Action** — `rien` — `test.sh` construit le client **avant** d'appeler Go, et
+son commentaire dit pourquoi ; le `Dockerfile` fait de même avec un étage
+`node:22-alpine` placé avant l'étage Go. Les deux seuls chemins qui compilent
+cette app passent donc par la construction cliente. La règle est tenue par
+l'ordre des commandes, pas par la mémoire de qui les lance.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre

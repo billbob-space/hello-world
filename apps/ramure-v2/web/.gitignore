@@ -1,0 +1,6 @@
+# Artefacts de la chaine TypeScript (PRP 05) : jamais suivis par git, tous
+# deux regeneres par test.sh (npm ci ; npm run build). Le .gitignore
+# racine ne les connait pas — c'est un fichier partage hors du perimetre de
+# cette app, d'ou ce .gitignore imbrique plutot qu'une edition a la racine.
+node_modules/
+dist/

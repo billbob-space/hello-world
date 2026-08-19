@@ -8,7 +8,6 @@ test.sh
 .dockerignore
 ramure-v2
 node_modules
-dist
 build
 target
 __pycache__
