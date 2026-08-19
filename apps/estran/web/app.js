@@ -222,6 +222,141 @@ function rendrePrevisions(donnees) {
   }
 }
 
+// ---------- La section Pluie (prp/03-graphe-de-pluie.md) --------------------
+//
+// Deux echelles de temps, deux fournisseurs, et le serveur reste seul juge :
+// ce fichier ne calcule aucune pluie, il met en forme ce que /api/pluie rend.
+//
+// La HAUTEUR d'une barre est une INTENSITE en mm/h, pas la lame d'eau du pas.
+// Sans cette conversion, un quart d'heure a 0,5 mm et une heure a 0,5 mm
+// auraient la meme barre alors que le premier pleut quatre fois plus fort —
+// et la courbe changerait d'aspect en changeant simplement de jour, au gre du
+// pas que le serveur a pu servir. Le CUMUL affiche sous la courbe, lui, reste
+// la somme des lames d'eau : c'est le serveur qui l'a calcule.
+const PAS_PAR_HEURE = { quart: 4, heure: 1 };
+
+// Plancher de l'echelle verticale : 2 mm/h, soit une pluie deja franche. Sans
+// lui, une bruine a 0,1 mm/h remplirait le graphe et se lirait comme un
+// deluge — l'echelle doit rester comparable d'un jour a l'autre.
+const ECHELLE_MIN_MMH = 2;
+
+function rendrePluie(donnees) {
+  const carte = document.getElementById("pluie-carte");
+  if (!carte) return;
+
+  if (donnees.erreur) {
+    carte.innerHTML = `<p class="etat-attente">${esc(donnees.erreur)}</p>`;
+    return;
+  }
+
+  carte.innerHTML = [bandeHeure(donnees.heure), courbeJour(donnees.jour)]
+    .filter(Boolean)
+    .join("");
+}
+
+// bandeHeure rend les 60 minutes qui viennent, par pas de 5 puis 10 minutes.
+// Absente sur un autre jour que aujourd'hui (le serveur ne l'envoie alors
+// pas) : rien n'est rendu, plutot qu'une bande vide qui serait
+// indistinguable d'une heure seche.
+function bandeHeure(heure) {
+  if (!heure || !(heure.pas || []).length) return "";
+
+  const pas = heure.pas;
+  const segments = pas
+    .map(
+      (p) =>
+        `<span class="pluie-seg pluie-seg--${p.niveau}" title="${esc(p.heure)} — ${esc(p.libelle)}"></span>`,
+    )
+    .join("");
+
+  // Le resume dit ce qu'on veut savoir debout sur le pas de la porte : est-ce
+  // que ca va tomber, et dans combien de temps. Premier pas mouille (niveau
+  // >= 2) plutot que le maximum : c'est l'echeance qui decide si on part
+  // maintenant.
+  const premierMouille = pas.find((p) => p.niveau >= 2);
+  const resume = !premierMouille
+    ? "temps sec pour l’heure qui vient"
+    : premierMouille === pas[0]
+      ? `${esc(premierMouille.libelle)} en cours`
+      : `${esc(premierMouille.libelle)} vers ${esc(premierMouille.heure)}`;
+
+  const maj = heure.mise_a_jour ? ` · relevé de ${esc(heure.mise_a_jour)}` : "";
+  const lieu = heure.lieu ? esc(heure.lieu) : "";
+
+  return `
+    <div class="pluie-heure">
+      <p class="pluie-resume">${resume}</p>
+      <div class="pluie-bande" role="img" aria-label="${esc(resumeAccessible(pas))}">${segments}</div>
+      <div class="pluie-bande-axe">
+        <span>${esc(pas[0].heure)}</span>
+        <span>${esc(pas[pas.length - 1].heure)}</span>
+      </div>
+      <p class="pluie-source">Météo-France${lieu ? ` · ${lieu}` : ""}${maj}</p>
+    </div>`;
+}
+
+function resumeAccessible(pas) {
+  return pas.map((p) => `${p.heure} ${p.libelle}`).join(", ");
+}
+
+// courbeJour rend la journee entiere. Le pas ("quart" ou "heure") vient du
+// serveur et s'affiche : une courbe qui change de finesse sans le dire
+// laisserait croire a une pluie plus reguliere qu'elle ne l'est.
+function courbeJour(jour) {
+  if (!jour || !(jour.points || []).length) return "";
+
+  const parHeure = PAS_PAR_HEURE[jour.pas] || 1;
+  const intensites = jour.points.map((p) => p.mm * parHeure);
+  const plafond = Math.max(ECHELLE_MIN_MMH, ...intensites);
+  const finesse = jour.pas === "quart" ? "au quart d’heure" : "par heure";
+
+  if (jour.total_mm === 0) {
+    return `
+      <div class="pluie-jour">
+        <p class="pluie-vide">aucune pluie prévue sur la journée</p>
+        <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
+      </div>`;
+  }
+
+  const n = jour.points.length;
+  const largeur = 100 / n;
+  const barres = jour.points
+    .map((p, i) => {
+      const hauteur = (p.mm * parHeure * 100) / plafond;
+      if (hauteur <= 0) return "";
+      return `<rect x="${(i * largeur).toFixed(3)}" y="${(100 - hauteur).toFixed(3)}" width="${(largeur * 0.9).toFixed(3)}" height="${hauteur.toFixed(3)}"></rect>`;
+    })
+    .join("");
+
+  // Repere de l'heure courante, sur aujourd'hui seulement : sur un autre jour
+  // il n'aurait aucun sens.
+  const maintenant = new Date();
+  const repere =
+    decalageJour === 0
+      ? `<rect class="pluie-maintenant" x="${(((maintenant.getHours() * 60 + maintenant.getMinutes()) / 1440) * 100).toFixed(3)}" y="0" width="0.4" height="100"></rect>`
+      : "";
+
+  const graduations = [6, 12, 18]
+    .map((h) => `<rect class="pluie-grille" x="${((h / 24) * 100).toFixed(3)}" y="0" width="0.15" height="100"></rect>`)
+    .join("");
+
+  return `
+    <div class="pluie-jour">
+      <div class="pluie-graphe">
+        <span class="pluie-plafond">${plafond.toFixed(1).replace(".", ",")} mm/h</span>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
+             aria-label="Pluie de la journée, ${finesse}, cumul ${jour.total_mm} millimètres">
+          ${graduations}
+          ${barres}
+          ${repere}
+        </svg>
+      </div>
+      <div class="pluie-axe"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
+      <p class="pluie-cumul"><strong>${jour.total_mm.toString().replace(".", ",")} mm</strong> sur la journée</p>
+      <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
+    </div>`;
+}
+
 // Les prévisions météo et la marée arrivent de deux endpoints indépendants,
 // qui se dégradent chacun de son côté (PRODUCT.md, principe 3). La tendance
 // à 16 jours fusionne les deux par date dès que l'une des deux réponses
@@ -469,6 +604,11 @@ async function tout() {
     rendreJauge(await chargerJSON(urlAvecJour("/api/maree")));
   } catch (e) {
     document.getElementById("jauge-carte").innerHTML = `<p class="etat-attente">marée indisponible</p>`;
+  }
+  try {
+    rendrePluie(await chargerJSON(urlAvecJour("/api/pluie")));
+  } catch (e) {
+    document.getElementById("pluie-carte").innerHTML = `<p class="etat-attente">pluie indisponible</p>`;
   }
 }
 

@@ -24,6 +24,13 @@
   --ambre-400: #f2b155;
   --ambre-500: #e79a2e;
   --rouge-400: #e8785f;
+  /* Rampe sequentielle de la pluie, du temps sec a la pluie forte. Reste dans
+     les eaux : l'ambre est le seul signal de l'ecran et appartient a la maree
+     (voir l'en-tete de ce fichier). */
+  --pluie-1: rgba(244, 236, 216, 0.12);
+  --pluie-2: var(--eau-600);
+  --pluie-3: var(--eau-400);
+  --pluie-4: #8fe3d8;
   --ombre: rgba(3, 12, 18, 0.45);
   --rayon: 18px;
   --rayon-petit: 10px;
@@ -132,7 +139,7 @@ main {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
     grid-template-areas:
       "jauge previsions"
-      "jauge tendance";
+      "pluie tendance";
     align-items: start;
     row-gap: var(--espace-5);
     column-gap: var(--espace-6);
@@ -140,6 +147,10 @@ main {
 
   .jauge-section {
     grid-area: jauge;
+  }
+
+  .pluie-section {
+    grid-area: pluie;
   }
 
   .previsions-section {
@@ -493,6 +504,133 @@ main {
   .jour-extremum {
     font-size: 1.15rem;
   }
+}
+
+/* ---------- pluie (prp/03-graphe-de-pluie.md) ---------- */
+/* Deux echelles de temps dans une seule carte : la bande des 60 minutes qui
+   viennent, puis la courbe de la journee entiere.
+
+   La couleur suit la regle posee en tete de fichier : l'ambre reste reserve a
+   la maree, seul signal de l'ecran (principe 2 du produit). La pluie prend
+   donc une rampe SEQUENTIELLE dans les eaux, du sourd (temps sec) au vif
+   (pluie forte) — c'est l'intensite qui varie, pas la teinte, et rien ici ne
+   vient concurrencer le reperage de la jauge. */
+
+.pluie-carte {
+  background: linear-gradient(165deg, var(--encre-700), var(--encre-800));
+  border: 1px solid rgba(244, 236, 216, 0.08);
+  border-radius: var(--rayon);
+  padding: var(--espace-4);
+  box-shadow: 0 12px 28px var(--ombre);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+
+.pluie-heure + .pluie-jour {
+  border-top: 1px solid rgba(244, 236, 216, 0.08);
+  padding-top: var(--espace-4);
+}
+
+.pluie-resume {
+  margin: 0 0 var(--espace-2);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--sable-100);
+}
+
+/* La bande : un segment par pas rendu par Meteo-France (5 minutes sur la
+   premiere demi-heure, 10 ensuite). Les segments ont TOUS la meme largeur
+   alors que les pas n'ont pas la meme duree : c'est assume — la bande dit
+   l'ordre et l'intensite, l'axe dessous donne les deux heures reelles. Une
+   largeur proportionnelle rendrait les six premiers segments illisibles sur
+   un telephone. */
+.pluie-bande {
+  display: flex;
+  gap: 2px;
+  height: 1.5rem;
+}
+
+.pluie-seg {
+  flex: 1 1 0;
+  border-radius: 3px;
+  background: var(--pluie-1);
+}
+
+.pluie-seg--2 {
+  background: var(--pluie-2);
+}
+
+.pluie-seg--3 {
+  background: var(--pluie-3);
+}
+
+.pluie-seg--4 {
+  background: var(--pluie-4);
+}
+
+.pluie-bande-axe,
+.pluie-axe {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--espace-1);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sable-300);
+}
+
+.pluie-graphe {
+  position: relative;
+  height: 6.5rem;
+  border-bottom: 1px solid rgba(244, 236, 216, 0.18);
+}
+
+.pluie-graphe svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pluie-graphe rect {
+  fill: var(--pluie-3);
+}
+
+.pluie-grille {
+  fill: rgba(244, 236, 216, 0.09);
+}
+
+/* Le repere de l'heure courante est le seul trait clair du graphe : il se lit
+   comme un curseur, pas comme une mesure, d'ou le sable et non une eau. */
+.pluie-maintenant {
+  fill: var(--sable-100);
+}
+
+.pluie-plafond {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 0.8rem;
+  color: var(--sable-300);
+  font-variant-numeric: tabular-nums;
+}
+
+.pluie-cumul {
+  margin: var(--espace-2) 0 0;
+  font-size: 1rem;
+  color: var(--sable-100);
+}
+
+.pluie-vide {
+  margin: 0;
+  padding: var(--espace-3) 0;
+  font-size: 1.05rem;
+  color: var(--sable-200);
+}
+
+.pluie-source {
+  margin: var(--espace-1) 0 0;
+  font-size: 0.85rem;
+  color: var(--sable-300);
 }
 
 /* ---------- prevision horaire ---------- */

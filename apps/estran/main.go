@@ -52,7 +52,12 @@ var parisTZ = func() *time.Location {
 func main() {
 	log.SetFlags(0) // l'infra horodate les logs ; on ecrit sur la sortie standard
 
-	srv := nouveauServeur(NouveauClientMeteo(latitude, longitude), NouveauClientMaree(siteMaree, env("API_MAREE_KEY", "")))
+	srv := nouveauServeur(
+		NouveauClientMeteo(latitude, longitude),
+		NouveauClientMaree(siteMaree, env("API_MAREE_KEY", "")),
+		NouveauClientPluie(latitude, longitude),
+		NouveauClientNowcast(latitude, longitude),
+	)
 
 	web, err := fs.Sub(webFS, "web")
 	if err != nil {
@@ -96,14 +101,27 @@ type serveur struct {
 	meteoCache  *dernierConnu[Previsions]
 	clientMaree *ClientMaree
 	mareeCache  *dernierConnu[Maree]
+	// La courbe de pluie et la bande de l'heure ont chacune leur dernier
+	// connu, distinct de celui de la meteo : la bande peut etre resservie
+	// depuis le cache pendant que la courbe est fraiche, et l'echec de l'une
+	// ne doit pas retirer l'autre de l'ecran
+	// (prp/03-graphe-de-pluie.md, section 4).
+	clientPluie   *ClientPluie
+	pluieCache    *dernierConnu[SeriePluie]
+	clientNowcast *ClientNowcast
+	nowcastCache  *dernierConnu[Nowcast]
 }
 
-func nouveauServeur(cm *ClientMeteo, cma *ClientMaree) *serveur {
+func nouveauServeur(cm *ClientMeteo, cma *ClientMaree, cp *ClientPluie, cn *ClientNowcast) *serveur {
 	return &serveur{
-		clientMeteo: cm,
-		meteoCache:  &dernierConnu[Previsions]{},
-		clientMaree: cma,
-		mareeCache:  &dernierConnu[Maree]{},
+		clientMeteo:   cm,
+		meteoCache:    &dernierConnu[Previsions]{},
+		clientMaree:   cma,
+		mareeCache:    &dernierConnu[Maree]{},
+		clientPluie:   cp,
+		pluieCache:    &dernierConnu[SeriePluie]{},
+		clientNowcast: cn,
+		nowcastCache:  &dernierConnu[Nowcast]{},
 	}
 }
 
@@ -112,6 +130,7 @@ func routes(s *serveur, web fs.FS) http.Handler {
 	mux.HandleFunc("GET /healthz", handleHealth)
 	mux.HandleFunc("GET /api/previsions", s.handlePrevisions)
 	mux.HandleFunc("GET /api/maree", s.handleMaree)
+	mux.HandleFunc("GET /api/pluie", s.handlePluie)
 	mux.Handle("GET /", http.FileServer(http.FS(web)))
 	return mux
 }
@@ -186,6 +205,57 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	}
 	repondreJSON(w, http.StatusOK, vueMareeJour(valeur, frais, siteMaree, *dateCible))
 }
+
+// handlePluie sert la section Pluie, sur une route distincte de
+// /api/previsions pour trois raisons (prp/03-graphe-de-pluie.md, section 3) :
+// une source lente ne doit pas retarder l'ecran principal, la bande de
+// l'heure se rafraichit plus souvent que la tendance a seize jours, et la
+// panne de l'une se lit sans contaminer l'autre.
+func (s *serveur) handlePluie(w http.ResponseWriter, r *http.Request) {
+	maintenant := time.Now().In(parisTZ)
+	dateCible, err := parametreDate(r, maintenant)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 12s : le fournisseur de la courbe fait deux appels sortants sequentiels
+	// (horaire puis quart d'heure), comme les deux autres routes.
+	ctx, annuler := context.WithTimeout(r.Context(), 12*time.Second)
+	defer annuler()
+
+	serie, _, frais, err := s.pluieCache.rafraichir(func() (SeriePluie, error) {
+		return s.clientPluie.Recuperer(ctx)
+	})
+	if err != nil {
+		log.Printf("pluie indisponible : %v", err)
+	}
+
+	// La bande de l'heure est bornee a part et n'est demandee QUE pour
+	// aujourd'hui : sur un autre jour elle ne serait pas affichee, et l'appel
+	// serait paye pour rien. Son echec ne remonte jamais — la section garde
+	// la courbe.
+	var bande *Nowcast
+	if dateCible == nil || debutDuJour(*dateCible).Equal(debutDuJour(maintenant)) {
+		ctxBande, annulerBande := context.WithTimeout(ctx, delaiNowcast)
+		defer annulerBande()
+		if n, _, _, err := s.nowcastCache.rafraichir(func() (Nowcast, error) {
+			return s.clientNowcast.Recuperer(ctxBande)
+		}); err != nil {
+			log.Printf("prevision immediate indisponible : %v", err)
+		} else {
+			bande = &n
+		}
+	}
+
+	repondreJSON(w, http.StatusOK, vuePluie(serie, bande, maintenant, frais, dateCible))
+}
+
+// delaiNowcast borne la bande de l'heure, en sous-contexte du contexte de la
+// requete : elle est un supplement, jamais la promesse de la section
+// (prp/03-graphe-de-pluie.md, section 4) — si elle traine, la courbe du jour
+// doit tout de meme s'afficher a temps.
+const delaiNowcast = 4 * time.Second
 
 // parametreDate lit le parametre optionnel `date` (AAAA-MM-JJ, interprete en
 // Europe/Paris). Absent, il rend (nil, nil) : la reponse doit alors rester
