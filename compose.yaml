@@ -439,10 +439,16 @@ services:
       - VAPID_CONTACT=${VAPID_CONTACT:-}
   # <<< pilabelle
 
-  # >>> ramure — apps/ramure/app.yml — https://ramure.apps.billbob.ovh
-  ramure:
-    image: ghcr.io/billbob-space/hello-world/ramure:39af6ccfca1da11acd9983d71d45e939b792bfff
-    container_name: ramure
+  # >>> ramure — DESACTIVEE (enabled: false dans apps/ramure/app.yml)
+  # Aucun service n'est emis. La stack est unique : referencer une image qui
+  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
+  # Publie l'image d'abord, passe enabled a true ensuite.
+  # <<< ramure
+
+  # >>> ramure-v2 — apps/ramure-v2/app.yml — https://ramure-v2.apps.billbob.ovh
+  ramure-v2:
+    image: ghcr.io/billbob-space/hello-world/ramure-v2:24d910503f7ce1d1aff25b58be46f7915b6fa65d
+    container_name: ramure-v2
     restart: unless-stopped
     mem_limit: 128m
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
@@ -473,22 +479,20 @@ services:
       # Host(). Traefik departageant par longueur de regle, il gagnerait et
       # servirait un 404 silencieux.
       - "traefik.enable=true"
-      - "traefik.http.routers.ramure.rule=Host(`ramure.apps.billbob.ovh`)"
-      - "traefik.http.routers.ramure.entrypoints=websecure"
-      - "traefik.http.routers.ramure.priority=100"
-      # forwardauth = authentification Google + liste blanche du serveur
-      # (exposure private). La retirer exposerait l'app en clair.
-      - "traefik.http.routers.ramure.middlewares=forwardauth,security-headers@file"
-      - "traefik.http.routers.ramure.tls.certresolver=letsencrypt"
-      - "traefik.http.services.ramure.loadbalancer.server.port=8080"
+      - "traefik.http.routers.ramure-v2.rule=Host(`ramure-v2.apps.billbob.ovh`)"
+      - "traefik.http.routers.ramure-v2.entrypoints=websecure"
+      - "traefik.http.routers.ramure-v2.priority=100"
+      # forwardauth-open = tout compte Google, login obligatoire
+      # (exposure google). La retirer exposerait l'app en clair.
+      - "traefik.http.routers.ramure-v2.middlewares=forwardauth-open,security-headers@file"
+      - "traefik.http.routers.ramure-v2.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ramure-v2.loadbalancer.server.port=8080"
       - "traefik.docker.network=apps_net"
     networks: [apps_net]
-  # <<< ramure
-
-  # >>> ramure-v2 — DESACTIVEE (enabled: false dans apps/ramure-v2/app.yml)
-  # Aucun service n'est emis. La stack est unique : referencer une image qui
-  # n'existe pas encore ferait echouer le « compose up » de TOUTES les apps.
-  # Publie l'image d'abord, passe enabled a true ensuite.
+    volumes:
+      - ramure-v2-donnees:/var/lib/ramure
+    environment:
+      - LASTFM_API_KEY=${LASTFM_API_KEY:-}
   # <<< ramure-v2
 
   # >>> renaissance-gym — apps/renaissance-gym/app.yml — https://renaissance-gym.apps.billbob.ovh
@@ -594,6 +598,8 @@ volumes:
     name: marcq-handball-donnees
   pilabelle-donnees:
     name: pilabelle-donnees
+  ramure-v2-donnees:
+    name: ramure-v2-donnees
   renaissance-gym-donnees:
     name: renaissance-gym-donnees
 

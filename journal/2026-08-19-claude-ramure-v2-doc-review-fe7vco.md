@@ -22,6 +22,13 @@ n'est plus une relecture mais l'exécution de la série de PRP. La branche est d
 repartie de `main`, et cette entrée — dont le nom découle du nom de la branche —
 porte les deux phases. Les anomalies de la phase 2 sont marquées comme telles.
 
+**Troisième passage, même nom de branche — la mise en ligne.** La PR 151 a
+fusionné les neuf étapes, application encore débranchée, et a publié son image.
+La branche repart de `main` pour les deux derniers gestes, qui sont irréversibles
+et ont été soumis à l'utilisateur avant d'être faits : brancher `ramure-v2` dans
+la stack, et retirer `apps/ramure`. Les deux ont été décidés — retrait compris,
+en sachant que les artistes gardés dans la v1 ne suivent pas.
+
 ## Anomalies
 
 ### 1. Le premier contrôle exécutable du PRP 01 échoue sur un dépôt sain

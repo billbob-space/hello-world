@@ -16,7 +16,7 @@ erreur ici casse le deploiement de toutes les autres applications.
 - Nom : `ramure` — c'est aussi son sous-domaine, son conteneur et sa route.
 - URL : https://ramure.apps.billbob.ovh
 - Qui entre : uniquement les comptes de la liste blanche du serveur (`exposure: private`).
-- Deployee : oui.
+- Deployee : pas encore — son bloc n'entre pas dans `compose.yaml`.
 
 ## Comment elle tourne
 
