@@ -372,3 +372,152 @@ func sign(v float64) float64 {
 	}
 	return 1
 }
+
+// --- La section Pluie -------------------------------------------------------
+
+// VuePasPluie est un pas de la courbe du jour. Mm est la lame d'eau tombee
+// PENDANT ce pas — un quart d'heure ou une heure selon VueCourbePluie.Pas,
+// jamais un debit ramene a l'heure : additionner les pas doit rendre le
+// cumul du jour.
+type VuePasPluie struct {
+	Heure string  `json:"heure"`
+	Mm    float64 `json:"mm"`
+}
+
+// VueCourbePluie porte la courbe d'un jour, et surtout SON PAS : « quart »
+// quand le modele a maille fine couvre ce jour de bout en bout, « heure »
+// sinon. La page l'affiche tel quel — une courbe qui change de finesse d'un
+// jour a l'autre sans le dire laisserait croire a une pluie plus reguliere
+// qu'elle ne l'est (prp/03-graphe-de-pluie.md, section 2).
+type VueCourbePluie struct {
+	Pas     string        `json:"pas"`
+	Points  []VuePasPluie `json:"points"`
+	TotalMm float64       `json:"total_mm"`
+	MaxMm   float64       `json:"max_mm"`
+}
+
+// VuePasNowcast porte une CLASSE d'intensite (1 a 4) et son libelle, jamais
+// des millimetres : Meteo-France n'en rend pas sur cette echelle, et en
+// fabriquer serait inventer.
+type VuePasNowcast struct {
+	Heure   string `json:"heure"`
+	Niveau  int    `json:"niveau"`
+	Libelle string `json:"libelle"`
+}
+
+// VueBandeNowcast est la bande des 60 minutes qui viennent. Lieu est le nom
+// que Meteo-France donne au point : affiche tel quel, c'est ce qui montre que
+// la prevision porte bien sur Le Touquet.
+type VueBandeNowcast struct {
+	Lieu      string          `json:"lieu"`
+	MiseAJour string          `json:"mise_a_jour,omitempty"`
+	Pas       []VuePasNowcast `json:"pas"`
+}
+
+// ReponsePluie est la reponse de /api/pluie. Heure et Jour sont absents
+// (omitempty) independamment l'un de l'autre : la bande peut tomber sans
+// emporter la courbe, et reciproquement (prp/03-graphe-de-pluie.md,
+// section 4). Erreur n'est renseigne que lorsque les DEUX manquent — c'est le
+// seul cas ou la section n'a rien a montrer.
+type ReponsePluie struct {
+	Frais       bool             `json:"frais"`
+	Heure       *VueBandeNowcast `json:"heure,omitempty"`
+	Jour        *VueCourbePluie  `json:"jour,omitempty"`
+	Erreur      string           `json:"erreur,omitempty"`
+	JourAffiche string           `json:"jour_affiche,omitempty"`
+}
+
+// dureePasFin est le pas du modele a maille fine. Sert a verifier qu'une
+// journee est couverte de bout en bout, sans compter les pas : un jour de
+// changement d'heure en porte 92 ou 100, pas 96.
+const dureePasFin = 15 * time.Minute
+
+// vuePluie assemble la section. Le choix du pas se lit dans la donnee, jamais
+// dans un seuil code en dur : la courbe passe au quart d'heure SEULEMENT si
+// la serie fine couvre le jour de la premiere a la derniere minute. Une
+// couverture partielle — le cas du jour ou AROME s'arrete — retombe sur
+// l'horaire entier plutot que d'afficher une courbe fine tronquee a 11 h qui
+// se lirait comme « plus rien apres » (prp/03-graphe-de-pluie.md, section 4).
+// maintenant est un parametre explicite, jamais time.Now() appele ici.
+func vuePluie(s SeriePluie, n *Nowcast, maintenant time.Time, frais bool, dateCible *time.Time) ReponsePluie {
+	v := ReponsePluie{Frais: frais}
+
+	jour := debutDuJour(maintenant)
+	if dateCible != nil {
+		jour = debutDuJour(*dateCible)
+		v.JourAffiche = jour.Format("2006-01-02")
+	}
+	fin := jour.AddDate(0, 0, 1)
+
+	if quarts := pasDuJour(s.Quarts, jour, fin); couvreLeJour(quarts, jour, fin, dureePasFin) {
+		v.Jour = courbePluie("quart", quarts)
+	} else if heures := pasDuJour(s.Heures, jour, fin); len(heures) > 0 {
+		v.Jour = courbePluie("heure", heures)
+	}
+
+	// La bande de l'heure qui vient n'existe que pour aujourd'hui : elle
+	// decrit les 60 prochaines minutes, une notion qui n'a pas de sens sur un
+	// autre jour. La montrer vide y serait indistinguable d'une heure seche.
+	if n != nil && jour.Equal(debutDuJour(maintenant)) {
+		v.Heure = bandeNowcast(*n)
+	}
+
+	if v.Jour == nil && v.Heure == nil {
+		v.Erreur = "pluie indisponible pour le moment"
+	}
+	return v
+}
+
+// pasDuJour ne garde que les pas dont l'instant tombe dans [jour, fin).
+func pasDuJour(pas []PasPluie, jour, fin time.Time) []PasPluie {
+	garde := make([]PasPluie, 0, 96)
+	for _, p := range pas {
+		if p.Instant.Before(jour) || !p.Instant.Before(fin) {
+			continue
+		}
+		garde = append(garde, p)
+	}
+	return garde
+}
+
+// couvreLeJour dit si la serie va bien du premier au dernier pas de la
+// journee, sans trou. Compte les pas plutot que de comparer aux seules bornes
+// : une serie a laquelle il manquerait deux heures au milieu commencerait et
+// finirait pourtant au bon endroit. Le nombre attendu se calcule depuis la
+// duree reelle de la journee, qui vaut 23 ou 25 heures deux fois par an.
+func couvreLeJour(pas []PasPluie, jour, fin time.Time, duree time.Duration) bool {
+	if len(pas) == 0 {
+		return false
+	}
+	return len(pas) == int(fin.Sub(jour)/duree)
+}
+
+func courbePluie(pas string, points []PasPluie) *VueCourbePluie {
+	c := VueCourbePluie{Pas: pas, Points: make([]VuePasPluie, 0, len(points))}
+	var total, max float64
+	for _, p := range points {
+		c.Points = append(c.Points, VuePasPluie{Heure: p.Instant.Format("15:04"), Mm: arrondi2(p.Mm)})
+		total += p.Mm
+		if p.Mm > max {
+			max = p.Mm
+		}
+	}
+	c.TotalMm = arrondi1(total)
+	c.MaxMm = arrondi2(max)
+	return &c
+}
+
+func bandeNowcast(n Nowcast) *VueBandeNowcast {
+	b := VueBandeNowcast{Lieu: n.Lieu, Pas: make([]VuePasNowcast, 0, len(n.Pas))}
+	if !n.MiseAJour.IsZero() {
+		b.MiseAJour = n.MiseAJour.In(parisTZ).Format("15:04")
+	}
+	for _, p := range n.Pas {
+		b.Pas = append(b.Pas, VuePasNowcast{
+			Heure:   p.Instant.In(parisTZ).Format("15:04"),
+			Niveau:  p.Niveau,
+			Libelle: libellesNowcast[p.Niveau],
+		})
+	}
+	return &b
+}

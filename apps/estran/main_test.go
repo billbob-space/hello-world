@@ -32,6 +32,8 @@ func TestHandleHealth_NeDependAucunFournisseur(t *testing.T) {
 	s := nouveauServeur(
 		&ClientMeteo{BaseForecast: "http://127.0.0.1:1", BaseMarine: "http://127.0.0.1:1", HTTP: http.DefaultClient},
 		&ClientMaree{BaseURL: "http://127.0.0.1:1", HTTP: http.DefaultClient, Site: "x", CleAPI: "x"},
+		&ClientPluie{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		&ClientNowcast{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
 	)
 	var web fs.FS = fstestVide{}
 	h := routes(s, web)
@@ -49,6 +51,8 @@ func TestHandleMaree_SansCle(t *testing.T) {
 	s := nouveauServeur(
 		NouveauClientMeteo(50.517, 1.583),
 		NouveauClientMaree("berck-plage-fort-mahon", ""), // pas de cle
+		NouveauClientPluie(50.517, 1.583),
+		NouveauClientNowcast(50.517, 1.583),
 	)
 	req := httptest.NewRequest(http.MethodGet, "/api/maree", nil)
 	rec := httptest.NewRecorder()
@@ -208,7 +212,7 @@ func serveurMeteoDeTest(t *testing.T, maintenant time.Time) *ClientMeteo {
 func serveurEtRequetePrevisions(t *testing.T, urlChemin string) *httptest.ResponseRecorder {
 	t.Helper()
 	maintenant := time.Now().In(parisTZ)
-	s := nouveauServeur(serveurMeteoDeTest(t, maintenant), NouveauClientMaree("berck-plage-fort-mahon", ""))
+	s := nouveauServeur(serveurMeteoDeTest(t, maintenant), NouveauClientMaree("berck-plage-fort-mahon", ""), NouveauClientPluie(50.517, 1.583), NouveauClientNowcast(50.517, 1.583))
 	req := httptest.NewRequest(http.MethodGet, urlChemin, nil)
 	rec := httptest.NewRecorder()
 	s.handlePrevisions(rec, req)
@@ -390,7 +394,7 @@ func serveurMareeDeTest(t *testing.T, maintenant time.Time) *ClientMaree {
 func requeteMaree(t *testing.T, urlChemin string) *httptest.ResponseRecorder {
 	t.Helper()
 	maintenant := time.Now().In(parisTZ)
-	s := nouveauServeur(NouveauClientMeteo(50.517, 1.583), serveurMareeDeTest(t, maintenant))
+	s := nouveauServeur(NouveauClientMeteo(50.517, 1.583), serveurMareeDeTest(t, maintenant), NouveauClientPluie(50.517, 1.583), NouveauClientNowcast(50.517, 1.583))
 	req := httptest.NewRequest(http.MethodGet, urlChemin, nil)
 	rec := httptest.NewRecorder()
 	s.handleMaree(rec, req)

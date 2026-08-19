@@ -255,3 +255,37 @@ compte ni préférence conservée, et l'indice de confiance ne s'affiche que sur
 les jours — les prochaines heures n'en portent pas, pour que l'écran
 d'ouverture reste lisible d'un coup d'œil. Conception détaillée :
 `prp/02-horizon-confiance-vent.md`.
+
+### Un graphe de pluie, à deux échelles de temps — 19 août 2026
+
+**Ce qui existe maintenant** : une section **Pluie**, entre la marée et les
+prochaines heures, qui répond à la seule question qu'on se pose vraiment avant
+de sortir. Elle porte deux choses.
+
+- **L'heure qui vient**, aujourd'hui seulement : une bande de soixante minutes
+  découpée par pas de cinq puis dix minutes, qui dit *temps sec*, *pluie
+  faible*, *modérée* ou *forte*, et une phrase qui donne l'échéance — « pluie
+  faible vers 15:20 », « temps sec pour l'heure qui vient ». Elle vient de la
+  prévision immédiate de Météo-France, qui porte sur **Le Touquet-Paris-Plage**
+  nommément, et non sur un point de grille voisin.
+- **La journée entière**, de minuit à minuit, qui suit les flèches de
+  navigation comme le reste de l'écran : une courbe, le cumul du jour, un
+  repère de l'heure courante. Au pas du **quart d'heure** quand un modèle à
+  maille fine couvre ce jour — les jours passés, aujourd'hui, demain —, au pas
+  de **l'heure** ensuite, et l'écran dit lequel des deux.
+
+**Ce qui l'a demandé** : l'usage, le 19 août 2026 — « un graphe de pluie le
+plus précis possible, par 10 minutes si possible ».
+
+**Ce que le PRD affirmait avant** : il listait « probabilité de pluie » parmi
+les grandeurs horaires, et rien d'autre. Une probabilité par heure ne dit ni
+combien il tombe, ni quand l'averse commence — deux choses qu'on veut savoir
+debout sur le pas de la porte, et que l'écran ne donnait nulle part. C'était
+absent, pas refusé.
+
+**Ce que cela ne change pas** : le lieu reste unique, il n'y a toujours ni
+compte ni préférence conservée, et le principe 4 tient — la section montre le
+court avant le long, et la tendance à seize jours n'y gagne aucun détail. Le
+principe 3 non plus n'est pas entamé : la bande de l'heure vient d'une source
+sans garantie, et sa panne fait simplement disparaître la bande, jamais la
+courbe. Conception détaillée : `prp/03-graphe-de-pluie.md`.
