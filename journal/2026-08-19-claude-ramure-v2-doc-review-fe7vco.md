@@ -817,6 +817,37 @@ C'est le contrôle que le PRP 05 aurait pu prescrire : rejouer la construction s
 ce que le `Dockerfile` copie, et non sur ce que le poste contient.
 
 
+### 29. (phase 2) Un test qui lit le TEXTE du CSS interdit de refactoriser ce CSS
+
+**Symptome** — en remplaçant les valeurs d'espacement par une échelle de
+variables, six déclarations ont dû rester en `rem` littéral : le test de cibles
+tactiles du PRP 08 extrait la valeur par expression régulière
+(`min-height:\s*([\d.]+)rem`) **sur le texte brut du CSS**. Écrire
+`min-height: var(--espace-…)` casserait ce test — alors que la cible mesurée
+dans le navigateur serait identique.
+
+**Cause** — le test éprouve la **forme du code source** au lieu de l'**effet
+mesuré**. Il a été écrit ainsi parce que la mesure réelle demande un navigateur,
+et qu'un test unitaire n'en a pas. Le compromis est raisonnable ; sa conséquence
+ne l'est pas : le test devient une contrainte de rédaction du CSS, invisible
+jusqu'au jour où quelqu'un refactorise.
+
+C'est le pendant exact de l'anomalie 25. Là, un test vérifiait qu'un attribut
+était présent et ne prouvait pas qu'il faisait son office ; ici, un test vérifie
+comment une valeur est écrite et interdit une écriture équivalente. Les deux
+disent la même chose : ce PRP se juge dans un navigateur, et les tests unitaires
+n'y sont que des sentinelles approximatives.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — les six déclarations restent littérales, avec le
+seuil qui gagne sur l'esthétique, et les tailles ont été **re-mesurées dans un
+vrai navigateur** après le changement : 40x40 px pour les commandes aux deux
+largeurs. La règle à retenir : quand un test ne peut pas mesurer l'effet, il doit
+dire dans son nom ou son commentaire qu'il approxime — sans quoi le prochain
+lecteur croit qu'il garde la cible, alors qu'il garde une syntaxe.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre
