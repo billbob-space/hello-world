@@ -235,10 +235,28 @@ function rendrePrevisions(donnees) {
 // la somme des lames d'eau : c'est le serveur qui l'a calcule.
 const PAS_PAR_HEURE = { quart: 4, heure: 1 };
 
-// Plancher de l'echelle verticale : 2 mm/h, soit une pluie deja franche. Sans
-// lui, une bruine a 0,1 mm/h remplirait le graphe et se lirait comme un
-// deluge — l'echelle doit rester comparable d'un jour a l'autre.
-const ECHELLE_MIN_MMH = 2;
+// Seuils d'intensite (mm/h) qui distinguent pluie faible / moderee / forte :
+// les paliers meteorologiques usuels, qui rejoignent l'echelle a niveaux 1-4
+// que Meteo-France sert deja pour la bande des 60 minutes
+// (prp/03-graphe-de-pluie.md). Utilises a la fois pour colorer les barres de
+// la courbe du jour (niveauBarre) et pour les traits de grille horizontaux
+// du meme graphe : les deux visuels de la carte doivent dire la meme chose
+// avec les memes mots, jamais un debit en mm/h que personne ne sait lire.
+const SEUIL_MODEREE_MMH = 2;
+const SEUIL_FORTE_MMH = 8;
+
+// Plancher de l'echelle verticale : le seuil "moderee", soit une pluie deja
+// franche. Sans lui, une bruine a 0,1 mm/h remplirait le graphe et se
+// lirait comme un deluge — l'echelle doit rester comparable d'un jour a
+// l'autre.
+const ECHELLE_MIN_MMH = SEUIL_MODEREE_MMH;
+
+// MOTS_NIVEAU traduit un niveau (2/3/4, la meme echelle que la bande) en mot
+// affichable — jamais un chiffre brut cote lecteur.
+const MOTS_NIVEAU = { 2: "pluie faible", 3: "pluie modérée", 4: "pluie forte" };
+function niveauMot(niveau) {
+  return MOTS_NIVEAU[niveau] || "pluie faible";
+}
 
 function rendrePluie(donnees) {
   const carte = document.getElementById("pluie-carte");
@@ -283,13 +301,20 @@ function bandeHeure(heure) {
   const maj = heure.mise_a_jour ? ` · relevé de ${esc(heure.mise_a_jour)}` : "";
   const lieu = heure.lieu ? esc(heure.lieu) : "";
 
+  // Trois reperes de temps sous la bande, a leur position REELLE (debut,
+  // milieu, fin des 60 minutes couvertes par les 9 segments) plutot que les
+  // deux heures d'horloge brutes d'avant : "dans combien de temps" se lit
+  // sans compter les segments. La position est posee par le CSS (nth-child),
+  // pas ici : ce sont trois libelles fixes, jamais un space-between
+  // approximatif.
   return `
     <div class="pluie-heure">
       <p class="pluie-resume">${resume}</p>
       <div class="pluie-bande" role="img" aria-label="${esc(resumeAccessible(pas))}">${segments}</div>
       <div class="pluie-bande-axe">
-        <span>${esc(pas[0].heure)}</span>
-        <span>${esc(pas[pas.length - 1].heure)}</span>
+        <span>maintenant</span>
+        <span>+30&nbsp;min</span>
+        <span>+1&nbsp;h</span>
       </div>
       <p class="pluie-source">Météo-France${lieu ? ` · ${lieu}` : ""}${maj}</p>
     </div>`;
@@ -297,6 +322,26 @@ function bandeHeure(heure) {
 
 function resumeAccessible(pas) {
   return pas.map((p) => `${p.heure} ${p.libelle}`).join(", ");
+}
+
+// niveauBarre choisit le niveau de couleur d'une barre de la courbe du jour
+// sur la MEME rampe que la bande des 60 minutes (--pluie-2/3/4) : c'est ce
+// qui fait qu'une averse se repere sans lire l'axe, dans les deux visuels a
+// la fois.
+function niveauBarre(mmh) {
+  if (mmh > SEUIL_FORTE_MMH) return 4;
+  if (mmh >= SEUIL_MODEREE_MMH) return 3;
+  return 2;
+}
+
+// libelleJourGroupePluie donne le libelle qui suit le cumul (ou l'etat sec)
+// dans le titre du groupe 2 : "aujourd'hui" pour le jour courant, sinon le
+// meme libelle lisible que la navigation affiche deja
+// (prp/01-navigation-temporelle.md) — jamais un second calcul de date. Les
+// deux titres (pluvieux et sec) nomment donc TOUJOURS le jour de la meme
+// facon : on ne doit jamais se demander duquel on parle.
+function libelleJourGroupePluie(decalage) {
+  return decalage === 0 ? "aujourd’hui" : libelleJourNav(decalage);
 }
 
 // courbeJour rend la journee entiere. Le pas ("quart" ou "heure") vient du
@@ -307,13 +352,24 @@ function courbeJour(jour) {
 
   const parHeure = PAS_PAR_HEURE[jour.pas] || 1;
   const intensites = jour.points.map((p) => p.mm * parHeure);
-  const plafond = Math.max(ECHELLE_MIN_MMH, ...intensites);
+  // maxReel est l'intensite maximale REELLEMENT atteinte ce jour-la, sans le
+  // plancher ECHELLE_MIN_MMH : c'est elle qui decide si un seuil a ete
+  // franchi (plus bas), le plancher n'existe que pour empecher une bruine de
+  // remplir tout le graphe a l'echelle.
+  const maxReel = Math.max(...intensites);
+  const plafond = Math.max(ECHELLE_MIN_MMH, maxReel);
   const finesse = jour.pas === "quart" ? "au quart d’heure" : "par heure";
 
+  // Le titre de l'etat sec nomme le jour exactement comme le titre pluvieux
+  // (meme fonction, meme these) : sans quoi les deux titres de meme rang ne
+  // portent pas la meme information et on ne sait plus de quel jour on
+  // parle. "sur la journee" disparait, redondant des que le jour est nomme.
   if (jour.total_mm === 0) {
     return `
       <div class="pluie-jour">
-        <p class="pluie-vide">aucune pluie prévue sur la journée</p>
+        <div class="pluie-jour-titre">
+          <p class="pluie-vide">aucune pluie prévue ${esc(libelleJourGroupePluie(decalageJour))}</p>
+        </div>
         <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
       </div>`;
   }
@@ -322,37 +378,84 @@ function courbeJour(jour) {
   const largeur = 100 / n;
   const barres = jour.points
     .map((p, i) => {
-      const hauteur = (p.mm * parHeure * 100) / plafond;
+      const intensite = p.mm * parHeure;
+      const hauteur = (intensite * 100) / plafond;
       if (hauteur <= 0) return "";
-      return `<rect x="${(i * largeur).toFixed(3)}" y="${(100 - hauteur).toFixed(3)}" width="${(largeur * 0.9).toFixed(3)}" height="${hauteur.toFixed(3)}"></rect>`;
+      return `<rect class="pluie-barre pluie-barre--${niveauBarre(intensite)}" x="${(i * largeur).toFixed(3)}" y="${(100 - hauteur).toFixed(3)}" width="${(largeur * 0.9).toFixed(3)}" height="${hauteur.toFixed(3)}"></rect>`;
     })
     .join("");
 
   // Repere de l'heure courante, sur aujourd'hui seulement : sur un autre jour
-  // il n'aurait aucun sens.
+  // il n'aurait aucun sens. Son etiquette "maintenant" vit dans une rangee
+  // HTML dediee, AU-DESSUS du SVG (jamais dans le SVG, qui ne porte que des
+  // rect, et jamais superposee a l'aire tracee) : les barres gardent ainsi
+  // toute leur hauteur (100 % du graphe) plutot que de perdre un tiers de
+  // leur amplitude pour lui faire de la place. Pres de minuit ou de 23 h, le
+  // centrage deborderait de la carte : elle bascule alors sur l'ancrage
+  // gauche ou droite du graphe (memes bords que .pluie-axe), qui la garde a
+  // l'interieur.
   const maintenant = new Date();
+  const xMaintenant = ((maintenant.getHours() * 60 + maintenant.getMinutes()) / 1440) * 100;
   const repere =
     decalageJour === 0
-      ? `<rect class="pluie-maintenant" x="${(((maintenant.getHours() * 60 + maintenant.getMinutes()) / 1440) * 100).toFixed(3)}" y="0" width="0.4" height="100"></rect>`
+      ? `<rect class="pluie-maintenant" x="${xMaintenant.toFixed(3)}" y="0" width="0.4" height="100"></rect>`
       : "";
+  let ligneMaintenant = "";
+  if (decalageJour === 0) {
+    const xCentre = xMaintenant + 0.2;
+    let classeH = "centre";
+    let style = ` style="left:${xCentre.toFixed(3)}%"`;
+    if (xCentre < 12) {
+      classeH = "gauche";
+      style = "";
+    } else if (xCentre > 88) {
+      classeH = "droite";
+      style = "";
+    }
+    ligneMaintenant = `<div class="pluie-maintenant-ligne"><span class="pluie-maintenant-etiquette pluie-maintenant-etiquette--${classeH}"${style}>maintenant</span></div>`;
+  }
 
   const graduations = [6, 12, 18]
     .map((h) => `<rect class="pluie-grille" x="${((h / 24) * 100).toFixed(3)}" y="0" width="0.15" height="100"></rect>`)
     .join("");
 
+  // Traits de grille horizontaux EN MOTS ("pluie modérée", "pluie forte"),
+  // jamais en mm/h : la bande juste au-dessus parle deja "pluie faible /
+  // moderee / forte", les deux visuels de la carte doivent dire la meme
+  // chose avec les memes mots — un debit en millimetres par heure ne parle a
+  // personne. Un trait n'est dessine QUE si le jour a REELLEMENT franchi ce
+  // seuil (compare a maxReel, jamais au plafond qui inclut le plancher
+  // d'echelle) : sur une journee de bruine, aucun des deux n'apparait, il
+  // n'y a rien a franchir.
+  const seuilsGraphe = [
+    { valeur: SEUIL_MODEREE_MMH, mot: "pluie modérée" },
+    { valeur: SEUIL_FORTE_MMH, mot: "pluie forte" },
+  ].filter((s) => maxReel >= s.valeur);
+  const grilleHorizontale = seuilsGraphe
+    .map((s) => `<rect class="pluie-grille" x="0" y="${(100 * (1 - s.valeur / plafond)).toFixed(3)}" width="100" height="0.15"></rect>`)
+    .join("");
+  const etiquettesSeuils = seuilsGraphe
+    .map((s) => `<span class="pluie-graphe-etiquette" style="top:${(100 * (1 - s.valeur / plafond)).toFixed(3)}%">${s.mot}</span>`)
+    .join("");
+
   return `
     <div class="pluie-jour">
+      <div class="pluie-jour-titre">
+        <p class="pluie-cumul"><strong>${jour.total_mm.toString().replace(".", ",")} mm</strong> <span class="pluie-jour-libelle">${esc(libelleJourGroupePluie(decalageJour))}</span></p>
+        <p class="pluie-finesse">${finesse}</p>
+      </div>
+      ${ligneMaintenant}
       <div class="pluie-graphe">
-        <span class="pluie-plafond">${plafond.toFixed(1).replace(".", ",")} mm/h</span>
+        ${etiquettesSeuils}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
-             aria-label="Pluie de la journée, ${finesse}, cumul ${jour.total_mm} millimètres">
+             aria-label="Pluie de la journée, ${finesse}, cumul ${jour.total_mm} millimètres, maximum : ${niveauMot(niveauBarre(maxReel))}">
+          ${grilleHorizontale}
           ${graduations}
           ${barres}
           ${repere}
         </svg>
       </div>
       <div class="pluie-axe"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
-      <p class="pluie-cumul"><strong>${jour.total_mm.toString().replace(".", ",")} mm</strong> sur la journée</p>
       <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
     </div>`;
 }

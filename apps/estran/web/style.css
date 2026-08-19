@@ -27,7 +27,9 @@
   /* Rampe sequentielle de la pluie, du temps sec a la pluie forte. Reste dans
      les eaux : l'ambre est le seul signal de l'ecran et appartient a la maree
      (voir l'en-tete de ce fichier). */
-  --pluie-1: rgba(244, 236, 216, 0.12);
+  /* Relevee de 0,12 a 0,32 : a 0,12 le temps sec se lisait comme une donnee
+     manquante plutot que comme un etat (retour d'usage). */
+  --pluie-1: rgba(244, 236, 216, 0.32);
   --pluie-2: var(--eau-600);
   --pluie-3: var(--eau-400);
   --pluie-4: #8fe3d8;
@@ -524,17 +526,24 @@ main {
   box-shadow: 0 12px 28px var(--ombre);
   display: flex;
   flex-direction: column;
-  gap: var(--espace-4);
 }
 
+/* Deux groupes nets, chacun mene par son chiffre : un intervalle genereux les
+   separe, jamais un simple filet seul (le filet ci-dessous n'est qu'une
+   touche finale sous l'espace, pas le separateur lui-meme). A l'interieur
+   d'un groupe, les elements restent serres — voir leurs marges plus bas. */
 .pluie-heure + .pluie-jour {
-  border-top: 1px solid rgba(244, 236, 216, 0.08);
+  margin-top: var(--espace-5);
   padding-top: var(--espace-4);
+  border-top: 1px solid rgba(244, 236, 216, 0.08);
 }
 
+/* Le resume est le TITRE du groupe 1 : il porte deja l'echeance ("pluie
+   moderee en cours", "pluie faible vers 15:20"...), c'est donc lui qui mene
+   la lecture, pas le visuel en dessous. */
 .pluie-resume {
-  margin: 0 0 var(--espace-2);
-  font-size: 1.15rem;
+  margin: 0 0 var(--espace-3);
+  font-size: 1.3rem;
   font-weight: 600;
   color: var(--sable-100);
 }
@@ -542,13 +551,13 @@ main {
 /* La bande : un segment par pas rendu par Meteo-France (5 minutes sur la
    premiere demi-heure, 10 ensuite). Les segments ont TOUS la meme largeur
    alors que les pas n'ont pas la meme duree : c'est assume — la bande dit
-   l'ordre et l'intensite, l'axe dessous donne les deux heures reelles. Une
+   l'ordre et l'intensite, l'axe dessous donne les trois reperes reels. Une
    largeur proportionnelle rendrait les six premiers segments illisibles sur
    un telephone. */
 .pluie-bande {
   display: flex;
   gap: 2px;
-  height: 1.5rem;
+  height: 1.9rem;
 }
 
 .pluie-seg {
@@ -569,19 +578,120 @@ main {
   background: var(--pluie-4);
 }
 
+/* Reperes de temps sous la bande (3 : debut/milieu/fin des 60 minutes) et
+   sous la courbe (5 : 0/6/12/18/24 h) : positionnes a leur position REELLE en
+   pourcentage, jamais en space-between approximatif — chaque libelle tombe
+   ainsi en face de ce qu'il decrit (les traits de grille verticaux pour
+   .pluie-axe). Les trois du milieu restent centres sur leur graduation ; les
+   deux extremes sont ancres par leur bord (premier a gauche, dernier a
+   droite) mais avec un leger retrait (0.2rem) plutot que colles a 0/100% —
+   sans lui, le texte touchait exactement le bord de l'aire tracee et
+   paraissait rogne, meme sans etre reellement coupe. */
 .pluie-bande-axe,
 .pluie-axe {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--espace-1);
-  font-size: 0.85rem;
+  position: relative;
+  height: 1.1rem;
+  margin-top: var(--espace-2);
+  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   color: var(--sable-300);
 }
 
+.pluie-bande-axe span,
+.pluie-axe span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+
+.pluie-bande-axe span:nth-child(1),
+.pluie-axe span:nth-child(1) {
+  left: 0.2rem;
+}
+
+.pluie-bande-axe span:nth-child(2) {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pluie-bande-axe span:nth-child(3),
+.pluie-axe span:nth-child(5) {
+  right: 0.2rem;
+}
+
+.pluie-axe span:nth-child(2) {
+  left: 25%;
+  transform: translateX(-50%);
+}
+
+.pluie-axe span:nth-child(3) {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pluie-axe span:nth-child(4) {
+  left: 75%;
+  transform: translateX(-50%);
+}
+
+/* Titre du groupe 2 : le cumul mene la lecture, la finesse (quart d'heure ou
+   heure) suit juste apres en discret — meme these que le groupe 1. */
+.pluie-jour-titre {
+  margin: 0 0 var(--espace-3);
+}
+
+.pluie-cumul {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--sable-100);
+}
+
+.pluie-cumul strong {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pluie-finesse {
+  margin: var(--espace-1) 0 0;
+  font-size: 0.9rem;
+  color: var(--sable-300);
+}
+
+/* "Aucune pluie prevue" recoit le meme traitement typographique que le
+   cumul : c'est aussi un titre de groupe, jamais un texte en retrait. */
+.pluie-vide {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--sable-100);
+}
+
+/* Rangee dediee a l'etiquette "maintenant", EN DEHORS du SVG et au-dessus du
+   graphe : les barres retrouvent ainsi toute leur hauteur (100 % du graphe,
+   jamais amputees d'une bande d'air reservee) — la seule contrainte reste
+   qu'aucune etiquette ne recouvre jamais une barre, satisfaite ici par
+   construction puisqu'elle vit dans une rangee separee. Absente quand
+   .pluie-maintenant-ligne n'a pas de contenu (jour autre qu'aujourd'hui) :
+   la regle de marge suivante ne s'applique alors pas et .pluie-graphe garde
+   sa propre marge. */
+.pluie-maintenant-ligne {
+  position: relative;
+  height: 1.5rem;
+  margin: var(--espace-2) 0 0;
+}
+
+.pluie-maintenant-ligne + .pluie-graphe {
+  margin-top: 0;
+}
+
+.pluie-jour-titre + .pluie-graphe {
+  margin-top: var(--espace-2);
+}
+
 .pluie-graphe {
   position: relative;
-  height: 6.5rem;
+  height: 7.5rem;
   border-bottom: 1px solid rgba(244, 236, 216, 0.18);
 }
 
@@ -591,12 +701,23 @@ main {
   display: block;
 }
 
-.pluie-graphe rect {
+/* Les barres suivent la MEME rampe que la bande du groupe 1 (--pluie-2/3/4) :
+   c'est ce qui fait qu'une averse se repere sans lire l'axe, dans les deux
+   visuels a la fois. */
+.pluie-barre--2 {
+  fill: var(--pluie-2);
+}
+
+.pluie-barre--3 {
   fill: var(--pluie-3);
 }
 
+.pluie-barre--4 {
+  fill: var(--pluie-4);
+}
+
 .pluie-grille {
-  fill: rgba(244, 236, 216, 0.09);
+  fill: rgba(244, 236, 216, 0.12);
 }
 
 /* Le repere de l'heure courante est le seul trait clair du graphe : il se lit
@@ -605,32 +726,75 @@ main {
   fill: var(--sable-100);
 }
 
-.pluie-plafond {
+/* Etiquette "maintenant" : vit dans .pluie-maintenant-ligne, une rangee HTML
+   entierement AU-DESSUS du SVG (jamais dans le SVG, qui ne porte que des
+   rect, et jamais superposee a l'aire tracee). Un petit trait (::after) la
+   relie visuellement au repere qu'elle nomme. Trois ancrages : centree sur
+   le repere la plupart du temps, mais plaquee au bord gauche ou droit du
+   graphe quand le repere est pres de minuit ou de 23 h, pour ne jamais
+   deborder de la carte. */
+.pluie-maintenant-etiquette {
   position: absolute;
   top: 0;
-  right: 0;
-  font-size: 0.8rem;
-  color: var(--sable-300);
-  font-variant-numeric: tabular-nums;
-}
-
-.pluie-cumul {
-  margin: var(--espace-2) 0 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--sable-100);
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(7, 22, 32, 0.55);
 }
 
-.pluie-vide {
-  margin: 0;
-  padding: var(--espace-3) 0;
-  font-size: 1.05rem;
-  color: var(--sable-200);
+.pluie-maintenant-etiquette::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -0.35rem;
+  width: 1px;
+  height: 0.35rem;
+  background: var(--sable-100);
+  transform: translateX(-50%);
 }
 
+.pluie-maintenant-etiquette--centre {
+  transform: translateX(-50%);
+}
+
+.pluie-maintenant-etiquette--gauche {
+  left: 0;
+}
+
+.pluie-maintenant-etiquette--droite {
+  right: 0;
+}
+
+/* Etiquettes des traits de grille horizontaux, en HTML au-dessus du SVG.
+   EN MOTS ("pluie modérée", "pluie forte"), jamais en mm/h : la bande du
+   groupe 1 parle deja ce langage, le graphe du jour doit dire la meme chose.
+   Positionnees en JS (style="top:...") au pourcentage exact du trait qu'elles
+   decrivent — variable d'un jour a l'autre puisque l'echelle change avec le
+   plafond du jour, un pourcentage fixe en CSS ne conviendrait pas ici. */
+.pluie-graphe-etiquette {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: var(--sable-300);
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(7, 22, 32, 0.55);
+  white-space: nowrap;
+}
+
+/* Provenance : dernier rang de lecture (titre -> visuel -> reperes de temps
+   -> provenance), donc en retrait des reperes qui la precedent (memes
+   0.9rem, mais un sable plus sourd) — jamais sous 4,5:1 de contraste sur le
+   fond de carte le plus clair (encre-700) : rgba(sable-300, 0.7) y mesure
+   ~5,2:1. */
 .pluie-source {
   margin: var(--espace-1) 0 0;
-  font-size: 0.85rem;
-  color: var(--sable-300);
+  font-size: 0.9rem;
+  color: rgba(221, 208, 174, 0.7);
 }
 
 /* ---------- prevision horaire ---------- */
