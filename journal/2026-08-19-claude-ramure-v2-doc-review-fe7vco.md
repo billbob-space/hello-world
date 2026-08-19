@@ -362,6 +362,38 @@ plusieurs fusions avant de se voir. Le périmètre de la branche est élargi à
 `fabrique` en conséquence.
 
 
+### 12. (phase 2) L'avertissement ecrit n'a pas suffi : `go mod tidy` a releve la version du langage
+
+**Symptome** — à la tâche 9 du PRP 02, l'artisan épingle bien
+`golang.org/x/text@v0.32.0` comme le PRP le prescrit, puis lance `go mod tidy`
+une fois `strict.go` écrit. Le `tidy` re-résout vers `v0.41.0`, qui exige
+`go 1.25`, et **relève silencieusement la directive** de `go.mod` de `1.24.0` à
+`1.25.0`. Relevé en cours de route sur l'arbre de travail : `go.mod` portait
+`go 1.25.0` et `require golang.org/x/text v0.41.0`, alors que l'étage de
+construction du `Dockerfile` est `golang:1.24-alpine`.
+
+Rien ici ne l'aurait dit : les tests passent, `go vet` passe, `--check` passe.
+La panne serait apparue **uniquement** dans Docker — donc en CI, sur
+`go.mod requires go >= 1.25` —, après le commit et la poussée.
+
+**Cause** — le PRP anticipait ce piège **en toutes lettres**, avec la commande
+exacte et la raison (« `go get` applique en relevant silencieusement la
+directive »). L'avertissement n'a pourtant pas empêché le geste : il décrivait
+le danger de `go get`, et c'est le `go mod tidy` suivant qui l'a produit. Un
+avertissement protège de la commande qu'il nomme, pas de la classe de commandes
+dont elle fait partie.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — ce qui a rattrapé n'est pas la prose mais la
+**vérification exécutable** que le PRP posait juste après (`grep '^go ' go.mod`).
+Deux enseignements pour la suite de la série : une consigne d'un PRP se vérifie
+par une commande, jamais par la relecture de la consigne ; et un chantier confié
+à l'artisan doit nommer les vérifications d'après-coup, pas seulement les
+interdits d'avant. Corrigé sur cette branche — `v0.32.0` épinglée, directive
+ramenée à `go 1.24.0`, cohérente avec `golang:1.24-alpine`.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre
