@@ -12,6 +12,13 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/src ./src
+# Le manifeste et l'icone (PRP 08) sont COPIES eux aussi : le script de
+# construction les recopie vers dist/, et il echoue s'ils manquent. Ce defaut
+# ne se voit qu'ICI — en local, tout web/ est present, donc la commande passe ;
+# dans l'image, seul ce qui est COPIE existe. C'est exactement la classe de
+# panne que le PRP 05 annonce : « le Dockerfile s'ecrit et se relit, il ne se
+# construit pas » depuis une session cloud.
+COPY web/manifest.webmanifest web/icone.svg ./
 RUN npm run build
 
 FROM golang:1.24-alpine AS serveur

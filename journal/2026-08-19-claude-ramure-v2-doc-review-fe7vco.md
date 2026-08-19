@@ -784,6 +784,39 @@ unitaire, c'est **un geste utilisateur qui l'atteint**. La recette du PRP 09 est
 le seul endroit de la série qui le vérifie, et elle arrive après tout le reste.
 
 
+### 28. (phase 2) La recette d'image ne copiait pas deux fichiers que sa propre construction exige
+
+**Symptome** — CI rouge sur le PRP 08, au seul endroit qui construit vraiment
+l'image :
+
+```
+#22 0.197 cp: can't stat 'manifest.webmanifest': No such file or directory
+#22 ERROR: process "/bin/sh -c npm run build" did not complete successfully: exit code: 1
+```
+
+L'étage client du `Dockerfile` fait `COPY web/src ./src`, et le script de
+construction — enrichi au PRP 08 — recopie ensuite `manifest.webmanifest` et
+`icone.svg` vers `dist/`. Ces deux fichiers sont à la racine de `web/`, pas dans
+`web/src` : ils n'entrent jamais dans l'image.
+
+**Cause** — c'est la classe de panne que le PRP 05 annonce en toutes lettres :
+*« le `Dockerfile` s'écrit et se relit, il ne se construit pas »* depuis une
+session cloud, faute de démon Docker. En local, tout `web/` est là et la commande
+passe ; dans l'image, **seul ce qui est copié existe**. Le script de construction
+a gagné deux fichiers, la liste des fichiers copiés ne l'a pas suivi, et rien
+entre les deux ne le relie.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — corrigé par un `COPY` des deux fichiers, et **prouvé sans
+Docker** : l'arborescence exacte de l'étage client a été reproduite dans un
+répertoire jetable — `package.json`, `package-lock.json`, `src/`, et les deux
+fichiers —, `npm ci` puis `npm run build` y aboutissent et produisent bien les
+quatre artefacts. Sans le correctif, la même reproduction échoue au même endroit.
+C'est le contrôle que le PRP 05 aurait pu prescrire : rejouer la construction sur
+ce que le `Dockerfile` copie, et non sur ce que le poste contient.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre
