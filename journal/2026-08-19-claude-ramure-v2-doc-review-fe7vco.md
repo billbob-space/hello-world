@@ -1,7 +1,7 @@
 # 2026-08-19 — claude/ramure-v2-doc-review-fe7vco
 
 Branche : `claude/ramure-v2-doc-review-fe7vco`
-Périmètre : ramure-v2
+Périmètre : ramure-v2, fabrique
 Mode : `chaud`
 
 Relecture du PRD (`apps/ramure-v2/PRODUCT.md`, 625 lignes) et de la série de neuf
@@ -320,6 +320,46 @@ rayon de souffle de chaque fusion reste la stack entière, et il vaut mieux le
 savoir avant de fusionner que dans les journaux après. Le correctif appartient à
 une branche `fabrique/`, pas à celle-ci ; le geste, lui, est signalé à
 l'utilisateur.
+
+
+### 11. (phase 2) Deux cas de `test-init.sh` étaient épinglés sur l'état passager de `ramure-v2`
+
+**Symptome** — le PRP 01 livré, la CI de la pull request 151 passe au vert sur
+tout ce qui concerne l'app — `contrat`, `test (ramure-v2)`, et surtout
+`build (ramure-v2)`, qui prouve que l'image se construit ailleurs qu'ici — mais
+`outillage (test-init.sh)` échoue, avec deux cas rouges sur trente-huit :
+
+- *« notice : une app sans app.yml en recoit une, degradee »* — le cas désignait
+  `apps/ramure-v2/CLAUDE.md` et attendait d'y lire « le manifeste reste a
+  ecrire ». C'était vrai tant que `ramure-v2` n'avait que ses documents ; le
+  PRP 01 lui donne son `app.yml`, et la phrase disparaît — ce qui est exactement
+  le comportement attendu du générateur ;
+- *« un test cite qui existe vraiment ne declenche rien »* — le cas pose son
+  propre tableau de risques et le test qui va avec, puis échoue si la sortie de
+  `--check` contient **où que ce soit** « introuvable dans les tests ». Or le PRD
+  de `ramure-v2` cite sept tests qui n'existeront qu'aux PRP 03 à 08 : sept
+  avertissements légitimes, et un cas rouge pour la faute d'un autre.
+
+**Cause** — les deux cas mesurent l'**état du dépôt** là où ils croient mesurer
+un **comportement**. Le premier nomme un vrai répertoire, dont la propriété
+testée — n'avoir pas de manifeste — est par construction temporaire : toute app
+documentée finit échafaudée. Le second cherche une phrase dans la sortie entière
+d'un contrôle qui balaie tout le dépôt, alors qu'il ne s'intéresse qu'à sa
+propre ligne. Le second était d'ailleurs déjà cassé avant cette branche : la
+colonne « Test » ajoutée au PRD de `ramure-v2` le 19 août (fusion `39af6cc`)
+suffisait à le rendre rouge — mais le job `outillage` a été **sauté** sur ce
+run-là, l'outillage n'ayant pas bougé. Il est resté rouge et invisible.
+
+**Detecte par** — `CI`
+
+**Action** — `garde-fou` — corrigés ici, et pas dans une branche `fabrique/` :
+c'est cette branche qui rend la CI rouge pour tout le monde, et on ne fusionne
+pas par-dessus. Le cas 1 crée désormais sa propre app sans manifeste plutôt que
+d'en désigner une ; le cas 2 cherche le nom du test qu'il a lui-même posé plutôt
+qu'une phrase générique. Ce qui reste ouvert est ce que l'incident enseigne : un
+job d'outillage sauté n'est pas un job vert, et un cas rouge peut dormir
+plusieurs fusions avant de se voir. Le périmètre de la branche est élargi à
+`fabrique` en conséquence.
 
 
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert

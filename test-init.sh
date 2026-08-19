@@ -408,9 +408,18 @@ FIN
 # compose, et c'est juste. Mais c'est precisement une app dont le code n'est
 # pas encore ecrit, donc celle ou un agent va le plus ecrire, donc celle ou le
 # bornage sert le plus. Elle recoit une notice degradee.
+#
+# Le cas CREE son app sans manifeste au lieu d'en designer une du depot. La
+# version d'avant nommait ramure-v2, seule app documentee et non echafaudee du
+# moment : le jour ou son PRP 01 lui a donne son app.yml — ce que tout PRD
+# finit par obtenir —, ce cas est devenu rouge sans qu'aucune regression ne le
+# justifie. Un temoin qui designe un vrai repertoire mesure l'etat du depot, pas
+# le comportement du generateur.
 genere_dans "notice : une app sans app.yml en recoit une, degradee" \
-            apps/ramure-v2/CLAUDE.md "le manifeste reste a ecrire" <<'FIN'
-true
+            apps/temoin-sans-manifeste/CLAUDE.md "le manifeste reste a ecrire" <<'FIN'
+mkdir -p apps/temoin-sans-manifeste
+printf '# Temoin\n\nUne app dont le code n est pas encore ecrit.\n' \
+  > apps/temoin-sans-manifeste/PRODUCT.md
 FIN
 
 refuse "une notice absente est refusee" "apps/cadran/CLAUDE.md absent" <<'FIN'
@@ -505,7 +514,13 @@ temoin_trace_corps() {  # temoin_trace_corps <nom>
   printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le volume est perdu | Sauvegarde | `TestFicheSurvitAuRedemarrage` |\n' >> "$d/apps/renaissance-gym/PRODUCT.md"
   printf '\nfunc TestFicheSurvitAuRedemarrage(t *testing.T) {}\n' >> "$d/apps/renaissance-gym/api_test.go"
   sortie=$(cd "$d" && ./init.sh --check 2>&1) || true
-  if grep -q "introuvable dans les tests" <<< "$sortie"; then
+  # Le motif porte le NOM du test pose par ce cas, et non la phrase seule :
+  # --check balaie tout le depot, et une AUTRE app peut legitimement citer un
+  # test qui n'existe pas encore — un PRD ecrit avant son code, ce que la
+  # fabrique autorise et signale en avertissement. La version d'avant cherchait
+  # la phrase n'importe ou dans la sortie : le premier PRD dans ce cas — celui
+  # de ramure-v2 — l'a rendue rouge pour la faute d'un autre.
+  if grep -q "TestFicheSurvitAuRedemarrage.*introuvable dans les tests" <<< "$sortie"; then
     echec "$nom" "un test present a quand meme ete signale absent"
   else
     reussi "$nom"
