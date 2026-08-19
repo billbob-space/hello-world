@@ -38,3 +38,59 @@ export function sessionId(stockage: Storage): string {
 /** EN_TETE_SESSION doit correspondre EXACTEMENT a internal/api.EnTeteSession
  * (mesure_api.go) : c'est le seul contrat entre les deux cotes. */
 export const EN_TETE_SESSION = "X-Ramure-Session";
+
+// ---------------------------------------------------------------------
+// Session Traefik expiree (F-41, PRP 08) — le cas propre a cette fabrique
+// ---------------------------------------------------------------------
+
+/** SessionExpireeError distingue "la session a expire" de toute autre
+ * panne reseau (§09) : un `catch` generique ne doit JAMAIS confondre les
+ * deux, sous peine d'afficher "reessaie" a quelqu'un qui doit en realite
+ * se reconnecter (le defaut le plus deroutant possible, PRP 08). */
+export class SessionExpireeError extends Error {
+  constructor() {
+    super("ramure-v2 : session expiree (redirection Traefik detectee)");
+    this.name = "SessionExpireeError";
+  }
+}
+
+/** Le sous-ensemble de Response necessaire au diagnostic — duck-type
+ * plutot que le DOM `Response` global : testable avec de simples objets
+ * litteraux, sans fetch ni jsdom (aucun appel reseau dans les tests). */
+export interface ReponseDiagnosticable {
+  readonly type?: string;
+  readonly redirected: boolean;
+  readonly url: string;
+  readonly headers: { get(nom: string): string | null };
+}
+
+// estReponseSessionExpiree (F-41) : Traefik repond a une session expiree
+// par une redirection vers Google — fetch() la SUIT en silence (jamais un
+// evenement que le code applicatif peut intercepter directement) et rend
+// soit une reponse "opaqueredirect"/"opaque" (mode `redirect: "manual"`,
+// non utilise ici mais couvert par prudence), soit une reponse 200 dont
+// l'URL finale n'est plus celle demandee et dont le corps est la page de
+// connexion Google — jamais le JSON attendu. Les DEUX signaux sont
+// verifies : l'origine de la reponse APRES redirection, et le
+// Content-Type reellement recu, qui vaut text/html au lieu
+// d'application/json des que Traefik a intercepte la requete.
+export function estReponseSessionExpiree(
+  reponse: ReponseDiagnosticable,
+  origineAttendue: string,
+): boolean {
+  if (reponse.type === "opaqueredirect" || reponse.type === "opaque") {
+    return true;
+  }
+  if (reponse.redirected) {
+    try {
+      if (new URL(reponse.url).origin !== origineAttendue) {
+        return true;
+      }
+    } catch {
+      // URL illisible : pas assez d'information pour conclure sur ce seul
+      // critere, le Content-Type ci-dessous tranche.
+    }
+  }
+  const typeContenu = reponse.headers.get("content-type") ?? "";
+  return typeContenu.includes("text/html") && !typeContenu.includes("application/json");
+}

@@ -1,0 +1,14 @@
+{
+  "name": "RAMURE",
+  "short_name": "RAMURE",
+  "description": "Plante un nom, saute de branche en branche.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
+  "icons": [
+    { "src": "/dist/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

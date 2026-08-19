@@ -133,6 +133,65 @@ Image finale sur `alpine` et non `scratch` : c'est busybox qui fournit le
 `wget` du `health_cmd` déclaré dans `app.yml`. Utilisateur `10001`, non root,
 aucun port publié.
 
+## Accessibilité (§12, WCAG 2.2 AA)
+
+Les onze propriétés d'accessibilité listées au PRP 08 sont vérifiées par
+`web/tests/accessibilite.test.ts` (DOM simulé, jouées à chaque `test.sh`) et,
+pour ce qu'un DOM simulé ne peut pas prouver (recouvrement visuel réel, cibles
+tactiles en pixels réels, expérience effective au lecteur d'écran), par mesure
+directe dans un navigateur. Cette dernière vérification est **manuelle** et se
+rejoue ainsi, **sans souris, du début à la fin** :
+
+1. Ouvrir l'application, appuyer sur Tab : le lien d'évitement apparaît en
+   premier, puis le logo (« Retour à l'accueil »), le champ de recherche, le
+   choix du service, les commandes de caméra, le partage et la collection.
+2. Planter un artiste (Entrée dans le champ de recherche). Le focus doit
+   rester utilisable : Tab continue vers les nœuds de l'arbre, dans l'ordre où
+   ils apparaissent visuellement (le centre, puis chaque branche et ses
+   héritiers).
+3. Appuyer sur Entrée sur une branche : elle doit se promouvoir exactement
+   comme au clic (F-11), et le changement de centre doit être annoncé (la
+   région `#etat`, `aria-live="polite"`).
+4. Revenir au cadrage neutre (bouton « Revenir au cadrage initial », visible
+   dès que la vue a bougé).
+5. Vérifier que « Revenir à l'accueil » (le logo) et « Revenir à l'artiste
+   précédent » (visible dès qu'une lignée existe) portent des intitulés et des
+   glyphes différents, et produisent des résultats différents.
+6. Ouvrir la fiche (déjà affichée après une promotion), garder l'artiste
+   (bouton « Garder cet artiste », qui devient « Déjà gardé »).
+
+Refaire ce parcours à une largeur étroite (< 60rem) et à une largeur large :
+la disposition change, jamais l'ordre logique ni le nombre de contrôles
+équivalents visibles à la fois (parité stricte, PRP 08).
+
+## Installation et mise à jour (N-11, N-12, F-41, F-42)
+
+L'application est installable (`web/manifest.webmanifest`, une icône
+générique sans donnée personnelle) et démarre sans réseau sur son écran
+d'accueil une fois installée : `web/src/sw.ts` met en cache la coquille
+statique (page, bundle, manifest, icône) et les illustrations déjà vues,
+**jamais** `/api/...`, qui reste toujours en direct — voir l'en-tête du
+fichier pour le raisonnement complet. Servi par la route statique existante
+`/dist/` (`internal/api/routes.go` n'ajoute aucune route, seulement les
+en-têtes `Service-Worker-Allowed` et `Content-Type` nécessaires sur les deux
+fichiers concernés).
+
+Une nouvelle version se signale par une bannière (« Une nouvelle version de
+RAMURE est disponible », bouton « Mettre à jour ») **sans jamais s'appliquer
+seule** : elle n'interrompt jamais une exploration en cours. Un onglet resté
+ouvert revérifie la présence d'une nouvelle version toutes les heures et à
+chaque reprise de focus — c'est le délai borné de diffusion (N-12) qui ne
+dépend pas d'un rechargement manuel.
+
+Pour désactiver le service worker pendant un test bout en bout (PRP 09) :
+poser `window.RAMURE_SW_DESACTIVE = true` avant le chargement du script.
+
+Le cas propre à cette fabrique — une session Traefik expirée pendant une
+exploration — est distingué de toute autre panne réseau : l'application
+affiche « Ta session a expiré. » avec un lien de reconnexion, jamais un
+message qui laisserait croire à une erreur de saisie (F-41,
+`web/src/session.ts`, `estReponseSessionExpiree`).
+
 ## Ce que cette application ne fait pas
 
 Elle n'héberge aucune musique, ne gère aucun compte, n'écrit aucun secret et

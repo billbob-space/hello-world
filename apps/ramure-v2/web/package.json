@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Client TypeScript du canevas RAMURE. Compile vers dist/, embarque par go:embed (voir apps/ramure-v2/main.go). Aucun runtime npm en production : seul dist/ survit dans l'image finale.",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --format=esm --outfile=dist/app.js --minify",
+    "build": "esbuild src/main.ts --bundle --format=esm --outfile=dist/app.js --minify && esbuild src/sw.ts --bundle --format=iife --outfile=dist/sw.js --minify && mkdir -p dist && cp manifest.webmanifest dist/manifest.webmanifest && cp icone.svg dist/icone.svg",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

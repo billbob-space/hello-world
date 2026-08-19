@@ -6,17 +6,21 @@
 // PRP) : le rendu vit reellement dans le DOM, donc jsdom peut le mesurer.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ajusterZoneTactile,
+  ajusterZonesTactiles,
   appliquerVue,
+  cablerActivation,
   creerGroupes,
   definirIllustration,
   dessinerLien,
   dessinerNoeud,
   repliCouleur,
+  CIBLE_TACTILE_MIN_PX,
   NS_SVG,
 } from "../src/canevas";
-import { zoomer, type Vue } from "../src/camera";
+import { ECHELLE_MIN, zoomer, type Vue } from "../src/camera";
 
 function svgVierge(): SVGSVGElement {
   return document.createElementNS(NS_SVG, "svg") as SVGSVGElement;
@@ -146,6 +150,106 @@ describe("appliquerVue (§11 : le zoom agrandit tout, jamais les pastilles)", ()
 
     expect(noeud.cercle.getAttribute("r")).toBe(rAvant);
     expect(racine.getAttribute("transform")).toContain(`scale(${zoome.echelle})`);
+  });
+});
+
+describe("cablerActivation (F-11, §12 : clic et clavier produisent le meme resultat)", () => {
+  it("appelle le gestionnaire au clic", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "n1", nom: "Boards of Canada", x: 0, y: 0, r: 30 });
+    const gestionnaire = vi.fn();
+    cablerActivation(noeud, gestionnaire);
+
+    noeud.groupe.dispatchEvent(new MouseEvent("click"));
+
+    expect(gestionnaire).toHaveBeenCalledTimes(1);
+  });
+
+  it("appelle le MEME gestionnaire sur Entree ou Espace, jamais sur une autre touche", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "n1", nom: "Squarepusher", x: 0, y: 0, r: 30 });
+    const gestionnaire = vi.fn();
+    cablerActivation(noeud, gestionnaire);
+
+    noeud.groupe.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    noeud.groupe.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+    noeud.groupe.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+
+    expect(gestionnaire).toHaveBeenCalledTimes(2);
+  });
+
+  it("empeche le comportement par defaut d'Espace (deroulement de la page)", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "n1", nom: "Rustie", x: 0, y: 0, r: 30 });
+    cablerActivation(noeud, () => {});
+
+    const evenement = new KeyboardEvent("keydown", { key: " ", cancelable: true });
+    noeud.groupe.dispatchEvent(evenement);
+
+    expect(evenement.defaultPrevented).toBe(true);
+  });
+});
+
+describe("ajusterZoneTactile / ajusterZonesTactiles (§12, WCAG 2.5.8 : cible >= 24x24px a toute echelle)", () => {
+  it("agrandit la zone tactile d'un heritier (r=16) au niveau de zoom minimal de la camera", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const heritier = dessinerNoeud(svg, groupes, { id: "h1", nom: "Hudson Mohawke", x: 10, y: 0, r: 16 });
+
+    ajusterZoneTactile(heritier, ECHELLE_MIN);
+
+    const rZone = Number(heritier.zoneTactile.getAttribute("r"));
+    expect(rZone * 2 * ECHELLE_MIN).toBeGreaterThanOrEqual(CIBLE_TACTILE_MIN_PX);
+  });
+
+  it("ne retrecit jamais la zone tactile sous le cercle visible (a fort zoom, r=16 suffit deja)", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "n1", nom: "Burial", x: 0, y: 0, r: 16 });
+
+    ajusterZoneTactile(noeud, 4); // ECHELLE_MAX
+
+    expect(Number(noeud.zoneTactile.getAttribute("r"))).toBeGreaterThanOrEqual(16);
+  });
+
+  it("ne modifie jamais le rayon du cercle VISIBLE (F-09 : l'affinite se lit sans texte, jamais deformee)", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "n1", nom: "Burial", x: 0, y: 0, r: 16 });
+
+    ajusterZoneTactile(noeud, ECHELLE_MIN);
+
+    expect(noeud.cercle.getAttribute("r")).toBe("16");
+  });
+
+  it("ajusterZonesTactiles applique la meme regle a tous les noeuds fournis", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const a = dessinerNoeud(svg, groupes, { id: "a", nom: "A", x: 0, y: 0, r: 14 });
+    const b = dessinerNoeud(svg, groupes, { id: "b", nom: "B", x: 0, y: 0, r: 16 });
+
+    ajusterZonesTactiles([a, b], ECHELLE_MIN);
+
+    for (const n of [a, b]) {
+      const rZone = Number(n.zoneTactile.getAttribute("r"));
+      expect(rZone * 2 * ECHELLE_MIN).toBeGreaterThanOrEqual(CIBLE_TACTILE_MIN_PX);
+    }
+  });
+});
+
+describe("le plus petit noeud du produit (branche, TAILLE_PASTILLE.min=14) tient la cible tactile a ECHELLE_MIN", () => {
+  it("14px de rayon, agrandi, tient 24x24px a l'echelle la plus faible de la camera", () => {
+    const svg = svgVierge();
+    const groupes = creerGroupes(svg);
+    const pirePastille = dessinerNoeud(svg, groupes, { id: "pire", nom: "Plus petite branche", x: 0, y: 0, r: 14 });
+
+    ajusterZoneTactile(pirePastille, ECHELLE_MIN);
+
+    const cotePx = Number(pirePastille.zoneTactile.getAttribute("r")) * 2 * ECHELLE_MIN;
+    expect(cotePx).toBeGreaterThanOrEqual(CIBLE_TACTILE_MIN_PX);
   });
 });
 

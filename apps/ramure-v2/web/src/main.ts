@@ -10,7 +10,9 @@
 // s'affiche et se parcourt vraiment" ; PRP 06, "le parcours complet tient
 // a la main").
 import {
+  ajusterZonesTactiles,
   appliquerVue as appliquerVueSurGroupe,
+  cablerActivation,
   creerGroupes,
   definirIllustration,
   dessinerLien,
@@ -22,11 +24,13 @@ import { placerBranches, placerHeritiers, type Anneau } from "./geometrie";
 import { aBouge, cadrageNeutre, deplacer, zoomer, type Vue } from "./camera";
 import {
   GestionnaireLignee,
+  annoncerNouveauCentre,
   appliquerTransitionVisuelle,
   dureePromotion,
   promouvoir,
   recadrerSiBouge,
 } from "./promotion";
+import { dispositionCourante } from "./disposition";
 import { textes } from "./textes";
 import { construireMur, type MurAccueil, type TuileDonnees } from "./accueil";
 import {
@@ -52,7 +56,7 @@ import {
   type EntreeAPI,
   type PanneauCollection,
 } from "./collection";
-import { EN_TETE_SESSION, sessionId } from "./session";
+import { EN_TETE_SESSION, SessionExpireeError, estReponseSessionExpiree, sessionId } from "./session";
 
 // Champs du JSON rendu par GET /api/centre : une seule convention
 // d'etiquetage — camelCase minuscule — sur tous les types, y compris
@@ -119,6 +123,7 @@ const champGraine = document.querySelector<HTMLInputElement>("#graine");
 const boutonZoomerAvant = document.querySelector<HTMLButtonElement>("#zoomer-avant");
 const boutonZoomerArriere = document.querySelector<HTMLButtonElement>("#zoomer-arriere");
 const boutonCadrage = document.querySelector<HTMLButtonElement>("#cadrage-initial");
+const boutonRemonter = document.querySelector<HTMLButtonElement>("#remonter-lignee");
 const boutonLogo = document.querySelector<HTMLButtonElement>("#logo");
 const boutonPartager = document.querySelector<HTMLButtonElement>("#partager");
 const accueilSection = document.querySelector<HTMLElement>("#accueil");
@@ -132,8 +137,20 @@ const ficheEl = document.querySelector<HTMLElement>("#fiche");
 const apercuEl = document.querySelector<HTMLElement>("#apercu-branche");
 const collectionEl = document.querySelector<HTMLElement>("#collection");
 const boutonCollection = document.querySelector<HTMLButtonElement>("#collection-bouton");
+const miseAJourEl = document.querySelector<HTMLElement>("#mise-a-jour");
+const miseAJourTexteEl = document.querySelector<HTMLElement>("#mise-a-jour-texte");
+const boutonMiseAJour = document.querySelector<HTMLButtonElement>("#mise-a-jour-appliquer");
 
 const lignee = new GestionnaireLignee();
+// ligneeNoms est le miroir EXACT de lignee.lignee, en NOMS plutot qu'en
+// identifiants opaques (GestionnaireLignee stocke un id — mbid le plus
+// souvent — insuffisant pour rappeler /api/centre, qui exige un nom).
+// Toute mutation de lignee.lignee (commencerPromotion, naviguerVersAncetre,
+// reinitialiser) DOIT etre accompagnee ICI, au meme site d'appel, de la
+// meme mutation sur ligneeNoms — c'est ce couplage manuel, et lui seul,
+// qui garde les deux tableaux de MEME longueur (F-14, "remonter d'un
+// cran").
+let ligneeNoms: string[] = [];
 const suggestions = new GestionnaireSuggestions();
 const gestionnaireService = new GestionnaireService();
 
@@ -165,6 +182,12 @@ function mouvementReduit(): boolean {
 function appliquerVue(): void {
   if (groupeRacine) {
     appliquerVueSurGroupe(groupeRacine, vue);
+    // §12 : la cible tactile minimale (24x24px) doit tenir a TOUTE
+    // echelle de camera, jamais seulement au cadrage neutre — un
+    // dezoomage (bouton, molette) reduit d'autant la taille a l'ecran
+    // sans que `r` du cercle visible ne bouge (canevas.ts le garantit
+    // deja pour l'affinite, F-09) ; c'est cette fonction qui compense.
+    ajusterZonesTactiles(noeudsDessines.values(), vue.echelle);
   }
   if (boutonCadrage) {
     boutonCadrage.hidden = !aBouge(vue, vueNeutre);
@@ -172,10 +195,30 @@ function appliquerVue(): void {
 }
 
 function annoncer(nom: string): void {
+  annoncerNouveauCentre(etat, nom);
+}
+
+// actualiserVisibiliteRemonter (§12, F-14) : "remonter d'un cran" n'a de
+// sens que s'il existe un cran vers lequel remonter — masque des que la
+// lignee est vide, jamais un bouton actif qui ne ferait rien.
+function actualiserVisibiliteRemonter(): void {
+  if (boutonRemonter) boutonRemonter.hidden = lignee.lignee.length === 0;
+}
+
+// afficherSessionExpiree (F-41) : le SEUL message que /api/centre peut
+// produire quand Traefik a intercepte la requete a la place du serveur
+// applicatif — jamais confondu avec "le reseau n'a pas repondu" (§09),
+// qui reste un probleme different avec un remede different (reessayer,
+// pas se reconnecter).
+function afficherSessionExpiree(): void {
   if (!etat) return;
-  window.setTimeout(() => {
-    etat.textContent = textes.annonceNouveauCentre(nom);
-  }, 0);
+  etat.replaceChildren();
+  const message = document.createElement("span");
+  message.textContent = `${textes.sessionExpireeMessage} `;
+  const lien = document.createElement("a");
+  lien.href = window.location.pathname + window.location.search;
+  lien.textContent = textes.sessionExpireeLien;
+  etat.append(message, lien);
 }
 
 function viderLiens(): void {
@@ -587,13 +630,7 @@ function dessinerEntourage(centreAPI: CentreAPI): void {
 }
 
 function cablerNoeud(n: NoeudDessine, nom: string): void {
-  n.groupe.addEventListener("click", () => void promouvoirVers(n, nom));
-  n.groupe.addEventListener("keydown", (evt) => {
-    if (evt.key === "Enter" || evt.key === " ") {
-      evt.preventDefault();
-      void promouvoirVers(n, nom);
-    }
-  });
+  cablerActivation(n, () => void promouvoirVers(n, nom));
 }
 
 // chargerCentre porte le jeton de session (mesure) et, sur une plantation
@@ -603,41 +640,31 @@ async function chargerCentre(
   nom: string,
   options?: { origine?: "promotion"; amorce?: "collection" | "partage" },
 ): Promise<CentreAPI> {
-  const params = new URLSearchParams({ nom });
+  // largeur (PRP 08, disposition.ts) : le SERVEUR decide seul du nombre de
+  // branches/heritiers pour cette disposition (internal/api/centre.go,
+  // cadragePour) — le client ne fait que nommer la disposition qu'il
+  // affiche reellement, jamais ne recompte lui-meme.
+  const params = new URLSearchParams({ nom, largeur: dispositionCourante() });
   if (options?.origine) params.set("origine", options.origine);
   if (options?.amorce) params.set("amorce", options.amorce);
   const reponse = await fetch(`/api/centre?${params.toString()}`, {
     headers: { [EN_TETE_SESSION]: session },
   });
+  // F-41 : une session expiree ressemble a une reponse reseau normale
+  // (souvent un 200) — seul le CONTENU la trahit, jamais reponse.ok.
+  if (estReponseSessionExpiree(reponse, window.location.origin)) {
+    throw new SessionExpireeError();
+  }
   return (await reponse.json()) as CentreAPI;
 }
 
-// planter demarre une exploration a partir de zero (recherche, lien
-// partage, collection) : ici seulement, la scene est entierement
-// reconstruite, faute de noeud existant a promouvoir. amorce distingue
-// pour la mesure (M-06, M-07) un depart depuis un artiste garde (F-31)
-// d'un depart depuis un lien recu (F-34) — absent, c'est un depart
-// manuel (recherche), qui ne compte dans aucune des deux metriques.
-async function planter(nom: string, amorce?: "collection" | "partage"): Promise<void> {
+// reconstruireScene peint une scene ENTIEREMENT NEUVE a partir d'un
+// CentreAPI deja charge — partagee par planter() (une graine, F-04) et
+// remonterLignee() (F-14) : les deux repartent d'un centre sans noeud
+// existant a promouvoir, contrairement a promouvoirVers() qui, lui, fait
+// voyager un noeud DEJA present (F-12).
+function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   if (!svg) return;
-  masquerCorrection();
-  suggestions.effacer();
-  peindreSuggestions();
-  masquerAccueil();
-  const generation = lignee.commencerPromotion(`racine:${nom}`);
-  if (etat) etat.textContent = `Chargement de ${nom}…`;
-
-  let centreAPI: CentreAPI;
-  try {
-    centreAPI = await chargerCentre(nom, { amorce });
-  } catch {
-    if (!lignee.estPerimee(generation) && etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
-    }
-    return;
-  }
-  if (lignee.estPerimee(generation)) return; // reponse tardive (§09) : ecartee
-
   svg.replaceChildren();
   const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
   racine.setAttribute("class", "racine");
@@ -650,7 +677,7 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
   if (centreAPI.etat !== "ok" || !centreAPI.branches || centreAPI.branches.length === 0) {
     if (etat) etat.textContent = centreAPI.message ?? "Aucun voisin connu pour cet artiste.";
     if (centreAPI.etat === "aucun_voisin" && !centreAPI.artiste.mbid) {
-      void tenterRattrapage(nom); // F-03 : l'artiste demande est introuvable
+      void tenterRattrapage(nomDemande); // F-03 : l'artiste demande est introuvable
     }
   } else if (etat) {
     etat.textContent = "";
@@ -670,6 +697,76 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
   vue = cadrageNeutre(contenu, viewport);
   vueNeutre = vue;
   appliquerVue();
+  actualiserVisibiliteRemonter();
+}
+
+// planter demarre une exploration a partir de zero (recherche, lien
+// partage, collection) : ici seulement, la scene est entierement
+// reconstruite, faute de noeud existant a promouvoir. amorce distingue
+// pour la mesure (M-06, M-07) un depart depuis un artiste garde (F-31)
+// d'un depart depuis un lien recu (F-34) — absent, c'est un depart
+// manuel (recherche), qui ne compte dans aucune des deux metriques.
+async function planter(nom: string, amorce?: "collection" | "partage"): Promise<void> {
+  if (!svg) return;
+  masquerCorrection();
+  suggestions.effacer();
+  peindreSuggestions();
+  masquerAccueil();
+  // F-14 : le centre quitte (s'il en existe un) devient le sommet de la
+  // lignee, exactement comme lignee.commencerPromotion() le fait deja
+  // pour son propre tableau d'identifiants (promotion.ts) — voir la note
+  // sur `ligneeNoms` plus haut.
+  if (nomCentreCourant) ligneeNoms = [...ligneeNoms, nomCentreCourant];
+  const generation = lignee.commencerPromotion(`racine:${nom}`);
+  if (etat) etat.textContent = `Chargement de ${nom}…`;
+
+  let centreAPI: CentreAPI;
+  try {
+    centreAPI = await chargerCentre(nom, { amorce });
+  } catch (erreur) {
+    if (lignee.estPerimee(generation)) return;
+    if (erreur instanceof SessionExpireeError) {
+      afficherSessionExpiree();
+    } else if (etat) {
+      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+    }
+    return;
+  }
+  if (lignee.estPerimee(generation)) return; // reponse tardive (§09) : ecartee
+
+  reconstruireScene(centreAPI, nom);
+}
+
+// remonterLignee (F-14, §12 "remonter d'un cran") : distincte de
+// "quitter l'exploration" (boutonLogo) — celle-ci ne retire qu'UNE
+// entree de la lignee, vers l'artiste immediatement precedent, sans
+// jamais passer par l'accueil.
+async function remonterLignee(): Promise<void> {
+  if (!svg || lignee.lignee.length === 0) return;
+  const indexCible = lignee.lignee.length - 1;
+  const nomCible = ligneeNoms[ligneeNoms.length - 1];
+  if (nomCible === undefined) return; // desaccord defensif : ne devrait jamais survenir (voir la note sur ligneeNoms)
+
+  const nav = lignee.naviguerVersAncetre(indexCible);
+  ligneeNoms = ligneeNoms.slice(0, -1);
+  actualiserVisibiliteRemonter();
+  if (etat) etat.textContent = `Chargement de ${nomCible}…`;
+
+  let centreAPI: CentreAPI;
+  try {
+    centreAPI = await chargerCentre(nomCible, { origine: "promotion" });
+  } catch (erreur) {
+    if (lignee.estPerimee(nav.generation)) return;
+    if (erreur instanceof SessionExpireeError) {
+      afficherSessionExpiree();
+    } else if (etat) {
+      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+    }
+    return;
+  }
+  if (lignee.estPerimee(nav.generation)) return; // reponse tardive (§09) : ecartee
+
+  reconstruireScene(centreAPI, nomCible);
 }
 
 // promouvoirVers (F-11 a F-14, §11 "transition de promotion") : le noeud
@@ -689,10 +786,26 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
     appliquerVue();
   });
 
-  const resultat = await promouvoir(lignee, { id: noeud.id, nom }, {
-    mouvementReduit: reduit,
-    chargerCentre: () => chargerCentre(nom, { origine: "promotion" }), // M-01
-  });
+  // F-14 : le centre quitte devient le sommet de la lignee — voir la note
+  // sur `ligneeNoms` plus haut ; pousse ICI, synchrone, au meme instant
+  // que promouvoir() pousse sur lignee.lignee (promotion.ts), jamais
+  // apres l'attente reseau qui suit.
+  if (nomCentreCourant) ligneeNoms = [...ligneeNoms, nomCentreCourant];
+
+  let resultat;
+  try {
+    resultat = await promouvoir(lignee, { id: noeud.id, nom }, {
+      mouvementReduit: reduit,
+      chargerCentre: () => chargerCentre(nom, { origine: "promotion" }), // M-01
+    });
+  } catch (erreur) {
+    if (erreur instanceof SessionExpireeError) {
+      afficherSessionExpiree();
+    } else if (etat) {
+      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+    }
+    return;
+  }
   if (!resultat.applique || !resultat.donnees) return; // perimee ou navigation ailleurs (§09, F-13)
 
   const centreAPI = resultat.donnees;
@@ -718,6 +831,7 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
   dessinerEntourage(centreAPI);
   annoncer(centreAPI.artiste.nom);
   if (centreAPI.etat === "ok") void afficherFiche(centreAPI);
+  actualiserVisibiliteRemonter();
 }
 
 formulaire?.addEventListener("submit", (evt) => {
@@ -762,17 +876,24 @@ champGraine?.addEventListener("keydown", (evt) => {
 
 boutonLogo?.addEventListener("click", () => {
   // Retour a l'accueil (F-07) : reinitialise l'etat, la derniere graine ne
-  // reste pas collee.
+  // reste pas collee. "Quitter l'exploration" (§12) — DISTINCT de
+  // "remonter d'un cran" : la lignee entiere est videe ici, jamais
+  // seulement raccourcie d'une entree (lignee.reinitialiser(), promotion.ts).
   if (champGraine) champGraine.value = "";
   suggestions.effacer();
   peindreSuggestions();
   masquerCorrection();
   nomCentreCourant = null;
+  lignee.reinitialiser();
+  ligneeNoms = [];
+  actualiserVisibiliteRemonter();
   const url = new URL(window.location.href);
   url.search = "";
   window.history.replaceState({}, "", url);
   afficherAccueil();
 });
+
+boutonRemonter?.addEventListener("click", () => void remonterLignee());
 
 boutonPartager?.addEventListener("click", () => void partagerArbre());
 
@@ -825,6 +946,11 @@ svg?.addEventListener(
 
 document.title = textes.titre;
 if (boutonLogo) boutonLogo.setAttribute("aria-label", textes.retourAccueil);
+if (boutonRemonter) boutonRemonter.setAttribute("aria-label", textes.remonterLaLignee);
+if (accueilSection) accueilSection.setAttribute("aria-label", textes.accueilTitre);
+if (miseAJourTexteEl) miseAJourTexteEl.textContent = textes.miseAJourDisponible;
+if (boutonMiseAJour) boutonMiseAJour.textContent = textes.miseAJourAppliquer;
+actualiserVisibiliteRemonter();
 if (boutonCollection) {
   boutonCollection.textContent = "♥";
   boutonCollection.setAttribute("aria-label", textes.collectionOuvrir);
@@ -877,3 +1003,92 @@ if (grainePlantee) {
 } else {
   afficherAccueil();
 }
+
+// ---------------------------------------------------------------------
+// Service worker : installation, hors ligne, mise a jour (N-11, N-12,
+// F-42, PRP 08). Desactivable par window.RAMURE_SW_DESACTIVE = true, pose
+// AVANT le chargement de ce script — sans ce verrou, une version mise en
+// cache par une execution precedente rendrait les echecs simules du
+// PRP 09 irreproductibles (PRP 08, "ce que la suite attend de vous" n°2).
+// ---------------------------------------------------------------------
+
+declare global {
+  interface Window {
+    RAMURE_SW_DESACTIVE?: boolean;
+  }
+}
+
+function afficherBanniereMiseAJour(appliquer: () => void): void {
+  if (!miseAJourEl || !boutonMiseAJour) return;
+  miseAJourEl.hidden = false;
+  // { once: true } : un seul clic suffit, un second ne doit rien redeclencher.
+  boutonMiseAJour.addEventListener("click", appliquer, { once: true });
+}
+
+// surMiseAJour (F-42) : NE JAMAIS activer seul un worker en attente — le
+// skipWaiting() qui l'active vient UNIQUEMENT du clic sur la banniere,
+// jamais automatiquement, pour ne jamais casser une exploration en cours
+// (vigilance du PRP 08). Le rechargement qui suit recharge une page
+// entierement neuve, prise en charge par la nouvelle version.
+function surMiseAJour(inscription: ServiceWorkerRegistration): void {
+  const enAttente = inscription.waiting;
+  if (!enAttente) return;
+  afficherBanniereMiseAJour(() => {
+    let recharge = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (recharge) return; // un seul rechargement, jamais une boucle
+      recharge = true;
+      window.location.reload();
+    });
+    enAttente.postMessage("SAUTER_ATTENTE");
+  });
+}
+
+async function enregistrerServiceWorker(): Promise<void> {
+  if (window.RAMURE_SW_DESACTIVE || !("serviceWorker" in navigator)) return;
+  try {
+    // Servi par la route STATIQUE existante (/dist/, internal/api/routes.go)
+    // — aucune route serveur ajoutee (PRP 08). L'en-tete
+    // Service-Worker-Allowed: / (routes.go) est ce qui autorise un script
+    // hors de "/" a controler "/" malgre tout.
+    // scope: "/" DOIT etre demande EXPLICITEMENT : sans lui, un navigateur
+    // borne le scope au repertoire du script (/dist/) meme quand l'entete
+    // Service-Worker-Allowed (routes.go) l'autoriserait a etre plus large
+    // — l'entete etend la limite AUTORISEE, il ne change jamais le scope
+    // effectivement DEMANDE (verifie en navigateur reel, PRP 08).
+    const inscription = await navigator.serviceWorker.register("/dist/sw.js", { scope: "/" });
+
+    // Un worker deja en attente au chargement (l'onglet etait ouvert lors
+    // du deploiement precedent, jamais rafraichi depuis) : signale tout de
+    // suite, meme sans nouvel evenement "updatefound".
+    if (inscription.waiting && navigator.serviceWorker.controller) {
+      surMiseAJour(inscription);
+    }
+
+    inscription.addEventListener("updatefound", () => {
+      const installe = inscription.installing;
+      if (!installe) return;
+      installe.addEventListener("statechange", () => {
+        // "installed" ET un controller deja actif = une MISE A JOUR d'une
+        // installation existante, jamais la toute premiere installation
+        // (qui n'a rien a signaler).
+        if (installe.state === "installed" && navigator.serviceWorker.controller) {
+          surMiseAJour(inscription);
+        }
+      });
+    });
+
+    // Delai borne (N-12) sans action manuelle : un onglet garde ouvert
+    // plusieurs heures ne doit pas attendre indefiniment le prochain
+    // rechargement pour decouvrir une version deployee entre-temps.
+    window.setInterval(() => void inscription.update(), 60 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void inscription.update();
+    });
+  } catch {
+    // Navigateur ou contexte sans support (§09, N-06) : l'application
+    // fonctionne quand meme, seules l'installation et le hors-ligne se
+    // degradent.
+  }
+}
+void enregistrerServiceWorker();

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/arbre"
@@ -91,6 +92,49 @@ func TestCheminInconnuRepond404(t *testing.T) {
 func TestVersionParDefaut(t *testing.T) {
 	if Version != "dev" {
 		t.Fatalf("Version = %q, attendu \"dev\" hors construction CI", Version)
+	}
+}
+
+// Servi=sw.js/manifest.webmanifest (PRP 08, installation et mise a jour) :
+// aucune route ajoutee (mux.Handle("GET /dist/", ...) existe deja depuis
+// PRP 05), seuls des en-tetes supplementaires sur deux chemins precis.
+
+func TestDistSwJsPorteServiceWorkerAllowed(t *testing.T) {
+	precedent := Dist
+	Dist = fstest.MapFS{"sw.js": &fstest.MapFile{Data: []byte("// sw")}}
+	defer func() { Dist = precedent }()
+
+	rec := appeler(t, http.MethodGet, "/dist/sw.js")
+
+	if v := rec.Header().Get("Service-Worker-Allowed"); v != "/" {
+		t.Errorf("Service-Worker-Allowed = %q, attendu \"/\" (sans quoi le worker ne peut pas controler \"/\", N-11)", v)
+	}
+	if v := rec.Header().Get("Cache-Control"); v != "no-cache" {
+		t.Errorf("Cache-Control = %q, attendu \"no-cache\" (defense contre un worker mal cadre qui sert une version perimee)", v)
+	}
+}
+
+func TestDistAutreFichierNePorteRienDeSwJs(t *testing.T) {
+	precedent := Dist
+	Dist = fstest.MapFS{"app.js": &fstest.MapFile{Data: []byte("// app")}}
+	defer func() { Dist = precedent }()
+
+	rec := appeler(t, http.MethodGet, "/dist/app.js")
+
+	if v := rec.Header().Get("Service-Worker-Allowed"); v != "" {
+		t.Errorf("Service-Worker-Allowed = %q sur /dist/app.js, attendu absent", v)
+	}
+}
+
+func TestDistManifestPorteLeBonContentType(t *testing.T) {
+	precedent := Dist
+	Dist = fstest.MapFS{"manifest.webmanifest": &fstest.MapFile{Data: []byte(`{"name":"RAMURE"}`)}}
+	defer func() { Dist = precedent }()
+
+	rec := appeler(t, http.MethodGet, "/dist/manifest.webmanifest")
+
+	if v := rec.Header().Get("Content-Type"); v != "application/manifest+json" {
+		t.Errorf("Content-Type = %q, attendu \"application/manifest+json\" (\".webmanifest\" n'est pas reconnu par mime.TypeByExtension, Go sniffe sinon \"text/plain\")", v)
 	}
 }
 

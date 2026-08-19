@@ -33,6 +33,39 @@ var AccueilHTML []byte
 // main.go, qui copie donc la reference avant que Routes() ne serve.
 var Dist fs.FS
 
+// serveurDist enrichit /dist/ de deux en-tetes SANS ajouter de route
+// (PRP 08, installation et mise a jour) :
+//   - Service-Worker-Allowed: / sur sw.js SEUL. dist/sw.js vit sous
+//     /dist/, mais doit controler TOUTE l'application (scope "/") pour
+//     que la page d'accueil elle-meme fonctionne hors ligne (N-11) —
+//     sans cet en-tete, un navigateur borne le scope au repertoire du
+//     script (/dist/) et ignore l'option `scope` demandee cote client
+//     (main.ts). Ajouter une route /sw.js dediee aurait ete l'alternative,
+//     ecartee par le PRP ("aucune route serveur ajoutee").
+//   - Cache-Control: no-cache sur sw.js SEUL : defense en profondeur
+//     contre le piege "un service worker mal cadre sert indefiniment une
+//     version perimee" — les navigateurs contournent deja le cache HTTP
+//     pour ce fichier precis, mais ne pas s'y fier a un comportement
+//     implicite couvre aussi les intermediaires (proxy, CDN) qui
+//     l'ignoreraient.
+func serveurDist(suivant http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/dist/sw.js":
+			w.Header().Set("Service-Worker-Allowed", "/")
+			w.Header().Set("Cache-Control", "no-cache")
+		case "/dist/manifest.webmanifest":
+			// ".webmanifest" n'est pas un type MIME connu de Go : sans ce
+			// Content-Type explicite, http.FileServerFS le detecte par
+			// SNIFFING du contenu et rend "text/plain" pour du JSON, ce que
+			// certains navigateurs (moins tolerants que Chrome) refusent
+			// pour l'installation (N-11).
+			w.Header().Set("Content-Type", "application/manifest+json")
+		}
+		suivant.ServeHTTP(w, r)
+	})
+}
+
 // entetes pose sur chaque reponse ce qui ne depend pas de la route. Le
 // Header() est ecrit AVANT que le gestionnaire n'appelle WriteHeader :
 // une fois le statut envoye, les en-tetes sont figes et l'ajout serait
@@ -93,7 +126,7 @@ func Routes(d arbre.Dependances) http.Handler {
 	// routeur sans jamais appeler main(), n'ont pas besoin d'un
 	// repertoire dist et ne doivent pas paniquer pour autant.
 	if Dist != nil {
-		mux.Handle("GET /dist/", http.StripPrefix("/dist/", http.FileServerFS(Dist)))
+		mux.Handle("GET /dist/", serveurDist(http.StripPrefix("/dist/", http.FileServerFS(Dist))))
 	}
 
 	return entetes(mux)

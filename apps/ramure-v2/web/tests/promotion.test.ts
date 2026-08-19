@@ -8,11 +8,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { creerGroupes, dessinerNoeud, definirIllustration, NS_SVG } from "../src/canevas";
 import {
   GestionnaireLignee,
+  annoncerNouveauCentre,
   appliquerTransitionVisuelle,
   dureePromotion,
   promouvoir,
   recadrerSiBouge,
 } from "../src/promotion";
+import { textes } from "../src/textes";
 
 function scene() {
   const svg = document.createElementNS(NS_SVG, "svg") as SVGSVGElement;
@@ -174,6 +176,71 @@ describe("8 · la vue ne se recadre que si l'utilisateur l'avait modifiee", () =
     const appliquer = vi.fn();
     recadrerSiBouge(true, appliquer);
     expect(appliquer).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("10 · reinitialiser() (F-07, PRP 08 : \"quitter l'exploration\", distinct de \"remonter d'un cran\")", () => {
+  it("vide la lignee et le centre courant", () => {
+    const lignee = new GestionnaireLignee();
+    lignee.commencerPromotion("racine");
+    lignee.commencerPromotion("intermediaire");
+
+    lignee.reinitialiser();
+
+    expect(lignee.centre).toBeNull();
+    expect(lignee.lignee).toEqual([]);
+  });
+
+  it("bat une nouvelle generation : une reponse en vol au moment du retour a l'accueil est ecartee", () => {
+    const lignee = new GestionnaireLignee();
+    const generationAvant = lignee.commencerPromotion("racine");
+
+    lignee.reinitialiser();
+
+    expect(lignee.estPerimee(generationAvant)).toBe(true);
+  });
+});
+
+describe("11 · annoncerNouveauCentre (§12 : le changement de centre est annonce)", () => {
+  it("ecrit le message de textes.annonceNouveauCentre dans l'element fourni", () => {
+    const etat = document.createElement("p");
+    etat.setAttribute("role", "status");
+    etat.setAttribute("aria-live", "polite");
+
+    annoncerNouveauCentre(etat, "Portishead", (fn) => fn()); // planifie IMMEDIATEMENT (pas de setTimeout reel)
+
+    expect(etat.textContent).toBe(textes.annonceNouveauCentre("Portishead"));
+    expect(etat.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("ne fait rien (ne plante pas) si l'element est absent", () => {
+    expect(() => annoncerNouveauCentre(null, "Portishead", (fn) => fn())).not.toThrow();
+  });
+
+  it("differe l'ecriture via `planifier` par defaut (repli setTimeout(fn, 0))", () => {
+    vi.useFakeTimers();
+    try {
+      const etat = document.createElement("p");
+      annoncerNouveauCentre(etat, "Aphex Twin");
+      expect(etat.textContent).toBe(""); // rien avant que le minuteur ne se declenche
+      vi.runAllTimers();
+      expect(etat.textContent).toBe(textes.annonceNouveauCentre("Aphex Twin"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("12 · la zone tactile suit le noeud promu (§12, PRP 08 : cible >= 24x24px a toute echelle)", () => {
+  it("cx/cy/r de zoneTactile valent ceux de la cible apres la transition", async () => {
+    const { racine, groupes } = scene();
+    const branche = dessinerNoeud(racine, groupes, { id: "b1", nom: "Autechre", x: 200, y: 0, r: 16 });
+
+    await appliquerTransitionVisuelle(branche, null, { x: 0, y: 0, r: 60 }, { dureeMs: 0 });
+
+    expect(branche.zoneTactile.getAttribute("cx")).toBe("0");
+    expect(branche.zoneTactile.getAttribute("cy")).toBe("0");
+    expect(branche.zoneTactile.getAttribute("r")).toBe("60");
   });
 });
 

@@ -6,7 +6,10 @@
 // PRP 08 verifiera. Porte §11 "lisibilite", F-38 (aucun chargement sans
 // issue) et F-39 (affichage progressif).
 import { textes } from "./textes";
+import { CIBLE_TACTILE_MIN_PX } from "./disposition";
 import type { Vue } from "./camera";
+
+export { CIBLE_TACTILE_MIN_PX };
 
 export const NS_SVG = "http://www.w3.org/2000/svg";
 const NS_XLINK = "http://www.w3.org/1999/xlink";
@@ -42,6 +45,14 @@ export interface NoeudDessine {
   cercle: SVGCircleElement;
   pattern: SVGPatternElement;
   libelle: SVGTextElement;
+  /** Cible tactile INVISIBLE, distincte de la pastille visible (`cercle`) :
+   * §12 exige au moins 24x24px de cible, mais la camera peut zoomer
+   * jusqu'a ECHELLE_MIN (0.4, camera.ts) — a ce niveau, la pastille du
+   * plus petit heritier ne mesure plus que quelques pixels a l'ecran.
+   * `ajusterZoneTactile` agrandit CE cercle transparent (jamais `cercle`,
+   * qui resterait visuellement fidele a l'affinite, F-09) pour compenser
+   * l'echelle courante. */
+  zoneTactile: SVGCircleElement;
 }
 
 function elementSVG<K extends keyof SVGElementTagNameMap>(
@@ -134,11 +145,30 @@ export function dessinerNoeud(
   groupe.setAttribute("role", "button");
   groupe.setAttribute("aria-label", textes.accessibleNoeud(n.nom));
 
+  // zoneTactile AVANT cercle : place derriere lui dans l'ordre de peinture
+  // (sans consequence puisqu'elle est transparente), mais surtout jamais
+  // apres — un enfant ajoute plus tard capterait le clic en premier sans
+  // rien changer visuellement, ce qui serait juste une source de confusion
+  // a la lecture du DOM.
+  const zoneTactile = elementSVG("circle");
+  zoneTactile.setAttribute("class", "zone-tactile");
+  zoneTactile.setAttribute("cx", String(n.x));
+  zoneTactile.setAttribute("cy", String(n.y));
+  zoneTactile.setAttribute("r", String(n.r));
+  zoneTactile.setAttribute("fill", "transparent");
+  // pointer-events="all" : un remplissage transparent n'intercepte RIEN
+  // par defaut en SVG (seuls stroke/fill visibles le font) — sans cet
+  // attribut, agrandir `r` n'agrandirait rien du tout au toucher.
+  zoneTactile.setAttribute("pointer-events", "all");
+  zoneTactile.setAttribute("aria-hidden", "true"); // le nom accessible vit sur le groupe
+  groupe.append(zoneTactile);
+
   const cercle = elementSVG("circle");
   cercle.setAttribute("cx", String(n.x));
   cercle.setAttribute("cy", String(n.y));
   cercle.setAttribute("r", String(n.r));
   cercle.setAttribute("fill", `url(#${patternId})`);
+  cercle.setAttribute("pointer-events", "none"); // le clic est capte par zoneTactile, jamais deux fois
   groupe.append(cercle);
   groupes.noeuds.append(groupe);
 
@@ -151,7 +181,7 @@ export function dessinerNoeud(
   libelle.textContent = n.nom;
   groupes.libelles.append(libelle);
 
-  return { id: n.id, groupe, cercle, pattern, libelle };
+  return { id: n.id, groupe, cercle, pattern, libelle, zoneTactile };
 }
 
 // definirIllustration remplace le CONTENU du motif de repli par l'image
@@ -198,4 +228,66 @@ export function dessinerLien(
   ligne.setAttribute("y2", String(vers.y - uy * vers.r));
   groupes.liens.insertBefore(ligne, groupes.liens.firstChild);
   return ligne;
+}
+
+// ---------------------------------------------------------------------
+// Cible tactile minimale (§12, WCAG 2.2 SC 2.5.8, PRP 08)
+// ---------------------------------------------------------------------
+
+/** ajusterZoneTactile agrandit le cercle INVISIBLE d'un noeud (jamais son
+ * cercle visible) pour que sa taille A L'ECRAN reste au moins
+ * `minPx` x `minPx`, quelle que soit l'echelle courante de la camera —
+ * `r * echelle` est ce qui compte a l'ecran, pas `r` seul, une fois le
+ * groupe racine mis a l'echelle par appliquerVue(). Ne RETRECIT jamais la
+ * zone en dessous de la pastille visible : `r` de la zone tactile est
+ * toujours >= `r` du cercle visible. */
+export function ajusterZoneTactile(
+  n: NoeudDessine,
+  echelle: number,
+  minPx: number = CIBLE_TACTILE_MIN_PX,
+): void {
+  const rVisible = Number(n.cercle.getAttribute("r")) || 0;
+  const echelleUtile = Number.isFinite(echelle) && echelle > 0 ? echelle : 1;
+  const rMinimal = minPx / 2 / echelleUtile;
+  n.zoneTactile.setAttribute("r", String(Math.max(rVisible, rMinimal)));
+  // La zone tactile suit toujours la position du cercle visible : sans
+  // cette synchronisation, un noeud dont `cercle` a bouge (promotion.ts,
+  // appliquerTransitionVisuelle) toucherait au mauvais endroit.
+  n.zoneTactile.setAttribute("cx", n.cercle.getAttribute("cx") ?? "0");
+  n.zoneTactile.setAttribute("cy", n.cercle.getAttribute("cy") ?? "0");
+}
+
+/** ajusterZonesTactiles applique ajusterZoneTactile a tous les noeuds
+ * dessines — appelee a chaque changement de vue (main.ts, appliquerVue),
+ * puisque l'echelle qui determine la taille minimale necessaire change a
+ * chaque zoom. */
+export function ajusterZonesTactiles(
+  noeuds: Iterable<NoeudDessine>,
+  echelle: number,
+  minPx: number = CIBLE_TACTILE_MIN_PX,
+): void {
+  for (const n of noeuds) {
+    ajusterZoneTactile(n, echelle, minPx);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Activation clavier ET clic (F-11, §12, PRP 08)
+// ---------------------------------------------------------------------
+
+/** cablerActivation cable un SEUL gestionnaire pour deux entrees
+ * possibles (F-11 "souris et clavier produisent le meme resultat") :
+ * un clic, ou Entree/Espace au clavier sur le groupe focalisable
+ * (tabindex=0, role=button, poses par dessinerNoeud). Espace est
+ * intercepte par preventDefault() : sans lui, la page defilerait au lieu
+ * d'activer le noeud (comportement par defaut d'un <button> HTML, qu'un
+ * <g role="button"> n'obtient jamais gratuitement). */
+export function cablerActivation(n: NoeudDessine, gestionnaire: () => void): void {
+  n.groupe.addEventListener("click", () => gestionnaire());
+  n.groupe.addEventListener("keydown", (evt) => {
+    if (evt.key === "Enter" || evt.key === " " || evt.key === "Spacebar") {
+      evt.preventDefault();
+      gestionnaire();
+    }
+  });
 }

@@ -714,6 +714,76 @@ un en-tête de PRP, vérifier non seulement qu'une tâche la porte, mais qu'un t
 la calcule. Les trois cas de cette branche se seraient signalés seuls.
 
 
+### 25. (phase 2) `role="img"` annulait la seule raison d'avoir choisi SVG
+
+**Symptome** — le canevas portait `role="img"`. Or ce rôle **masque tous ses
+descendants à l'arbre d'accessibilité** : les nœuds de l'arbre, chacun un élément
+focalisable et étiqueté, devenaient invisibles pour un lecteur d'écran. Confirmé
+dans l'arbre d'accessibilité de Chromium, avant et après correction.
+
+C'est-à-dire que la décision fondatrice du PRP 05 — *« SVG dans le DOM et pas un
+`<canvas>`, parce qu'un `<canvas>` est un rectangle opaque pour un lecteur
+d'écran »* — était annulée par un attribut, et que tous les tests restaient verts :
+ils vérifiaient la présence des étiquettes, pas leur exposition.
+
+**Cause** — `role="img"` décrit une intention juste (« ceci est une image ») et
+produit un effet opposé au but recherché. Rien dans le nom du rôle ne dit qu'il
+coupe la descendance. Le PRP anticipait deux autres défauts d'accessibilité —
+ordre de tabulation, intitulés en double — qui, vérification faite, n'existaient
+pas ; le vrai était ailleurs, et il n'était pas cherché.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — corrigé en `role="group"`. La leçon vaut au-delà :
+sur ce PRP, **aucun des défauts réels n'a été trouvé par un test**, et les trois
+l'ont été en mesurant dans un vrai navigateur — celui-ci, l'effondrement des
+cibles tactiles au zoom minimal, et la portée du service worker. Un test qui
+vérifie un attribut prouve que l'attribut est là, jamais qu'il fait ce qu'on croit.
+
+### 26. (phase 2) L'en-tete `Service-Worker-Allowed` autorise une portee, il ne la demande pas
+
+**Symptome** — `navigator.serviceWorker.register("/dist/sw.js")` sans
+`{ scope: "/" }` reste cantonné à `/dist/`, **malgré** l'en-tête
+`Service-Worker-Allowed: /` posé côté serveur. L'en-tête élargit la limite
+autorisée ; il ne change jamais la portée effectivement demandée. Sans le
+correctif, l'application ne démarre pas hors ligne — N-11 échoue en silence, et
+seulement chez l'utilisateur.
+
+**Cause** — deux réglages de même nom apparent, l'un côté serveur et l'autre côté
+client, dont un seul décide. Poser le premier donne le sentiment d'avoir réglé la
+question.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — corrigé, et invisible en DOM simulé : c'est la mesure dans
+un vrai navigateur qui l'a trouvé, en rechargeant la page hors ligne.
+
+### 27. (phase 2) Une exigence du MVP avait sa logique, ses tests, et aucune interface
+
+**Symptome** — F-14, la lignée cliquable, est au lot **MVP**. Sa logique
+(`GestionnaireLignee`) existe depuis le PRP 05, elle est testée, et elle n'était
+**câblée à aucun bouton** : rien à l'écran ne permettait de remonter d'un cran.
+Découvert au PRP 08 parce qu'un de ses tests d'accessibilité en avait besoin —
+pas parce que quelque chose surveillait la couverture.
+
+**Cause** — la série vérifie qu'une exigence a une tâche et un test ; ni l'un ni
+l'autre ne dit qu'elle est **atteignable par un utilisateur**. Une fonction dont
+la logique est testée et l'interface absente passe tous les contrôles, et
+n'existe pas.
+
+C'est la quatrième forme du même défaut sur cette branche : annoncée sans tâche
+(anomalie 2), citée sans chemin d'accès (anomalie 17), inexprimable avec la
+signature figée (anomalie 24), et maintenant testée sans interface.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — le strict nécessaire est câblé (remonter d'un cran).
+Le garde-fou qui manque est le même depuis le début, un cran plus loin : pour une
+exigence fonctionnelle, la preuve de couverture n'est ni la tâche ni le test
+unitaire, c'est **un geste utilisateur qui l'atteint**. La recette du PRP 09 est
+le seul endroit de la série qui le vérifie, et elle arrive après tout le reste.
+
+
 ## Ce que la branche a corrigé, et ce qu'elle laisse ouvert
 
 **Corrigé** — le PRD passe en 1.1 : questions tranchées (§17), annexe des quatre

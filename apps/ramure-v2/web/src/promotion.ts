@@ -13,6 +13,7 @@
 // de ce fichier ne cree ni ne detruit un noeud. Elles deplacent et
 // atténuent des elements EXISTANTS.
 import type { NoeudDessine } from "./canevas";
+import { textes } from "./textes";
 
 // ---------------------------------------------------------------------
 // Lignee et generations (F-13, F-14, §09)
@@ -81,6 +82,19 @@ export class GestionnaireLignee {
     this.#lignee = this.#lignee.slice(0, index);
     this.#centreId = cible;
     return { idCentre: cible, generation: this.#generation };
+  }
+
+  // reinitialiser (F-07, "quitter l'exploration reinitialise l'etat") :
+  // vide la lignee et bat une nouvelle generation, pour qu'une reponse en
+  // vol au moment du retour a l'accueil soit ecartee (§09) — jamais
+  // appliquee a un ecran qui n'explore plus rien. C'est cette methode, et
+  // elle seule, qui distingue "quitter l'exploration" de "remonter d'un
+  // cran" (§12) : l'une vide tout, l'autre retire une seule entree
+  // (naviguerVersAncetre).
+  reinitialiser(): void {
+    this.#generation += 1;
+    this.#lignee = [];
+    this.#centreId = null;
   }
 }
 
@@ -180,6 +194,12 @@ export function appliquerTransitionVisuelle(
     image.setAttribute("width", String(2 * cible.r));
     image.setAttribute("height", String(2 * cible.r));
   }
+  // La zone tactile (canevas.ts, §12) suit le meme mouvement que le
+  // cercle visible : sans cette ligne, le noeud promu resterait tactile a
+  // son ANCIENNE position/taille jusqu'au prochain appliquerVue().
+  choisi.zoneTactile.setAttribute("cx", String(cible.x));
+  choisi.zoneTactile.setAttribute("cy", String(cible.y));
+  choisi.zoneTactile.setAttribute("r", String(cible.r));
 
   if (duree === 0) {
     return Promise.resolve();
@@ -201,4 +221,28 @@ export function recadrerSiBouge(aBouge: boolean, appliquer: () => void): void {
   if (aBouge) {
     appliquer();
   }
+}
+
+// ---------------------------------------------------------------------
+// Annonce du changement de centre (§12, PRP 08)
+// ---------------------------------------------------------------------
+
+/** annoncerNouveauCentre ecrit dans la region `aria-live="polite"` (posee
+ * sur #etat, web/index.html) le nom du nouveau centre — SEULE facon pour
+ * une technologie d'assistance de savoir que l'ecran a change sans le
+ * voir (§12). `planifier` differe l'ecriture d'un tour de boucle (repli
+ * `setTimeout(fn, 0)`) : un lecteur d'ecran n'annonce pas toujours un
+ * changement de contenu survenu dans le MEME tour que la mise a jour du
+ * DOM qui l'a precede (ici, la reconstruction de l'arbre) — injectable
+ * pour les tests, qui n'ont pas besoin d'attendre un vrai tour de
+ * boucle. */
+export function annoncerNouveauCentre(
+  etat: HTMLElement | null,
+  nom: string,
+  planifier: (fn: () => void) => void = (fn) => setTimeout(fn, 0),
+): void {
+  if (!etat) return;
+  planifier(() => {
+    etat.textContent = textes.annonceNouveauCentre(nom);
+  });
 }

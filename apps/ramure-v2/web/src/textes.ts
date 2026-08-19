@@ -39,7 +39,18 @@ export const textes = {
   triAleatoire: "Aleatoire",
   accueilPromesse: "Plante un nom, saute de branche en branche.",
   accueilVide: "Plante un premier artiste pour commencer l'exploration.",
+  // Intitule accessible du panneau d'accueil (§12, "les panneaux et
+  // fenetres sont titres, meme sans titre visible") : aucun heading visible
+  // ne porte ce role dans la barre d'accueil, d'ou ce nom pose sur la
+  // section elle-meme.
+  accueilTitre: "Accueil",
   retourAccueil: "Retour a l'accueil",
+
+  // Lignee : DEUX actions de retour distinctes (§12 "les actions de retour
+  // sont distinguees") — "Retour a l'accueil" (ci-dessus) quitte
+  // l'exploration entiere ; celle-ci ne remonte QUE d'un cran, vers
+  // l'artiste immediatement precedent (F-14). Un intitule different sur
+  // chacune est ce qui empeche la navigation assistee de les confondre.
 
   // Recherche, suggestions et rattrapage (F-01 a F-04, §09).
   suggestionsLabel: "Suggestions d'artistes",
@@ -90,4 +101,18 @@ export const textes = {
   replanterDepuisLaCollection: (nom: string): string => `Replanter ${nom}`,
   ligneeDeDecouverte: (lignee: readonly string[]): string => lignee.join(" -> "),
   gardeLe: (date: string): string => `Garde le ${date}`,
+
+  // Session expiree (F-41) : Traefik redirige une session expiree vers
+  // Google, jamais un JSON — le defaut le plus deroutant serait de laisser
+  // croire a une erreur de saisie. Le lien recharge la page courante, ce
+  // qui relance l'authentification (§09).
+  sessionExpireeMessage: "Ta session a expire.",
+  sessionExpireeLien: "Se reconnecter",
+
+  // Mise a jour signalee (F-42, N-12) : le service worker installe une
+  // nouvelle version en arriere-plan mais ne l'active JAMAIS seul — casser
+  // une exploration en cours serait pire que de rester une minute de plus
+  // sur l'ancienne version.
+  miseAJourDisponible: "Une nouvelle version de RAMURE est disponible.",
+  miseAJourAppliquer: "Mettre a jour",
 } as const;
