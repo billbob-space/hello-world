@@ -46,8 +46,15 @@ dans le dépôt : ce qui survit est ce qui a été retenu, écrit dans le `PRODU
 l'app ou dans son PRP, avec ce qui a été écarté. Une variante préférée dont rien ne
 garde la trace se rediscute deux mois plus tard.
 
-**Un choix sans forme visible reste une question** — un palier d'exposition, une
-technologie, un arbitrage de périmètre ne se dessinent pas.
+**Un choix sans forme visible s'illustre quand même.** Un palier d'exposition, une
+technologie, un arbitrage de périmètre n'ont pas d'écran à dessiner, mais ils ont des
+**conséquences** qui se montrent : qui entre et qui reste dehors, ce que l'utilisateur
+verrait dans un cas et dans l'autre, ce qui devient impossible. Une page de comparaison
+— une option par colonne, la conséquence en clair, jamais le mécanisme — se tranche plus
+vite qu'un paragraphe par option.
+
+**Quand rien ne se montre honnêtement, pose la question en prose** : une illustration
+qui n'ajoute rien à ce que trois phrases disaient déjà fait décider sur sa mise en forme.
 
 ## Arborescence
 
