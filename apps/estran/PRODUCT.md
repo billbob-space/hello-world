@@ -370,3 +370,51 @@ inventée ni recopiée d'une source à l'autre. Le radar ne rend pas de
 millimètres et n'en rendra pas ; la courbe garde son cumul, calculé par le seul
 modèle. Les deux sections gardent leurs pannes séparées : sans bande de l'heure,
 il n'y a rien à trancher et la phrase se tait d'elle-même.
+
+### Deux décisions d'écran, tranchées sur maquettes — 20 août 2026
+
+Rendues par la première critique UX outillée de l'app, sur trois variantes
+chacune. L'utilisateur a tranché ; ce qui est écarté est écrit ici avec sa
+raison, sans quoi il reviendra tel quel dans deux mois.
+
+**Où vit le choix du jour — retenu : le bandeau de jours.** Une rangée de jours
+en haut de l'écran, sur laquelle on saute directement à celui qu'on veut.
+
+Ce qui l'a emporté n'est pas l'esthétique mais un défaut nommé : le choix du
+jour *flottait* entre les deux colonnes sans appartenir à aucune, et sur un jour
+autre qu'aujourd'hui la même date se lisait **trois fois en moins de 500 px**.
+Le bandeau lui donne une place et supprime les répétitions.
+
+*Écarté — le jour dans l'en-tête*, à côté de l'horloge. Plus discret, et rendu à
+sa place logique. Écarté parce que moins repérable : sur un écran qu'on ouvre
+pour savoir « et demain ? », le geste principal ne doit pas être le plus petit.
+
+*Écarté — aucun contrôle en haut*, la tendance à seize jours servant seule à
+changer de jour. C'est l'écran d'ouverture le plus calme des trois, et
+l'argument était sérieux. Écarté parce qu'il rend la navigation implicite : rien
+ne dit qu'on peut changer de jour, et ce qui ne se voit pas ne s'utilise pas.
+
+**Ce qu'on voit quand une source ne répond pas — retenu : le même gabarit
+partout.** Les quatre sections disent leur indisponibilité exactement de la même
+façon.
+
+Le défaut corrigé est là aussi précis : le même écran portait **quatre
+présentations différentes pour une seule situation**, dont une section sans
+carte du tout. Une panne partielle est un état *ordinaire* de cette app — le
+README le promet, « une section seule affiche son indisponibilité » — donc elle
+mérite une forme, pas quatre improvisations.
+
+*Écarté — un constat en tête d'écran*, une phrase disant ce qui ne répond pas et
+que l'app réessaie, les sections restant sobres en dessous. C'était la variante
+la plus informative, et elle répondait le mieux à « est-ce cassé ou partiel ? ».
+Écartée pour son coût de tenue : une bannière globale doit rester juste à mesure
+que les sources changent, et elle ment le jour où elle ne suit plus.
+
+*Écarté — la dernière valeur connue*, hachurée et datée, plutôt que du vide.
+Séduisant : on voit quelque chose. Écarté parce qu'un chiffre périmé sur un
+écran de marée et de météo est pire que pas de chiffre — c'est exactement le
+genre de donnée sur laquelle on décide d'aller à l'eau.
+
+**Ce que ces deux décisions engagent** : une seule forme d'indisponibilité dans
+toute l'app, et le choix du jour est un contrôle visible, jamais déduit d'un
+autre élément.

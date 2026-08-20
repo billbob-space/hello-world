@@ -560,6 +560,40 @@ déduit du PRD.
 
 ## Ajouté après les PRP
 
+### Décision d'écran : l'écran de séance montre le programme
+
+Tranché par l'utilisateur le 20 août 2026, sur trois maquettes rendues par la
+critique UX. Ce qui suit vaut règle pour l'écran du jour et pour ceux qui lui
+ressembleront.
+
+**Retenu — « le programme se voit ».** Trois couleurs qui disent trois choses :
+ce qui est fait, ce qui reste à faire, ce qui se tape. L'utilisatrice voit toute
+sa séance d'un coup d'œil, et le bouton principal pèse un peu moins lourd qu'il
+ne le faisait.
+
+**Écarté — « le bouton d'abord ».** Un seul fond coloré à l'écran, la règle
+étant « ce qui est coloré se tape », et le programme réduit à une ligne de
+résumé. Le plus direct des trois, et le plus lisible pour qui n'a que dix
+secondes. Écarté parce qu'il cache ce qui attend : on ne sait pas ce qu'on
+commence.
+
+**Écarté — « la voix du compagnon ».** Ce qui parle prend une bulle, ce qui se
+tape une pastille, et le bouton descend là où le pouce arrive vraiment. Le plus
+chaleureux, et le mieux placé pour une main. Écarté pour sa bavardise : sur un
+écran vu tous les jours, le ton finit par coûter plus qu'il ne rapporte.
+
+**Ce que la décision engage** : le vert signifie « fait » **partout dans
+l'app**, écran du jour compris — c'était l'incohérence relevée. Et un seul
+élément par écran porte l'action principale ; les autres pavés informent, ils ne
+se tapent pas.
+
+**Reste ouvert, et volontairement** : « Facile » est aujourd'hui présenté comme
+la bonne réponse du ressenti, alors que c'est lui qui règle la difficulté du
+lendemain. La critique le signale, la décision ne le tranche pas — c'est une
+question de mécanique de progression, pas de mise en page, et elle appartient au
+PRD principal.
+
+
 ### Dire quand le réseau tombe, et réessayer
 
 Ajouté le 20 août 2026, à la suite de la première critique UX outillée de
