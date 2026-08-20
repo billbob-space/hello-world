@@ -37,8 +37,90 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # fetch-depth: 0 — l'historique complet, pour que l'etape « relecteurs »
+      # ci-dessous puisse comparer la branche a sa base. Un clone superficiel
+      # rendrait « origin/main...HEAD » vide, et le controle passerait au vert
+      # en n'ayant rien compare.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - run: ./init.sh --check
+
+      # LES DEUX RELECTEURS, verifies sur les pull requests SEULEMENT. Ils ne
+      # sont pas mecanisables — un agent lit du code et regarde des ecrans — mais
+      # leur TRACE l'est : le corps de la PR pour la relecture de code, un
+      # fichier date pour la critique UX. On ne verifie pas qu'ils ont eu raison,
+      # on verifie qu'ils ont eu lieu.
+      #
+      # Sur une pull request seulement, et c'est deliberé : la relecture vient en
+      # FIN de branche. L'exiger a chaque commit ferait echouer le premier de
+      # chaque branche, ce qui apprend a contourner.
+      - name: les deux relecteurs ont-ils eu lieu
+        if: github.event_name == 'pull_request'
+        env:
+          CORPS: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          echec=0
+
+          # 1. La relecture de code : une ligne remplie sous « ## Revue ».
+          #    Le gabarit sort avec « AAAA-MM-JJ » en clair ; le laisser tel quel
+          #    est le contournement evident, donc c'est celui qu'on ferme.
+          if ! printf '%s' "$CORPS" | grep -q '^## Revue'; then
+            echo "::error::le corps de la pull request n'a pas de section « ## Revue ». Le gabarit .github/pull_request_template.md la porte : remplis-la."
+            echec=1
+          elif printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\*.*AAAA-MM-JJ'; then
+            echo "::error::la ligne « Code » de la section « ## Revue » est restee au gabarit. Lance l agent relecteur sur la branche et ecris ce qu il a trouve."
+            echec=1
+          elif ! printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\* .*[0-9]{4}-[0-9]{2}-[0-9]{2}.*[A-Za-z]'; then
+            echo "::error::la ligne « Code » de la section « ## Revue » est vide ou sans date. Forme attendue : « - **Code** — relecteur, le 2026-08-20 : <ce qu il a trouve> »."
+            echec=1
+          else
+            echo "  ok    relecture de code consignee"
+          fi
+
+          # 2. La critique UX : un fichier DATE, plus recent que le dernier
+          #    changement d ecran de l app. C est le seul des deux qui se mesure
+          #    vraiment, parce qu il laisse un artefact dans le depot.
+          #
+          #    Seules les apps dont la BRANCHE touche les ecrans sont concernees.
+          #    Decision de l utilisateur : les sept apps qui n ont jamais eu de
+          #    critique ne sont pas rattrapees, seulement ce qui bouge desormais.
+          base=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          # Meme liste d'exclusion que scripts/pret.sh : « web/ » en entier
+          # attraperait aussi configurations, tests et documentation, et un
+          # garde-fou qui crie sur un fichier de doc apprend a etre ignore.
+          for app in $(git diff --name-only "$base" HEAD \
+                        | grep -vE '\.md$|(^|/)tests?/|\.config\.[jt]s$|(^|/)package(-lock)?\.json$|(^|/)tsconfig[^/]*\.json$' \
+                        | sed -nE 's#^apps/([^/]+)/(web/|page\.html|.*\.html|.*\.css).*#\1#p' \
+                        | sort -u); do
+            [ -f "apps/$app/app.yml" ] || continue
+            ecran=$(git log -1 --format=%ct "$base..HEAD" -- \
+                      "apps/$app/web" "apps/$app/page.html" "apps/$app"/*.html "apps/$app"/*.css 2>/dev/null || true)
+            [ -n "$ecran" ] || continue
+            critique=$(ls -1 "apps/$app/.impeccable/critique/" 2>/dev/null | sort | tail -1 || true)
+            if [ -z "$critique" ]; then
+              echo "::error::les ecrans de $app ont bouge et aucune critique UX n existe. Lance l agent esthete sur cette app."
+              echec=1; continue
+            fi
+            # L horodatage est DANS le nom du fichier — 2026-08-03T11-52-25Z__… —
+            # et non dans sa date de modification : un clone git remet toutes les
+            # mtime a l heure du clone, et le controle passerait toujours.
+            iso=$(printf '%s' "$critique" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2})-([0-9]{2})-([0-9]{2})Z.*/\1 \2:\3:\4 UTC/p')
+            if [ -z "$iso" ]; then
+              echo "::error::la critique la plus recente de $app ($critique) n a pas un nom horodate — impossible de juger sa fraicheur."
+              echec=1; continue
+            fi
+            quand=$(date -u -d "$iso" +%s)
+            if [ "$quand" -lt "$ecran" ]; then
+              echo "::error::les ecrans de $app ont bouge APRES sa derniere critique UX ($critique). Relance l agent esthete."
+              echec=1
+            else
+              echo "  ok    critique UX de $app a jour ($critique)"
+            fi
+          done
+
+          [ "$echec" = 0 ] || exit 1
 
   # Le verrou verifie le depot ; celui-ci verifie le VERROU. init.sh etait le
   # seul programme du depot que rien ne testait, alors qu'un « ok » errone de sa

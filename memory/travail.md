@@ -4,7 +4,7 @@ Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branc
 coûté, de lancer l'`analyste`, le `greffier` ou l'`artisan`, ou de conclure qu'une
 branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie, présence des trois agents et des deux commandes de mode ;
+fermés par anomalie, présence des cinq agents et des deux commandes de mode ;
 pret.sh — relevé de coût manquant ou
 périmé, et app fusionnée sur `main` dont l'image en ligne est plus ancienne, en
 avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
@@ -277,13 +277,37 @@ Rien ne vérifie automatiquement que l'agent a bien obéi, et c'est délibéré 
 journal et le diff le disent déjà, et un contrôle de l'autonomie devrait décider
 ce qu'est une question légitime — il ne saurait pas.
 
-## Les trois agents
+## Les cinq agents
 
 ```
-Agent(subagent_type: "analyste")   # lit le journal, rend un plan
-Agent(subagent_type: "greffier")   # branche, vérifie, committe et pousse
-Agent(subagent_type: "artisan")    # écrit le code d'UNE app, ne committe pas
+Agent(subagent_type: "analyste")    # lit le journal, rend un plan
+Agent(subagent_type: "greffier")    # branche, vérifie, committe et pousse
+Agent(subagent_type: "artisan")     # écrit le code d'UNE app, ne committe pas
+Agent(subagent_type: "relecteur")   # relit la branche avant la PR, n'écrit rien
+Agent(subagent_type: "esthete")     # critique les écrans d'UNE app, dans un vrai navigateur
 ```
+
+**Les deux derniers viennent en FIN de branche, une fois, avant la pull request** —
+jamais à chaque commit : c'est un arbitrage de coût pris avec l'utilisateur.
+
+Le `relecteur` cherche ce qu'aucun outil ne voit : justesse, simplicité, duplication
+de *raisonnement*, couverture du comportement **neuf**, conformité au PRD. Il ne
+rejoue pas les cinq axes de `revue.sh`, verts par construction dès qu'un commit
+existe. Il rend une liste ordonnée par gravité — `bloquant`, `à corriger`,
+`à discuter` — et **n'écrit aucun fichier**, donc se lance en tâche de fond sans
+risque. Sa trace est la section `## Revue` du corps de la pull request, que la CI
+refuse vide.
+
+L'`esthete` invoque la compétence `impeccable` et regarde l'app **réelle**, lancée
+par son `e2e/lancer.sh`, à 390 px et à 1440 px. Il ne rejoue pas l'accessibilité
+mesurée — `axe` l'a déjà tranchée et elle bloque. Son autorité est coupée en deux, et
+c'est la règle qui compte : **il corrige seul ce qui est objectif** (cible tactile,
+message d'erreur muet, état vide absent, libellé qui ment) et **il montre le reste**
+— deux ou trois variantes d'écran publiées en artefact, l'utilisateur tranche. Sa
+critique est datée dans `apps/<nom>/.impeccable/critique/`, et le garde-fou porte sur
+sa **fraîcheur** : des écrans ne bougent pas sans qu'une critique plus récente qu'eux
+existe. Avertissement dans `pret.sh`, KO en CI sur la pull request — le même
+dédoublement que pour le journal.
 
 **Aucun agent lançable en tâche de fond ne peut modifier le dépôt.** C'est la règle,
 et elle se lit dans les deux sens. L'`analyste` et le `greffier` sont restreints à

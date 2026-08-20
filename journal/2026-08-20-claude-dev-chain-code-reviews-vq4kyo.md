@@ -498,3 +498,27 @@ commentaire prevoit sa facon de mourir — « trop bavarde : elle se declenche s
 les corrections, on l'ignore, elle ne garde plus rien ». Crier sur dix apps le
 meme jour est exactement ca. Un garde-fou qu'on apprend a ne plus lire est
 perdu, et il ne previent pas qu'il l'est.
+
+### 22. Le garde-fou UX, a peine ecrit, criait sur un fichier de configuration
+
+**Symptome** — premier passage du controle de fraicheur de la critique UX :
+trois apps reclamees, dont `ramure-v2`. Or les seuls fichiers touches sous son
+`web/` sont `playwright.config.ts` et `tests/REFERENCE.md` — une configuration de
+test et un document. Aucun ecran n'a bouge.
+
+**Cause** — le motif prenait `apps/<nom>/web/` en ENTIER. Dans cette fabrique,
+`web/` porte aussi les configurations, les tests et la documentation du client.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — liste d'exclusion explicite (`.md`, `tests/`,
+`*.config.[jt]s`, `package*.json`, `tsconfig*.json`), la meme dans `pret.sh` et
+dans la CI. Reste `estran` et `pilabelle`, dont les `.css` et `.html` ont
+reellement bouge : ce sont exactement les deux apps ou des correctifs
+d'accessibilite ont ete appliques.
+
+C'est la deuxieme fois de la journee qu'un garde-fou neuf crie a tort, et la
+lecon est la meme que pour l'avertissement du PRD : **un garde-fou trop bavard
+meurt plus surement qu'un garde-fou absent**, parce qu'il donne l'illusion d'etre
+la. Celui-ci s'est trompe au premier essai, sur la branche qui l'a ecrit — le
+meilleur moment possible.
