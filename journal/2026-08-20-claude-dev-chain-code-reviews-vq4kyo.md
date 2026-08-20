@@ -325,3 +325,24 @@ l'app la plus propre de la fabrique.
 desormais dans le message : « a echoue (code N) » et « n'a ecrit aucun rapport »
 ne sont pas le meme incident. Un cas de test rejoue le comportement exact de
 gosec sur une app saine.
+
+### 15. `marcq-handball` se declarait en TypeScript sans une ligne de TypeScript
+
+**Symptome** — l'artisan charge d'ecrire le bout en bout de l'app a signale que
+sa notice `apps/marcq-handball/CLAUDE.md` annonce « Technologie : typescript ».
+L'app est en Go, avec une coque web en JavaScript natif embarquee par
+`go:embed`. Aucun `.ts` nulle part.
+
+**Cause** — `stack: typescript` dans son `app.yml`, jamais corrige. La notice
+etant GENEREE depuis ce manifeste, elle repetait fidelement une valeur fausse —
+et c'est cette notice que tout agent travaillant sur l'app lit en premier. Le
+champ pilote aussi le LSP active : l'app tournait donc sans serveur de langage
+Go, et avec un serveur TypeScript sans rien a analyser.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — corrige en `stack: go`, artefacts regeneres. Rien a durcir :
+`--check` ne peut pas deviner la technologie d'une app a sa place, et une
+verification heuristique (« il y a des .go, donc… ») ferait plus de mal que de
+bien sur une app polyglotte. Ce qui a rattrape l'erreur est un agent qui LISAIT
+la notice pour travailler — c'est le bon detecteur, et il a fonctionne.

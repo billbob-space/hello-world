@@ -20,7 +20,7 @@ erreur ici casse le deploiement de toutes les autres applications.
 
 ## Comment elle tourne
 
-- Technologie : `typescript`
+- Technologie : `go`
 - Port : `8080`
 - Memoire : `128m`
 - Healthcheck : `/healthz` — `wget --spider -q http://localhost:8080/healthz`

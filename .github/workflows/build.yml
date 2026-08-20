@@ -349,6 +349,59 @@ jobs:
       - name: revue de ${{ matrix.app }}
         run: ./scripts/revue.sh ${{ matrix.app }}
 
+  # Le bout en bout : un vrai navigateur, contre l'app reelle. C'est le seul job
+  # qui voie ce que l'utilisateur voit — un test Go verifie que le serveur REND
+  # du HTML, jamais ce que ce HTML devient dans un navigateur.
+  #
+  # Il inclut le passage d'accessibilite mesuree (@axe-core/playwright) : c'est
+  # LUI, et lui seul, qui rend le contraste, l'atteignabilite au clavier et les
+  # libelles de lecteur d'ecran bloquants. Le jugement UX qui ne se mesure pas
+  # appartient a l'agent « esthete », en fin de branche ; les deux ne se
+  # remplacent pas.
+  #
+  # Il ne depend PAS de « build » : les suites lancent l'app NATIVEMENT (go build
+  # puis le binaire) et n'ont pas besoin d'une image publiee. Seules les apps qui
+  # ont vraiment une annexe — ardoise et compteur, base et cache — montent leurs
+  # conteneurs, et le runner fournit Docker.
+  bout-en-bout:
+    needs: [contrat, detect]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Le navigateur pese ~150 Mo et ne change qu'avec la version de Playwright
+      # epinglee dans le package.json de la suite : la cle porte donc sur ce
+      # fichier, et non sur le commit.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles(format('apps/{0}/e2e/package.json', matrix.app)) }}
+          restore-keys: pw-${{ runner.os }}-
+      - name: navigateur pour ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          d="apps/${{ matrix.app }}/e2e"
+          [ -x "$d/lancer.sh" ] || { echo "pas de suite — rien a installer"; exit 0; }
+          npm install --prefix "$d" --no-audit --no-fund
+          ( cd "$d" && npx playwright install --with-deps chromium )
+      # Tant que les dix suites n'existent pas, l'absence AVERTIT ; le jour ou la
+      # derniere est ecrite, E2E_OBLIGATOIRE passe a 1 dans init.sh et --check
+      # met KO — c'est --check qui porte le cran, pas ce job.
+      - name: bout en bout de ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          d="apps/${{ matrix.app }}/e2e"
+          if [ -x "$d/lancer.sh" ]; then
+            "$d/lancer.sh"
+          else
+            echo "::warning::${{ matrix.app }} n'a pas de suite bout en bout — rien ne la verifie dans un navigateur"
+          fi
+
   build:
     needs: [contrat, detect, test]
     if: needs.detect.outputs.apps != '[]'
@@ -460,7 +513,7 @@ jobs:
           fi
 
   deploy:
-    needs: [contrat, tests-de-l-outillage, detect, test, revue, build]
+    needs: [contrat, tests-de-l-outillage, detect, test, revue, bout-en-bout, build]
     # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
     # reconstruire, mais le compose a change) doit laisser passer, un build en
     # echec doit bloquer. Sinon un commit a moitie construit referencerait une
@@ -497,6 +550,7 @@ jobs:
       && (needs['tests-de-l-outillage'].result == 'success' || needs['tests-de-l-outillage'].result == 'skipped')
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
       && (needs.revue.result == 'success' || needs.revue.result == 'skipped')
+      && (needs['bout-en-bout'].result == 'success' || needs['bout-en-bout'].result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20

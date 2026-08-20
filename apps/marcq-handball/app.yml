@@ -11,7 +11,7 @@ health_path: /healthz
 health_cmd: wget --spider -q http://localhost:8080/healthz
 exposure: public
 # Outillage de l'agent, sans effet sur le deploiement :
-stack: typescript
+stack: go
 ui: true
 
 # --- Quatre sections OPTIONNELLES. Absentes, elles n'ecrivent pas une ligne
