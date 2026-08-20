@@ -171,3 +171,26 @@ transitait dans une variable ou « | » servait justement de separateur interne.
 `node` n'est PAS double. Doubler node aurait rejoue le format que je CROIS qu'il
 produit — or c'est la lecture de ce format qui se trompait. Un bouchon qui
 reproduit ma propre erreur de lecture valide l'erreur.
+
+### 9. La moitie navigateur de `ramure-v2` n'est pas mesuree, et rien ne le disait
+
+**Symptome** — les dix barres semees, `ramure-v2` est la seule app a code
+navigateur qui n'ait PAS de `revue_couverture_web`. Son manifeste ne s'en plaint
+pas, `--check` non plus, et la revue rend un axe couverture vert : « Go 81.7 % ».
+Lu vite, cela dit « couverte a 81 % ». En verite la moitie TypeScript, environ
+2 200 lignes, n'a ete mesuree par personne.
+
+**Cause** — `axe_couverture` ne connait qu'une forme de tests navigateur, celle
+que huit apps sur dix emploient : `tests/*.test.js` joues par `node --test`.
+`ramure-v2` est la seule a utiliser vitest, sous `web/`, et sa mesure de
+couverture demanderait `@vitest/coverage-v8`, absent de ses dependances.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — c'est un vert silencieux de plus, d'un cran au-dessus
+des precedents : l'outil ne se trompe pas, c'est le CONTRAT qui ne reclame rien.
+La parade appartient a la phase ou vitest entre dans la chaine : `--check` doit
+refuser une app qui porte du code navigateur sans `revue_couverture_web`, comme
+il refusera bientot une app sans `e2e/lancer.sh`. En attendant, le trou est
+ecrit ici plutot que nulle part — et c'est la seule raison pour laquelle cette
+entree existe.

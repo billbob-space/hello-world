@@ -13,3 +13,10 @@ exposure: private
 # Outillage de l'agent, sans effet sur le deploiement :
 stack: go
 ui: true
+
+# Seuils de revue, releves par ./scripts/revue.sh --releve.
+# Ils ne se deplacent que dans le sens qui SERRE : la couverture monte,
+# la duplication descend. Desserrer est une edition a la main, donc une
+# ligne dans le diff de la pull request, donc une discussion.
+revue_couverture: 33
+revue_duplication: 0
