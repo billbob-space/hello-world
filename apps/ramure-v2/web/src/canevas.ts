@@ -184,13 +184,25 @@ export function dessinerNoeud(
   return { id: n.id, groupe, cercle, pattern, libelle, zoneTactile };
 }
 
-// definirIllustration remplace le CONTENU du motif de repli par l'image
-// arrivee, sans jamais toucher au cercle : ni cx, ni cy, ni r ne changent.
-// Le motif garde exactement les memes dimensions qu'a sa creation : l'image
-// occupe donc exactement la place qu'occupait le repli, sans decalage
-// (F-39).
+// definirIllustration pose l'image arrivee PAR-DESSUS le fond de repli,
+// sans jamais toucher au cercle : ni cx, ni cy, ni r ne changent. Le motif
+// garde exactement les memes dimensions qu'a sa creation : l'image occupe
+// donc exactement la place qu'occupait le repli, sans decalage (F-39).
+//
+// Le fond de repli n'est PAS retire. Une URL d'illustration n'est qu'une
+// promesse : le CDN peut etre injoignable, bloque par une extension du
+// navigateur, ou repondre 404 longtemps apres que le serveur a rendu son
+// URL. Vider le motif d'abord, c'est parier sur ce chargement — et quand il
+// n'arrive pas, le cercle n'a plus rien a peindre : la pastille disparait
+// entierement, il ne reste qu'un libelle flottant au bout d'un trait
+// (releve en production le 20 aout 2026). Le fond dessous coute un
+// rectangle et tient la promesse de F-38/F-39 : la pastille garde toujours
+// un contenu, jamais un vide.
 export function definirIllustration(noeud: NoeudDessine, url: string): void {
-  noeud.pattern.replaceChildren();
+  // Seule l'image precedente s'en va — jamais le fond : deux illustrations
+  // successives sur le meme noeud (une promotion qui reutilise la pastille)
+  // ne doivent pas empiler deux images.
+  noeud.pattern.querySelectorAll("image").forEach((precedente) => precedente.remove());
   const largeur = noeud.pattern.getAttribute("width") ?? "0";
   const hauteur = noeud.pattern.getAttribute("height") ?? largeur;
 

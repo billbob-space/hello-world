@@ -78,9 +78,24 @@ func (d *Deezer) Chercher(ctx context.Context, nom string, p budget.Portee) (Fic
 		return FicheDeezer{}, fmt.Errorf("decodage recherche deezer : %w", err)
 	}
 
-	candidat, trouve := CorrespondanceStricte(nom, reponse.Data, func(a deezerArtiste) string { return a.Name })
-	if !trouve {
+	// Le nom exact ne suffit pas a designer un artiste chez Deezer : le
+	// catalogue porte des doublons homonymes, sans illustration et sans
+	// public, et la recherche les classe parfois AVANT le vrai artiste
+	// (releve en production : « Radiohead » rend un doublon a 486 fans avant
+	// celui a plus de quatre millions). Suivre l'ordre de la source, c'est
+	// alors afficher un centre sans photo dont le lien d'ecoute mene a une
+	// page vide. Entre homonymes EXACTS — et seulement entre eux, la regle
+	// §09 reste au-dessus —, l'audience departage : c'est la seule donnee
+	// que Deezer rende dans la meme reponse, sans appel supplementaire.
+	exacts := CorrespondancesStrictes(nom, reponse.Data, func(a deezerArtiste) string { return a.Name })
+	if len(exacts) == 0 {
 		return FicheDeezer{}, ErrIntrouvable
+	}
+	candidat := exacts[0]
+	for _, c := range exacts[1:] {
+		if c.NbFan > candidat.NbFan {
+			candidat = c
+		}
 	}
 
 	return FicheDeezer{

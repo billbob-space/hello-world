@@ -975,6 +975,134 @@ ils ne sont pas recopiés ici parce qu'un fichier ne peut porter qu'un seul
 marqueur `cout-total` sans que `jetons.sh` le compte deux fois. Le bloc généré
 ci-dessous est celui de la **phase 2**.
 
+## Anomalies relevées après la mise en ligne (20 août 2026)
+
+L'utilisateur signale « ça ne fonctionne pas » au lendemain de la mise en
+ligne, après une session réelle (traces du conteneur, 09:14–09:15 UTC : que
+des 200, aucune panne, mais `/api/centre` entre 4 s et 9,8 s). Les quatre
+anomalies ci-dessous sortent de l'enquête. Aucune n'était visible depuis les
+traces du serveur : les trois premières se voient **dans le navigateur**, la
+quatrième **dans la configuration de l'hôte**.
+
+Méthode : l'application a été rejouée en local avec la configuration exacte
+de la production (aucune valeur pour `LASTFM_API_KEY`), derrière un mandataire
+d'une trentaine de lignes qui pose `X-Forwarded-User` comme le fait Traefik au
+palier `google`, et pilotée dans Chromium par la chaîne Playwright déjà
+installée pour la recette. C'est ce dernier point qui a tout donné : trois des
+quatre anomalies ne se lisent nulle part ailleurs qu'à l'écran.
+
+### 9. La pastille disparaît entièrement quand son illustration ne se charge pas
+
+**Symptome** — l'arbre s'affiche sans aucune pastille : dix libellés d'artistes
+flottant au bout de traits, sur fond noir. Ni photo, ni le disque de couleur de
+repli. Mesuré dans le navigateur : les cercles ont leur rayon correct (38 à
+60 px), leur `fill` pointe bien vers un motif existant, et le motif contient un
+`<image>` à la bonne URL — mais **le navigateur n'émet jamais la requête**
+correspondante, et le cercle n'a donc rien à peindre. En remplaçant l'URL par
+une image `data:` qui ne peut pas échouer, l'arbre se dessine exactement comme
+prévu : la construction SVG est saine, c'est le chargement qui manque.
+
+**Cause** — `definirIllustration` (`web/src/canevas.ts`) appelait
+`pattern.replaceChildren()` avant d'ajouter l'image : le rectangle de couleur
+déterministe posé par `dessinerNoeud` était **retiré** au moment même où
+l'illustration arrivait. Or une URL d'illustration n'est qu'une promesse — CDN
+injoignable, bloqueur de publicités sur `cdn-images.dzcdn.net`, 404 tardif. Le
+repli existait, était testé, était déterministe, et était effacé juste avant le
+seul instant où il aurait servi. F-38/F-39 promettent pourtant l'inverse : « la
+pastille garde toujours un contenu, jamais un vide ».
+
+**Detecte par** — `utilisateur`
+
+**Action** — `garde-fou` — les 167 tests client et les 21 tests de bout en bout
+passaient, avant comme après le correctif : **aucun ne fait échouer le
+chargement d'une image**. Les cinq pannes simulées de `pannes.spec.ts` couvrent
+les pannes de l'API, jamais celles des ressources tierces que le navigateur va
+chercher lui-même — et ce sont les seules que le serveur ne voit pas dans ses
+traces. Un `route()` Playwright qui coupe le CDN d'illustrations, sur l'écran B,
+aurait signalé celle-ci le jour de son écriture. Le correctif est sur cette
+branche, avec deux tests ; le cas de recette, lui, reste à écrire.
+
+### 10. Deezer sert plusieurs artistes du même nom exact, et le premier n'est pas le bon
+
+**Symptome** — `GET /api/centre?nom=Radiohead` rend une illustration de centre
+dont le hachage est `d41d8cd98f00b204e9800998ecf8427e` — celui de la **chaîne
+vide**, l'image par défaut de Deezer — et un lien d'écoute vers
+`deezer.com/artist/323887691`, un doublon à 486 abonnés. Le vrai Radiohead est
+le second résultat de la même réponse : `artist/399`, 4 077 099 abonnés, avec
+sa photo.
+
+**Cause** — `CorrespondanceStricte` rend le **premier** candidat dont le nom
+normalisé correspond, et son commentaire justifie ce choix : « une source qui
+classe ses candidats par pertinence garde le bénéfice de son classement entre
+plusieurs homonymes exacts ». L'hypothèse est fausse pour Deezer, dont le
+catalogue porte des doublons vides que la recherche classe parfois en tête. La
+règle §09 — jamais un nom approchant — n'était pas en cause ; ce qui manquait,
+c'est un départage **entre homonymes exacts**.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `garde-fou` — corrigé sur cette branche : `CorrespondancesStrictes`
+(pluriel) rend tous les homonymes exacts, et `Deezer.Chercher` retient le plus
+écouté — l'audience arrive dans la même réponse, sans appel supplémentaire. Le
+garde-fou qui manque est d'un autre ordre : **aucun test de la série
+n'interroge une source réelle**. Tous montent un `httptest.Server` dont ils
+écrivent la réponse, et une réponse qu'on écrit soi-même ne contient jamais de
+doublon vide. Un contrôle joué à la main avant mise en ligne — une poignée
+d'artistes connus, à travers les vraies sources, en vérifiant qu'illustration
+et lien d'écoute désignent bien l'artiste demandé — aurait vu les deux
+anomalies 9 et 10 d'un coup.
+
+### 11. `LASTFM_API_KEY` est vide en production, et le profil du centre l'est donc aussi
+
+**Symptome** — sur le conteneur en ligne, la variable est présente et sa valeur
+est de longueur nulle. Conséquence à l'écran : la fiche de l'artiste au centre
+n'a ni présentation, ni genres, ni audience — `profil` rend
+`{"presentation":"","genres":null,"auditeurs":0}` à chaque appel, pour tous les
+artistes, depuis la mise en ligne.
+
+**Cause** — deux choses se cachent derrière une seule clé, et une seule a un
+repli. Le **vivier** de proximité cascade vers ListenBrainz ; le **profil** ne
+cascade pas — `Cascade.Profil` le dit explicitement, seule Last.fm porte cette
+donnée. Le `README` de l'app annonçait pourtant « absente, l'application bascule
+sur ListenBrainz : l'affinité est moins fine, rien n'est cassé », ce qui est
+vrai du vivier et faux du profil. La demande adressée à l'exploitant était donc
+sous-évaluée par le document même qui la portait : facultative, alors qu'elle
+commande un élément permanent de l'écran B (PRD §07).
+
+**Detecte par** — `utilisateur`
+
+**Action** — `arbitrage` — la valeur ne s'écrit pas ici : seule
+l'infrastructure l'injecte. Trois sorties, et c'est une décision produit :
+obtenir une clé Last.fm et l'injecter côté serveur ; retirer le profil de
+l'écran B et le dire au PRD ; ou le reconstruire depuis une source qui n'exige
+pas de clé. Le `README` est corrigé sur cette branche pour dire ce que
+l'absence coûte réellement.
+
+### 12. Un centre demande 4 à 10 secondes en production
+
+**Symptome** — traces de la session réelle : `/api/centre` en 9 762 ms,
+7 121 ms et 4 015 ms ; seul le quatrième appel, servi par le cache, répond en
+228 ms. Le taux de service du cache sur cette session est de 11 sur 46.
+
+**Cause** — `arbre.Composer` enchaîne ses sources **en série** : identité,
+discographie, pochette, vivier, profil, fiche Deezer, puis les illustrations
+des branches. Deux de ces appels passent par le limiteur MusicBrainz, espacé
+d'une seconde ; chacun des autres ajoute sa latence. Le budget N-03 borne le
+**nombre** d'appels, jamais leur **chemin critique**, et rien dans la série ne
+mesure ce chemin. La cible de latence M-05 est relevée par
+`mesure.Latence`, mais aucun seuil ne la fait parler : elle est écrite dans
+l'instantané et personne ne la lit.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `arbitrage` — le premier chargement d'un artiste jamais vu ne
+descendra pas sous quelques secondes tant que la discographie et la pochette
+restent derrière un limiteur à 1 appel/s. Ce qui se décide : accepter et le
+dire à l'écran (une attente annoncée n'est pas une panne), ou paralléliser ce
+qui est indépendant — vivier, profil et fiche Deezer ne dépendent que de
+l'identité, pas de la discographie. Aucune des deux ne se tranche sans le
+commanditaire.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 

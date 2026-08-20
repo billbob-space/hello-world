@@ -66,6 +66,42 @@ describe("dessinerNoeud + definirIllustration", () => {
     );
   });
 
+  // Releve en production le 20 aout 2026 : quand l'illustration n'arrive
+  // jamais — CDN injoignable, bloqueur de publicites, hors ligne — la
+  // pastille disparaissait ENTIEREMENT, ne laissant qu'un libelle flottant
+  // et un trait. definirIllustration remplacait tout le contenu du motif,
+  // le fond de repli compris : le cercle n'avait alors plus rien a peindre.
+  // F-38/F-39 promettent l'inverse : « la pastille garde toujours un
+  // contenu, jamais un vide ».
+  it("garde le fond de repli SOUS l'image, qui peut ne jamais se charger", () => {
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "a2", nom: "Aphex Twin", x: 10, y: 20, r: 30 });
+
+    definirIllustration(noeud, "https://exemple.test/injoignable.jpg");
+
+    const fond = noeud.pattern.querySelector("rect");
+    expect(fond).not.toBeNull();
+    expect(fond?.getAttribute("fill")).toBe(repliCouleur("Aphex Twin"));
+    // ... et l'image PAR-DESSUS : l'ordre de peinture SVG suit l'ordre du
+    // document, le fond doit donc rester le premier enfant.
+    const enfants = [...noeud.pattern.children].map((e) => e.tagName.toLowerCase());
+    expect(enfants).toEqual(["rect", "image"]);
+  });
+
+  it("une seconde illustration ne cumule pas deux images dans le motif", () => {
+    const groupes = creerGroupes(svg);
+    const noeud = dessinerNoeud(svg, groupes, { id: "a3", nom: "Bjork", x: 0, y: 0, r: 20 });
+
+    definirIllustration(noeud, "https://exemple.test/1.jpg");
+    definirIllustration(noeud, "https://exemple.test/2.jpg");
+
+    expect(noeud.pattern.querySelectorAll("image")).toHaveLength(1);
+    expect(noeud.pattern.querySelector("image")?.getAttribute("href")).toBe(
+      "https://exemple.test/2.jpg",
+    );
+    expect(noeud.pattern.querySelectorAll("rect")).toHaveLength(1);
+  });
+
   it("l'arrivee des heritiers ne deplace aucune branche deja dessinee", () => {
     const groupes = creerGroupes(svg);
     const branche = dessinerNoeud(svg, groupes, { id: "b1", nom: "Boards of Canada", x: 100, y: 0, r: 30 });
