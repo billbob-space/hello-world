@@ -244,7 +244,7 @@ func ecrireAtomique(chemin string, donnees []byte) error {
 	}
 	// Forcer le repertoire : sans cela, le renommage lui-meme peut ne pas avoir
 	// atteint le disque au moment de la coupure.
-	d, err := os.Open(dossier)
+	d, err := os.Open(dossier) // #nosec G304 -- dossier derive de MARCQ_DONNEES, une variable d'environnement posee par l'operateur au demarrage (le montage de volume declare dans app.yml), jamais d'une requete HTTP
 	if err != nil {
 		return err
 	}

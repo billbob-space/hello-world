@@ -11,7 +11,12 @@
 // workspace du toolchain compare comme inegales. Un go.work a trois
 // composants reste accepte par les app.mod a deux composants (verifie), donc
 // cette forme est la seule qui satisfasse les deux a la fois.
-go 1.24.0
+//
+// La VALEUR, elle, est le maximum des directives go: des apps et non une
+// constante : une app qui monte de version doit faire monter le workspace, sans
+// quoi plus aucune app Go n'est analysable. Une constante a tenu jusqu'au jour
+// ou fermer deux failles de dependance a fait passer trois apps en 1.25.
+go 1.25.0
 
 use ./apps/ardoise
 use ./apps/cadran

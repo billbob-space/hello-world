@@ -297,20 +297,6 @@ func ChargerDictionnaire(brut []byte) (Dictionnaire, error) {
 	return d, nil
 }
 
-// minutageDe resout le minutage effectif d'un exercice (ossature §4) :
-// explicite s'il est pose, sinon l'echelon du niveau de l'exercice.
-func minutageDe(dico Dictionnaire, ex Exercice) Minutage {
-	if ex.Minutage != nil {
-		return *ex.Minutage
-	}
-	for _, e := range dico.EchelleNiveaux {
-		if e.Niveau == *ex.Niveau {
-			return Minutage{EffortS: e.EffortS, ReposS: e.ReposS, Tours: e.Tours}
-		}
-	}
-	return Minutage{EffortS: 20, ReposS: 15, Tours: 1} // inatteignable si ChargerDictionnaire a valide le niveau
-}
-
 func aUneContreIndication(etiquettes, douleurs []string) bool {
 	for _, e := range etiquettes {
 		if slices.Contains(douleurs, e) {

@@ -38,7 +38,7 @@ func centreHandler(d arbre.Dependances) http.HandlerFunc {
 		}
 
 		c := cadragePour(r.URL.Query().Get("largeur"))
-		alea := rand.New(rand.NewSource(time.Now().UnixNano()))
+		alea := rand.New(rand.NewSource(time.Now().UnixNano())) // #nosec G404 -- tirage purement esthetique pour choisir quelles branches voisines afficher (SelectionnerBranches) ; aucune valeur de securite (jeton, session, mot de passe) n'en depend
 		session := sessionDe(r)
 
 		debut := time.Now()

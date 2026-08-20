@@ -90,8 +90,8 @@ func (t Tirage) alea() *rand.Rand {
 	// nombre d'or sur 64 bits, qui deborde int64. La conversion finale ne perd
 	// rien : rand n'a besoin que des 64 bits, pas de leur interpretation.
 	const nombreDOr = uint64(0x9E3779B97F4A7C15)
-	graine := h.Sum64() ^ (uint64(t.Nonce) * nombreDOr)
-	return rand.New(rand.NewSource(int64(graine)))
+	graine := h.Sum64() ^ (uint64(t.Nonce) * nombreDOr) //#nosec G115 -- melange de bits pour une graine PRNG deterministe ; un Nonce negatif ne fait que changer le melange (arithmetique non signee voulue, cf commentaire de fonction), aucune taille ni index n'en depend
+	return rand.New(rand.NewSource(int64(graine)))      //#nosec G115 G404 -- graine de disposition du canevas (angles, gigue), reproductible par (Centre, Nonce) comme l'exige le PRD §13 ; rand.NewSource accepte tout int64 y compris negatif, et aucune valeur de securite ne depend de ce tirage — crypto/rand casserait la reproductibilite requise
 }
 
 // ChoisitBranches selectionne l'entourage dans le vivier.

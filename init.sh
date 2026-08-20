@@ -1350,13 +1350,33 @@ YAML
 }
 
 emit_gowork() {
-  local a uses=""
+  local a uses="" v vmax="1.24.0"
   for a in "${APPS[@]}"; do
     [ -f "apps/$a/go.mod" ] || continue
     uses="$uses
 use ./apps/$a"
+    # La version de langage du workspace est le MAXIMUM de celles des apps, et
+    # non une constante. Une valeur figee tient jusqu'au jour ou une app monte —
+    # ce qui arrive sans qu'on le decide : les versions correctives designees par
+    # govulncheck portent leur propre directive go, et « go get » la propage.
+    # Constate le 2026-08-20 : trois apps passees en 1.25.0 pour fermer deux
+    # failles, un go.work regenere a 1.24.0, et PLUS AUCUNE app Go analysable —
+    # « module ../compteur requires go >= 1.25.0, but go.work lists go 1.24.0 ».
+    # Le generateur remettait la panne a chaque passage.
+    v=$(sed -nE 's/^go[[:space:]]+([0-9]+\.[0-9]+(\.[0-9]+)?)[[:space:]]*$/\1/p' "apps/$a/go.mod" | head -1)
+    [ -n "$v" ] || continue
+    # Comparaison numerique composant par composant : « 1.9 » est plus grand que
+    # « 1.10 » pour sort ordinaire, et le tri lexical se trompe des la 1.100.
+    # Un « if » et non « [ ... ] && ... » : sous set -e, un test faux en DERNIERE
+    # commande de la boucle ferait sortir la fonction en code 1, donc rendre un
+    # go.work vide — et l'appelant le prendrait pour « aucune app Go ».
+    if [ "$(printf '%s\n%s\n' "$vmax" "$v" | sort -V | tail -1)" = "$v" ]; then
+      vmax="$v"
+    fi
   done
   [ -n "$uses" ] || return 1
+  # Trois composants, toujours — voir le commentaire du gabarit ci-dessous.
+  case "$vmax" in *.*.*) ;; *) vmax="$vmax.0" ;; esac
   cat <<EOF
 // Genere par init.sh — les apps Go de la fabrique.
 // Sans ce fichier, gopls ouvert a la racine du depot ne voit aucun module :
@@ -1371,7 +1391,12 @@ use ./apps/$a"
 // workspace du toolchain compare comme inegales. Un go.work a trois
 // composants reste accepte par les app.mod a deux composants (verifie), donc
 // cette forme est la seule qui satisfasse les deux a la fois.
-go 1.24.0
+//
+// La VALEUR, elle, est le maximum des directives go: des apps et non une
+// constante : une app qui monte de version doit faire monter le workspace, sans
+// quoi plus aucune app Go n'est analysable. Une constante a tenu jusqu'au jour
+// ou fermer deux failles de dependance a fait passer trois apps en 1.25.
+go $vmax
 $uses
 EOF
 }

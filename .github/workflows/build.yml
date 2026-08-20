@@ -92,7 +92,15 @@ jobs:
         #                  tours, parce qu'une entree de journal qui cite un
         #                  marqueur ouvrait le bloc que ce marqueur delimite. La
         #                  sortie restait plausible de bout en bout.
-        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh]
+        # test-revue.sh  : revue.sh est la seule piece de la fabrique qui puisse
+        #                  echouer EN OUVERT — rendre vert en n'ayant rien
+        #                  verifie. Un tel defaut ne se voit ni dans un diff ni
+        #                  dans la sortie, et rassure. Constate deux fois pendant
+        #                  son ecriture : jscpd ecarte en silence les formats
+        #                  qu'il ne connait pas, puis les fichiers de plus de
+        #                  mille lignes — deux fois un rapport bien forme sur un
+        #                  perimetre vide.
+        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh, test-revue.sh]
     steps:
       - uses: actions/checkout@v4
       - run: ./${{ matrix.script }}
@@ -133,7 +141,7 @@ jobs:
             exit 1
           fi
           case "$resultat" in
-            success) echo "  ok    outillage : les quatre scripts sont verts" ;;
+            success) echo "  ok    outillage : les cinq scripts sont verts" ;;
             skipped) echo "  ok    outillage : rien n'a bouge, matrice sautee" ;;
             *)       echo "  KO    outillage : $resultat" ; exit 1 ;;
           esac
@@ -304,6 +312,43 @@ jobs:
       - name: tests de ${{ matrix.app }}
         run: ./apps/${{ matrix.app }}/test.sh
 
+  # La revue outillee — qualite, securite, dependances vulnerables, couverture,
+  # duplication. Un job SEPARE de « test » et non une etape de plus : les deux
+  # repondent a des questions differentes, et voir laquelle est rouge sans
+  # ouvrir les journaux vaut la minute de runner que coute le second job. Ils
+  # tournent en parallele, la duree du lot ne change donc pas.
+  #
+  # Elle ne depend PAS de « test » : une app dont les tests tombent a quand meme
+  # des failles a montrer, et les deux verdicts se lisent mieux ensemble.
+  revue:
+    needs: [contrat, detect]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Les outils passent par « go run <module>@<version> » : sans cache, chaque
+      # job les retelecharge et les recompile. La cle porte sur fabrique.yml,
+      # seul endroit ou leurs versions sont ecrites — elle change donc quand, et
+      # seulement quand, un outil change de version.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.npm/_npx
+          key: revue-${{ runner.os }}-${{ hashFiles('fabrique.yml') }}
+          restore-keys: revue-${{ runner.os }}-
+      # L'app est NOMMEE. Sans argument, revue.sh deduirait le perimetre de
+      # « origin/main...HEAD » — introuvable sur le clone superficiel de la CI,
+      # ou il ne relirait rien en annoncant un succes.
+      - name: revue de ${{ matrix.app }}
+        run: ./scripts/revue.sh ${{ matrix.app }}
+
   build:
     needs: [contrat, detect, test]
     if: needs.detect.outputs.apps != '[]'
@@ -415,7 +460,7 @@ jobs:
           fi
 
   deploy:
-    needs: [contrat, tests-de-l-outillage, detect, test, build]
+    needs: [contrat, tests-de-l-outillage, detect, test, revue, build]
     # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
     # reconstruire, mais le compose a change) doit laisser passer, un build en
     # echec doit bloquer. Sinon un commit a moitie construit referencerait une
@@ -451,6 +496,7 @@ jobs:
       && needs.detect.result == 'success'
       && (needs['tests-de-l-outillage'].result == 'success' || needs['tests-de-l-outillage'].result == 'skipped')
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
+      && (needs.revue.result == 'success' || needs.revue.result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20

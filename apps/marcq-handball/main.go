@@ -31,8 +31,9 @@ import (
 	_ "time/tzdata"
 )
 
-// go:embed n'emporte que web/ : les tests de tests/ ne sont jamais dans
-// l'image, et une edition de test n'invalide pas le cache de couches.
+// La directive d'embarquement ci-dessous n'emporte que web/ : les tests de
+// tests/ ne sont jamais dans l'image, et une edition de test n'invalide pas
+// le cache de couches.
 //
 //go:embed web
 var coque embed.FS

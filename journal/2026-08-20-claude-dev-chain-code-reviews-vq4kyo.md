@@ -194,3 +194,134 @@ refuser une app qui porte du code navigateur sans `revue_couverture_web`, comme
 il refusera bientot une app sans `e2e/lancer.sh`. En attendant, le trou est
 ecrit ici plutot que nulle part — et c'est la seule raison pour laquelle cette
 entree existe.
+
+### 10. Fermer deux failles de dependance fait monter la fabrique en Go 1.25
+
+**Symptome** — `go get golang.org/x/text@v0.39.0` et
+`github.com/jackc/pgx/v5@v5.9.2`, les deux versions correctives designees par
+`govulncheck`, font passer la directive `go` de `ardoise`, `compteur` et
+`ramure-v2` de 1.24 a **1.25.0** — les deux modules l'exigent. `go.work`, qui
+prend le maximum, suit. Le serveur de langage, lui, tourne en 1.24.7 epingle :
+il a cesse de charger les paquets de toutes les apps Go, y compris celles que
+personne n'avait touchees.
+
+**Cause** — un correctif de securite n'est pas neutre : il porte la version de
+langage de sa propre dependance. `GOTOOLCHAIN=auto` masque la moitie du
+probleme — `go build` telecharge la 1.25.0 tout seul et reussit, si bien que
+rien n'echoue la ou on regarde. Ce qui ne suit PAS automatiquement, ce sont les
+`Dockerfile`, epingles en `golang:1.24-alpine` : l'image se construirait sur un
+toolchain trop vieux pour son propre `go.mod`.
+
+**Detecte par** — `relecture`
+
+**Action** — `arbitrage` — les `Dockerfile` d'`ardoise` et `compteur` passent en
+`golang:1.25-alpine`. Trois apps sur dix montent, les sept autres restent en
+1.24 : accorder toute la flotte elargirait la branche a des apps qu'aucun
+constat ne concerne, et le contrat demande l'inverse. Le parc est donc
+volontairement mixte, et cette entree est la seule trace de cette decision.
+
+**Limite assumee** : le demon Docker n'est pas joignable depuis cette session, la
+construction des images n'a donc PAS ete verifiee ici. C'est la CI qui tranchera,
+au job `build`. Je le dis plutot que de laisser croire a une verification que je
+n'ai pas faite.
+
+### 11. Une mise a l'ecart de constat mal ecrite n'ecarte rien, et ne le dit pas
+
+**Symptome** — trois artisans lances en parallele sur `cadran`, `ramure` et
+`pilabelle` ont rencontre le meme mur, chacun de leur cote : la consigne que je
+leur avais donnee — `//nosec Gxxx -- <raison>` — n'ecarte AUCUN constat. gosec
+continue de tout remonter et affiche `Nosec: 0`, sans un mot d'avertissement sur
+le commentaire qu'il vient d'ignorer. Les trois s'en sont apercus en relancant
+l'outil, pas avant.
+
+**Cause** — gosec v2.28.0 ne reconnait litteralement que `#nosec` : le marqueur
+s'ecrit `// #nosec Gxxx -- <raison>`. Sans le croisillon, le commentaire est du
+texte ordinaire. L'option `-nosec-tag` le confirme : « Set an alternative string
+for #nosec ». Ma consigne etait fausse, et c'est moi qui l'avais ecrite.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — deux suites, et la seconde compte plus que la
+premiere. D'abord la syntaxe exacte va dans `memory/revue.md`, qui n'existait
+pas encore : une consigne fausse repetee a neuf artisans coute neuf fois.
+
+Ensuite le mode d'echec SYMETRIQUE, qui lui n'avait pas de parade : un `#nosec`
+BIEN ecrit eteint un controle de securite depuis l'interieur du code, et
+n'apparait nulle part dans la sortie de la revue — puisque justement plus rien
+ne sort. C'est le moyen le plus simple de rendre un axe vert sans rien corriger,
+et le seul qui ne laisse aucune trace a l'ecran. `revue.sh` compte desormais les
+mises a l'ecart et les affiche a chaque passage : « aucun constat sur 12
+fichiers, 3 ecarte(s) par #nosec ». La RAISON, elle, reste dans le diff, ou la
+relecture la juge. Un cas de test tient ce comptage.
+
+C'est le quatrieme vert silencieux de cette branche, apres les deux de `jscpd`
+et celui de la couverture navigateur. Aucun des quatre ne venait du meme
+endroit, et aucun n'aurait ete visible dans un diff.
+
+### 12. La revue modifiait les manifestes des apps qu'elle relit
+
+**Symptome** — trois artisans ont signale, chacun de son cote, que lancer
+`go run <outil>@<version>` depuis le repertoire d'une app modifie son `go.mod` et
+son `go.sum`. L'un d'eux, en « nettoyant » cet effet par
+`git checkout -- go.mod go.sum`, a annule du meme geste la montee de dependance
+qui fermait deux failles — et l'a annoncee comme un nettoyage.
+
+**Cause** — l'outil exige un toolchain plus recent que celui de l'app ; Go
+propage alors la directive dans le module COURANT, qui est celui de l'app. La
+revue avait donc un effet de bord sur son propre sujet.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — les outils sont desormais **installes une fois**
+(`go install` lance depuis un repertoire VIDE, sans module alentour) dans
+`.revue-outils/`, et la revue appelle les binaires. Un cas de test tient la
+propriete structurelle : la doublure de `go` journalise les sous-commandes
+recues, et le cas verifie que `run` n'y apparait jamais. Un outil de relecture
+qui modifie ce qu'il relit n'est pas un outil de relecture.
+
+### 13. Le verdict de la revue dependait du Go installe sur la machine
+
+**Symptome** — les outils une fois installes plutot que lances par `go run`,
+`govulncheck` s'est mis a rapporter **27 vulnerabilites** sur `estran`, app qui
+n'en a aucune, et `staticcheck` a rendu « le code ne compile pas » sur
+`compteur`. Le depot n'avait pas bouge.
+
+**Cause** — deux faces de la meme chose. `go run` basculait implicitement sur un
+toolchain recent ; `go install` depuis un repertoire vide compile avec le Go
+LOCAL, ici 1.24.7. Consequence 1 : `govulncheck` rapporte les failles de la
+bibliotheque standard de 1.24.7 — vraies pour qui construit avec, sans rapport
+avec ce que la fabrique deploie. Consequence 2 : `staticcheck` compile avec
+1.24.7 refuse d'analyser un module qui exige 1.25.0 et rend un faux
+« ne compile pas ». Mesure : 27 vulnerabilites sans chaine epinglee, **zero**
+avec `GOTOOLCHAIN=go1.26.7`, sur le meme code.
+
+**Detecte par** — `relecture`
+
+**Action** — `contrat` — `outil_toolchain` entre dans `fabrique.yml`, a cote des
+versions d'outils, et `revue.sh` l'EXPORTE avant tout appel : elle vaut pour
+l'installation, pour les outils eux-memes qui relancent `go list` en
+sous-processus, et pour `go test`. Elle n'a rien a voir avec le `FROM golang:`
+des `Dockerfile` — celui-la dit avec quoi on CONSTRUIT ce qu'on deploie, elle
+dit avec quoi on RELIT. Le cache des binaires porte son nom, sans quoi en
+changer resservirait les binaires d'avant.
+
+Un verdict de securite qui change de poste en poste n'est pas un verdict.
+
+### 14. `gosec -quiet` n'ecrit pas de rapport quand l'app est saine
+
+**Symptome** — `compteur`, une fois ses constats traites, sortait en KO :
+« gosec a echoue (code 0) », avec un message vide. L'app etait devenue parfaitement
+propre, et c'est exactement ce qui la faisait echouer.
+
+**Cause** — `-quiet` signifie « only show output when errors are found », et cela
+couvre AUSSI le fichier `-out=`, qui n'est alors pas ecrit du tout. Le controle
+de perimetre lisait ce fichier absent comme un outil tombe. Le garde-fou
+anti-vert-silencieux produisait ici son symetrique : un ROUGE silencieux, sur
+l'app la plus propre de la fabrique.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — `-quiet` retire, et les deux pannes se distinguent
+desormais dans le message : « a echoue (code N) » et « n'a ecrit aucun rapport »
+ne sont pas le meme incident. Un cas de test rejoue le comportement exact de
+gosec sur une app saine.

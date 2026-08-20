@@ -137,8 +137,19 @@ Renseigne-le tôt.
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
 
 ```bash
-./scripts/pret.sh     # branche dédiée ? contrat vert ? tests verts ? apps bien livrées ?
+./scripts/pret.sh     # branche dédiée ? contrat vert ? tests verts ? revue verte ?
 ```
+
+`pret.sh` appelle `./scripts/revue.sh` sur les apps touchées : **sécurité, dépendances
+vulnérables, code mort ou compliqué, couverture, duplication**. Elle bloque. La barre de
+couverture et le plafond de duplication de chaque app vivent dans son `app.yml`, relevés
+au niveau du jour — **ils ne se déplacent que dans le sens qui serre**, et desserrer est
+une édition à la main, donc une ligne dans le diff.
+
+**Chaque constat de sécurité reçoit un verdict** : corrigé, ou écarté par un
+`// #nosec Gxxx -- <raison>` qui dit *ce qui* neutralise la teinte. « Faux positif » n'est
+pas une raison, et les mises à l'écart sont comptées à chaque passage. Détail et pièges :
+`memory/revue.md`.
 
 On pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ensemble
 cohérent. Le raisonnement détaillé va dans les **messages de commit**, où il survit à la
@@ -236,3 +247,4 @@ importés automatiquement** — `--check` le vérifie.
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |
 | Règles impératives, détail | `memory/regles-imperatives.md` | avant d'écrire un `Dockerfile` ou un `test.sh` |
 | Ce qui ne t'appartient pas, détail | `memory/perimetre.md` | avant de demander dans un README ce qui se déclare |
+| La revue outillée, détail | `memory/revue.md` | avant d'instruire un constat, de déplacer un seuil, d'ajouter un axe |

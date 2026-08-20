@@ -64,6 +64,7 @@ bac() {
   cat > "$d/fabrique.yml" <<'YML'
 org: test
 repo: test
+outil_toolchain: go0.0.0
 outil_staticcheck: doublure/staticcheck@v0
 outil_gosec: doublure/gosec@v0
 outil_govulncheck: doublure/govulncheck@v0
@@ -93,34 +94,24 @@ YML
 doublures() {
   local d="$1" couverture="$2"
 
+  # « go install » plutot que « go run » : c'est ainsi que revue.sh se procure
+  # ses outils depuis qu'un « go run » lance dans une app s'est mis a reecrire
+  # son go.mod. La doublure depose donc de faux binaires dans GOBIN, et c'est
+  # eux que la revue appellera ensuite.
   cat > "$d/bin/go" <<GO
 #!/usr/bin/env bash
-# Doublure de « go ». Elle ne compile rien : elle rejoue des sorties.
+# Doublure de « go ». Elle ne compile rien : elle rejoue des sorties, et
+# JOURNALISE la sous-commande demandee — c'est ce journal qui prouve que la revue
+# n'appelle jamais « go run » depuis une app.
 set -uo pipefail
+printf '%s\n' "\$1" >> "$d/appels-go"
 case "\$1" in
-  run)
-    case "\$2" in
-      *staticcheck*)
-        [ -n "\${FAUX_STATICCHECK:-}" ] && { printf '%s\n' "\$FAUX_STATICCHECK"; exit 1; }
-        exit 0 ;;
-      *gosec*)
-        # -out=<fichier> : on ecrit le rapport la ou gosec l'ecrirait.
-        out=""
-        for arg in "\$@"; do case "\$arg" in -out=*) out="\${arg#-out=}" ;; esac; done
-        # Le defaut s'ecrit sur sa propre ligne et JAMAIS dans un « \${x:-...} » :
-        # les accolades du JSON fermeraient l'expansion avant sa fin, et le
-        # rapport partirait tronque — une doublure fausse qui ferait echouer des
-        # cas justes.
-        if [ -n "\${FAUX_GOSEC:-}" ]; then
-          printf '%s' "\$FAUX_GOSEC" > "\$out"
-        else
-          printf '{"Issues":[],"Stats":{"files":2}}' > "\$out"
-        fi
-        exit 0 ;;
-      *govulncheck*)
-        printf '%s\n' "\${FAUX_GOVULN:-No vulnerabilities found.}"
-        exit "\${FAUX_GOVULN_RC:-0}" ;;
-    esac
+  install)
+    nom="\${2%@*}"; nom="\${nom##*/}"
+    mkdir -p "\$GOBIN"
+    cp "$d/bin/faux-\$nom" "\$GOBIN/\$nom" 2>/dev/null || {
+      printf '#!/usr/bin/env bash\nexit 0\n' > "\$GOBIN/\$nom"; }
+    chmod +x "\$GOBIN/\$nom"
     exit 0 ;;
   test)
     [ "\${FAUX_TESTS_ROUGES:-0}" = 1 ] && { echo "FAIL appx"; exit 1; }
@@ -133,6 +124,39 @@ case "\$1" in
 esac
 exit 0
 GO
+
+  cat > "$d/bin/faux-staticcheck" <<'SC'
+#!/usr/bin/env bash
+set -uo pipefail
+[ -n "${FAUX_STATICCHECK:-}" ] && { printf '%s\n' "$FAUX_STATICCHECK"; exit 1; }
+exit 0
+SC
+
+  cat > "$d/bin/faux-gosec" <<'GS'
+#!/usr/bin/env bash
+set -uo pipefail
+out=""
+for arg in "$@"; do case "$arg" in -out=*) out="${arg#-out=}" ;; esac; done
+# Le defaut s'ecrit sur sa propre ligne et JAMAIS dans un « ${x:-...} » : les
+# accolades du JSON fermeraient l'expansion avant sa fin, et le rapport partirait
+# tronque — une doublure fausse qui ferait echouer des cas justes.
+# FAUX_GOSEC_MUET rejoue le vrai comportement de « gosec -quiet » sur une app
+# saine : sortie 0, et AUCUN fichier de rapport ecrit.
+[ "${FAUX_GOSEC_MUET:-0}" = 1 ] && exit 0
+if [ -n "${FAUX_GOSEC:-}" ]; then
+  printf '%s' "$FAUX_GOSEC" > "$out"
+else
+  printf '{"Issues":[],"Stats":{"files":2}}' > "$out"
+fi
+exit 0
+GS
+
+  cat > "$d/bin/faux-govulncheck" <<'GV'
+#!/usr/bin/env bash
+set -uo pipefail
+printf '%s\n' "${FAUX_GOVULN:-No vulnerabilities found.}"
+exit "${FAUX_GOVULN_RC:-0}"
+GV
 
   cat > "$d/bin/npx" <<'NPX'
 #!/usr/bin/env bash
@@ -154,7 +178,7 @@ JSON
 exit 0
 NPX
 
-  chmod +x "$d/bin/go" "$d/bin/npx"
+  chmod +x "$d/bin/go" "$d/bin/npx" "$d/bin/faux-staticcheck" "$d/bin/faux-gosec" "$d/bin/faux-govulncheck"
 }
 
 # avec_tests_navigateur <bac> — ajoute a l'app un module et son test node --test.
@@ -294,6 +318,11 @@ cas "gosec sur zero fichier : KO plutot que « aucun constat »" \
 d=$(bac 64); FAUX_GOSEC='{"Issues":[],"Stats":{"files":0}}' revue "$d"
 FIN
 
+cas "gosec sans rapport ecrit : KO distinct d'un outil tombe" \
+    "KO.*securite.*n'a ecrit aucun rapport" <<'FIN'
+d=$(bac 64); FAUX_GOSEC_MUET=1 revue "$d"
+FIN
+
 cas "le code qui ne compile pas : KO explicite, pas « aucun constat »" \
     'KO.*qualite.*ne compile pas' <<'FIN'
 d=$(bac 64); FAUX_STATICCHECK='main.go:1:1: could not import x (compile)' revue "$d"
@@ -307,6 +336,12 @@ FIN
 cas "govulncheck qui ne conclut pas : KO, pas « 0 vulnerabilite »" \
     "KO.*dependances.*n'a pas conclu" <<'FIN'
 d=$(bac 64); FAUX_GOVULN='panic: runtime error' FAUX_GOVULN_RC=2 revue "$d"
+FIN
+
+cas "la revue n'appelle jamais « go run » depuis une app" \
+    '^(install|test|tool)+$' <<'FIN'
+d=$(bac 64); revue "$d" >/dev/null
+sort -u "$d/appels-go" | tr -d '\n'
 FIN
 
 echo
@@ -331,6 +366,12 @@ cas "une gravite basse avertit sans bloquer" \
 d=$(bac 64)
 FAUX_GOSEC='{"Issues":[{"severity":"LOW","confidence":"HIGH","rule_id":"G104","file":"/x/apps/appx/main.go","line":"3","details":"erreur ignoree"}],"Stats":{"files":2}}' \
   revue "$d"
+FIN
+
+cas "les mises a l'ecart par #nosec se comptent et s'affichent" \
+    'securite.*aucun constat sur 2 fichiers, 3 ecarte\(s\) par #nosec' <<'FIN'
+d=$(bac 64)
+FAUX_GOSEC='{"Issues":[],"Stats":{"files":2,"nosec":3}}' revue "$d"
 FIN
 
 cas "une vulnerabilite de dependance bloque et se nomme" \

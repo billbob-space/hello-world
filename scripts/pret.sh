@@ -112,6 +112,31 @@ else
   done
 fi
 
+# La revue outillee, sur les memes apps que les tests ci-dessus. PROCESSUS
+# SEPARE, comme init.sh --check et cout.sh --rappel : la frontiere empeche ce
+# script de developper une dependance sur l'interieur de revue.sh, qui reste
+# libre de changer sans le casser.
+#
+# Elle relance les tests Go pour en mesurer la couverture, donc ils tournent
+# DEUX fois — une fois par test.sh, une fois par la revue. C'est assume : test.sh
+# est le contrat de l'app et peut faire davantage que du Go, la revue a besoin
+# d'un profil de couverture que test.sh ne produit pas, et faire produire ce
+# profil par test.sh reviendrait a imposer un format de sortie a dix apps pour
+# economiser quelques secondes. Si le cout devient penible, c'est la couverture
+# qui partira en CI seulement — pas la securite.
+#
+# Le bout en bout N'ENTRE PAS ici : il demande Docker et un navigateur, et
+# pret.sh passe a chaque etape. Il tourne en CI a chaque changement.
+if [ -n "$touchees" ]; then
+  if ./scripts/revue.sh $touchees >/tmp/.pret-revue.$$ 2>&1; then
+    ok "revue outillee verte"
+  else
+    bad "revue outillee :"
+    grep -E 'KO' /tmp/.pret-revue.$$ | sed 's/^/      /' || true
+  fi
+  rm -f /tmp/.pret-revue.$$
+fi
+
 # Le PRD ne suit pas tout seul. Une CORRECTION passe par une ligne deja ecrite
 # du document, donc la fait bouger ; une CAPACITE NEUVE ne passe par aucune —
 # elle s'ajoute A COTE du PRD, et le document continue d'affirmer le contraire

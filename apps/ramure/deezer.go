@@ -82,13 +82,22 @@ func (d *Deezer) appelle(ctx context.Context, chemin string, cible any, b *Budge
 	}
 	b.Compte("deezer")
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseDeezer+chemin, nil)
+	// baseDeezer+chemin : l'hote appele est TOUJOURS baseDeezer, une adresse
+	// fixe ("https://api.deezer.com") qui n'est jamais influencable par une
+	// requete entrante — seuls les tests la repointent vers un serveur
+	// simule (api_test.go). "chemin" ne peut faire varier que ce qui suit cet
+	// hote : soit un terme de recherche passe par url.QueryEscape (Resout,
+	// Suggere), soit un identifiant filtre par numeroDeezer, qui n'accepte
+	// que ce que strconv.ParseInt reconnait comme un entier (chiffres et
+	// signe, jamais "/" ni "://"). Aucun des deux chemins ne peut donc
+	// changer le schema ni l'hote appele : ce n'est pas une SSRF.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseDeezer+chemin, nil) //#nosec G704 -- hote fixe (baseDeezer), seule la requete/le chemin varie et il est encode/valide avant concatenation, voir commentaire ci-dessus
 	if err != nil {
 		return err
 	}
 	req.Header.Set("User-Agent", agentHTTP)
 
-	rep, err := d.http.Do(req)
+	rep, err := d.http.Do(req) //#nosec G704 -- meme requete que ci-dessus : l'hote appele est baseDeezer, fixe et non influencable par un visiteur
 	if err != nil {
 		return fmt.Errorf("deezer injoignable : %w", err)
 	}

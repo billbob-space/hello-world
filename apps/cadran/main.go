@@ -71,7 +71,7 @@ func angles(t time.Time) aiguilles {
 // html/template que la valeur est sure : elle est calculee ici a partir d'une
 // heure, jamais d'une entree du client.
 func rotation(deg float64) template.CSS {
-	return template.CSS(fmt.Sprintf("rotate(%.4fdeg)", deg))
+	return template.CSS(fmt.Sprintf("rotate(%.4fdeg)", deg)) // #nosec G203 -- deg est un float64 calcule ici a partir de time.Time ou d'un entier litteral (voir chiffres()), jamais d'une entree HTTP ; %.4f ne peut produire que des chiffres, un point et un signe.
 }
 
 type marque struct {
@@ -264,7 +264,7 @@ func chiffres() []chiffre {
 		deg := float64(h%12) * 30
 		c = append(c, chiffre{
 			Texte: fmt.Sprintf("%d", h),
-			Placement: template.CSS(fmt.Sprintf(
+			Placement: template.CSS(fmt.Sprintf( // #nosec G203 -- deg vient de la liste litterale {12,3,6,9} ci-dessus, jamais d'une entree HTTP ; %.4f ne peut produire que des chiffres, un point et un signe.
 				"rotate(%.4fdeg) translateY(-34%%) rotate(%.4fdeg)", deg, -deg)),
 		})
 	}

@@ -48,6 +48,20 @@ taux_date: 2026-08-04     # source : Frankfurter, reference BCE
 # a deux versions. Rien ne s'installe, tout passe par « go run <module>@<version> »
 # et « npx --yes <paquet>@<version> » ; le premier appel telecharge, et sans
 # reseau la revue est KO plutot que verte.
+# La chaine Go avec laquelle la revue analyse. EPINGLEE, et c'est ce qui rend son
+# verdict reproductible : sans elle, govulncheck rapporte les failles de la
+# bibliotheque standard de la version installee sur la MACHINE — 27 sur une app
+# saine avec un Go 1.24.7 local, zero avec une chaine a jour. Le meme depot,
+# relu sur deux postes, rendait deux verdicts.
+#
+# Elle vaut aussi pour la construction des outils : staticcheck compile avec une
+# chaine plus ancienne que l'app refuse de l'analyser (« module requires at least
+# go1.25.0, but Staticcheck was built with go1.24.7 ») et rend un faux
+# « ne compile pas ».
+#
+# Elle n'a rien a voir avec le « FROM golang:... » des Dockerfile, qui dit avec
+# quoi on CONSTRUIT ce qu'on deploie. Celle-ci dit avec quoi on RELIT.
+outil_toolchain: go1.26.7
 outil_staticcheck: honnef.co/go/tools/cmd/staticcheck@2025.1.1
 outil_gosec: github.com/securego/gosec/v2/cmd/gosec@v2.28.0
 outil_govulncheck: golang.org/x/vuln/cmd/govulncheck@v1.7.0

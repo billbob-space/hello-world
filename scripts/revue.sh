@@ -78,6 +78,17 @@ fi
 
 # --- les outils, epingles dans fabrique.yml et nulle part ailleurs -------------
 
+# La chaine Go de la relecture, epinglee dans fabrique.yml. EXPORTEE avant tout
+# appel : elle vaut pour l'installation des outils, pour les outils eux-memes —
+# qui relancent « go list » en sous-processus — et pour « go test ». Sans elle,
+# le verdict depend du Go installe sur la machine : constate, 27 vulnerabilites
+# de bibliotheque standard sur une app saine avec un Go local trop ancien, zero
+# avec une chaine a jour. Un verdict qui change de poste en poste n'est pas un
+# verdict.
+GOTOOLCHAIN=$(fab outil_toolchain "")
+[ -n "$GOTOOLCHAIN" ] || { echo "ERREUR : outil_toolchain absent de fabrique.yml." >&2; exit 1; }
+export GOTOOLCHAIN
+
 STATICCHECK=$(fab outil_staticcheck "")
 GOSEC=$(fab outil_gosec "")
 GOVULNCHECK=$(fab outil_govulncheck "")
@@ -103,6 +114,41 @@ JSCPD_IGNORE='**/node_modules/**,**/dist/**,**/*_test.go,**/tests/**,**/e2e/**,*
 
 TRAVAIL=$(mktemp -d)
 trap 'rm -rf "$TRAVAIL"' EXIT
+
+# --- les outils, installes UNE fois et JAMAIS lances depuis une app ------------
+#
+# « go run <module>@<version> » lance depuis le repertoire d'une app REECRIT son
+# go.mod et son go.sum : l'outil exige un toolchain plus recent, et Go propage la
+# directive dans le module courant. La revue modifiait donc les manifestes des
+# apps qu'elle relit — trois artisans l'ont constate le meme jour, et l'un d'eux
+# a annule au passage une montee de dependance voulue, en croyant nettoyer.
+#
+# Un outil de relecture qui modifie ce qu'il relit n'est pas un outil de
+# relecture. D'ou : « go install » lance depuis un repertoire VIDE, sans go.mod,
+# donc sans module courant a corrompre ; puis on appelle le binaire.
+# Le cache porte le nom de la chaine : changer « outil_toolchain » doit
+# reconstruire les binaires, pas resservir ceux d'avant.
+OUTILS="${REVUE_CACHE_OUTILS:-$RACINE/.revue-outils}/$GOTOOLCHAIN"
+
+outil() {  # outil <module@version> — imprime le chemin du binaire, l'installe au besoin
+  local mod="$1" nom bin
+  nom="${mod%@*}"; nom="${nom##*/}"
+  bin="$OUTILS/bin/$nom"
+  if [ ! -x "$bin" ]; then
+    mkdir -p "$OUTILS/bin" "$TRAVAIL/vide"
+    # Depuis un repertoire vide : aucun go.mod alentour, donc rien a reecrire.
+    ( cd "$TRAVAIL/vide" && GOBIN="$OUTILS/bin" go install "$mod" ) \
+      >"$TRAVAIL/install-$nom.log" 2>&1 || {
+        echo "ERREUR : installation de $mod impossible :" >&2
+        tail -5 "$TRAVAIL/install-$nom.log" >&2
+        exit 1; }
+  fi
+  printf '%s' "$bin"
+}
+
+BIN_STATICCHECK=$(outil "$STATICCHECK")
+BIN_GOSEC=$(outil "$GOSEC")
+BIN_GOVULNCHECK=$(outil "$GOVULNCHECK")
 
 # --- rendu --------------------------------------------------------------------
 #
@@ -163,7 +209,7 @@ axe_qualite() {  # <app>
   VERDICT=ok MESSAGE="" MESURE="" DETAIL=""
   [ -f go.mod ] || { VERDICT=skip; MESSAGE="pas de go.mod"; return 0; }
 
-  go run "$STATICCHECK" ./... >"$out" 2>&1 || rc=$?
+  "$BIN_STATICCHECK" ./... >"$out" 2>&1 || rc=$?
 
   # Une erreur de COMPILATION sort de staticcheck comme un constat ordinaire,
   # suffixe « (compile) ». Confondue avec un constat de style, elle ferait
@@ -196,10 +242,18 @@ axe_securite() {  # <app>
   # -no-fail : gosec sort en 1 des qu'il TROUVE quelque chose, ce qui ne se
   # distingue pas d'un outil qui TOMBE. On lui demande de toujours sortir en 0
   # et on juge sur le rapport — la seule facon de separer les deux.
-  go run "$GOSEC" -quiet -no-fail -fmt=json -out="$out" ./... >"$log" 2>&1 || rc=$?
-  if [ "$rc" -ne 0 ] || [ ! -s "$out" ]; then
-    VERDICT=bad
-    MESSAGE="gosec a echoue (code $rc) : $(tail -3 "$log" | tr '\n' ' ')"
+  #
+  # PAS de -quiet : « only show output when errors are found » couvre AUSSI le
+  # fichier de rapport, qui n'est alors pas ecrit du tout quand l'app est saine.
+  # Le controle de perimetre le lisait comme un rapport absent, donc comme un
+  # outil tombe, et mettait KO l'app la plus propre de la fabrique.
+  "$BIN_GOSEC" -no-fail -fmt=json -out="$out" ./... >"$log" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    VERDICT=bad; MESSAGE="gosec a echoue (code $rc) : $(tail -3 "$log" | tr '\n' ' ')"
+    return 0
+  fi
+  if [ ! -s "$out" ]; then
+    VERDICT=bad; MESSAGE="gosec n'a ecrit aucun rapport : $(tail -3 "$log" | tr '\n' ' ')"
     return 0
   fi
 
@@ -218,10 +272,18 @@ axe_securite() {  # <app>
   # neutralise la valeur qu'elle suit, donc un constat s'INSTRUIT — il se
   # corrige, ou il s'ecarte avec sa raison ecrite. Le classer par avance sur la
   # confiance de l'outil, c'est lui deleguer l'arbitrage qu'on lui demande.
-  local hauts moyens bas
+  local hauts moyens bas ecartes
   hauts=$(json  "$out" '(r.Issues||[]).filter(i=>i.severity=="HIGH").length')
   moyens=$(json "$out" '(r.Issues||[]).filter(i=>i.severity=="MEDIUM").length')
   bas=$(json    "$out" '(r.Issues||[]).filter(i=>i.severity=="LOW").length')
+  # Les mises a l'ecart se COMPTENT et s'affichent. Un « #nosec » eteint un
+  # controle de securite depuis l'interieur du code : invisible dans la sortie de
+  # la revue, il devient le moyen le plus simple de rendre un axe vert sans rien
+  # corriger — et personne ne le verrait, puisque justement plus rien ne sort.
+  # Les compter les remet sous les yeux a chaque passage ; leur RAISON, elle,
+  # reste dans le diff, ou la relecture la juge.
+  ecartes=$(json "$out" 'r.Stats && r.Stats.nosec || 0')
+  ecartes="${ecartes:-0}"
   MESURE="$hauts/$moyens/$bas"
   if [ "$hauts" -gt 0 ] || [ "$moyens" -gt 0 ]; then
     VERDICT=bad
@@ -234,6 +296,8 @@ axe_securite() {  # <app>
   else
     MESSAGE="aucun constat sur $lus fichiers"
   fi
+  [ "$ecartes" -gt 0 ] && MESSAGE="$MESSAGE, $ecartes ecarte(s) par #nosec"
+  return 0
 }
 
 axe_dependances() {  # <app>
@@ -242,7 +306,7 @@ axe_dependances() {  # <app>
   local go_dit="" npm_dit=""
 
   if [ -f go.mod ]; then
-    go run "$GOVULNCHECK" ./... >"$out" 2>&1 || rc=$?
+    "$BIN_GOVULNCHECK" ./... >"$out" 2>&1 || rc=$?
     n=$(grep -cE '^Vulnerability #' "$out" || true)
     # Perimetre : govulncheck le dit lui-meme. Sans l'une de ces deux phrases,
     # il n'a pas mene son analyse a terme — quel que soit son code de sortie.
