@@ -192,36 +192,30 @@ done
 # la critique vient en FIN de branche, bloquer des le premier commit apprendrait
 # a contourner ; ne bloquer nulle part laisserait la regle a l'etat d'intention.
 #
-# Seules les apps dont CETTE BRANCHE touche les ecrans sont concernees. Les sept
-# apps qui n'ont jamais eu de critique ne sont pas rattrapees : c'est l'arbitrage
-# de l'utilisateur, « seulement les nouveaux ».
+# La regle est une COINCIDENCE DE DIFF : si la branche touche les ecrans d'une
+# app, elle doit AUSSI toucher la critique de cette app. Elle ne compare AUCUNE
+# date — la premiere version le faisait, en opposant l'horodatage du nom de
+# fichier a la date du commit, et elle ne pouvait jamais passer : on ecrit la
+# critique, puis on committe. Deux horloges differentes ne se comparent pas ; le
+# diff, lui, n'en a pas.
 #
-# L'horodatage est lu dans le NOM du fichier et jamais dans sa date de
-# modification : un clone git remet toutes les mtime a l'heure du clone, et le
-# controle passerait alors toujours.
+# Seules les apps dont CETTE BRANCHE touche les ecrans sont concernees. Celles
+# qui n'ont jamais eu de critique ne sont pas rattrapees : c'est l'arbitrage de
+# l'utilisateur, « seulement les nouveaux ».
 for a in $touchees; do
   # Ce qui est un ECRAN, et ce qui n'en est pas. « web/ » en entier attraperait
   # aussi les configurations, les tests et la documentation qui y vivent — et un
   # garde-fou qui crie sur un fichier de doc apprend a etre ignore, ce que cette
-  # branche a deja constate une fois. La liste d'exclusion est explicite : elle
-  # se relit, et elle se corrige quand un cas manque.
+  # branche a deja constate une fois.
   ecrans=$(printf '%s\n' "$touches" \
     | grep -E "^apps/$a/(web/|page\.html|.*\.html$|.*\.css$)" \
     | grep -vE '\.md$|(^|/)tests?/|\.config\.[jt]s$|(^|/)package(-lock)?\.json$|(^|/)tsconfig[^/]*\.json$' \
     || true)
   [ -n "$ecrans" ] || continue
-  derniere=$(ls -1 "apps/$a/.impeccable/critique/" 2>/dev/null | LC_ALL=C sort | tail -1 || true)
-  if [ -z "$derniere" ]; then
-    warn "[$a] les ecrans bougent et aucune critique UX n'existe — l'agent esthete la rend avant la pull request"
-    continue
-  fi
-  jour=$(printf '%s' "$derniere" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})T.*/\1/p')
-  if [ -z "$jour" ]; then
-    warn "[$a] la critique UX la plus recente ($derniere) n'a pas un nom horodate — sa fraicheur ne se mesure pas"
-  elif [ "$jour" \< "$(date -u +%Y-%m-%d)" ]; then
-    warn "[$a] les ecrans bougent et la critique UX date du $jour — l'agent esthete la rafraichit avant la pull request"
+  if printf '%s\n' "$touches" | grep -q "^apps/$a/\.impeccable/critique/"; then
+    ok "[$a] critique UX rendue dans cette branche"
   else
-    ok "[$a] critique UX du jour ($derniere)"
+    warn "[$a] les ecrans bougent sans critique UX — l'agent esthete la rend avant la pull request"
   fi
 done
 

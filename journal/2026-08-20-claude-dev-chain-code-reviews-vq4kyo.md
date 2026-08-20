@@ -1845,3 +1845,47 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1202 agent claude-haiku-4-5-20251001 444 18074 2
 -->
 <!-- /cout -->
+
+### 26. Le garde-fou de fraicheur UX comparait deux horloges, et ne pouvait JAMAIS passer
+
+**Symptome** — premier passage reel de la CI sur la pull request qui apporte ce
+garde-fou. Le job `contrat` echoue :
+
+```
+ok    relecture de code consignee
+::error:: les ecrans de estran ont bouge APRES sa derniere critique UX
+          (2026-08-20T17-06-20Z__web-index-html.md). Relance l agent esthete.
+::error:: les ecrans de pilabelle ont bouge APRES sa derniere critique UX
+          (2026-08-20T17-00-23Z__web-parcours.md). Relance l agent esthete.
+```
+
+Les deux critiques venaient pourtant d'etre ecrites, et `pret.sh` les avait
+annoncees « du jour » quelques minutes plus tot.
+
+**Cause** — le controle comparait l'horodatage lu dans le NOM du fichier de
+critique a la date du COMMIT qui a touche les ecrans. **On ecrit la critique,
+puis on committe** : le commit est toujours posterieur, forcement, y compris
+quand tout est fait dans le bon ordre. Le garde-fou etait donc rouge par
+construction, et aucune branche touchant un ecran n'aurait pu fusionner.
+
+Deux erreurs superposees, et la seconde est la vraie. La premiere : opposer deux
+horloges qui ne mesurent pas la meme chose. La seconde, plus grave : `pret.sh`
+et la CI verifiaient la meme regle par des MOYENS differents — « la critique
+porte la date du jour » d'un cote, « la critique est posterieure au commit » de
+l'autre. Deux implementations d'une meme regle divergent, et c'est celle qui ne
+tourne qu'en CI qui a raison, donc celle qu'on decouvre le plus tard.
+
+**Detecte par** — `CI`
+
+**Action** — `garde-fou` — la regle devient une **coincidence de diff**, la meme
+des deux cotes : si la branche touche les ecrans d'une app, elle doit AUSSI
+toucher `apps/<app>/.impeccable/critique/`. Aucune date n'est comparee. Le diff
+n'a pas d'horloge et ne ment pas.
+
+C'est le TROISIEME garde-fou neuf de cette branche a crier a tort — apres
+l'avertissement du PRD sur dix apps a la fois, et la critique reclamee a
+`ramure-v2` pour un fichier de configuration. Les trois ont ete rattrapes le
+jour meme, deux par moi et celui-ci par la CI, sur la pull request qui les
+apportait. Ecrire un garde-fou et l'ecrire JUSTE sont deux choses differentes,
+et seule la seconde compte — un garde-fou faux se contourne, puis se supprime,
+et emporte avec lui la regle qu'il portait.

@@ -79,44 +79,35 @@ jobs:
             echo "  ok    relecture de code consignee"
           fi
 
-          # 2. La critique UX : un fichier DATE, plus recent que le dernier
-          #    changement d ecran de l app. C est le seul des deux qui se mesure
-          #    vraiment, parce qu il laisse un artefact dans le depot.
+          # 2. La critique UX. La regle est une COINCIDENCE DE DIFF et non une
+          #    comparaison de dates : si la branche touche les ecrans d'une app,
+          #    elle doit AUSSI toucher la critique de cette app.
           #
-          #    Seules les apps dont la BRANCHE touche les ecrans sont concernees.
-          #    Decision de l utilisateur : les sept apps qui n ont jamais eu de
-          #    critique ne sont pas rattrapees, seulement ce qui bouge desormais.
-          base=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          #    La premiere version comparait l'horodatage du nom de fichier a la
+          #    date du commit qui a touche les ecrans. Elle ne pouvait JAMAIS
+          #    passer : on ecrit la critique, puis on committe — le commit est
+          #    toujours posterieur. Constate au premier passage reel, sur la
+          #    pull request qui apportait le garde-fou. Deux horloges
+          #    differentes ne se comparent pas ; le diff, lui, ne ment pas et
+          #    n'a pas d'horloge.
+          #
+          #    Decision de l'utilisateur : seuls les ecrans qui bougent
+          #    desormais sont concernes. Les apps qui n'ont jamais eu de
+          #    critique ne sont pas rattrapees.
+          touches=$(git diff --name-only "$base" HEAD)
           # Meme liste d'exclusion que scripts/pret.sh : « web/ » en entier
           # attraperait aussi configurations, tests et documentation, et un
           # garde-fou qui crie sur un fichier de doc apprend a etre ignore.
-          for app in $(git diff --name-only "$base" HEAD \
+          for app in $(printf '%s\n' "$touches" \
                         | grep -vE '\.md$|(^|/)tests?/|\.config\.[jt]s$|(^|/)package(-lock)?\.json$|(^|/)tsconfig[^/]*\.json$' \
                         | sed -nE 's#^apps/([^/]+)/(web/|page\.html|.*\.html|.*\.css).*#\1#p' \
                         | sort -u); do
             [ -f "apps/$app/app.yml" ] || continue
-            ecran=$(git log -1 --format=%ct "$base..HEAD" -- \
-                      "apps/$app/web" "apps/$app/page.html" "apps/$app"/*.html "apps/$app"/*.css 2>/dev/null || true)
-            [ -n "$ecran" ] || continue
-            critique=$(ls -1 "apps/$app/.impeccable/critique/" 2>/dev/null | sort | tail -1 || true)
-            if [ -z "$critique" ]; then
-              echo "::error::les ecrans de $app ont bouge et aucune critique UX n existe. Lance l agent esthete sur cette app."
-              echec=1; continue
-            fi
-            # L horodatage est DANS le nom du fichier — 2026-08-03T11-52-25Z__… —
-            # et non dans sa date de modification : un clone git remet toutes les
-            # mtime a l heure du clone, et le controle passerait toujours.
-            iso=$(printf '%s' "$critique" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2})-([0-9]{2})-([0-9]{2})Z.*/\1 \2:\3:\4 UTC/p')
-            if [ -z "$iso" ]; then
-              echo "::error::la critique la plus recente de $app ($critique) n a pas un nom horodate — impossible de juger sa fraicheur."
-              echec=1; continue
-            fi
-            quand=$(date -u -d "$iso" +%s)
-            if [ "$quand" -lt "$ecran" ]; then
-              echo "::error::les ecrans de $app ont bouge APRES sa derniere critique UX ($critique). Relance l agent esthete."
-              echec=1
+            if printf '%s\n' "$touches" | grep -q "^apps/$app/\.impeccable/critique/"; then
+              echo "  ok    critique UX de $app rendue dans cette branche"
             else
-              echo "  ok    critique UX de $app a jour ($critique)"
+              echo "::error::les ecrans de $app ont bouge et aucune critique UX n accompagne le changement. Lance l agent esthete sur cette app."
+              echec=1
             fi
           done
 
