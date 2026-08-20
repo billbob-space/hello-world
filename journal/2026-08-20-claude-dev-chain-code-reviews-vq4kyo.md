@@ -522,3 +522,38 @@ lecon est la meme que pour l'avertissement du PRD : **un garde-fou trop bavard
 meurt plus surement qu'un garde-fou absent**, parce qu'il donne l'illusion d'etre
 la. Celui-ci s'est trompe au premier essai, sur la branche qui l'a ecrit — le
 meilleur moment possible.
+
+### 23. Le cinquieme vert silencieux, trouve par le relecteur sur sa premiere mission
+
+**Symptome** — `axe_dependances` faisait
+`npm audit --audit-level=high --json >"$aud" 2>"$aud.err" || true`, puis lisait
+les compteurs `high` et `critical` avec `sed`, avec `0` en defaut. Quand npm ne
+joint pas le registre — panne reseau, ECONNREFUSED, delai depasse, maintenance —
+il ecrit un objet d'ERREUR sans champ `metadata`, et sort en 1. Les deux `sed` ne
+trouvent rien, retombent sur zero, et l'axe annonce « aucune dependance
+vulnerable » sans avoir audite quoi que ce soit.
+
+**Cause** — le `|| true` est indispensable ici, puisque npm sort en 1 des qu'il
+TROUVE quelque chose au-dela du seuil. C'est exactement pour cela qu'il ne
+suffit pas : il avale aussi l'echec de l'outil, et les deux cas deviennent
+indiscernables. La branche `govulncheck`, dix lignes plus haut dans la MEME
+fonction, exige pourtant sa phrase de conclusion (« No vulnerabilities found »)
+pour cette raison precise. La garde manquait du cote npm, et aucun cas de
+`test-revue.sh` ne doublait `npm`.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — on exige desormais la PREUVE que l'audit a conclu,
+`metadata.vulnerabilities`, avant de croire un zero ; sinon KO avec la sortie
+d'erreur. Trois cas ajoutes a `test-revue.sh` avec une doublure `npm` : audit
+sain, audit qui trouve, audit qui n'a pas conclu — les trois se distinguent mal
+a l'oeil et pas du tout par un code de retour. La suite passe de 27 a 30 cas.
+
+Ce qui merite d'etre note n'est pas le defaut mais QUI l'a trouve. L'agent
+`relecteur`, sur sa toute premiere mission, lancee sur la branche qui venait de
+l'ecrire, avec pour consigne « quatre verts silencieux ont deja ete corriges,
+cherche le cinquieme ». Il l'a trouve, au bon endroit, avec la bonne gravite, et
+en citant la regle de `memory/revue.md` que le code enfreignait — « jamais de
+`|| true` qui couvre un pipeline entier ». La regle etait ecrite, et son auteur
+l'avait quand meme violee vingt lignes plus loin. C'est tout l'interet d'un
+relecteur qui n'est pas celui qui a ecrit.

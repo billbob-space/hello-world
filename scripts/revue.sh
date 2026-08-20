@@ -320,10 +320,28 @@ axe_dependances() {  # <app>
 
   if [ -f package.json ]; then
     if [ -f package-lock.json ]; then
+      # « || true » est INDISPENSABLE — npm audit sort en 1 des qu'il TROUVE
+      # quelque chose au-dela du seuil — et c'est justement pour ca qu'il ne
+      # suffit pas : il avale aussi l'echec de l'outil. Registre injoignable,
+      # ECONNREFUSED, delai depasse : npm ecrit alors un objet d'ERREUR, sans
+      # champ « metadata », et les compteurs retombaient sur zero. L'axe
+      # annoncait « aucune dependance vulnerable » sans avoir audite quoi que ce
+      # soit.
+      #
+      # D'ou le meme controle de perimetre que partout ailleurs : on exige la
+      # PREUVE que l'audit a conclu — le bloc metadata.vulnerabilities — avant
+      # de croire un zero. C'est exactement ce que la branche govulncheck fait
+      # dix lignes plus haut avec sa phrase « No vulnerabilities found ».
       npm audit --audit-level=high --json >"$aud" 2>"$aud.err" || true
-      local hautes critiques
-      hautes=$(sed -nE 's/.*"high"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$aud" | head -1)
-      critiques=$(sed -nE 's/.*"critical"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$aud" | head -1)
+      local conclu hautes critiques
+      conclu=$(json "$aud" 'r.metadata && r.metadata.vulnerabilities ? "oui" : ""')
+      if [ "$conclu" != oui ]; then
+        VERDICT=bad
+        MESSAGE="npm audit n'a pas conclu : $(head -2 "$aud.err" "$aud" 2>/dev/null | tr '\n' ' ' | cut -c1-160)"
+        return 0
+      fi
+      hautes=$(json    "$aud" 'r.metadata.vulnerabilities.high || 0')
+      critiques=$(json "$aud" 'r.metadata.vulnerabilities.critical || 0')
       hautes="${hautes:-0}"; critiques="${critiques:-0}"
       n=$((n + hautes + critiques))
       npm_dit="$critiques critique(s) et $hautes haute(s) cote npm"

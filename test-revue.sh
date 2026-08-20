@@ -158,6 +158,25 @@ printf '%s\n' "${FAUX_GOVULN:-No vulnerabilities found.}"
 exit "${FAUX_GOVULN_RC:-0}"
 GV
 
+  # Doublure de « npm audit ». Trois comportements, parce que les trois se
+  # distinguent mal a l'oeil et pas du tout dans un code de retour : audit sain,
+  # audit qui TROUVE (npm sort en 1, ce qui est normal), et audit qui N'A PAS
+  # CONCLU — registre injoignable, ou npm ecrit un objet d'erreur sans metadata
+  # et sort en 1 lui aussi.
+  cat > "$d/bin/npm" <<'NPM'
+#!/usr/bin/env bash
+set -uo pipefail
+[ "${1:-}" = audit ] || exit 0
+if [ "${FAUX_NPM_MUET:-0}" = 1 ]; then
+  printf '{"message":"request to https://registry.npmjs.org failed, reason: ECONNREFUSED"}'
+  exit 1
+fi
+printf '{"metadata":{"vulnerabilities":{"info":0,"low":0,"moderate":0,"high":%s,"critical":%s,"total":0}}}' \
+  "${FAUX_NPM_HAUTES:-0}" "${FAUX_NPM_CRITIQUES:-0}"
+[ "${FAUX_NPM_HAUTES:-0}" = 0 ] && [ "${FAUX_NPM_CRITIQUES:-0}" = 0 ] && exit 0
+exit 1
+NPM
+
   cat > "$d/bin/npx" <<'NPX'
 #!/usr/bin/env bash
 # Doublure de « npx jscpd ». Elle fabrique un rapport JSON REEL — c'est node,
@@ -178,7 +197,7 @@ JSON
 exit 0
 NPX
 
-  chmod +x "$d/bin/go" "$d/bin/npx" "$d/bin/faux-staticcheck" "$d/bin/faux-gosec" "$d/bin/faux-govulncheck"
+  chmod +x "$d/bin/go" "$d/bin/npx" "$d/bin/npm" "$d/bin/faux-staticcheck" "$d/bin/faux-gosec" "$d/bin/faux-govulncheck"
 }
 
 # avec_tests_navigateur <bac> — ajoute a l'app un module et son test node --test.
@@ -212,6 +231,13 @@ import assert from 'node:assert'
 import { double } from '../web/calc.js'
 test('double', () => { assert.equal(double(2), 4) })
 JS
+}
+
+# avec_verrou_npm <bac> — donne a l'app un package.json ET son verrou, ce qui
+# est la SEULE condition qui declenche l'audit npm dans revue.sh.
+avec_verrou_npm() {
+  printf '{"name":"appx","dependencies":{"bidule":"1.0.0"}}\n' > "$1/apps/appx/package.json"
+  printf '{"lockfileVersion":3}\n'                             > "$1/apps/appx/package-lock.json"
 }
 
 # revue <bac> [<arguments>] — lance la revue dans le bac et rend sa sortie.
@@ -311,6 +337,21 @@ FIN
 cas "jscpd qui lit tout le perimetre : vert" \
     'ok.*duplication.*0% sur 2 fichiers' <<'FIN'
 d=$(bac 64 'revue_duplication: 0'); revue "$d"
+FIN
+
+cas "npm audit qui n'a pas conclu : KO, jamais « 0 vulnerabilite »" \
+    "KO.*dependances.*npm audit n'a pas conclu" <<'FIN'
+d=$(bac 64); avec_verrou_npm "$d"; FAUX_NPM_MUET=1 revue "$d"
+FIN
+
+cas "npm audit qui trouve une haute : bloque et se compte" \
+    'KO.*dependances.*0 critique\(s\) et 2 haute\(s\) cote npm' <<'FIN'
+d=$(bac 64); avec_verrou_npm "$d"; FAUX_NPM_HAUTES=2 revue "$d"
+FIN
+
+cas "npm audit sain : vert et dit" \
+    'ok.*dependances.*0 critique\(s\) et 0 haute\(s\) cote npm' <<'FIN'
+d=$(bac 64); avec_verrou_npm "$d"; revue "$d"
 FIN
 
 cas "gosec sur zero fichier : KO plutot que « aucun constat »" \
