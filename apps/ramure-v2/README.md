@@ -87,12 +87,14 @@ par l'infrastructure, côté serveur.
 
 | Nom | À injecter ? | Rôle |
 |---|---|---|
-| `LASTFM_API_KEY` | **oui, côté serveur** — facultative | Clé Last.fm, source de proximité entre artistes. Absente, l'application bascule sur ListenBrainz : l'affinité est moins fine, rien n'est cassé. C'est la seule demande de ce fichier. |
+| `LASTFM_API_KEY` | **oui, côté serveur** — pas encore injectée | Clé Last.fm. Elle porte **deux** choses, et une seule a un repli. Le **vivier** de proximité bascule sur ListenBrainz : l'affinité est moins fine, rien n'est perdu. Le **profil du centre** (présentation, genres, audience — PRD §07) n'en a **aucun** : `Cascade.Profil` ne cascade pas, seule Last.fm porte cette donnée. Sans la clé, la fiche de l'artiste reste donc vide en permanence. C'est la seule demande de ce fichier. |
 | `RAMURE_DATA_DIR` | **non — l'image la fixe** à `/var/lib/ramure` | Répertoire de persistance de la collection **et des réglages** (le service d'écoute choisi, F-25), point de montage du volume nommé `ramure-v2-donnees` déclaré dans `app.yml`. Rien à injecter, rien à créer sur l'hôte. La redéfinir côté serveur pointerait **hors** du volume : les données ne survivraient plus au redéploiement. Absente (développement hors conteneur, `go run .` sans volume), l'application bascule sur une collection et des réglages **en mémoire, volatils** — annoncé explicitement sur la sortie standard au démarrage. |
 
-Aucune n'est lue par le code à ce stade. `LASTFM_API_KEY` est déclarée
-maintenant parce que ce fichier est la demande adressée à l'exploitant, et
-qu'une demande formulée après la mise en ligne coûte un déploiement de plus.
+Les deux sont lues par `main.go`. `LASTFM_API_KEY` était déclarée avant
+d'être lue parce que ce fichier est la demande adressée à l'exploitant, et
+qu'une demande formulée après la mise en ligne coûte un déploiement de plus
+— elle n'a pas encore de valeur côté serveur : relevé le 20 août 2026 sur le
+conteneur en ligne, la variable est présente et **vide**.
 
 ## Persistance
 

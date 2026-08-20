@@ -71,6 +71,30 @@ func CorrespondanceStricte[T any](demande string, candidats []T,
 	return vide, false
 }
 
+// CorrespondancesStrictes rend TOUS les candidats dont le nom normalise est
+// identique a la demande, dans l'ordre de la source. C'est la meme regle §09
+// que CorrespondanceStricte — un nom approchant n'entre jamais dans le
+// resultat —, mais elle laisse a l'appelant le soin de departager les
+// homonymes EXACTS quand l'ordre de la source ne suffit pas : la recherche
+// d'artiste de Deezer sert des doublons vides avant le vrai artiste, et son
+// classement ne peut donc pas etre suivi les yeux fermes (voir
+// Deezer.Chercher).
+func CorrespondancesStrictes[T any](demande string, candidats []T,
+	nom func(T) string) []T {
+
+	cible := Normaliser(demande)
+	if cible == "" {
+		return nil
+	}
+	var exacts []T
+	for _, c := range candidats {
+		if Normaliser(nom(c)) == cible {
+			exacts = append(exacts, c)
+		}
+	}
+	return exacts
+}
+
 // CorrectionPlausible borne le rattrapage orthographique de F-03. La correction
 // n'est acceptee que si elle satisfait les deux bornes a la fois :
 //
