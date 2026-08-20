@@ -159,6 +159,27 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 	ctx, annuler := context.WithTimeout(r.Context(), 12*time.Second)
 	defer annuler()
 
+	// Les vignettes horaires portent desormais la lame d'eau attendue, tiree
+	// de la MEME serie que la courbe de la section pluie (domaine.go,
+	// pluieParHeure) : c'est ce partage qui les empeche de se contredire. La
+	// serie est donc demandee ici aussi — mais EN PARALLELE de la meteo et
+	// bornee plus court qu'elle, parce que prp/03-graphe-de-pluie.md section 3
+	// tient toujours : une source lente ne doit pas retarder l'ecran
+	// principal. Si elle traine ou tombe, les vignettes sortent sans leur
+	// ligne de pluie et le reste de l'ecran est intact.
+	serie := make(chan SeriePluie, 1)
+	go func() {
+		ctxPluie, annulerPluie := context.WithTimeout(ctx, delaiPluieVignettes)
+		defer annulerPluie()
+		v, _, _, err := s.pluieCache.rafraichir(func() (SeriePluie, error) {
+			return s.clientPluie.Recuperer(ctxPluie)
+		})
+		if err != nil {
+			log.Printf("lame d'eau des vignettes indisponible : %v", err)
+		}
+		serie <- v
+	}()
+
 	valeur, _, frais, err := s.meteoCache.rafraichir(func() (Previsions, error) {
 		return s.clientMeteo.Recuperer(ctx)
 	})
@@ -174,8 +195,17 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repondreJSON(w, http.StatusOK, vuePrevisions(valeur, maintenant, frais, dateCible))
+	repondreJSON(w, http.StatusOK, vuePrevisions(valeur, <-serie, maintenant, frais, dateCible))
 }
+
+// delaiPluieVignettes borne la serie de pluie DANS la route previsions, en
+// sous-contexte du contexte de la requete — meme forme que delaiNowcast dans
+// la section pluie, et pour la meme raison : la lame d'eau est un supplement
+// de la vignette, jamais sa promesse. Plus court que les 12 s de la route
+// entiere pour qu'un fournisseur qui traine coute au pire ce delai-la, et non
+// l'ecran. Deux appels legers, en parallele de la meteo qui en fait trois : en
+// pratique la serie est prete avant elle et n'ajoute rien au temps de reponse.
+const delaiPluieVignettes = 6 * time.Second
 
 func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	if s.clientMaree.CleAPI == "" {

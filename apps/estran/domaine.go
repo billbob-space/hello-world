@@ -12,16 +12,34 @@ import (
 
 // VueHeure ne porte que des heures dont la temperature est CONNUE (filtrees
 // en amont dans vuePrevisions) : TemperatureC reste donc un float64 requis.
-// PluiePct/VentKmh/VentDirectionDeg, eux, sont des grandeurs secondaires qui
+// PluieMm/VentKmh/VentDirectionDeg, eux, sont des grandeurs secondaires qui
 // peuvent manquer independamment de la temperature (Open-Meteo rend `null`
 // au bord de sa fenetre, prp/02-horizon-confiance-vent.md, section
 // Degradation) : nullables + omitempty, leur ligne est laissee de cote cote
 // page plutot que d'afficher un zero invente. VaguesM reste le modele deja
 // en place.
+//
+// PluieMm a REMPLACE PluiePct le 20 aout 2026 (PRODUCT.md, « Ajoute apres les
+// PRP »). Le pourcentage etait une probabilite d'ensemble rendue par une
+// goutte et un « % », que l'ecran ne distinguait pas d'une lame d'eau : la
+// vignette annoncait 100 % quand la courbe de la section pluie annoncait
+// 0 mm sur la meme heure, et les deux avaient raison. Ce que la vignette
+// porte est desormais la MEME grandeur, tiree de la MEME serie que la courbe
+// (pluieParHeure).
 type VueHeure struct {
-	Heure            string   `json:"heure"`
-	TemperatureC     float64  `json:"temperature_c"`
-	PluiePct         *int     `json:"pluie_pct,omitempty"`
+	Heure        string  `json:"heure"`
+	TemperatureC float64 `json:"temperature_c"`
+	// PluieMm est la lame d'eau attendue PENDANT cette heure, en millimetres.
+	// Absent quand la source de la courbe est en panne ou ne couvre pas cette
+	// heure : la ligne est alors laissee de cote, jamais remplacee par un
+	// « 0 mm » qui se lirait comme une promesse de temps sec.
+	PluieMm *float64 `json:"pluie_mm,omitempty"`
+	// AversePossible dit que le risque d'averse de l'heure atteint
+	// seuilAversePossible. Un booleen, jamais le pourcentage : c'est
+	// precisement le chiffre qui se lisait de travers, et le rendre a nouveau
+	// rouvrirait la question que ce champ ferme. Il survit a la panne de la
+	// courbe — il vient de l'appel previsions, pas de la serie de pluie.
+	AversePossible   bool     `json:"averse_possible,omitempty"`
 	VentKmh          *int     `json:"vent_kmh,omitempty"`
 	VentDirectionDeg *int     `json:"vent_direction_deg,omitempty"`
 	VaguesM          *float64 `json:"vagues_m,omitempty"`
@@ -95,11 +113,18 @@ const joursNavigationAvant = 15
 // quel que soit le jour regarde (prp/01-navigation-temporelle.md).
 // maintenant est un parametre explicite, jamais time.Now() appele ici : la
 // fonction reste testable sans horloge reelle.
-func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *time.Time) ReponsePrevisions {
+//
+// pluie porte la serie de la section Pluie, la MEME que celle dont la courbe
+// est tiree : c'est ce partage, et non une seconde source, qui garantit que la
+// vignette d'une heure et la courbe du jour ne peuvent plus annoncer deux
+// chiffres differents. Une serie vide (source en panne, ou fenetre non
+// couverte) laisse simplement les vignettes sans ligne de pluie.
+func vuePrevisions(p Previsions, pluie SeriePluie, maintenant time.Time, frais bool, dateCible *time.Time) ReponsePrevisions {
 	v := ReponsePrevisions{
 		GenereA: maintenant.Format(time.RFC3339),
 		Frais:   frais,
 	}
+	lames := pluieParHeure(pluie)
 
 	if dateCible == nil {
 		debut := maintenant.Truncate(time.Hour)
@@ -124,7 +149,7 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 			if !h.Heure.Before(finAujourdhui) && len(v.Heures) >= nombreHeuresMinimum {
 				break
 			}
-			v.Heures = append(v.Heures, vueHeureMeteo(h))
+			v.Heures = append(v.Heures, vueHeureMeteo(h, lames))
 		}
 	} else {
 		debutCible := debutDuJour(*dateCible)
@@ -139,7 +164,7 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 			if h.TemperatureC == nil {
 				continue
 			}
-			v.Heures = append(v.Heures, vueHeureMeteo(h))
+			v.Heures = append(v.Heures, vueHeureMeteo(h, lames))
 		}
 		v.JourAffiche = debutCible.Format("2006-01-02")
 		v.JourAfficheLibelle = libelleJourFr(debutCible)
@@ -174,18 +199,34 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 // vueHeureMeteo suppose h.TemperatureC non nil : c'est a l'appelant
 // (vuePrevisions) de filtrer les heures sans temperature avant d'appeler
 // cette fonction, jamais a elle de decider une valeur de repli.
-func vueHeureMeteo(h HeureMeteo) VueHeure {
+func vueHeureMeteo(h HeureMeteo, lames map[string]float64) VueHeure {
 	libelle, symbole := libelleCiel(h.CodeMeteo, h.NebulositeBassePct, h.NebulositeMoyennePct, h.NebulositeHautePct)
-	return VueHeure{
+	v := VueHeure{
 		Heure:            h.Heure.Format("15:04"),
 		TemperatureC:     arrondi1(*h.TemperatureC),
-		PluiePct:         arrondiEntierPtr(h.PluiePct),
+		AversePossible:   h.PluiePct != nil && *h.PluiePct >= seuilAversePossible,
 		VentKmh:          arrondiEntierPtr(h.VentKmh),
 		VentDirectionDeg: arrondiEntierPtr(h.VentDirectionDeg),
 		VaguesM:          h.VaguesM,
 		Libelle:          libelle,
 		Symbole:          symbole,
 	}
+	// Presence dans la carte, jamais valeur par defaut : une heure que la
+	// serie ne couvre pas n'a pas de lame d'eau connue, et 0 mm en tiendrait
+	// lieu de reponse.
+	//
+	// Arrondi au centieme, comme les points de la courbe (courbePluie) et non
+	// au dixieme affiche : au dixieme, une bruine a 0,08 mm devenait 0,1 sur
+	// la vignette, et vingt-quatre arrondis vers le haut faisaient un cumul
+	// superieur de 0,1 mm a celui de la courbe — le meme genre d'ecart
+	// inexplicable que ce changement supprime. La page arrondit pour
+	// l'affichage, et sait alors distinguer une heure vraiment seche d'une
+	// bruine qui s'arrondirait a zero.
+	if mm, ok := lames[cleHeure(h.Heure)]; ok {
+		arrondie := arrondi2(mm)
+		v.PluieMm = &arrondie
+	}
+	return v
 }
 
 // vueJourMeteo suppose j.TempMinC et j.TempMaxC non nil : c'est a l'appelant
@@ -409,9 +450,15 @@ type VuePasNowcast struct {
 // que Meteo-France donne au point : affiche tel quel, c'est ce qui montre que
 // la prevision porte bien sur Le Touquet.
 type VueBandeNowcast struct {
-	Lieu      string          `json:"lieu"`
-	MiseAJour string          `json:"mise_a_jour,omitempty"`
-	Pas       []VuePasNowcast `json:"pas"`
+	Lieu      string `json:"lieu"`
+	MiseAJour string `json:"mise_a_jour,omitempty"`
+	// MiseAJourMinutes est l'age du releve, en minutes. C'est LUI qui dit au
+	// lecteur qu'il regarde une observation et non une prevision — « vu au
+	// radar il y a dix minutes » ne se lit pas comme « prevu ce matin ».
+	// Calcule ici : « 13:30 » ne porte pas de date, et le recalculer cote page
+	// se tromperait d'un jour a chaque passage de minuit.
+	MiseAJourMinutes *int            `json:"mise_a_jour_minutes,omitempty"`
+	Pas              []VuePasNowcast `json:"pas"`
 }
 
 // ReponsePluie est la reponse de /api/pluie. Heure et Jour sont absents
@@ -420,11 +467,19 @@ type VueBandeNowcast struct {
 // section 4). Erreur n'est renseigne que lorsque les DEUX manquent — c'est le
 // seul cas ou la section n'a rien a montrer.
 type ReponsePluie struct {
-	Frais       bool             `json:"frais"`
-	Heure       *VueBandeNowcast `json:"heure,omitempty"`
-	Jour        *VueCourbePluie  `json:"jour,omitempty"`
-	Erreur      string           `json:"erreur,omitempty"`
-	JourAffiche string           `json:"jour_affiche,omitempty"`
+	Frais bool             `json:"frais"`
+	Heure *VueBandeNowcast `json:"heure,omitempty"`
+	Jour  *VueCourbePluie  `json:"jour,omitempty"`
+	// Desaccord dit que le radar annonce une averse la ou la courbe du jour ne
+	// dessine aucune barre (desaccordRadarModele). Un booleen, pas une phrase
+	// : le serveur constate, la page ecrit les mots — meme partage que partout
+	// ailleurs ici. Signale le 20 aout 2026 (PRODUCT.md, « Ajoute apres les
+	// PRP ») : les deux graphes portent la meme grammaire et se lisent donc
+	// comme deux mesures comparables, alors que l'un observe et l'autre
+	// calcule.
+	Desaccord   bool   `json:"desaccord,omitempty"`
+	Erreur      string `json:"erreur,omitempty"`
+	JourAffiche string `json:"jour_affiche,omitempty"`
 }
 
 // dureePasFin est le pas du modele a maille fine. Sert a verifier qu'une
@@ -449,23 +504,85 @@ func vuePluie(s SeriePluie, n *Nowcast, maintenant time.Time, frais bool, dateCi
 	}
 	fin := jour.AddDate(0, 0, 1)
 
+	// pointsCourbe/dureePas retiennent CE QUE LA COURBE DESSINE, pas la serie
+	// brute : c'est sur ces pas-la, et sur leur duree, que se juge ensuite le
+	// desaccord avec le radar — sans quoi on comparerait le radar a des
+	// donnees que l'ecran ne montre pas.
+	var pointsCourbe []PasPluie
+	var dureePas time.Duration
 	if quarts := pasDuJour(s.Quarts, jour, fin); couvreLeJour(quarts, jour, fin, dureePasFin) {
 		v.Jour = courbePluie("quart", quarts)
+		pointsCourbe, dureePas = quarts, dureePasFin
 	} else if heures := pasDuJour(s.Heures, jour, fin); len(heures) > 0 {
 		v.Jour = courbePluie("heure", heures)
+		pointsCourbe, dureePas = heures, time.Hour
 	}
 
 	// La bande de l'heure qui vient n'existe que pour aujourd'hui : elle
 	// decrit les 60 prochaines minutes, une notion qui n'a pas de sens sur un
 	// autre jour. La montrer vide y serait indistinguable d'une heure seche.
 	if n != nil && jour.Equal(debutDuJour(maintenant)) {
-		v.Heure = bandeNowcast(*n)
+		v.Heure = bandeNowcast(*n, maintenant)
+		v.Desaccord = desaccordRadarModele(*n, pointsCourbe, dureePas)
 	}
 
 	if v.Jour == nil && v.Heure == nil {
 		v.Erreur = "Pluie indisponible : aucune des deux sources de pluie ne répond. Le reste de la page est à jour ; estran réessaie tout seul toutes les 5 minutes."
 	}
 	return v
+}
+
+// niveauPluieNowcast est le premier niveau Meteo-France qui est une pluie :
+// 1 est le temps sec, et ne dessine aucune barre (app.js, meme regle).
+const niveauPluieNowcast = 2
+
+// desaccordRadarModele dit que le radar annonce une averse sur une fenetre ou
+// la courbe du jour ne dessine RIEN. Les deux graphes se ressemblent trait
+// pour trait — memes bandes, meme vocabulaire, l'un sous l'autre — ce qui
+// promet au lecteur qu'ils s'accordent ; or l'un observe ce qui arrive et
+// l'autre restitue un modele calcule des heures plus tot, qui ne sait pas
+// poser une averse de dix minutes au bon quart d'heure. Quand ils divergent,
+// l'ecran doit le dire et designer le radar (PRODUCT.md, 20 aout 2026).
+//
+// Le critere est « aucune barre », pas un seuil en millimetres : c'est
+// exactement la regle de trace (une barre n'existe que pour une intensite
+// strictement positive), donc la phrase paraît quand, et seulement quand, le
+// lecteur voit un graphe vide sous un graphe qui annonce de la pluie.
+func desaccordRadarModele(n Nowcast, pointsCourbe []PasPluie, dureePas time.Duration) bool {
+	if len(n.Pas) == 0 || len(pointsCourbe) == 0 {
+		return false
+	}
+
+	averse := false
+	debut, fin := n.Pas[0].Instant, n.Pas[0].Instant
+	for _, p := range n.Pas {
+		if p.Niveau >= niveauPluieNowcast {
+			averse = true
+		}
+		if p.Instant.Before(debut) {
+			debut = p.Instant
+		}
+		if p.Instant.After(fin) {
+			fin = p.Instant
+		}
+	}
+	if !averse {
+		return false
+	}
+
+	// Un pas de la courbe couvre [Instant, Instant+dureePas) : il recouvre la
+	// fenetre du radar des qu'il commence avant sa fin et se termine apres son
+	// debut. Sans cette duree, un pas de quart d'heure commence a 13 h 45
+	// paraîtrait etranger a une averse annoncee a 13 h 50.
+	for _, p := range pointsCourbe {
+		if p.Instant.After(fin) || !p.Instant.Add(dureePas).After(debut) {
+			continue
+		}
+		if p.Mm > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // pasDuJour ne garde que les pas dont l'instant tombe dans [jour, fin).
@@ -492,6 +609,85 @@ func couvreLeJour(pas []PasPluie, jour, fin time.Time, duree time.Duration) bool
 	return len(pas) == int(fin.Sub(jour)/duree)
 }
 
+// seuilAversePossible est le risque a partir duquel la vignette d'une heure
+// porte la pastille « averse possible ». Le pourcentage lui-meme ne s'affiche
+// plus (VueHeure) : ce qu'il vaut vraiment, c'est de dire s'il faut emporter
+// un impermeable, pas de mettre un nombre a deux chiffres a cote d'une lame
+// d'eau en millimetres. 60 % est le seuil retenu le 20 aout 2026 avec
+// l'utilisateur — sur la journee qui a motive le changement, il allume la
+// pastille sur les quatre heures d'averses annoncees et la laisse eteinte sur
+// les quatre suivantes.
+const seuilAversePossible = 60
+
+// cleHeure identifie une heure de facon stable. Une cle de texte, PAS un
+// time.Time : deux time.Time du meme instant ne sont egaux en cle de carte que
+// s'ils portent aussi le meme pointeur de fuseau et la meme part monotone, ce
+// que rien ne garantit entre une heure venue de meteo.go et un pas venu de
+// pluie.go.
+func cleHeure(t time.Time) string {
+	return t.In(parisTZ).Format("2006-01-02T15")
+}
+
+// pluieParHeure rend la lame d'eau attendue, heure par heure, sur toute la
+// fenetre couverte par la serie. C'est LA fonction qui tient la promesse du
+// 20 aout 2026 : elle applique jour par jour exactement la regle de vuePluie —
+// le quart d'heure quand il couvre le jour de bout en bout, l'horaire sinon —
+// si bien que la vignette d'une heure et la courbe du meme jour sortent
+// toujours de la meme serie.
+//
+// Une heure absente de la carte rendue est une heure INCONNUE (hors fenetre,
+// ou source en panne) ; une heure presente a 0 est une heure connue seche. Les
+// deux se lisent differemment a l'ecran, d'ou la carte plutot qu'un tableau de
+// zeros.
+func pluieParHeure(s SeriePluie) map[string]float64 {
+	parHeure := make(map[string]float64, len(s.Heures))
+
+	// L'horaire couvre toute la fenetre de navigation : il pose le fond.
+	for _, p := range s.Heures {
+		parHeure[cleHeure(p.Instant)] = p.Mm
+	}
+
+	// La ou le quart d'heure couvre un jour entier, il REMPLACE l'horaire pour
+	// ce jour-la. Remise a zero des vingt-quatre heures d'abord : le jour est
+	// desormais connu de bout en bout, y compris ses heures seches, et une
+	// valeur horaire laissee la ferait un total different de celui de la
+	// courbe.
+	for _, jour := range joursCouvertsAuQuart(s.Quarts) {
+		fin := jour.AddDate(0, 0, 1)
+		for h := jour; h.Before(fin); h = h.Add(time.Hour) {
+			parHeure[cleHeure(h)] = 0
+		}
+		for _, p := range pasDuJour(s.Quarts, jour, fin) {
+			parHeure[cleHeure(p.Instant)] += p.Mm
+		}
+	}
+	return parHeure
+}
+
+// joursCouvertsAuQuart rend les jours que la serie fine couvre de la premiere
+// a la derniere minute. Une couverture PARTIELLE — le jour ou le modele a
+// maille fine s'arrete — n'y figure pas : ce jour-la reste entierement a
+// l'horaire, comme la courbe (vuePluie). Melanger les deux echelles a
+// l'interieur d'une meme journee ferait un cumul que la courbe ne montre nulle
+// part.
+func joursCouvertsAuQuart(quarts []PasPluie) []time.Time {
+	var jours []time.Time
+	vus := make(map[string]bool)
+	for _, p := range quarts {
+		jour := debutDuJour(p.Instant)
+		cle := jour.Format("2006-01-02")
+		if vus[cle] {
+			continue
+		}
+		vus[cle] = true
+		fin := jour.AddDate(0, 0, 1)
+		if couvreLeJour(pasDuJour(quarts, jour, fin), jour, fin, dureePasFin) {
+			jours = append(jours, jour)
+		}
+	}
+	return jours
+}
+
 func courbePluie(pas string, points []PasPluie) *VueCourbePluie {
 	c := VueCourbePluie{Pas: pas, Points: make([]VuePasPluie, 0, len(points))}
 	var total, max float64
@@ -507,10 +703,15 @@ func courbePluie(pas string, points []PasPluie) *VueCourbePluie {
 	return &c
 }
 
-func bandeNowcast(n Nowcast) *VueBandeNowcast {
+func bandeNowcast(n Nowcast, maintenant time.Time) *VueBandeNowcast {
 	b := VueBandeNowcast{Lieu: n.Lieu, Pas: make([]VuePasNowcast, 0, len(n.Pas))}
 	if !n.MiseAJour.IsZero() {
 		b.MiseAJour = n.MiseAJour.In(parisTZ).Format("15:04")
+		// Un releve date du futur (horloges desaccordees) ne rend pas un age
+		// negatif : il n'y a alors rien de sur a dire, et la ligne se tait.
+		if age := int(maintenant.Sub(n.MiseAJour).Minutes()); age >= 0 {
+			b.MiseAJourMinutes = &age
+		}
 	}
 	for _, p := range n.Pas {
 		b.Pas = append(b.Pas, VuePasNowcast{
