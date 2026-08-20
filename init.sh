@@ -2152,7 +2152,12 @@ check_shared_services() {
 # tant qu'il vaut 0, l'absence AVERTIT ; le jour ou la dixieme suite est ecrite,
 # il passe a 1 et l'absence devient KO. Le cran est dans le code, pas dans une
 # promesse.
-E2E_OBLIGATOIRE=0
+#
+# PASSE A 1 le 2026-08-20 : les dix suites existent. Ce qui etait un
+# avertissement est desormais un refus — une app neuve ne peut plus naitre sans
+# verification en navigateur reel, et une suite supprimee ne peut plus l'etre en
+# silence.
+E2E_OBLIGATOIRE=1
 
 check_app_files() {
   load_app "$1"

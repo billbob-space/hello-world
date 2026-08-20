@@ -79,6 +79,6 @@ volumes:
 # Ils ne se deplacent que dans le sens qui SERRE : la couverture monte,
 # la duplication descend. Desserrer est une edition a la main, donc une
 # ligne dans le diff de la pull request, donc une discussion.
-revue_couverture: 80
+revue_couverture: 81
 revue_couverture_web: 86
 revue_duplication: 0

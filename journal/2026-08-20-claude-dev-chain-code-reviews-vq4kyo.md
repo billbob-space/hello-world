@@ -402,3 +402,41 @@ horaire.
 Piege note au passage, et qui vaut pour toute app a `go:embed` : modifier
 `style.css` ou `index.html` sans RECONSTRUIRE le binaire laisse le scan relire
 l'ancien contenu embarque. Le correctif parait alors sans effet.
+
+### 18. Les deux suites Docker ne sont pas verifiables depuis cette session
+
+**Symptome** — `ardoise` et `compteur` sont les deux seules apps dont le bout en
+bout monte des conteneurs : elles ont vraiment une base et un cache. Leur
+`lancer.sh` appelle `docker build` et `docker run`. Le demon Docker n'est PAS
+joignable depuis cette session (`unix:///var/run/docker.sock` absent).
+
+**Cause** — l'environnement d'execution, pas le depot.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — le passage d'accessibilite leur a ete ajoute par la meme
+forme que les huit autres, et leur `playwright.config.js` a recu la meme
+correction du chemin de navigateur epingle. **Ces deux suites n'ont donc PAS ete
+jouees ici** : c'est la CI qui les tranchera, au job `bout-en-bout`. Ecrit
+plutot que taris — annoncer une verification qu'on n'a pas faite est le meme
+defaut que tout le reste de cette branche a poursuivi, un cran au-dessus.
+
+Le cas est note comme la limite du bout en bout natif : les huit apps sans
+annexe se jouent partout, les deux qui en ont une dependent d'un demon. C'est
+precisement pour cela que les huit autres ne passent PAS par Docker.
+
+### 19. `E2E_OBLIGATOIRE` passe a 1 — l'absence de suite devient un refus
+
+**Symptome** — sans objet : c'est le cran d'arret prevu quand le contrat du bout
+en bout a ete pose, et le moment est venu.
+
+**Cause** — les dix apps ont desormais leur `e2e/lancer.sh`. Ce qui etait un
+avertissement — « rien ne verifie cette app dans un navigateur reel » — devient
+un KO de `--check`.
+
+**Detecte par** — `auteur`
+
+**Action** — `contrat` — une app neuve ne peut plus naitre sans verification en
+navigateur reel, et une suite supprimee ne peut plus l'etre en silence. Le cran
+etait ecrit dans le code des le premier jour, avec sa condition de declenchement ;
+il n'a pas eu besoin qu'on se souvienne de lui.
