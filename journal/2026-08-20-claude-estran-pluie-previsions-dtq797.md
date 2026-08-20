@@ -31,6 +31,52 @@ un mot pour dire que c'etait un risque.
 alimentent le meme ecran, l'unite de chacune doit etre ecrite a l'ecran, pas
 seulement dans le code ; aucun test ne voit un chiffre affiche sans son unite.
 
+### 2. Le meme defaut, une seconde fois, entre les deux graphes de pluie
+
+**Symptome** — quelques heures apres le premier correctif, l'utilisateur
+signale une nouvelle incoherence sur la meme app : la bande de l'heure qui
+vient annonce « niveau faible vers 13:50 », la courbe du jour juste en dessous
+ne dessine rien a cette heure-la.
+
+**Cause** — le radar de Meteo-France observe une cellule reelle et la prolonge
+de quelques minutes ; la courbe restitue un modele calcule des heures plus tot,
+qui ne sait pas poser une averse de dix minutes au bon quart d'heure. Verifie :
+AROME et meteofrance_seamless rendent tous deux 0,0 mm entre 13 h et 15 h, quand
+le radar annonce faible puis moderee. Les deux ont raison. Ce qui les fait lire
+comme contradictoires est un choix delibere de prp/03-graphe-de-pluie.md : la
+« grammaire commune » — memes cinq bandes, meme vocabulaire, l'un sous l'autre —
+voulue pour qu'on les compare d'un coup d'oeil, et qui promet donc qu'ils
+s'accordent.
+
+**Detecte par** — `utilisateur`
+
+**Action** — `comportement` — meme lecon que l'anomalie 1, et c'est ce qui la
+rend interessante : elle a ete ecrite le matin, appliquee aux vignettes, et pas
+etendue aux deux graphes de la meme section trois ecrans plus haut. Une lecon
+tiree d'un correctif doit etre passee sur TOUT l'ecran, pas seulement sur
+l'endroit qui l'a revelee — sans quoi l'utilisateur la retrouve lui-meme le jour
+meme.
+
+### 3. Un harnais de rendu manquait pour verifier un affichage conditionnel
+
+**Symptome** — la phrase qui tranche entre les deux graphes ne paraît que
+lorsque les sources divergent. Au moment de la verifier, l'averse etait passee :
+la donnee reelle ne produisait plus le cas, et rien ne permettait de voir le
+rendu.
+
+**Cause** — les tests Go couvrent la decision (le drapeau `desaccord`), jamais
+le rendu HTML, et l'app sert ses fichiers web embarques dans le binaire :
+impossible d'y substituer une reponse figee sans toucher au code livre.
+Contourne en recopiant `web/` a cote et en interposant un `fetch` de test — dix
+lignes, mais reinventees sur place et jetees ensuite.
+
+**Detecte par** — `auteur`
+
+**Action** — `outillage` — un harnais de rendu (servir `web/` avec des reponses
+d'API figees, un cas par etat) rendrait verifiable tout affichage conditionnel,
+qui est justement celui qu'aucun test n'attrape et qu'on ne voit pas en
+naviguant.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 

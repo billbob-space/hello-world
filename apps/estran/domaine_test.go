@@ -642,3 +642,128 @@ func TestVuePrevisions_AversePossible_AuSeuilEtEnDessous(t *testing.T) {
 		})
 	}
 }
+
+// --- Le desaccord entre le radar et le modele (variante A) -----------------
+//
+// Signale le 20 aout 2026 a 13 h 39 : la bande de l'heure annonce une averse
+// a 13 h 50, la courbe du jour ne dessine rien a cette heure-la. Les deux ont
+// raison — l'une observe, l'autre calcule — et l'ecran doit le dire.
+
+// nowcastAverse fabrique une bande de l'heure qui vient : neuf pas de 5 puis
+// 10 minutes a partir de debut, avec les niveaux donnes (1 = temps sec).
+func nowcastAverse(debut time.Time, niveaux ...int) *Nowcast {
+	n := &Nowcast{Lieu: "Le Touquet-Paris-Plage", MiseAJour: debut.Add(-10 * time.Minute)}
+	for i, niveau := range niveaux {
+		n.Pas = append(n.Pas, PasNowcast{Instant: debut.Add(time.Duration(i*5) * time.Minute), Niveau: niveau})
+	}
+	return n
+}
+
+// TestVuePluie_Desaccord_RadarVoitCeQueLaCourbeNeDessinePas : le cas signale.
+func TestVuePluie_Desaccord_RadarVoitCeQueLaCourbeNeDessinePas(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	maintenant := jour.Add(13*time.Hour + 40*time.Minute)
+	// La courbe couvre le jour au quart d'heure et ne porte de pluie que le
+	// matin — rien apres 10 h, donc rien sur la fenetre du radar.
+	s := SeriePluie{Quarts: serieQuartsPleine(jour, map[int]float64{8: 0.2, 9: 0.1})}
+	n := nowcastAverse(jour.Add(13*time.Hour+45*time.Minute), 1, 2, 3, 2, 1, 1, 1, 1, 1)
+
+	v := vuePluie(s, n, maintenant, true, nil)
+
+	if v.Jour == nil || v.Heure == nil {
+		t.Fatal("les deux graphes doivent etre presents pour que la question se pose")
+	}
+	if !v.Desaccord {
+		t.Error("Desaccord = false : le radar annonce une averse la ou la courbe ne dessine aucune barre")
+	}
+}
+
+// TestVuePluie_Desaccord_CourbeVideEtRadarSec : les deux s'accordent sur le
+// temps sec. Rien a trancher, aucune phrase a afficher.
+func TestVuePluie_Desaccord_CourbeVideEtRadarSec(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	maintenant := jour.Add(13*time.Hour + 40*time.Minute)
+	s := SeriePluie{Quarts: serieQuartsPleine(jour, nil)}
+	n := nowcastAverse(jour.Add(13*time.Hour+45*time.Minute), 1, 1, 1, 1, 1, 1, 1, 1, 1)
+
+	v := vuePluie(s, n, maintenant, true, nil)
+
+	if v.Desaccord {
+		t.Error("Desaccord = true alors que le radar annonce du temps sec : rien ne se contredit")
+	}
+}
+
+// TestVuePluie_Desaccord_LaCourbeAnnonceAussiLAverse : quand le modele a bien
+// place quelque chose sur la fenetre du radar, les deux graphes montrent une
+// barre au meme moment. Il n'y a plus rien a expliquer, et la phrase se
+// tairait a tort.
+func TestVuePluie_Desaccord_LaCourbeAnnonceAussiLAverse(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	maintenant := jour.Add(13*time.Hour + 40*time.Minute)
+	s := SeriePluie{Quarts: serieQuartsPleine(jour, map[int]float64{13: 0.4, 14: 0.4})}
+	n := nowcastAverse(jour.Add(13*time.Hour+45*time.Minute), 1, 2, 3, 2, 1, 1, 1, 1, 1)
+
+	v := vuePluie(s, n, maintenant, true, nil)
+
+	if v.Desaccord {
+		t.Error("Desaccord = true alors que la courbe porte elle aussi de la pluie sur la fenetre du radar")
+	}
+}
+
+// TestVuePluie_Desaccord_HorsFenetreDuRadar : de la pluie ailleurs dans la
+// journee ne compte pas — seule la fenetre que le radar couvre est comparee.
+// Sans ce filtrage, la pluie du matin suffirait a taire la phrase tout le
+// reste du jour.
+func TestVuePluie_Desaccord_HorsFenetreDuRadar(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	maintenant := jour.Add(13*time.Hour + 40*time.Minute)
+	s := SeriePluie{Quarts: serieQuartsPleine(jour, map[int]float64{3: 2.0, 20: 2.0})}
+	n := nowcastAverse(jour.Add(13*time.Hour+45*time.Minute), 1, 2, 2, 2, 1, 1, 1, 1, 1)
+
+	v := vuePluie(s, n, maintenant, true, nil)
+
+	if !v.Desaccord {
+		t.Error("Desaccord = false : la pluie du matin et du soir ne dit rien de la fenetre du radar")
+	}
+}
+
+// TestVuePluie_Desaccord_AbsentSansBande : sur un autre jour que aujourd'hui,
+// la bande de l'heure n'existe pas et la question ne se pose pas.
+func TestVuePluie_Desaccord_AbsentSansBande(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	maintenant := jour.Add(13 * time.Hour)
+	demain := jour.AddDate(0, 0, 1)
+	s := SeriePluie{Quarts: append(
+		serieQuartsPleine(jour, nil),
+		serieQuartsPleine(demain, nil)...,
+	)}
+	n := nowcastAverse(jour.Add(13*time.Hour+45*time.Minute), 1, 2, 3, 2, 1, 1, 1, 1, 1)
+
+	v := vuePluie(s, n, maintenant, true, &demain)
+
+	if v.Heure != nil {
+		t.Fatal("la bande de l'heure ne doit pas etre servie sur un autre jour")
+	}
+	if v.Desaccord {
+		t.Error("Desaccord = true sans bande de l'heure : il n'y a qu'un graphe, rien ne peut se contredire")
+	}
+}
+
+// TestVuePluie_MiseAJourMinutes : l'age du releve radar est ce qui distingue
+// une observation d'une prevision aux yeux du lecteur. Rendu par le serveur,
+// jamais recalcule depuis un "13:30" qui n'a pas de date.
+func TestVuePluie_MiseAJourMinutes(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	maintenant := jour.Add(13*time.Hour + 40*time.Minute)
+	n := nowcastAverse(jour.Add(13*time.Hour+45*time.Minute), 1, 2, 1, 1, 1, 1, 1, 1, 1)
+	n.MiseAJour = jour.Add(13*time.Hour + 30*time.Minute)
+
+	v := vuePluie(SeriePluie{}, n, maintenant, true, nil)
+
+	if v.Heure == nil || v.Heure.MiseAJourMinutes == nil {
+		t.Fatal("MiseAJourMinutes absent alors que le releve est date")
+	}
+	if *v.Heure.MiseAJourMinutes != 10 {
+		t.Errorf("MiseAJourMinutes = %d, attendu 10", *v.Heure.MiseAJourMinutes)
+	}
+}

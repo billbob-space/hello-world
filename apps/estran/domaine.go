@@ -450,9 +450,15 @@ type VuePasNowcast struct {
 // que Meteo-France donne au point : affiche tel quel, c'est ce qui montre que
 // la prevision porte bien sur Le Touquet.
 type VueBandeNowcast struct {
-	Lieu      string          `json:"lieu"`
-	MiseAJour string          `json:"mise_a_jour,omitempty"`
-	Pas       []VuePasNowcast `json:"pas"`
+	Lieu      string `json:"lieu"`
+	MiseAJour string `json:"mise_a_jour,omitempty"`
+	// MiseAJourMinutes est l'age du releve, en minutes. C'est LUI qui dit au
+	// lecteur qu'il regarde une observation et non une prevision — « vu au
+	// radar il y a dix minutes » ne se lit pas comme « prevu ce matin ».
+	// Calcule ici : « 13:30 » ne porte pas de date, et le recalculer cote page
+	// se tromperait d'un jour a chaque passage de minuit.
+	MiseAJourMinutes *int            `json:"mise_a_jour_minutes,omitempty"`
+	Pas              []VuePasNowcast `json:"pas"`
 }
 
 // ReponsePluie est la reponse de /api/pluie. Heure et Jour sont absents
@@ -461,11 +467,19 @@ type VueBandeNowcast struct {
 // section 4). Erreur n'est renseigne que lorsque les DEUX manquent — c'est le
 // seul cas ou la section n'a rien a montrer.
 type ReponsePluie struct {
-	Frais       bool             `json:"frais"`
-	Heure       *VueBandeNowcast `json:"heure,omitempty"`
-	Jour        *VueCourbePluie  `json:"jour,omitempty"`
-	Erreur      string           `json:"erreur,omitempty"`
-	JourAffiche string           `json:"jour_affiche,omitempty"`
+	Frais bool             `json:"frais"`
+	Heure *VueBandeNowcast `json:"heure,omitempty"`
+	Jour  *VueCourbePluie  `json:"jour,omitempty"`
+	// Desaccord dit que le radar annonce une averse la ou la courbe du jour ne
+	// dessine aucune barre (desaccordRadarModele). Un booleen, pas une phrase
+	// : le serveur constate, la page ecrit les mots — meme partage que partout
+	// ailleurs ici. Signale le 20 aout 2026 (PRODUCT.md, « Ajoute apres les
+	// PRP ») : les deux graphes portent la meme grammaire et se lisent donc
+	// comme deux mesures comparables, alors que l'un observe et l'autre
+	// calcule.
+	Desaccord   bool   `json:"desaccord,omitempty"`
+	Erreur      string `json:"erreur,omitempty"`
+	JourAffiche string `json:"jour_affiche,omitempty"`
 }
 
 // dureePasFin est le pas du modele a maille fine. Sert a verifier qu'une
@@ -490,23 +504,85 @@ func vuePluie(s SeriePluie, n *Nowcast, maintenant time.Time, frais bool, dateCi
 	}
 	fin := jour.AddDate(0, 0, 1)
 
+	// pointsCourbe/dureePas retiennent CE QUE LA COURBE DESSINE, pas la serie
+	// brute : c'est sur ces pas-la, et sur leur duree, que se juge ensuite le
+	// desaccord avec le radar — sans quoi on comparerait le radar a des
+	// donnees que l'ecran ne montre pas.
+	var pointsCourbe []PasPluie
+	var dureePas time.Duration
 	if quarts := pasDuJour(s.Quarts, jour, fin); couvreLeJour(quarts, jour, fin, dureePasFin) {
 		v.Jour = courbePluie("quart", quarts)
+		pointsCourbe, dureePas = quarts, dureePasFin
 	} else if heures := pasDuJour(s.Heures, jour, fin); len(heures) > 0 {
 		v.Jour = courbePluie("heure", heures)
+		pointsCourbe, dureePas = heures, time.Hour
 	}
 
 	// La bande de l'heure qui vient n'existe que pour aujourd'hui : elle
 	// decrit les 60 prochaines minutes, une notion qui n'a pas de sens sur un
 	// autre jour. La montrer vide y serait indistinguable d'une heure seche.
 	if n != nil && jour.Equal(debutDuJour(maintenant)) {
-		v.Heure = bandeNowcast(*n)
+		v.Heure = bandeNowcast(*n, maintenant)
+		v.Desaccord = desaccordRadarModele(*n, pointsCourbe, dureePas)
 	}
 
 	if v.Jour == nil && v.Heure == nil {
 		v.Erreur = "pluie indisponible pour le moment"
 	}
 	return v
+}
+
+// niveauPluieNowcast est le premier niveau Meteo-France qui est une pluie :
+// 1 est le temps sec, et ne dessine aucune barre (app.js, meme regle).
+const niveauPluieNowcast = 2
+
+// desaccordRadarModele dit que le radar annonce une averse sur une fenetre ou
+// la courbe du jour ne dessine RIEN. Les deux graphes se ressemblent trait
+// pour trait — memes bandes, meme vocabulaire, l'un sous l'autre — ce qui
+// promet au lecteur qu'ils s'accordent ; or l'un observe ce qui arrive et
+// l'autre restitue un modele calcule des heures plus tot, qui ne sait pas
+// poser une averse de dix minutes au bon quart d'heure. Quand ils divergent,
+// l'ecran doit le dire et designer le radar (PRODUCT.md, 20 aout 2026).
+//
+// Le critere est « aucune barre », pas un seuil en millimetres : c'est
+// exactement la regle de trace (une barre n'existe que pour une intensite
+// strictement positive), donc la phrase paraît quand, et seulement quand, le
+// lecteur voit un graphe vide sous un graphe qui annonce de la pluie.
+func desaccordRadarModele(n Nowcast, pointsCourbe []PasPluie, dureePas time.Duration) bool {
+	if len(n.Pas) == 0 || len(pointsCourbe) == 0 {
+		return false
+	}
+
+	averse := false
+	debut, fin := n.Pas[0].Instant, n.Pas[0].Instant
+	for _, p := range n.Pas {
+		if p.Niveau >= niveauPluieNowcast {
+			averse = true
+		}
+		if p.Instant.Before(debut) {
+			debut = p.Instant
+		}
+		if p.Instant.After(fin) {
+			fin = p.Instant
+		}
+	}
+	if !averse {
+		return false
+	}
+
+	// Un pas de la courbe couvre [Instant, Instant+dureePas) : il recouvre la
+	// fenetre du radar des qu'il commence avant sa fin et se termine apres son
+	// debut. Sans cette duree, un pas de quart d'heure commence a 13 h 45
+	// paraîtrait etranger a une averse annoncee a 13 h 50.
+	for _, p := range pointsCourbe {
+		if p.Instant.After(fin) || !p.Instant.Add(dureePas).After(debut) {
+			continue
+		}
+		if p.Mm > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // pasDuJour ne garde que les pas dont l'instant tombe dans [jour, fin).
@@ -627,10 +703,15 @@ func courbePluie(pas string, points []PasPluie) *VueCourbePluie {
 	return &c
 }
 
-func bandeNowcast(n Nowcast) *VueBandeNowcast {
+func bandeNowcast(n Nowcast, maintenant time.Time) *VueBandeNowcast {
 	b := VueBandeNowcast{Lieu: n.Lieu, Pas: make([]VuePasNowcast, 0, len(n.Pas))}
 	if !n.MiseAJour.IsZero() {
 		b.MiseAJour = n.MiseAJour.In(parisTZ).Format("15:04")
+		// Un releve date du futur (horloges desaccordees) ne rend pas un age
+		// negatif : il n'y a alors rien de sur a dire, et la ligne se tait.
+		if age := int(maintenant.Sub(n.MiseAJour).Minutes()); age >= 0 {
+			b.MiseAJourMinutes = &age
+		}
 	}
 	for _, p := range n.Pas {
 		b.Pas = append(b.Pas, VuePasNowcast{

@@ -667,6 +667,36 @@ main {
   color: var(--sable-300);
 }
 
+/* Ligne d'origine, sous le titre de chaque graphe : elle dit de quelle NATURE
+   est ce qu'on regarde — une image radar au-dessus, un modele en dessous.
+   C'est la seule chose qui permette de trancher quand les deux se
+   contredisent, et la ligne de source en bas de graphe ne le disait pas :
+   nommer « Météo-France » n'apprend pas a quelqu'un qui n'est pas
+   meteorologue qu'il regarde une observation. Le mot porteur est en eau, le
+   reste en retrait : c'est une precision, jamais un second titre. */
+.pluie-origine {
+  margin: var(--espace-1) 0 0;
+  font-size: 0.9rem;
+  color: var(--sable-300);
+}
+
+.pluie-origine b {
+  font-weight: 600;
+  color: var(--eau-400);
+}
+
+/* La phrase qui tranche, les jours ou les deux graphes se contredisent (le
+   serveur en juge). Filet ambre a gauche, comme le repere de position sur la
+   jauge : c'est un signal qui appelle l'oeil, pas une mesure — d'ou l'ambre
+   plutot que l'eau, reservee aux hauteurs et aux intensites. */
+.pluie-desaccord {
+  margin: var(--espace-3) 0 0;
+  font-size: 0.95rem;
+  color: var(--sable-200);
+  border-left: 3px solid var(--ambre-400);
+  padding-left: var(--espace-3);
+}
+
 /* "Aucune pluie prevue" recoit le meme traitement typographique que le
    cumul : c'est aussi un titre de groupe, jamais un texte en retrait. */
 .pluie-vide {

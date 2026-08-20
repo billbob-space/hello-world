@@ -374,7 +374,7 @@ function rendrePluie(donnees) {
     return;
   }
 
-  carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour)]
+  carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour, donnees.desaccord)]
     .filter(Boolean)
     .join("");
 }
@@ -434,6 +434,14 @@ function grapheHeure(heure) {
   const maj = heure.mise_a_jour ? ` · relevé de ${esc(heure.mise_a_jour)}` : "";
   const lieu = heure.lieu ? esc(heure.lieu) : "";
 
+  // Dire de quelle NATURE est ce graphe, pas seulement d'ou il vient : la
+  // ligne de source en dessous nomme deja Meteo-France, ce qui ne dit pas a
+  // quelqu'un qui n'est pas meteorologue qu'il regarde une image radar et non
+  // un calcul. C'est cette distinction, et elle seule, qui permet de trancher
+  // quand ce graphe et la courbe du jour se contredisent
+  // (PRODUCT.md, 20 aout 2026).
+  const origine = `<p class="pluie-origine"><b>Vu au radar</b>${ageReleve(heure.mise_a_jour_minutes)}.</p>`;
+
   // Trois reperes de temps sous le graphe (debut, milieu, fin des 60 minutes
   // couvertes par les 9 pas), a leur position REELLE : "dans combien de
   // temps" se lit sans compter les barres. La position est posee par le CSS
@@ -442,6 +450,7 @@ function grapheHeure(heure) {
   return `
     <div class="pluie-heure">
       <p class="pluie-resume">${resume}</p>
+      ${origine}
       <div class="pluie-graphe-zona pluie-graphe-zona--heure">
         <div class="pluie-graphe">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${esc(ariaLabel)}">
@@ -460,6 +469,16 @@ function grapheHeure(heure) {
     </div>`;
 }
 
+// ageReleve met en mots l'age du releve radar (rendu en minutes par le
+// serveur : « 13:30 » seul ne porte pas de date). Sous deux minutes, « a
+// l'instant » plutot que « il y a 0 minute » ; au-dela d'une heure la bande
+// serait de toute facon perimee, et la formule reste juste sans cas special.
+function ageReleve(minutes) {
+  if (minutes == null) return "";
+  if (minutes < 2) return ", à l’instant";
+  return `, il y a ${minutes} minutes`;
+}
+
 // libelleJourGroupePluie donne le libelle qui suit le cumul (ou l'etat sec)
 // dans le titre du groupe 2 : "aujourd'hui" pour le jour courant, sinon le
 // meme libelle lisible que la navigation affiche deja
@@ -475,11 +494,25 @@ function libelleJourGroupePluie(decalage) {
 // ("quart" ou "heure") vient du serveur et s'affiche : une courbe qui change
 // de finesse sans le dire laisserait croire a une pluie plus reguliere
 // qu'elle ne l'est.
-function courbeJour(jour) {
+function courbeJour(jour, desaccord) {
   if (!jour || !(jour.points || []).length) return "";
 
   const parHeure = PAS_PAR_HEURE[jour.pas] || 1;
   const finesse = jour.pas === "quart" ? "au quart d’heure" : "par heure";
+
+  // Pendant de la ligne d'origine de la bande : celle-ci dit qu'on observe,
+  // celle-la qu'on calcule, et a quelle distance. Sans les deux, la phrase de
+  // desaccord ci-dessous n'aurait aucun appui — elle designerait un gagnant
+  // sans avoir dit pourquoi.
+  const origine = `<p class="pluie-origine"><b>Prévu par un modèle</b>, plusieurs heures à l’avance.</p>`;
+
+  // La phrase ne paraît QUE les jours ou les deux graphes se contredisent
+  // vraiment (le serveur en juge, domaine.go/desaccordRadarModele) : affichee
+  // en permanence, elle deviendrait un avertissement de fond que plus
+  // personne ne lit, exactement au moment ou il compte.
+  const phraseDesaccord = desaccord
+    ? `<p class="pluie-desaccord">Le radar voit une averse que ce modèle n’a pas prévue. Pour l’heure qui vient, fiez-vous au graphe du dessus.</p>`
+    : "";
 
   // Le titre de l'etat sec nomme le jour exactement comme le titre pluvieux
   // (meme fonction, meme these) : sans quoi les deux titres de meme rang ne
@@ -490,8 +523,10 @@ function courbeJour(jour) {
       <div class="pluie-jour">
         <div class="pluie-jour-titre">
           <p class="pluie-vide">aucune pluie prévue ${esc(libelleJourGroupePluie(decalageJour))}</p>
+          ${origine}
         </div>
         <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
+        ${phraseDesaccord}
       </div>`;
   }
 
@@ -560,6 +595,7 @@ function courbeJour(jour) {
       <div class="pluie-jour-titre">
         <p class="pluie-cumul"><strong>${jour.total_mm.toString().replace(".", ",")} mm</strong> <span class="pluie-jour-libelle">${esc(libelleJourGroupePluie(decalageJour))}</span></p>
         <p class="pluie-finesse">${finesse}</p>
+        ${origine}
       </div>
       <div class="pluie-graphe-zona pluie-graphe-zona--jour">
         ${ligneMaintenant}
@@ -575,6 +611,7 @@ function courbeJour(jour) {
         <div class="pluie-axe"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
       </div>
       <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
+      ${phraseDesaccord}
     </div>`;
 }
 
