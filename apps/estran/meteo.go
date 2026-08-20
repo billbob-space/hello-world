@@ -92,10 +92,24 @@ type ClientMeteo struct {
 	Longitude    float64
 }
 
+// baseMeteoForecast et baseMeteoMarine sont les URL de PRODUCTION des deux
+// fournisseurs Open-Meteo, redirigeables par variable d'environnement — lues
+// une seule fois au demarrage, jamais reevaluees. La redirection sert au bout
+// en bout (apps/estran/e2e/), qui pointe vers un serveur local plutot que le
+// reseau reel : le PRD de la fabrique interdit de tester contre des sources
+// reelles (« ca produit des echecs intermittents qui finissent par etre
+// ignores »). En production, ESTRAN_BASE_METEO_FORECAST et
+// ESTRAN_BASE_METEO_MARINE ne sont jamais posees : le defaut, inchange,
+// s'applique.
+var (
+	baseMeteoForecast = env("ESTRAN_BASE_METEO_FORECAST", "https://api.open-meteo.com/v1/forecast")
+	baseMeteoMarine   = env("ESTRAN_BASE_METEO_MARINE", "https://marine-api.open-meteo.com/v1/marine")
+)
+
 func NouveauClientMeteo(lat, lon float64) *ClientMeteo {
 	return &ClientMeteo{
-		BaseForecast: "https://api.open-meteo.com/v1/forecast",
-		BaseMarine:   "https://marine-api.open-meteo.com/v1/marine",
+		BaseForecast: baseMeteoForecast,
+		BaseMarine:   baseMeteoMarine,
 		HTTP:         &http.Client{Timeout: 10 * time.Second},
 		Latitude:     lat,
 		Longitude:    lon,

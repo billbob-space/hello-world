@@ -18,6 +18,11 @@
      tailles de police trop petites sur le texte secondaire — c'est ce second
      levier qui a le plus compte, corrige partout ci-dessous. */
   --sable-300: #ddd0ae;
+  /* --eau-300 : reservee au texte teal sur le fond plus clair de la ligne
+     active de la tendance (--encre-600) — --eau-400 y tombe a 4,26:1, sous
+     le seuil AA de 4,5:1 (verifie avec @axe-core/playwright, 20 aout 2026,
+     apps/estran/e2e/tests/connu.spec.js). */
+  --eau-300: #6fcabd;
   --eau-400: #4fb3a9;
   --eau-500: #2f8f8c;
   --eau-600: #1f6b6f;
@@ -1193,6 +1198,17 @@ main {
   align-items: center;
   gap: 4px;
   justify-self: start;
+}
+
+/* Sur le fond plus clair de la ligne active (--encre-600), --eau-400 tombe a
+   4,26:1, sous le seuil AA de 4,5:1 (verifie avec @axe-core/playwright, 20
+   aout 2026, apps/estran/e2e/tests/connu.spec.js) — --eau-300 le remplace
+   ici, meme teinte percue, contraste suffisant. Doit rester APRES les regles
+   .jour-ligne .pluie / .jour-maree ci-dessus : a specificite egale (deux
+   classes), c'est l'ordre dans la feuille qui tranche. */
+.jour-ligne--actif .pluie,
+.jour-ligne--actif .jour-maree {
+  color: var(--eau-300);
 }
 
 .jour-ligne .pluie svg {

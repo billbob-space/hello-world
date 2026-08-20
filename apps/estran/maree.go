@@ -72,9 +72,15 @@ type ClientMaree struct {
 	CleAPI  string
 }
 
+// baseMaree est l'URL de production d'api-maree.fr, redirigeable par
+// variable d'environnement pour le bout en bout (apps/estran/e2e/) — voir le
+// commentaire de baseMeteoForecast dans meteo.go, meme raison. En production,
+// ESTRAN_BASE_MAREE n'est jamais posee : le defaut, inchange, s'applique.
+var baseMaree = env("ESTRAN_BASE_MAREE", "https://api-maree.fr")
+
 func NouveauClientMaree(site, cleAPI string) *ClientMaree {
 	return &ClientMaree{
-		BaseURL: "https://api-maree.fr",
+		BaseURL: baseMaree,
 		HTTP:    &http.Client{Timeout: 10 * time.Second},
 		Site:    site,
 		CleAPI:  cleAPI,

@@ -372,3 +372,33 @@ montre et se tranche.
 
 C'est le premier defaut visible par un utilisateur que la nouvelle chaine
 attrape, et il vivait en ligne depuis la mise en service de l'app.
+
+### 17. Deux defauts d'`estran` que seul un ecran PLEIN pouvait montrer
+
+**Symptome** — la premiere version du bout en bout d'estran ne savait tester que
+l'etat degrade : sans reseau, l'app affiche ses messages d'indisponibilite, et
+c'est tout ce qu'il y avait a voir. Le passage d'accessibilite y etait vert. Une
+fois les sources rendues configurables et alimentees par un faux serveur local a
+donnees FIXES, deux violations `serious` sont apparues sur la page pleine :
+contraste de 4,26:1 (pour 4,5 requis) sur la ligne « aujourd'hui » de la
+tendance, et la bande horizontale « Les prochaines heures », defilable a la
+souris, inatteignable au clavier.
+
+**Cause** — une page presque vide ne contient pas les elements qui fautent. Un
+test d'accessibilite ne vaut que ce que vaut l'ecran qu'il regarde, et ca ne se
+lit nulle part dans son resultat : il rend « 0 violation » avec la meme assurance
+dans les deux cas.
+
+**Detecte par** — `CI`
+
+**Action** — `comportement` — rien a durcir dans l'outillage, mais une regle a
+retenir pour les suites a venir : **un bout en bout qui ne sait produire que
+l'etat degrade d'une app ne teste pas cette app**. Le detour par des donnees
+connues coute une heure de plus et rapporte deux defauts que trois autres
+garde-fous avaient laisses passer. Corriges : un jeton `--eau-300` plus clair
+pour ce contexte, et `tabindex="0"` + `role="region"` + libelle sur la bande
+horaire.
+
+Piege note au passage, et qui vaut pour toute app a `go:embed` : modifier
+`style.css` ou `index.html` sans RECONSTRUIRE le binaire laisse le scan relire
+l'ancien contenu embarque. Le correctif parait alors sans effet.

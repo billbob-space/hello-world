@@ -46,9 +46,18 @@ type ClientPluie struct {
 	Longitude float64
 }
 
+// basePluie est l'URL de production d'Open-Meteo pour la courbe de pluie,
+// redirigeable par variable d'environnement pour le bout en bout
+// (apps/estran/e2e/) — voir le commentaire de baseMeteoForecast dans
+// meteo.go, meme raison. Distincte de baseMeteoForecast bien que meme hote
+// par defaut : ClientPluie et ClientMeteo sont deux clients independants, et
+// le bout en bout doit pouvoir les rediriger separement. En production,
+// ESTRAN_BASE_PLUIE n'est jamais posee : le defaut, inchange, s'applique.
+var basePluie = env("ESTRAN_BASE_PLUIE", "https://api.open-meteo.com/v1/forecast")
+
 func NouveauClientPluie(lat, lon float64) *ClientPluie {
 	return &ClientPluie{
-		Base:      "https://api.open-meteo.com/v1/forecast",
+		Base:      basePluie,
 		HTTP:      &http.Client{Timeout: 10 * time.Second},
 		Latitude:  lat,
 		Longitude: lon,
@@ -196,9 +205,16 @@ type ClientNowcast struct {
 // marche (prp/03-graphe-de-pluie.md, section 1).
 const jetonNowcast = "__Wj7dVSTjV9YGu1guveLyDq0g7S7TfTjaHBTPTpO0kj8__"
 
+// baseNowcast est l'URL de production de la prevision immediate de
+// Meteo-France, redirigeable par variable d'environnement pour le bout en
+// bout (apps/estran/e2e/) — voir le commentaire de baseMeteoForecast dans
+// meteo.go, meme raison. En production, ESTRAN_BASE_NOWCAST n'est jamais
+// posee : le defaut, inchange, s'applique.
+var baseNowcast = env("ESTRAN_BASE_NOWCAST", "https://webservice.meteofrance.com/rain")
+
 func NouveauClientNowcast(lat, lon float64) *ClientNowcast {
 	return &ClientNowcast{
-		Base:      "https://webservice.meteofrance.com/rain",
+		Base:      baseNowcast,
 		HTTP:      &http.Client{Timeout: 10 * time.Second},
 		Latitude:  lat,
 		Longitude: lon,
