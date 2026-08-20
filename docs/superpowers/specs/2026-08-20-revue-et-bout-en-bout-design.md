@@ -324,3 +324,136 @@ KO — jamais vert. C'est documenté au `README` de la revue, et c'est délibér
 critique creuse. Rien ne l'empêche mécaniquement, et rien ne le doit : le même
 raisonnement que pour le journal, dont `pret.sh` refuse le gabarit nu mais ne
 juge pas la prose. Le contournement est visible dans le diff de la PR.
+
+---
+
+# Annexe A — L'état des lieux du 2026-08-20 (phase 0)
+
+Mesuré sur les dix apps avant d'écrire une ligne d'implémentation. Les versions
+d'outils sont celles que la spec épingle : `staticcheck` 2025.1.1, `gosec`
+v2.28.0, `govulncheck` v1.7.0, `jscpd` 4.0.5.
+
+## A.1 Couverture et duplication — les valeurs qui sèment le cliquet
+
+La couverture est arrondie **à l'entier inférieur**, la duplication **à l'entier
+supérieur** : dans les deux cas la barre est posée exactement au niveau du jour,
+exprimée en nombre entier. Aucune marge n'est accordée — la desserrer est une
+édition à la main de `app.yml`, donc visible dans le diff d'une pull request.
+
+| App | Couverture Go | Couverture navigateur | Duplication | Plancher Go | Plancher web | Plafond dup. |
+|---|---|---|---|---|---|---|
+| `ardoise` | 37,8 % | — | 0 % | 37 | — | 0 |
+| `cadran` | 64,0 % | — | 0 % | 64 | — | 0 |
+| `compteur` | 32,7 % | — | 0 % | 32 | — | 0 |
+| `estran` | 87,1 % | — | 0,27 % | 87 | — | 1 |
+| `hello-world` | 33,8 % | — | 0 % | 33 | — | 0 |
+| `marcq-handball` | 80,5 % | 86,83 % | 0 % | 80 | 86 | 0 |
+| `pilabelle` | 69,1 % | 55,97 % | 2,91 % | 69 | 55 | 3 |
+| `ramure` | 54,2 % | — | 0,14 % | 54 | — | 1 |
+| `ramure-v2` | 84,3 % ⚠ | à mesurer (vitest) | 0,91 % | à confirmer | à mesurer | 1 |
+| `renaissance-gym` | 80,3 % | 97,79 % | 1,42 % | 80 | 97 | 2 |
+
+⚠ `ramure-v2` : les neuf paquets `internal/` se mesurent (78,8 % à 100 %), le
+paquet principal ne compile pas sans `npm run build` préalable. Sa valeur est
+confirmée en phase 1, une fois `prepare.sh` en place (voir A.5).
+
+**La duplication n'est pas un problème dans cette fabrique** — 0 % à 2,91 %. Le
+risque annoncé au §8 (« `jscpd` bruyant sur du Go ») **ne se réalise pas** : il
+reste bloquant pour les deux langages, comme prévu. Le risque réel était
+l'inverse, et il s'est réalisé — voir A.4.
+
+## A.2 Ce que la sécurité a trouvé — à corriger en phase 3
+
+**Dépendances vulnérables (`govulncheck`) — 5 occurrences, 2 vulnérabilités.**
+
+| Vulnérabilité | Où | Correctif |
+|---|---|---|
+| `GO-2026-5970` — `golang.org/x/text@v0.32.0` | `ardoise`, `compteur`, `ramure-v2` | monter en `v0.39.0` |
+| `GO-2026-5004` — `github.com/jackc/pgx/v5@v5.7.6` | `ardoise`, `compteur` | monter en `v5.9.2` |
+
+Deux montées de version règlent les cinq. Les sept autres apps sont indemnes.
+
+**Analyse statique de sécurité (`gosec`) — 4 constats à instruire d'abord.**
+
+| Gravité | App | Règle | Où |
+|---|---|---|---|
+| HIGH/HIGH | `pilabelle` | `G703` traversée de chemin | `stockage.go:70`, `stockage.go:104` |
+| HIGH/HIGH | `ramure` | `G704` SSRF | `deezer.go:85`, `deezer.go:91` |
+| MEDIUM/HIGH | `ramure-v2` | `G705` XSS | `internal/api/diagnostic.go:28` |
+| MEDIUM/HIGH | `marcq-handball`, `ramure-v2`, `renaissance-gym` | `G304` inclusion de fichier par variable | `classement.go:247`, `internal/collection/file.go:60`, `fiche.go:351` |
+
+Les quatre premières lignes sont à instruire **avant** de conclure : une analyse
+par teinte suit une valeur depuis son entrée, elle ne sait pas si un
+assainissement en chemin la neutralise. Chacune est soit corrigée, soit écartée
+avec sa raison écrite — jamais laissée sans verdict.
+
+**Durcissement sans urgence.** `G112` (`ReadHeaderTimeout` absent, donc Slowloris
+possible) sur `ardoise`, `compteur`, `pilabelle` ; `G114` sur l'outil de
+prévisualisation de `hello-world` ; `G203` (`text/template` au lieu de
+`html/template`) sur `cadran` ; `G404` et `G115` sur `ramure` et `ramure-v2` —
+tirage aléatoire faible et conversion d'entiers dans un calcul de géométrie, sans
+portée de sécurité, à écarter avec leur raison.
+
+## A.3 Qualité — `staticcheck` sur les dix apps
+
+Six apps sur dix sont vierges. Quatre constats :
+
+| App | Constat |
+|---|---|
+| `marcq-handball` | `main.go:34` — directive `go:embed` désamorcée par une espace (SA9009) |
+| `marcq-handball` | `domaine.go:264` — `seanceDe` jamais appelée (U1000) |
+| `marcq-handball` | `classement_test.go:677-678` — caractères Unicode de formatage en littéral (ST1018) |
+| `pilabelle` | `domaine.go:302` — `minutageDe` jamais appelée (U1000) |
+
+Le premier mérite d'être nommé : la vraie directive existe trois lignes plus bas
+et l'app fonctionne. Le jour où la prose survit sans elle, l'image part avec un
+`embed.FS` vide et sert des 404 — sans qu'aucune construction n'ait échoué.
+C'est très exactement ce que `go vet` seul laisse passer.
+
+## A.4 Le mode d'échec rencontré pendant la mesure elle-même
+
+**`jscpd` a annoncé « 0 % de duplication » sur du code qu'il n'avait jamais lu.**
+Les noms de format de `@jscpd/tokenizer` sont `go` et `markup` ; la première
+mesure passait `golang` et `html`. Un format inconnu est **écarté en silence** —
+pas d'avertissement, code de retour 0, rapport JSON bien formé, périmètre vide.
+`ramure` déclarait 132 lignes analysées pour ~150 Ko de Go.
+
+C'est le mode d'échec que le dépôt a déjà nommé sur l'inspection des labels
+Traefik : « un contrôle de sécurité qui échoue en ouvert est pire que pas de
+contrôle : il rassure ». **Conséquence sur la conception** : `revue.sh` ne se
+contente jamais du code de retour d'un outil. Pour chaque axe, il compare le
+**périmètre effectivement analysé** au périmètre attendu — nombre de fichiers
+pour `jscpd`, paquets compilés pour `staticcheck` et `gosec` — et met KO quand
+l'écart n'est pas explicable. **Un axe qui ne lit rien doit crier, pas rendre 0.**
+
+## A.5 Trois corrections apportées à la conception
+
+**1. Le bloc `revue:` devient des clés plates `revue_*`.** Le socle
+(`lib/socle.sh`) ne lit que des scalaires en colonne 0, plus des listes et des
+listes de mappings ; un mapping imbriqué simple n'est pas dans le sous-ensemble
+admis, et l'y ajouter serait « une source de bogues muets » — les termes du
+socle lui-même. La forme retenue se lit avec `yget` sans une ligne de parseur
+neuve, et suit celle des scalaires déjà présents (`port`, `memory`, `exposure`) :
+
+```yaml
+revue_couverture: 37        # % de lignes Go, plancher — ne peut que monter
+revue_couverture_web: 86    # % de lignes navigateur, si l'app en a
+revue_duplication: 1        # % de lignes dupliquées, plafond — ne peut que descendre
+```
+
+**2. Un contrat `apps/<nom>/prepare.sh`, facultatif.** La spec supposait qu'une
+app se mesure à froid. C'est faux dès que le binaire embarque un artefact
+construit : `ramure-v2` ne compile pas sans `npm run build` préalable, comme son
+`test.sh` le documente déjà. `test.sh` et `revue.sh` appellent tous deux
+`prepare.sh` quand il existe — donc la préparation s'écrit **une** fois. C'est la
+règle du socle appliquée un cran au-dessus : une chose devient partagée quand un
+**deuxième** métier en a besoin, jamais avant. Ici le deuxième arrive.
+
+**3. `npm audit` ne tourne que s'il y a un `package-lock.json`.**
+`marcq-handball`, `pilabelle` et `renaissance-gym` portent un `package.json` sans
+verrou, et leurs propres descriptions l'expliquent : « aucune dépendance, aucun
+script, aucun node_modules » — le fichier ne sert qu'à déclarer `"type":
+"module"`. `npm audit` y sort en erreur `ENOLOCK`, ce qui, lu naïvement, est un
+KO de sécurité sur trois apps saines. `revue.sh` saute l'axe **et le dit** :
+« rien à auditer » et « audit non fait » sont deux phrases différentes, que le
+silence confondrait.
