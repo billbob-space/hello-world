@@ -113,6 +113,18 @@ function esc(s) {
   }[c]));
 }
 
+// mmTexte ecrit une lame d'eau, au dixieme de millimetre. Trois cas et non
+// deux : « 0 mm » est reserve a une heure VRAIMENT seche, et une bruine que le
+// dixieme arrondirait a zero s'ecrit « < 0,1 mm » — le serveur envoie le
+// centieme precisement pour que cette distinction reste possible ici. Une
+// vignette qui annoncerait « 0 mm » sur une heure ou il tombe quelque chose
+// serait le defaut que ce changement corrige, en plus petit.
+function mmTexte(mm) {
+  if (mm === 0) return "0 mm";
+  if (mm < 0.05) return "< 0,1 mm";
+  return `${mm.toFixed(1).replace(".", ",")} mm`;
+}
+
 function icone(cle, classe) {
   const contenu = ICONES[cle] || ICONES.nuage;
   return `<svg class="${classe || "icone"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">${contenu}</svg>`;
@@ -179,15 +191,35 @@ function rendrePrevisions(donnees) {
     joursMeteoActuels = donnees.jours || [];
     actualiserTendance();
   } else {
+    const reserverAverse = (donnees.heures || []).some((h) => h.averse_possible);
     rangee.innerHTML = (donnees.heures || [])
       .map((h) => {
-        // pluie_pct/vent_kmh/vagues_m sont chacun independamment absents
-        // (Open-Meteo rend `null` au bord de sa fenetre) : chaque ligne est
-        // alors laissee de cote plutot que d'afficher un zero invente
+        // pluie_mm/vent_kmh/vagues_m sont chacun independamment absents
+        // (Open-Meteo rend `null` au bord de sa fenetre, et la serie de pluie
+        // a son propre mode de panne) : chaque ligne est alors laissee de
+        // cote plutot que d'afficher un zero invente
         // (prp/02-horizon-confiance-vent.md, section Degradation).
+        //
+        // La vignette porte une LAME D'EAU en millimetres depuis le 20 aout
+        // 2026, la meme grandeur et la meme serie que la courbe de la section
+        // pluie. Le risque d'averse, lui, n'est plus un pourcentage a cote
+        // d'elle mais une pastille : c'est le serveur qui decide du seuil
+        // (averse_possible), cette page ne fait que la poser.
         const pluie =
-          h.pluie_pct != null
-            ? `<span class="detail pluie">${icone("goutte")}${h.pluie_pct}%</span>`
+          h.pluie_mm != null
+            ? `<span class="detail quantite${h.pluie_mm === 0 ? " sec" : ""}">${icone("goutte")}${mmTexte(h.pluie_mm)}</span>`
+            : "";
+        // La pastille garde sa place meme eteinte, sans quoi le vent et les
+        // vagues ne s'alignent plus d'une vignette a l'autre. Une pastille
+        // VRAIE rendue invisible plutot qu'un vide de hauteur fixe : elle
+        // s'ecrit sur une ou deux lignes selon la largeur de la carte, et un
+        // vide fige se serait desaligne a l'une des deux. `visibility` la
+        // retire aussi de l'arbre d'accessibilite.
+        // Rien n'est reserve quand aucune heure de la bande n'a d'averse : le
+        // creux vaudrait alors pour toutes les vignettes d'une semaine seche.
+        const averse =
+          h.averse_possible || reserverAverse
+            ? `<span class="puce-averse${h.averse_possible ? "" : " puce-averse--eteinte"}"${h.averse_possible ? "" : ' aria-hidden="true"'}><span class="point"></span>averse possible</span>`
             : "";
         const vent =
           h.vent_kmh != null
@@ -204,6 +236,7 @@ function rendrePrevisions(donnees) {
           <span class="temperature">${Math.round(h.temperature_c)}°</span>
           <div class="stats">
             ${pluie}
+            ${averse}
             ${vent}
             ${vagues}
           </div>
@@ -341,7 +374,7 @@ function rendrePluie(donnees) {
     return;
   }
 
-  carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour)]
+  carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour, donnees.desaccord)]
     .filter(Boolean)
     .join("");
 }
@@ -401,6 +434,14 @@ function grapheHeure(heure) {
   const maj = heure.mise_a_jour ? ` · relevé de ${esc(heure.mise_a_jour)}` : "";
   const lieu = heure.lieu ? esc(heure.lieu) : "";
 
+  // Dire de quelle NATURE est ce graphe, pas seulement d'ou il vient : la
+  // ligne de source en dessous nomme deja Meteo-France, ce qui ne dit pas a
+  // quelqu'un qui n'est pas meteorologue qu'il regarde une image radar et non
+  // un calcul. C'est cette distinction, et elle seule, qui permet de trancher
+  // quand ce graphe et la courbe du jour se contredisent
+  // (PRODUCT.md, 20 aout 2026).
+  const origine = `<p class="pluie-origine"><b>Vu au radar</b>${ageReleve(heure.mise_a_jour_minutes)}.</p>`;
+
   // Trois reperes de temps sous le graphe (debut, milieu, fin des 60 minutes
   // couvertes par les 9 pas), a leur position REELLE : "dans combien de
   // temps" se lit sans compter les barres. La position est posee par le CSS
@@ -409,6 +450,7 @@ function grapheHeure(heure) {
   return `
     <div class="pluie-heure">
       <p class="pluie-resume">${resume}</p>
+      ${origine}
       <div class="pluie-graphe-zona pluie-graphe-zona--heure">
         <div class="pluie-graphe">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${esc(ariaLabel)}">
@@ -427,6 +469,16 @@ function grapheHeure(heure) {
     </div>`;
 }
 
+// ageReleve met en mots l'age du releve radar (rendu en minutes par le
+// serveur : « 13:30 » seul ne porte pas de date). Sous deux minutes, « a
+// l'instant » plutot que « il y a 0 minute » ; au-dela d'une heure la bande
+// serait de toute facon perimee, et la formule reste juste sans cas special.
+function ageReleve(minutes) {
+  if (minutes == null) return "";
+  if (minutes < 2) return ", à l’instant";
+  return `, il y a ${minutes} minutes`;
+}
+
 // libelleJourGroupePluie donne le libelle qui suit le cumul (ou l'etat sec)
 // dans le titre du groupe 2 : "aujourd'hui" pour le jour courant, sinon le
 // meme libelle lisible que la navigation affiche deja
@@ -442,11 +494,25 @@ function libelleJourGroupePluie(decalage) {
 // ("quart" ou "heure") vient du serveur et s'affiche : une courbe qui change
 // de finesse sans le dire laisserait croire a une pluie plus reguliere
 // qu'elle ne l'est.
-function courbeJour(jour) {
+function courbeJour(jour, desaccord) {
   if (!jour || !(jour.points || []).length) return "";
 
   const parHeure = PAS_PAR_HEURE[jour.pas] || 1;
   const finesse = jour.pas === "quart" ? "au quart d’heure" : "par heure";
+
+  // Pendant de la ligne d'origine de la bande : celle-ci dit qu'on observe,
+  // celle-la qu'on calcule, et a quelle distance. Sans les deux, la phrase de
+  // desaccord ci-dessous n'aurait aucun appui — elle designerait un gagnant
+  // sans avoir dit pourquoi.
+  const origine = `<p class="pluie-origine"><b>Prévu par un modèle</b>, plusieurs heures à l’avance.</p>`;
+
+  // La phrase ne paraît QUE les jours ou les deux graphes se contredisent
+  // vraiment (le serveur en juge, domaine.go/desaccordRadarModele) : affichee
+  // en permanence, elle deviendrait un avertissement de fond que plus
+  // personne ne lit, exactement au moment ou il compte.
+  const phraseDesaccord = desaccord
+    ? `<p class="pluie-desaccord">Le radar voit une averse que ce modèle n’a pas prévue. Pour l’heure qui vient, fiez-vous au graphe du dessus.</p>`
+    : "";
 
   // Le titre de l'etat sec nomme le jour exactement comme le titre pluvieux
   // (meme fonction, meme these) : sans quoi les deux titres de meme rang ne
@@ -457,8 +523,10 @@ function courbeJour(jour) {
       <div class="pluie-jour">
         <div class="pluie-jour-titre">
           <p class="pluie-vide">aucune pluie prévue ${esc(libelleJourGroupePluie(decalageJour))}</p>
+          ${origine}
         </div>
         <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
+        ${phraseDesaccord}
       </div>`;
   }
 
@@ -527,6 +595,7 @@ function courbeJour(jour) {
       <div class="pluie-jour-titre">
         <p class="pluie-cumul"><strong>${jour.total_mm.toString().replace(".", ",")} mm</strong> <span class="pluie-jour-libelle">${esc(libelleJourGroupePluie(decalageJour))}</span></p>
         <p class="pluie-finesse">${finesse}</p>
+        ${origine}
       </div>
       <div class="pluie-graphe-zona pluie-graphe-zona--jour">
         ${ligneMaintenant}
@@ -542,6 +611,7 @@ function courbeJour(jour) {
         <div class="pluie-axe"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
       </div>
       <p class="pluie-source">journée entière, ${finesse} — Open-Meteo</p>
+      ${phraseDesaccord}
     </div>`;
 }
 
@@ -640,7 +710,7 @@ function actualiserTendance() {
         <div class="jour-principale">
           <span class="jour-nom">${esc(j.jour_semaine)}</span>
           ${icone(j.symbole, "icone")}
-          <span class="pluie">${j.pluie_pct_max != null ? `${icone("goutte")}${j.pluie_pct_max}%` : ""}</span>
+          <span class="pluie">${j.pluie_pct_max != null ? `${icone("goutte")}<span class="risque-mot">risque</span> ${j.pluie_pct_max}&nbsp;%` : ""}</span>
           <span class="temps"><span class="max">${Math.round(j.temp_max_c)}°</span> <span class="min">${Math.round(j.temp_min_c)}°</span></span>
         </div>
         ${ligneMaree}

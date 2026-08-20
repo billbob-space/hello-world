@@ -289,3 +289,84 @@ court avant le long, et la tendance à seize jours n'y gagne aucun détail. Le
 principe 3 non plus n'est pas entamé : la bande de l'heure vient d'une source
 sans garantie, et sa panne fait simplement disparaître la bande, jamais la
 courbe. Conception détaillée : `prp/03-graphe-de-pluie.md`.
+
+### Les vignettes horaires disent des millimètres, pas un pourcentage — 20 août 2026
+
+**Ce qui existe maintenant** : la ligne de pluie d'une vignette horaire porte la
+**lame d'eau attendue pendant cette heure**, en millimètres, tirée de la même
+série que la courbe de la section pluie. Additionner les vignettes d'un jour
+redonne le cumul affiché sous la courbe. Une heure vraiment sèche affiche
+« 0 mm », une bruine que le dixième arrondirait à zéro affiche « < 0,1 mm », et
+une heure que la source ne couvre pas n'affiche pas de ligne du tout. Le risque
+d'averse ne s'affiche plus en pourcentage sur la vignette : au-delà de 60 %, une
+pastille « averse possible » s'allume. Dans la tendance à seize jours, où aucun
+modèle à maille fine ne porte aussi loin, le pourcentage reste — mais il est
+désormais précédé du mot « risque ».
+
+**Ce qui l'a demandé** : l'usage, le 20 août 2026. « Il n'y a pas de pluie dans
+les quantités mais sur les prochaines heures oui. Qui a raison ? » Contrôle fait
+sur les trois sources : la courbe annonçait 0 mm pour tout l'après-midi, la
+prévision immédiate de Météo-France « temps sec », et les vignettes 98 %, 100 %,
+98 % sur les mêmes heures. Aucune ne se trompait.
+
+**Ce que le PRD affirmait avant** : il listait « probabilité de pluie » parmi les
+grandeurs horaires, et la section pluie du 19 août lui a ajouté une lame d'eau
+sans retirer la probabilité de la vignette. Les deux grandeurs se sont retrouvées
+côte à côte sur le même écran, toutes deux rendues par une goutte, et rien ne
+disait laquelle était quoi. Un pourcentage de probabilité d'ensemble monte à
+100 % un jour d'averses éparses sans qu'une goutte soit prévue au point regardé :
+le chiffre était juste, sa lecture impossible.
+
+**Ce qui a été écarté**, montré en maquettes et tranché par l'utilisateur : garder
+le pourcentage en lui ajoutant le mot « risque » — le plus petit changement, mais
+les deux sections auraient continué de parler deux langues, l'une en millimètres
+et l'autre en pourcentages ; et afficher les deux l'un sous l'autre, la quantité
+en grand et le risque en petit — rien n'était perdu, mais la vignette montait à
+quatre lignes de chiffres.
+
+**Ce que cela ne change pas** : les deux sections gardent des routes, des caches
+et des modes de panne séparés — la série de pluie est demandée en parallèle de la
+météo et bornée plus court qu'elle, si bien qu'une source lente ou tombée retire
+la ligne de pluie des vignettes sans jamais retarder ni vider l'écran. Le
+principe 3 tient donc, et le principe « aucune valeur inventée » aussi : une heure
+sans donnée n'affiche pas « 0 mm ».
+
+### Le radar et le modèle ne disent pas la même chose, et l'écran le dit — 20 août 2026
+
+**Ce qui existe maintenant** : les deux graphes de la section Pluie annoncent
+leur nature sous leur titre — « **Vu au radar**, il y a dix minutes » pour la
+bande de l'heure qui vient, « **Prévu par un modèle**, plusieurs heures à
+l'avance » pour la courbe du jour. Et les jours où le radar annonce une averse
+sur un créneau où la courbe ne dessine aucune barre, une phrase tranche sous
+celle-ci : « le radar voit une averse que ce modèle n'a pas prévue ; pour
+l'heure qui vient, fiez-vous au graphe du dessus ». Elle ne paraît que ces
+jours-là, y compris — surtout — quand la courbe annonce « aucune pluie prévue
+aujourd'hui ».
+
+**Ce qui l'a demandé** : l'usage, le 20 août 2026 à 13 h 39. La bande annonçait
+une averse à 13 h 50, la courbe du jour ne montrait rien à cette heure-là.
+Contrôle fait : le radar avait raison, et aucun modèle n'avait vu l'averse
+(0 mm entre 13 h et 15 h sur les deux modèles interrogés).
+
+**Ce que le PRD affirmait avant** : la section Pluie était décrite comme deux
+échelles de temps d'une même chose — l'heure qui vient, puis la journée — et le
+document d'implémentation leur avait délibérément donné une **grammaire
+commune** : mêmes cinq bandes, même vocabulaire, l'une sous l'autre. C'était le
+bon choix pour qu'on les compare d'un coup d'œil, et c'est précisément ce qui
+promettait qu'elles s'accordent. Elles ne le peuvent pas : l'une observe ce qui
+arrive, l'autre restitue un calcul lancé des heures plus tôt, qui ne sait pas
+placer une averse de dix minutes au bon quart d'heure.
+
+**Ce qui a été écarté**, montré en maquettes et tranché par l'utilisateur : que
+la courbe du jour laisse de côté les soixante prochaines minutes et renvoie au
+graphe du dessus — deux graphes ne pourraient alors plus se contredire, mais la
+courbe porterait un trou tous les jours, y compris quand les deux sources sont
+d'accord ; et que le radar prenne la main sur cette heure-là, remplaçant les
+barres du modèle par les siennes — l'averse apparaîtrait là où on la cherche,
+mais une heure de la courbe cesserait de se compter en millimètres.
+
+**Ce que cela ne change pas** : aucun graphe n'est retouché, aucune donnée n'est
+inventée ni recopiée d'une source à l'autre. Le radar ne rend pas de
+millimètres et n'en rendra pas ; la courbe garde son cumul, calculé par le seul
+modèle. Les deux sections gardent leurs pannes séparées : sans bande de l'heure,
+il n'y a rien à trancher et la phrase se tait d'elle-même.
