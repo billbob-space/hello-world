@@ -13,7 +13,14 @@
 // navigateur differente de celle en cache et refuser de demarrer.
 const { defineConfig, devices } = require("@playwright/test");
 
-const chromium = process.env.PLAYWRIGHT_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+// Le Chromium preinstalle de l'environnement de developpement, QUAND il existe.
+// En integration continue il n'existe pas : le runner installe le sien par
+// « npx playwright install chromium », et un executablePath pointant sur un
+// chemin absent fait echouer la suite AVANT le premier test — sur une machine
+// ou tout est pourtant en place. Constate en CI sur estran, pilabelle et ramure.
+const fs = require("fs");
+const chemin = process.env.PLAYWRIGHT_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const lancement = fs.existsSync(chemin) ? { executablePath: chemin } : {};
 
 module.exports = defineConfig({
   testDir: "./tests",
@@ -32,6 +39,6 @@ module.exports = defineConfig({
     extraHTTPHeaders: { "X-Forwarded-User": "e2e-defaut@pilabelle.invalid" },
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"], launchOptions: { executablePath: chromium } } },
+    { name: "chromium", use: { ...devices["Desktop Chrome"], launchOptions: lancement } },
   ],
 });

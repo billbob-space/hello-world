@@ -1339,12 +1339,20 @@ main {
    et il reste un pourcentage ici, faute de modele a maille fine a seize
    jours. Le mot le dit, en retrait pour ne pas peser autant que le chiffre :
    sans lui, la meme goutte suivie d'un « % » se relirait comme une quantite,
-   maintenant que la vignette juste au-dessus en affiche vraiment une. */
+   maintenant que la vignette juste au-dessus en affiche vraiment une.
+   PAS d'opacity ici pour creer ce retrait : herite de .jour-ligne .pluie, qui
+   vaut deja --eau-400 au repos et --eau-300 sur --actif/:hover (regle
+   .jour-ligne--actif .pluie... plus bas) — ces deux couleurs passent seules
+   4,5:1 sur les trois fonds de ligne (encre-700, encre-800, encre-600 :
+   5,46 / 6,55 / 5,54, verifie avec @axe-core/playwright, 20 aout 2026). Une
+   opacity de 0.75 les MELANGE au fond et fait retomber le rapport a 4,32 (fond
+   encre-800) et 3,86 (fond encre-600, survol) — c'est cette opacity, pas la
+   couleur, qui faisait echouer connu.spec.js. Le retrait vient donc seulement
+   de la taille, du poids et de l'espacement des lettres ci-dessous. */
 .jour-ligne .pluie .risque-mot {
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  opacity: 0.75;
 }
 
 .jour-ligne .temps {
