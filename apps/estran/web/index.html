@@ -44,7 +44,18 @@
 
     <section class="previsions-section" aria-labelledby="titre-previsions">
       <h2 id="titre-previsions" class="titre-section">Les prochaines heures</h2>
-      <div class="heures-rangee" id="heures-rangee" tabindex="0" role="region" aria-label="Les prochaines heures, défiler avec les flèches du clavier">
+      <!-- La bande defile horizontalement : tabindex="0" la rend atteignable
+           au clavier (sans quoi son contenu deborde sans moyen de l'atteindre).
+           Le NOM vient de aria-labelledby, jamais d'un aria-label fige : le
+           titre change avec le jour regarde ("vendredi 21 aout"), et un
+           aria-label en dur annoncait "Les prochaines heures" en contradiction
+           avec le titre visible juste au-dessus. Le mode d'emploi part dans
+           aria-describedby : un nom accessible nomme, il ne donne pas de
+           consigne. Et role="group" plutot que role="region" : la <section>
+           parente est deja une region du meme nom, deux reperes imbriques
+           homonymes n'aident personne. -->
+      <p id="previsions-aide" class="pour-lecteur">Bande défilante : les flèches gauche et droite font défiler les heures tant que le curseur est ici.</p>
+      <div class="heures-rangee" id="heures-rangee" tabindex="0" role="group" aria-labelledby="titre-previsions" aria-describedby="previsions-aide">
         <p class="etat-attente">chargement…</p>
       </div>
     </section>

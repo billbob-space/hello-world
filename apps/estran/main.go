@@ -164,7 +164,13 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("previsions indisponibles : %v", err)
-		repondreJSON(w, http.StatusOK, map[string]string{"erreur": "previsions indisponibles pour le moment"})
+		// Message LU PAR L'UTILISATEUR, pas une trace : accents compris (il
+		// s'affichait « previsions » sans accent, seul de tous les messages
+		// visibles de l'app), et il dit ce qui se passe ensuite. Une section
+		// muette pendant qu'une autre fonctionne est un etat ordinaire ici
+		// (README, « Degradation ») : sans cette derniere phrase, l'utilisateur
+		// conclut que l'application est cassee et recharge pour rien.
+		repondreJSON(w, http.StatusOK, map[string]string{"erreur": "Prévisions indisponibles : Open-Meteo ne répond pas. Le reste de la page est à jour ; estran réessaie tout seul toutes les 5 minutes."})
 		return
 	}
 
@@ -195,7 +201,10 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("maree indisponible : %v", err)
-		repondreJSON(w, http.StatusOK, ReponseMaree{Configure: true, Erreur: "marée indisponible pour le moment"})
+		// Le titre de la carte dit deja « Marée indisponible » (web/app.js) :
+		// ce texte-ci ne le repete pas, il dit QUI ne repond pas et ce qui se
+		// passe ensuite.
+		repondreJSON(w, http.StatusOK, ReponseMaree{Configure: true, Erreur: "api-maree.fr ne répond pas. Le reste de la page est à jour ; estran réessaie tout seul toutes les 5 minutes."})
 		return
 	}
 

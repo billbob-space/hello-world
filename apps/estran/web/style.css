@@ -126,6 +126,25 @@ a {
   border-radius: 4px;
 }
 
+/* Lu par un lecteur d'ecran, invisible a l'oeil. Sert a deux endroits ou le
+   sens est porte par la MISE EN FORME et se perd a l'oreille : le verbe des
+   lignes de la tendance (une ligne de chiffres est un bouton, mais son nom
+   accessible ne dit pas ce qu'il fait) et le mode d'emploi de la bande
+   horaire (qui n'a pas sa place dans un aria-label, un nom n'est pas une
+   consigne). `clip-path` plutot que `display:none` : masque ne serait pas
+   annonce du tout. */
+.pour-lecteur {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* La page s'ecoule normalement de haut en bas (entete, main, pied en flux de
    bloc ordinaire) : pas de centrage vertical, pour que le contenu ne saute
    pas visuellement entre l'etat "chargement…" et l'etat charge, qui n'ont
@@ -180,9 +199,13 @@ main {
    qui n'apparait que quand on s'en est eloigne (prp/01-navigation-
    temporelle.md). */
 
+/* La marge basse n'est pas decorative : sans elle le bas de .nav-jour tombe
+   exactement sur le haut de la premiere .titre-section (mesure : bas 217,
+   haut 217, 0 px d'ecart a 390 comme a 1440), et « revenir a aujourd'hui »
+   vient se coller sous « MAREE ». */
 .nav-jour {
   max-width: var(--largeur-contenu);
-  margin: var(--espace-4) auto 0;
+  margin: var(--espace-4) auto var(--espace-3);
   padding: 0 var(--espace-4);
   display: flex;
   align-items: center;
@@ -224,14 +247,21 @@ main {
   min-width: 9rem;
 }
 
+/* PAS de text-transform: capitalize ici. Le libelle est une date entiere
+   ("vendredi 21 aout"), et `capitalize` met une majuscule a CHAQUE mot :
+   « Vendredi 21 Août ». En francais les noms de mois s'ecrivent en
+   minuscules. La majuscule initiale est posee par app.js/capitaliser(), sur
+   la premiere lettre seulement. */
 .nav-jour-libelle {
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--sable-100);
   text-align: center;
-  text-transform: capitalize;
 }
 
+/* min-height 24px : cible tactile de SC 2.5.8 (WCAG 2.2 AA). Mesuree a 17 px
+   de haut avant correction, alors que c'est le seul retour direct a
+   aujourd'hui — les fleches n'y ramenent qu'en sept pressions. */
 .nav-aujourdhui {
   appearance: none;
   border: none;
@@ -240,7 +270,9 @@ main {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0;
+  padding: var(--espace-1) var(--espace-2);
+  min-height: 24px;
+  border-radius: var(--rayon-petit);
   text-decoration: underline;
 }
 
@@ -451,13 +483,15 @@ main {
    sens et est remplacee par la liste des pleines/basses mers de ce jour
    (prp/01-navigation-temporelle.md). Le teal reste celui des hauteurs
    d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici. */
+/* Meme raison qu'a .nav-jour-libelle : `capitalize` sur une date entiere
+   produit « Vendredi 21 Août », et le mois prend en francais une minuscule.
+   La majuscule initiale vient de app.js/capitaliser(). */
 .jauge-jour-titre {
   margin: 0 0 var(--espace-3);
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--sable-100);
   text-align: center;
-  text-transform: capitalize;
 }
 
 .jour-extrema-liste {
@@ -1205,9 +1239,19 @@ main {
    aout 2026, apps/estran/e2e/tests/connu.spec.js) — --eau-300 le remplace
    ici, meme teinte percue, contraste suffisant. Doit rester APRES les regles
    .jour-ligne .pluie / .jour-maree ci-dessus : a specificite egale (deux
-   classes), c'est l'ordre dans la feuille qui tranche. */
+   classes), c'est l'ordre dans la feuille qui tranche.
+
+   :hover EST DANS LA MEME REGLE, et ce n'est pas une precaution : .jour-ligne
+   :hover pose exactement le meme fond --encre-600 (voir plus haut). Le
+   correctif d'origine ne couvrait que --actif, donc les quinze autres lignes
+   retombaient a 4,26:1 des qu'on pointait dessus — mesure le 20 aout 2026,
+   ligne « vendredi » survolee : .pluie et .jour-maree a 4,26:1. axe ne
+   survole rien et ne pouvait pas le voir. La regle porte donc sur le FOND,
+   pas sur l'etat qui l'a amene. */
 .jour-ligne--actif .pluie,
-.jour-ligne--actif .jour-maree {
+.jour-ligne--actif .jour-maree,
+.jour-ligne:hover .pluie,
+.jour-ligne:hover .jour-maree {
   color: var(--eau-300);
 }
 

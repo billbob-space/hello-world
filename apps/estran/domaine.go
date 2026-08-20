@@ -463,7 +463,7 @@ func vuePluie(s SeriePluie, n *Nowcast, maintenant time.Time, frais bool, dateCi
 	}
 
 	if v.Jour == nil && v.Heure == nil {
-		v.Erreur = "pluie indisponible pour le moment"
+		v.Erreur = "Pluie indisponible : aucune des deux sources de pluie ne répond. Le reste de la page est à jour ; estran réessaie tout seul toutes les 5 minutes."
 	}
 	return v
 }

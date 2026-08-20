@@ -557,3 +557,54 @@ en citant la regle de `memory/revue.md` que le code enfreignait — « jamais de
 `|| true` qui couvre un pipeline entier ». La regle etait ecrite, et son auteur
 l'avait quand meme violee vingt lignes plus loin. C'est tout l'interet d'un
 relecteur qui n'est pas celui qui a ecrit.
+
+### 24. Le correctif d'accessibilite d'`estran` avait cree un piege pire que le defaut
+
+**Symptome** — la critique UX, lancee juste apres, a relu les deux correctifs du
+matin. Les deux etaient justes et incomplets, et le second etait nuisible : la
+bande « Les prochaines heures » avait recu `tabindex="0"`, `role="region"` et un
+libelle annoncant qu'on la fait defiler aux fleches. **Les fleches faisaient
+sauter au lendemain.** Deux pressions et l'utilisateur etait samedi sans l'avoir
+demande ; le clavier n'atteignait jamais la troisieme vignette. Le libelle
+promettait donc quelque chose que l'application ne faisait pas.
+
+Second point, du meme ordre : le contraste corrige ne l'etait qu'au repos.
+**Survoler n'importe quelle autre ligne de la tendance ramenait le defaut
+exact** que le correctif visait. Un scan automatique ne survole rien.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — deux lecons, et la seconde vaut pour toute la
+fabrique.
+
+D'abord : **rendre un element focalisable ne le rend pas utilisable.** `axe` a
+vu disparaitre sa violation et n'a rien eu a redire — il verifie qu'un element
+est ATTEIGNABLE, jamais que ce qu'on y fait correspond a ce qu'on a annonce. Le
+correctif satisfaisait le controle en degradant le produit.
+
+Ensuite : **un controle automatique mesure un ETAT, pas un parcours.** Contraste
+au repos, oui ; au survol, au focus, en cours d'animation, non. C'est
+precisement la frontiere entre les deux relecteurs, et elle vient d'etre
+demontree plutot que postulee : le bout en bout mesure ce qui se mesure,
+l'esthete regarde ce qui se vit. Aucun des deux ne remplace l'autre.
+
+### 25. Le cliquet a bloque une correction d'accessibilite de bonne foi
+
+**Symptome** — l'esthete de `pilabelle` a corrige huit defauts reels, dont un
+ecran de panne reseau qui manquait entierement, et ajoute `vue-erreur.js`. La
+revue l'a refuse : couverture navigateur 53,44 % pour un plancher a 55 %.
+
+**Cause** — du code neuf sans tests. Le cliquet ne fait aucune difference entre
+du code neuf mal intentionne et du code neuf utile : il mesure, et il refuse la
+baisse.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — le seuil n'a PAS ete desserre, et c'est tout l'interet de
+l'avoir rendu difficile a bouger : la tentation etait reelle, le correctif etait
+bon, et le desserrer aurait coute une ligne. L'agent a ete renvoye couvrir son
+code — en lui interdisant explicitement d'ecrire des tests qui n'echouent jamais
+pour faire monter un pourcentage.
+
+C'est la premiere fois que le cliquet mord quelqu'un d'autre que son auteur, et
+il fallait que ce soit sur un cas SYMPATHIQUE pour savoir s'il tiendrait.

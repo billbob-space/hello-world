@@ -45,13 +45,22 @@ function decalageDepuisISO(iso) {
   return Math.round(diffMs / 86400000);
 }
 
+// capitaliser ne touche QUE la premiere lettre. La feuille de style employait
+// `text-transform: capitalize`, qui en met une a chaque mot et donnait
+// « Vendredi 21 Août » : en francais le nom de mois s'ecrit en minuscules.
+function capitaliser(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 function libelleJourNav(decalage) {
   if (decalage === 0) return "Aujourd’hui";
-  return dateLocale(decalage).toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  return capitaliser(
+    dateLocale(decalage).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    })
+  );
 }
 
 function majNavigation() {
@@ -637,6 +646,13 @@ function actualiserTendance() {
       const actif = decalage === decalageJour ? " jour-ligne--actif" : "";
       return `
       <button type="button" class="jour-ligne${actif}" data-decalage="${decalage}" aria-current="${decalage === decalageJour}">
+        <!-- Le nom accessible de ce bouton est, sans cette ligne, la suite
+             brute de ses chiffres : « jeudi 10% 21° 15° 5,5 m 1,0 m coef 45
+             20 km/h rafales 30 km/h SO confiance inconnue ». Rien n'y dit
+             qu'appuyer mene au jour decrit — a l'oeil c'est le curseur qui
+             l'apprend, et au doigt comme a l'oreille, rien. Un controle
+             annonce ce qu'il fait. -->
+        <span class="pour-lecteur">${actif ? "Jour affiché :" : "Voir ce jour :"}</span>
         <div class="jour-principale">
           <span class="jour-nom">${esc(j.jour_semaine)}</span>
           ${icone(j.symbole, "icone")}
@@ -746,7 +762,7 @@ function rendreExtremaJour(carte, m) {
     : `<p class="etat-attente">aucune donnée de marée pour ce jour</p>`;
 
   carte.innerHTML = `
-    <p class="jauge-jour-titre">${esc(m.jour_affiche_libelle || "")}</p>
+    <p class="jauge-jour-titre">${esc(capitaliser(m.jour_affiche_libelle || ""))}</p>
     <div class="jour-extrema-liste">${corps}</div>
     ${m.frais === false ? '<p class="jauge-perimee">dernière donnée connue, fournisseur indisponible</p>' : ""}
   `;
@@ -825,6 +841,18 @@ function initNavigation() {
 
   document.addEventListener("keydown", (e) => {
     if (e.target && ["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+    // La bande horaire est defilable ET focalisable (index.html) : quand le
+    // curseur clavier est DEDANS, les fleches lui appartiennent — c'est ce
+    // que son aria-describedby annonce, et c'est le seul moyen d'en atteindre
+    // les heures au clavier. Sans cette sortie, les deux gestes se
+    // declenchaient ensemble : une pression faisait defiler la bande de 92 px
+    // et changeait de jour, ce qui la reconstruisait aussitot en remettant son
+    // defilement a zero. Le clavier ne depassait donc jamais la 2e vignette,
+    // alors que le libelle promettait le contraire (mesure le 20 aout 2026).
+    // Le navigateur fait le defilement lui-meme : on se contente de ne pas
+    // voler la touche.
+    const bande = document.getElementById("heures-rangee");
+    if (bande && e.target instanceof Node && bande.contains(e.target)) return;
     if (e.key === "ArrowLeft") allerAuJour(decalageJour - 1);
     else if (e.key === "ArrowRight") allerAuJour(decalageJour + 1);
   });
