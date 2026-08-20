@@ -346,3 +346,29 @@ Go, et avec un serveur TypeScript sans rien a analyser.
 verification heuristique (« il y a des .go, donc… ») ferait plus de mal que de
 bien sur une app polyglotte. Ce qui a rattrape l'erreur est un agent qui LISAIT
 la notice pour travailler — c'est le bon detecteur, et il a fonctionne.
+
+### 16. Tous les boutons principaux de `pilabelle` etaient illisibles
+
+**Symptome** — le passage d'accessibilite du bout en bout, a peine ecrit, a
+echoue sur `pilabelle` pour de VRAIS defauts : `button { background:
+var(--rose-300); color: var(--rose-700) }` donne un contraste de **2,31:1**, la
+ou WCAG AA en exige 4,5. C'est le style par DEFAUT de tous les boutons
+principaux de l'app — « Commencer », « Refaire la seance », « Prete ».
+`button.secondaire` et le badge `.defi` : 2,46:1, meme cause. Et l'iframe video
+de `vue-seance.js` n'avait aucun `title` : un lecteur d'ecran l'annonce muette.
+
+**Cause** — rien ne le mesurait. L'app a un PRD, des tests unitaires a 56 % de
+couverture navigateur, des revues de code — et personne ne peut voir un rapport
+de contraste a l'oeil. C'est la definition meme de ce qu'un outil doit garder.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — corrige dans le meme geste, en reutilisant `--encre`, un
+jeton deja present dans la palette et deja employe par `button.secondaire:hover`
+sur ce meme fond : pas une couleur inventee, un choix deja fait ailleurs dans
+l'app. Le partage d'autorite decide avec l'utilisateur s'applique tel quel — le
+contraste est OBJECTIF, il se corrige sans demander ; ce qui releve du gout se
+montre et se tranche.
+
+C'est le premier defaut visible par un utilisateur que la nouvelle chaine
+attrape, et il vivait en ligne depuis la mise en service de l'app.

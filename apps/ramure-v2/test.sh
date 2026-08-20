@@ -32,13 +32,6 @@ go vet ./...
 # -count=1 : jamais de resultat servi par le cache de test.
 go test -race -count=1 ./...
 
-# Le bout en bout demande un navigateur : hors CI par defaut, sur demande
-# (PRP 09, tache 1 -- PRD §13). RAMURE_E2E n'est posee nulle part dans le
-# workflow de la fabrique : cette suite ne tourne donc JAMAIS en CI, elle
-# est jouee a la main avant une mise en ligne. Voir web/tests/REFERENCE.md
-# pour la base de reference et les echecs connus.
-if [ "${RAMURE_E2E:-0}" = 1 ]; then
-  npm run --prefix web test:e2e
-else
-  echo "bout en bout ignore (RAMURE_E2E=1 pour l'activer)"
-fi
+# Le bout en bout (navigateur reel, PRP 09 tache 1 -- PRD §13) vit dans
+# apps/ramure-v2/e2e/lancer.sh, que la CI lance separement (job bout-en-bout) :
+# voir web/tests/REFERENCE.md pour la base de reference et les echecs connus.

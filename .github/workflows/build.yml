@@ -387,8 +387,18 @@ jobs:
           set -euo pipefail
           d="apps/${{ matrix.app }}/e2e"
           [ -x "$d/lancer.sh" ] || { echo "pas de suite — rien a installer"; exit 0; }
-          npm install --prefix "$d" --no-audit --no-fund
-          ( cd "$d" && npx playwright install --with-deps chromium )
+          # Une suite peut gerer ses dependances elle-meme : ramure-v2 rejoue
+          # celle qui vit sous web/. Sans ce garde, « npm install --prefix » sur
+          # un repertoire sans package.json echoue en ENOENT et casse le job
+          # AVANT le premier test — sur une app dont la suite est pourtant
+          # complete. Le navigateur, lui, s'installe dans tous les cas : c'est
+          # un cache partage, et lancer.sh n'a pas a s'en occuper.
+          if [ -f "$d/package.json" ]; then
+            npm install --prefix "$d" --no-audit --no-fund
+            ( cd "$d" && npx playwright install --with-deps chromium )
+          else
+            npx --yes playwright install --with-deps chromium
+          fi
       # Tant que les dix suites n'existent pas, l'absence AVERTIT ; le jour ou la
       # derniere est ecrite, E2E_OBLIGATOIRE passe a 1 dans init.sh et --check
       # met KO — c'est --check qui porte le cran, pas ce job.

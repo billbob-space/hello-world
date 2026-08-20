@@ -37,6 +37,10 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 			const iframe = document.createElement('iframe');
 			iframe.src = video;
 			iframe.setAttribute('allow', 'autoplay');
+			// Nom accessible obligatoire pour un frame (WCAG 4.1.2, detecte par
+			// le bout en bout, e2e/tests/pilabelle.spec.js) : sans lui, un
+			// lecteur d'ecran annonce une iframe muette.
+			iframe.title = `Vidéo de démonstration : ${exercice.nom}`;
 			iframe.className = 'video';
 			carte.appendChild(iframe);
 		}

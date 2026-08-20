@@ -1,0 +1,9 @@
+{
+  "name": "ramure-v2-e2e",
+  "private": true,
+  "description": "Ne porte aucun test : sert uniquement a fixer, pour la CI (.github/workflows/build.yml, job bout-en-bout), la version de @playwright/test qui installe Chromium avant lancer.sh. La suite reelle vit sous web/tests/e2e/, pilotee par web/package.json avec la MEME version epinglee -- meme cache navigateur, ~/.cache/ms-playwright.",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "1.56.1"
+  }
+}

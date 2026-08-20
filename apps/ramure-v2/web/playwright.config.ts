@@ -1,10 +1,10 @@
 // apps/ramure-v2/web/playwright.config.ts
 //
-// Recette bout en bout (PRP 09, tache 1, PRD §13) : lancee UNIQUEMENT a la
-// main, jamais en CI (voir apps/ramure-v2/test.sh — RAMURE_E2E n'est posee
-// nulle part dans le workflow). `npm run --prefix web test:e2e` l'invoque
-// avec ce fichier comme cwd, d'ou son emplacement ICI plutot qu'a la
-// racine de l'app : c'est ce que le bloc de test.sh du PRP fixe.
+// Recette bout en bout (PRP 09, tache 1, PRD §13) : jouee par la CI via
+// apps/ramure-v2/e2e/lancer.sh (job "bout-en-bout" du workflow), et jouable a
+// la main de la meme facon. `npm run --prefix web test:e2e` l'invoque avec
+// ce fichier comme cwd, d'ou son emplacement ICI plutot qu'a la racine de
+// l'app : c'est ce que le bloc de test.sh du PRP fixe.
 //
 // AUCUN serveur partage ici (pas de bloc `webServer`) : chaque fichier de
 // specification demarre et arrete SON PROPRE serveur Go
