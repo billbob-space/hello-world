@@ -181,7 +181,7 @@ for a in $touchees; do
   [ -f "apps/$a/PRODUCT.md" ] || continue
   if grep -qxF "apps/$a/PRODUCT.md" <<< "$touches"; then continue; fi
   neufs=$(printf '%s\n' "$ajoutes" \
-    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/|(^|/)e2e/|_test\.go$' || true)
+    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/|(^|/)e2e/|_test\.go$|(^|/)\.impeccable/' || true)
   [ -n "$neufs" ] || continue
   warn "[$a] du code neuf, et apps/$a/PRODUCT.md ne bouge pas — une capacite neuve se declare dans le PRD :"
   printf '%s\n' "$neufs" | sed 's/^/          /'

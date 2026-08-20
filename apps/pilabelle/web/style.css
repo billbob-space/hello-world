@@ -15,6 +15,15 @@
 	--lavande-100: #f1eafc;
 	--lavande-300: #d8c7f5;
 	--lavande-500: #a988e0;
+	/* La palette a une regle implicite : le -700 d'une famille est l'encre qui
+	   se pose sur son -100 (menthe-700/menthe-100 = 4,67:1 ; corail-700/
+	   corail-100 = 5,56:1). Lavande etait la seule famille sans son -700, donc
+	   --lavande-500 y jouait ce role sans en avoir le contraste : 2,46:1 sur
+	   --lavande-100, 2,88:1 sur blanc. Trois usages en dependaient (.niveaux li,
+	   .phase.repos, .minuteur.repos), tous hors des quatre ecrans scannes par
+	   axe dans e2e/tests/pilabelle.spec.js. #6b4bab = 5,56:1 sur --lavande-100,
+	   la meme valeur que corail. --lavande-500 reste une couleur de fond. */
+	--lavande-700: #6b4bab;
 
 	--menthe-100: #e3f7ea;
 	--menthe-500: #6fbf8f;
@@ -394,7 +403,12 @@ ul li {
 	display: block;
 	width: 100%;
 	aspect-ratio: 9 / 16;
-	max-height: 55vh;
+	/* 55vh laissait le bouton principal deborder de 18px sous le bas de l'ecran
+	   a 390x844 (mesure : bas du bouton a 862px), avant meme la barre d'outils
+	   du navigateur mobile. Le chronometre et le bouton Pause doivent tenir
+	   sans defiler : c'est le seul geste que le PRD §7.3 promet « a tout
+	   moment ». A 42vh, le bas du bouton tombe a ~752px. */
+	max-height: 42vh;
 	border: none;
 	border-radius: var(--rayon-lg);
 	box-shadow: var(--ombre);
@@ -414,7 +428,7 @@ ul li {
 }
 
 .phase.repos {
-	color: var(--lavande-500);
+	color: var(--lavande-700);
 }
 
 .minuteur {
@@ -427,7 +441,7 @@ ul li {
 }
 
 .minuteur.repos {
-	color: var(--lavande-500);
+	color: var(--lavande-700);
 }
 
 /* Ressenti ----------------------------------------------------------- */
@@ -516,7 +530,7 @@ ul li {
 	display: flex;
 	justify-content: space-between;
 	background: var(--lavande-100);
-	color: var(--lavande-500);
+	color: var(--lavande-700);
 	border-radius: var(--rayon-sm);
 	padding: 0.75rem var(--espace);
 	font-weight: 600;
@@ -561,6 +575,28 @@ ul li {
 	background: transparent;
 	color: var(--encre-douce);
 	opacity: 0.5;
+}
+
+.calendrier-legende {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--espace-sm);
+	margin-top: var(--espace-xs);
+	font-size: 0.85rem;
+	color: var(--encre-douce);
+}
+
+.calendrier-legende span {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.calendrier-legende i {
+	width: 1rem;
+	height: 1rem;
+	border-radius: 0.3rem;
+	flex-shrink: 0;
 }
 
 .calendrier-jour.jour-avenir {

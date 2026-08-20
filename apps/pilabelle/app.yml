@@ -69,5 +69,5 @@ env: [VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_CONTACT]
 # la duplication descend. Desserrer est une edition a la main, donc une
 # ligne dans le diff de la pull request, donc une discussion.
 revue_couverture: 69
-revue_couverture_web: 55
+revue_couverture_web: 80
 revue_duplication: 3

@@ -84,6 +84,19 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 			} else if (etat === 'pause') {
 				boutonPrincipal.textContent = 'Reprendre';
 			} else if (etat === 'termine') {
+				// Pendant le repit de 2s, l'ecran continuait d'afficher « 😮‍💨 Repos »,
+				// un decompte fige sur « 1 » (l'intervalle s'arrete avant de
+				// notifier zero) et un bouton « Pause » inerte : un tap ne
+				// declenchait rien, aucun etat du minuteur ne correspondant.
+				// L'ecran dit maintenant ce qui se passe, et le bouton le dit aussi.
+				labelPhase.textContent = '';
+				labelPhase.classList.remove('repos');
+				etatAffiche.textContent = '';
+				etatAffiche.classList.remove('repos');
+				boutonPrincipal.disabled = true;
+				boutonPrincipal.textContent = index + 1 >= exercices.length
+					? 'Séance terminée ✓'
+					: 'Exercice suivant…';
 				idsFaits.push(exercice.id);
 				index += 1;
 				setTimeout(() => {

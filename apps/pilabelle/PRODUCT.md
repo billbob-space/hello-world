@@ -560,6 +560,35 @@ déduit du PRD.
 
 ## Ajouté après les PRP
 
+### Dire quand le réseau tombe, et réessayer
+
+Ajouté le 20 août 2026, à la suite de la première critique UX outillée de
+l'app. Le PRD ne dit rien de ce qui se passe quand une requête n'aboutit pas,
+et l'app ne disait rien non plus : elle restait sur « Chargement… »
+indéfiniment, sans message ni bouton.
+
+Le cas qui a décidé de l'ajout n'est pas théorique — c'est le pire de tous :
+**elle termine sa séance, l'envoi de son ressenti échoue, et rien ne lui dit si
+son effort est perdu.** Une app qui se tait sur un échec demande à
+l'utilisatrice de deviner, et la réponse la plus probable qu'elle devine est
+« tout est perdu ».
+
+Un écran de panne explique donc ce qui se passe et propose de réessayer. Le
+réessai **rejoue la requête à l'identique** — le même ressenti, jamais une
+valeur reconstituée — et se réarme si la seconde tentative échoue aussi : une
+coupure réseau dure rarement une seule requête.
+
+Ce que cela ne change pas : aucune règle de la progression, aucun calcul de
+niveau, aucune donnée stockée différemment. C'est une porte de sortie sur un
+chemin qui n'en avait pas, comme la réinitialisation de profil plus bas.
+
+Son test vit dans `tests/app-panne.test.js` et `tests/reessai.test.js`, et
+couvre le parcours entier avec une coupure au moment exact de l'envoi. C'est
+délibéré : cet écran est **le seul de l'app que personne ne traverse en usage
+normal**, donc le seul dont une régression ne se verrait qu'au moment où elle
+en a besoin.
+
+
 ### Réinitialiser son propre profil
 
 Demandée en usage réel après la mise en ligne du lot 1, le 9 août 2026 :

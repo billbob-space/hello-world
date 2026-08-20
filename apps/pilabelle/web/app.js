@@ -7,6 +7,8 @@ import { vueFin } from './vue-fin.js';
 import { vueReglages } from './vue-reglages.js';
 import { vuePersonnel } from './vue-personnel.js';
 import { vuePropositionNotifications, fautIlProposer } from './vue-proposition-notifications.js';
+import { vueErreur } from './vue-erreur.js';
+import { avecPanne as rejouable } from './reessai.js';
 
 const app = document.querySelector('#app');
 
@@ -15,7 +17,19 @@ function monter(vue, props) {
 	vue(app, props);
 }
 
-async function afficherJour() {
+// enPanne monte l'ecran de panne plutot que de laisser l'application figee.
+// Sans lui, une coupure reseau immobilisait « Chargement… » sans message ni
+// geste possible — sur une app ouverte le matin depuis un telephone, c'est
+// l'etat le plus frequent apres l'etat normal.
+function enPanne(onReessayer, textes) {
+	monter(vueErreur, { ...textes, onReessayer });
+}
+
+// avecPanne : la logique de rejeu vit dans reessai.js, testee a part ; ici on
+// ne fait que lui dire ou aller en cas d'echec.
+const avecPanne = (action, textes) => rejouable(action, enPanne, textes);
+
+const afficherJour = avecPanne(async function afficherJour() {
 	const [jour, profil] = await Promise.all([lireJour(), lireProfil()]);
 	monter(vueJour, {
 		jour,
@@ -25,21 +39,28 @@ async function afficherJour() {
 			onEnregistre: afficherJour,
 			onReinitialise: amorcer,
 		}),
-		onPersonnel: async () => {
+		onPersonnel: avecPanne(async () => {
 			const donnees = await lirePersonnel();
 			monter(vuePersonnel, { donnees, onRetour: afficherJour });
-		},
+		}),
 		onCommencer: (seance) => monter(vueSeance, {
 			seance,
 			onSeanceTerminee: () => monter(vueRessenti, {
-				onChoix: async (ressenti) => {
+				// Si l'envoi echoue, la seance vient d'etre faite pour de vrai :
+				// le message le dit, et le bouton rejoue le meme ressenti — jamais
+				// un ecran qui laisse croire que l'effort est perdu.
+				onChoix: avecPanne(async (ressenti) => {
 					const recap = await envoyerRessenti(ressenti);
-					monter(vueFin, { recap });
-				},
+					monter(vueFin, { recap, onRetour: afficherJour });
+				}, {
+					titre: 'Ta séance est bien faite',
+					texte: "Elle n'a pas pu être enregistrée : le serveur ne répond pas. Réessaie, rien n'est perdu.",
+					libelleReessai: 'Enregistrer ma séance',
+				}),
 			}),
 		}),
 	});
-}
+});
 
 // apresCreationProfil enchaine sur la proposition initiale de notifications
 // une seule fois, juste apres le questionnaire (PRODUIT, "Proposee une fois,
@@ -54,13 +75,13 @@ function apresCreationProfil(profil) {
 	}
 }
 
-async function amorcer() {
+const amorcer = avecPanne(async function amorcer() {
 	const profil = await lireProfil();
 	if (profil === null) {
 		monter(vueQuestionnaire, { onCree: apresCreationProfil });
 	} else {
 		afficherJour();
 	}
-}
+});
 
 amorcer();

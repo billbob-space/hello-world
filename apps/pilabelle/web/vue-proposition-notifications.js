@@ -21,7 +21,11 @@ export function fautIlProposer(profil) {
 export function vuePropositionNotifications(conteneur, { onSuivant }) {
 	const carte = document.createElement('div');
 	carte.className = 'carte';
-	carte.appendChild(Object.assign(document.createElement('h3'), { textContent: 'Active les rappels et les mots doux ?' }));
+	// h3 : la question etait le seul titre de l'ecran, et le style h3
+	// (--encre-douce, 1,05rem) la rendait plus petite et plus pale que le
+	// paragraphe qu'elle introduit — et l'ecran n'avait aucun h1. Meme patron
+	// que tous les autres ecrans de l'app.
+	carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Active les rappels et les mots doux ?' }));
 
 	const description = document.createElement('p');
 	description.className = 'sous-titre';
