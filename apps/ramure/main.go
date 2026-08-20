@@ -44,7 +44,7 @@ func main() {
 
 	cache := NouveauCache()
 	srv := &Serveur{
-		sources:    NouvellesSources(cache, strings.TrimSpace(os.Getenv("LASTFM_API_KEY"))),
+		sources:    NouvellesSources(cache, env("LASTFM_API_KEY", "")),
 		collection: NouvelleCollection(),
 		reglages:   NouveauxReglages(),
 		mesures:    NouvellesMesures(),
@@ -101,10 +101,23 @@ func main() {
 }
 
 func port() string {
-	if p := os.Getenv("PORT"); p != "" {
-		return p
+	return env("PORT", "8080")
+}
+
+// env lit une variable d'environnement, ou rend defaut si elle est absente ou
+// vide une fois les espaces retires.
+//
+// C'est aussi ce qui rend baseDeezer et baseLastfm (deezer.go, lastfm.go)
+// configurables sans toucher au code : leur valeur par defaut reste l'adresse
+// reelle de la source, donc rien ne bouge en production, mais le bout en bout
+// (apps/ramure/e2e) peut les repointer vers un serveur local et vérifier de
+// vrais ecrans — y compris ceux qui dependent d'une reponse figee — sans
+// jamais sortir sur le reseau.
+func env(cle, defaut string) string {
+	if v := strings.TrimSpace(os.Getenv(cle)); v != "" {
+		return v
 	}
-	return "8080"
+	return defaut
 }
 
 func purgePeriodique(cache *Cache, arret <-chan struct{}) {

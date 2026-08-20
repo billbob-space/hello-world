@@ -32,7 +32,9 @@ import (
 	"time"
 )
 
-var baseLastfm = "https://ws.audioscrobbler.com/2.0/"
+// RAMURE_BASE_LASTFM : meme mecanisme que RAMURE_BASE_DEEZER (deezer.go),
+// pour la meme raison.
+var baseLastfm = env("RAMURE_BASE_LASTFM", "https://ws.audioscrobbler.com/2.0/")
 
 type Lastfm struct {
 	http  *http.Client

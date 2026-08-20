@@ -440,3 +440,61 @@ un KO de `--check`.
 navigateur reel, et une suite supprimee ne peut plus l'etre en silence. Le cran
 etait ecrit dans le code des le premier jour, avec sa condition de declenchement ;
 il n'a pas eu besoin qu'on se souvienne de lui.
+
+### 20. Le service worker de `ramure` rechargeait la page sous le nez du scan
+
+**Symptome** — le passage d'accessibilite de `ramure` echouait chez moi et
+passait chez son auteur, deux fois de suite. `AxeBuilder.analyze()` :
+« Execution context was destroyed, most likely because of a navigation ». Onze
+tests verts sur douze, dont un AUTRE test axe. Une course, gagnee ou perdue
+selon la vitesse de la machine.
+
+**Cause** — a la PREMIERE visite d'une origine, la page n'est pas encore
+controlee par le service worker ; `self.clients.claim()` la fait passer sous
+controle, et `ramure.js` repond a ce `controllerchange` par un `location.reload()`
+inconditionnel — F-42, diffuser une mise a jour sans action manuelle. C'est une
+vraie navigation, a un instant imprevisible, et chaque test part d'un contexte
+navigateur neuf donc la subit. `analyze()` fait un `page.evaluate` PONCTUEL, qui
+ne survit pas a une navigation ; `page.waitForFunction`, lui, reessaie.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — attendre l'etat STABLE apres chaque `page.goto` :
+`waitForFunction(() => !("serviceWorker" in navigator) ||
+!!navigator.serviceWorker.controller)`. La regle a retenir pour toute app a
+service worker de la fabrique — il y en a d'autres — est qu'un scan
+d'accessibilite ne s'appelle jamais sur une page qui peut encore se recharger.
+
+Deux choses meritent d'etre notees sur la maniere. D'abord ce qui a ete REFUSE :
+augmenter `retries`, poser un `waitForTimeout` au hasard, ou supprimer le test.
+Les trois auraient rendu la suite verte sans rien regler, et le depot a deja
+tranche qu'un test intermittent apprend a ignorer le rouge. Ensuite, chercher la
+cause a paye deux fois : la meme verification a trouve un SECOND defaut sans
+rapport — les tests F-36 attendaient l'apparition de `#etat-ecran` avec 15 s de
+budget puis lisaient son attribut avec les 5 s par defaut, coupant l'attente en
+deux fenetres inegales. Dix executions sur dix ports differents apres correctif,
+12/12 a chaque fois ; avant correctif, la meme boucle tombait au cinquieme
+passage.
+
+### 21. Le garde-fou du PRD a crie sur les dix apps le meme jour
+
+**Symptome** — les dix suites bout en bout ecrites, `pret.sh` a allume son
+avertissement « du code neuf, et PRODUCT.md ne bouge pas » sur les dix apps a la
+fois, en listant `e2e/lancer.sh`, `e2e/playwright.config.js`, `e2e/package.json`.
+
+**Cause** — l'heuristique deduit « une capacite neuve est arrivee » de « un
+fichier de code neuf est arrive », et exclut `.md` et `tests/` pour cette raison
+exacte. `e2e/` n'existait pas quand elle a ete ecrite et n'y figurait pas.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — `e2e/` exclu au meme titre que `tests/`, et un
+treizieme cas ajoute a `test-pret.sh` pour le tenir. Le commentaire du script
+dit desormais pourquoi.
+
+Ce qui compte ici n'est pas la ligne de correctif mais le risque evite : cet
+avertissement est le SEUL garde-fou heuristique de la fabrique, et son propre
+commentaire prevoit sa facon de mourir — « trop bavarde : elle se declenche sur
+les corrections, on l'ignore, elle ne garde plus rien ». Crier sur dix apps le
+meme jour est exactement ca. Un garde-fou qu'on apprend a ne plus lire est
+perdu, et il ne previent pas qu'il l'est.

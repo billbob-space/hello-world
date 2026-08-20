@@ -149,6 +149,19 @@ fi
 # ont cree aucun. Les .md et les tests sont exclus : un test qui accompagne un
 # correctif est un fichier neuf et ne dit rien du perimetre.
 #
+# « e2e/ » est exclu au meme titre que « tests/ », et pour la meme raison. Le
+# jour ou les dix suites bout en bout ont ete ecrites, cet avertissement s'est
+# allume sur les dix apps a la fois — un lancer.sh, un playwright.config.js et
+# un package.json sont des fichiers de code NEUFS, et aucun ne dit quoi que ce
+# soit du perimetre du produit. Un garde-fou heuristique qui crie sur dix apps
+# le meme jour n'apprend rien ; il apprend a ne plus le lire.
+#
+# « _test.go » manquait aussi, et depuis l'origine : le commentaire ci-dessus
+# annoncait que « les tests sont exclus », mais le motif ne couvrait que les
+# REPERTOIRES tests/ — or un test Go vit a cote du code qu'il teste, jamais dans
+# un repertoire dedie. Un correctif Go accompagne de son test declenchait donc
+# l'avertissement, ce que ce garde-fou promet explicitement de ne pas faire.
+#
 # Avertissement et non blocage, deliberement : le rapprochement est bon, il
 # n'est pas infaillible — un refactoring qui deplace du code dans un fichier
 # neuf le declenchera sans rien devoir au PRD. Bloquer sur un signal
@@ -168,7 +181,7 @@ for a in $touchees; do
   [ -f "apps/$a/PRODUCT.md" ] || continue
   if grep -qxF "apps/$a/PRODUCT.md" <<< "$touches"; then continue; fi
   neufs=$(printf '%s\n' "$ajoutes" \
-    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/' || true)
+    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/|(^|/)e2e/|_test\.go$' || true)
   [ -n "$neufs" ] || continue
   warn "[$a] du code neuf, et apps/$a/PRODUCT.md ne bouge pas — une capacite neuve se declare dans le PRD :"
   printf '%s\n' "$neufs" | sed 's/^/          /'

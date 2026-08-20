@@ -1,0 +1,31 @@
+// Une seule cible, un seul navigateur : lancer.sh demarre l'app — reseau
+// externe coupe (voir lancer.sh) — et pose RAMURE_E2E_URL avant d'appeler
+// « npx playwright test ».
+//
+// retries: 0 en local, 1 en CI — et pas plus. Un test bout en bout intermittent
+// apprend a ignorer le rouge, ce que la §13 du PRD tranche pour ramure lui-meme :
+// « tester contre des sources reelles produit des echecs intermittents qui
+// finissent par etre ignores, et masquent alors les vraies regressions ». Une
+// suite qui echoue deux fois de suite sur des commits differents se DESACTIVE
+// avec une entree de journal, elle ne se tolere pas.
+//
+// executablePath : le Chromium preinstalle de l'environnement. Sans lui, la
+// version de @playwright/test installee ici peut attendre une revision de
+// navigateur differente de celle en cache et refuser de demarrer.
+const { defineConfig, devices } = require("@playwright/test");
+
+const chromium = process.env.PLAYWRIGHT_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+
+module.exports = defineConfig({
+  testDir: "./tests",
+  timeout: 20_000,
+  retries: process.env.CI ? 1 : 0,
+  reporter: [["list"]],
+  use: {
+    baseURL: process.env.RAMURE_E2E_URL || "http://localhost:18086",
+    trace: "retain-on-failure",
+  },
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"], launchOptions: { executablePath: chromium } } },
+  ],
+});

@@ -33,7 +33,13 @@ import (
 // de sources externes sont testes contre un reseau simule. Tester contre des
 // sources reelles produit des echecs intermittents qui finissent par etre
 // ignores — et masquent alors les vraies regressions."
-var baseDeezer = "https://api.deezer.com"
+//
+// RAMURE_BASE_DEEZER permet la meme chose au niveau du binaire plutot que du
+// seul paquet Go : c'est ce que le bout en bout (apps/ramure/e2e) pointe vers
+// un serveur local pour jouer de vrais ecrans sans jamais sortir sur le
+// reseau. La valeur par defaut est l'adresse reelle : en production, rien ne
+// change.
+var baseDeezer = env("RAMURE_BASE_DEEZER", "https://api.deezer.com")
 
 // Durees de vie en cache, calees sur la volatilite reelle de chaque donnee
 // (N-04). Une resolution nom -> identifiant ne change jamais ; une liste de
