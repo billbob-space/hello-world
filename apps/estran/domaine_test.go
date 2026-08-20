@@ -23,7 +23,7 @@ func TestVuePrevisions_HeuresRestantesDuJour_MilieuDeJournee(t *testing.T) {
 		p.Jours = append(p.Jours, JourMeteo{Date: base.AddDate(0, 0, i), TempMinC: floatPtr(10), TempMaxC: floatPtr(20)})
 	}
 
-	v := vuePrevisions(p, base.Add(30*time.Minute), true, nil)
+	v := vuePrevisions(p, SeriePluie{}, base.Add(30*time.Minute), true, nil)
 
 	// De 14:00 a 23:00 inclus : 10 heures, largement au-dela du minimum, et
 	// rien du lendemain (00:00 du jour suivant n'est pas dans la fixture
@@ -61,7 +61,7 @@ func TestVuePrevisions_HeuresRestantesDuJour_MinimumEnSoiree(t *testing.T) {
 		})
 	}
 
-	v := vuePrevisions(p, base, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, base, true, nil)
 
 	if len(v.Heures) != nombreHeuresMinimum {
 		t.Fatalf("nombre d'heures = %d, attendu %d (minimum atteint en debordant sur le lendemain)", len(v.Heures), nombreHeuresMinimum)
@@ -98,7 +98,7 @@ func TestVuePrevisions_SerieQuiSarreteEnCoursDeJournee(t *testing.T) {
 		p.Heures = append(p.Heures, h)
 	}
 
-	v := vuePrevisions(p, base, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, base, true, nil)
 
 	if len(v.Heures) != nombreHeuresMinimum {
 		t.Fatalf("nombre d'heures = %d, attendu %d (les heures sans temperature ne comptent pas, il faut chercher plus loin)", len(v.Heures), nombreHeuresMinimum)
@@ -120,7 +120,7 @@ func TestVuePrevisions_VaguesAbsentesRestentAbsentes(t *testing.T) {
 	base := time.Date(2026, 8, 9, 14, 0, 0, 0, parisTZ)
 	p := Previsions{Heures: []HeureMeteo{{Heure: base, TemperatureC: floatPtr(18), VaguesM: nil}}}
 
-	v := vuePrevisions(p, base, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, base, true, nil)
 	if v.Heures[0].VaguesM != nil {
 		t.Error("vagues_m doit rester nil quand la donnee source est absente, pas devenir 0")
 	}
@@ -134,7 +134,7 @@ func TestVuePrevisions_SansDateAffichePasDeJourAffiche(t *testing.T) {
 	base := time.Date(2026, 8, 16, 14, 0, 0, 0, parisTZ)
 	p := Previsions{Heures: []HeureMeteo{{Heure: base}}, Jours: []JourMeteo{{Date: base}}}
 
-	v := vuePrevisions(p, base, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, base, true, nil)
 	if v.JourAffiche != "" || v.JourAfficheLibelle != "" {
 		t.Errorf("JourAffiche/JourAfficheLibelle = %q/%q, attendu vides sans parametre date", v.JourAffiche, v.JourAfficheLibelle)
 	}
@@ -161,7 +161,7 @@ func TestVuePrevisions_AvecDate_24HeuresDuJour(t *testing.T) {
 	}
 
 	dateCible := debutDuJour(demain)
-	v := vuePrevisions(p, aujourdhui, true, &dateCible)
+	v := vuePrevisions(p, SeriePluie{}, aujourdhui, true, &dateCible)
 
 	if len(v.Heures) != 24 {
 		t.Fatalf("nombre d'heures = %d, attendu 24 (le jour choisi entier)", len(v.Heures))
@@ -201,7 +201,7 @@ func TestVuePrevisions_JourEntierementNulNestPasAffiche(t *testing.T) {
 		p.Jours = append(p.Jours, j)
 	}
 
-	v := vuePrevisions(p, aujourdhui, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, aujourdhui, true, nil)
 
 	if len(v.Jours) != nombreJoursAffiches-1 {
 		t.Fatalf("tendance = %d ligne(s), attendu %d (le dernier jour, sans temperature, est omis)", len(v.Jours), nombreJoursAffiches-1)
@@ -216,7 +216,7 @@ func TestVuePrevisions_JourEntierementNulNestPasAffiche(t *testing.T) {
 
 // TestVuePrevisions_PluieVentAbsentsLaissentLeurLigneDeCote verifie qu'une
 // heure avec temperature connue mais pluie et vent absents (nil,
-// independamment de la temperature) rend une VueHeure dont PluiePct/VentKmh/
+// independamment de la temperature) rend une VueHeure dont PluieMm/VentKmh/
 // VentDirectionDeg restent nil — jamais un zero invente
 // (prp/02-horizon-confiance-vent.md, section Degradation).
 func TestVuePrevisions_PluieVentAbsentsLaissentLeurLigneDeCote(t *testing.T) {
@@ -229,7 +229,7 @@ func TestVuePrevisions_PluieVentAbsentsLaissentLeurLigneDeCote(t *testing.T) {
 		VentDirectionDeg: nil,
 	}}}
 
-	v := vuePrevisions(p, base, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, base, true, nil)
 
 	if len(v.Heures) != 1 {
 		t.Fatalf("nombre d'heures = %d, attendu 1", len(v.Heures))
@@ -238,8 +238,11 @@ func TestVuePrevisions_PluieVentAbsentsLaissentLeurLigneDeCote(t *testing.T) {
 	if h.TemperatureC != 19.5 {
 		t.Errorf("TemperatureC = %v, attendu 19.5 (seule grandeur connue)", h.TemperatureC)
 	}
-	if h.PluiePct != nil {
-		t.Errorf("PluiePct = %v, attendu nil (absent, jamais 0)", *h.PluiePct)
+	if h.PluieMm != nil {
+		t.Errorf("PluieMm = %v, attendu nil (absent, jamais 0)", *h.PluieMm)
+	}
+	if h.AversePossible {
+		t.Error("AversePossible = true sans risque connu : l'absence ne s'interprete pas")
 	}
 	if h.VentKmh != nil {
 		t.Errorf("VentKmh = %v, attendu nil (absent, jamais 0)", *h.VentKmh)
@@ -260,7 +263,7 @@ func TestVuePrevisions_JoursPasses_TendanceIgnoreLePasse(t *testing.T) {
 		p.Jours = append(p.Jours, JourMeteo{Date: debutDuJour(aujourdhui).AddDate(0, 0, i), TempMinC: floatPtr(float64(i) - 1), TempMaxC: floatPtr(float64(i))})
 	}
 
-	v := vuePrevisions(p, aujourdhui, true, nil)
+	v := vuePrevisions(p, SeriePluie{}, aujourdhui, true, nil)
 
 	if len(v.Jours) != nombreJoursAffiches {
 		t.Fatalf("tendance = %d jour(s), attendu %d", len(v.Jours), nombreJoursAffiches)
@@ -487,6 +490,7 @@ func TestLibelleJourFr(t *testing.T) {
 }
 
 func floatPtr(v float64) *float64 { return &v }
+func intPtr(v int) *int           { return &v }
 
 func TestArrondi(t *testing.T) {
 	if v := arrondi2(6.9449999); v != 6.94 {
@@ -494,5 +498,147 @@ func TestArrondi(t *testing.T) {
 	}
 	if v := arrondi1(21.28); v != 21.3 {
 		t.Errorf("arrondi1(21.28) = %v, attendu 21.3", v)
+	}
+}
+
+// --- La lame d'eau des vignettes horaires (variante B) ----------------------
+//
+// Ces tests tiennent la promesse du changement : la vignette d'une heure et la
+// courbe du meme jour sont tirees de la MEME serie, et ne peuvent donc plus se
+// contredire. C'est cette contradiction — courbe a 0 mm, vignettes a 100 % —
+// qui a ete signalee le 20 aout 2026.
+
+// serieQuartsPleine fabrique une journee entiere au quart d'heure (96 pas, ou
+// 92/100 les jours de changement d'heure), en deposant mm sur CHACUN des
+// quatre quarts des heures nommees dans lameParHeure.
+func serieQuartsPleine(jour time.Time, lameParQuart map[int]float64) []PasPluie {
+	fin := jour.AddDate(0, 0, 1)
+	var pas []PasPluie
+	for t := jour; t.Before(fin); t = t.Add(dureePasFin) {
+		pas = append(pas, PasPluie{Instant: t, Mm: lameParQuart[t.Hour()]})
+	}
+	return pas
+}
+
+// TestPluieParHeure_JourCouvertAuQuart_AdditionneLesQuartsDeLHeure : quand la
+// serie fine couvre le jour de bout en bout, l'heure vaut la SOMME de ses
+// quatre quarts, jamais l'un d'eux.
+func TestPluieParHeure_JourCouvertAuQuart_AdditionneLesQuartsDeLHeure(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	s := SeriePluie{Quarts: serieQuartsPleine(jour, map[int]float64{9: 0.25})}
+
+	parHeure := pluieParHeure(s)
+
+	if got := parHeure[cleHeure(jour.Add(9*time.Hour))]; got != 1.0 {
+		t.Errorf("09:00 = %v mm, attendu 1 (quatre quarts a 0,25)", got)
+	}
+	if got, ok := parHeure[cleHeure(jour.Add(10*time.Hour))]; !ok || got != 0 {
+		t.Errorf("10:00 = %v (present %v), attendu 0 present : une heure seche d'un jour couvert est CONNUE, pas absente", got, ok)
+	}
+}
+
+// TestPluieParHeure_JourPartiellementCouvert_ResteSurLHoraire : une serie fine
+// qui s'arrete en cours de journee — le cas du jour ou AROME s'arrete — laisse
+// le jour entier a l'horaire. Melanger les deux echelles a l'interieur d'une
+// meme journee ferait dire aux vignettes autre chose qu'a la courbe, qui
+// retombe elle aussi sur l'horaire entier dans ce cas (vuePluie).
+func TestPluieParHeure_JourPartiellementCouvert_ResteSurLHoraire(t *testing.T) {
+	jour := time.Date(2026, 8, 22, 0, 0, 0, 0, parisTZ)
+	quarts := serieQuartsPleine(jour, map[int]float64{6: 0.25})
+	s := SeriePluie{
+		Quarts: quarts[:40], // s'arrete a 10:00
+		Heures: []PasPluie{{Instant: jour.Add(6 * time.Hour), Mm: 2.4}},
+	}
+
+	parHeure := pluieParHeure(s)
+
+	if got := parHeure[cleHeure(jour.Add(6*time.Hour))]; got != 2.4 {
+		t.Errorf("06:00 = %v mm, attendu 2,4 (l'horaire, pas la somme des quarts d'un jour tronque)", got)
+	}
+}
+
+// TestVuePrevisions_LaVignetteEtLaCourbeDisentLeMemeChiffre est le test de la
+// promesse : additionner la lame d'eau des vignettes d'un jour redonne
+// exactement le cumul que la courbe affiche sous elle.
+func TestVuePrevisions_LaVignetteEtLaCourbeDisentLeMemeChiffre(t *testing.T) {
+	jour := time.Date(2026, 8, 20, 0, 0, 0, 0, parisTZ)
+	s := SeriePluie{Quarts: serieQuartsPleine(jour, map[int]float64{8: 0.1, 9: 0.3, 10: 0.075})}
+
+	var p Previsions
+	for h := range 24 {
+		p.Heures = append(p.Heures, HeureMeteo{
+			Heure:        jour.Add(time.Duration(h) * time.Hour),
+			TemperatureC: floatPtr(19),
+		})
+	}
+
+	courbe := vuePluie(s, nil, jour.Add(12*time.Hour), true, &jour).Jour
+	if courbe == nil {
+		t.Fatal("courbe absente : la fixture couvre pourtant le jour au quart d'heure")
+	}
+
+	v := vuePrevisions(p, s, jour.Add(12*time.Hour), true, &jour)
+
+	var cumul float64
+	for _, h := range v.Heures {
+		if h.PluieMm == nil {
+			t.Fatalf("%s : PluieMm absent alors que la serie couvre ce jour", h.Heure)
+		}
+		cumul += *h.PluieMm
+	}
+	if arrondi1(cumul) != courbe.TotalMm {
+		t.Errorf("somme des vignettes = %v mm, cumul de la courbe = %v mm : les deux sections doivent dire le meme chiffre", arrondi1(cumul), courbe.TotalMm)
+	}
+}
+
+// TestVuePrevisions_SourceDePluieEnPanne_LaisseLaLigneDeCote : la courbe et les
+// vignettes ont des modes de panne independants. Sans serie, la ligne de pluie
+// de la vignette est ABSENTE — jamais un 0 mm invente qui se lirait « il ne
+// pleuvra pas ».
+func TestVuePrevisions_SourceDePluieEnPanne_LaisseLaLigneDeCote(t *testing.T) {
+	base := time.Date(2026, 8, 20, 14, 0, 0, 0, parisTZ)
+	p := Previsions{Heures: []HeureMeteo{{
+		Heure:        base,
+		TemperatureC: floatPtr(19.5),
+		PluiePct:     floatPtr(98),
+	}}}
+
+	v := vuePrevisions(p, SeriePluie{}, base, true, nil)
+
+	if len(v.Heures) != 1 {
+		t.Fatalf("nombre d'heures = %d, attendu 1", len(v.Heures))
+	}
+	if v.Heures[0].PluieMm != nil {
+		t.Errorf("PluieMm = %v, attendu nil (absent, jamais 0)", *v.Heures[0].PluieMm)
+	}
+	if !v.Heures[0].AversePossible {
+		t.Error("AversePossible = false a 98 % : le risque vient des previsions et survit a la panne de la courbe")
+	}
+}
+
+// TestVuePrevisions_AversePossible_AuSeuilEtEnDessous : le risque d'averse ne
+// s'affiche plus en pourcentage mais en pastille, et le seuil est ferme.
+func TestVuePrevisions_AversePossible_AuSeuilEtEnDessous(t *testing.T) {
+	base := time.Date(2026, 8, 20, 14, 0, 0, 0, parisTZ)
+	cas := []struct {
+		nom     string
+		pct     *float64
+		attendu bool
+	}{
+		{"au seuil", floatPtr(seuilAversePossible), true},
+		{"juste en dessous", floatPtr(seuilAversePossible - 1), false},
+		{"risque inconnu", nil, false},
+	}
+	for _, c := range cas {
+		t.Run(c.nom, func(t *testing.T) {
+			p := Previsions{Heures: []HeureMeteo{{Heure: base, TemperatureC: floatPtr(19), PluiePct: c.pct}}}
+			v := vuePrevisions(p, SeriePluie{}, base, true, nil)
+			if len(v.Heures) != 1 {
+				t.Fatalf("nombre d'heures = %d, attendu 1", len(v.Heures))
+			}
+			if v.Heures[0].AversePossible != c.attendu {
+				t.Errorf("AversePossible = %v, attendu %v", v.Heures[0].AversePossible, c.attendu)
+			}
+		})
 	}
 }

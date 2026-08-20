@@ -941,8 +941,53 @@ main {
   gap: 5px;
 }
 
-.heure-carte .detail.pluie {
+/* La lame d'eau attendue de l'heure, en millimetres — la meme grandeur et la
+   meme serie que la courbe de la section pluie depuis le 20 aout 2026. Une
+   heure seche est ATTENUEE plutot que masquee : « 0 mm » repete sur huit
+   vignettes doit se lire d'un coup d'oeil comme « rien », sans que chaque
+   carte le crie. (Remplace .detail.pluie, qui teintait un pourcentage de
+   risque du meme teal que les hauteurs de maree.) */
+.heure-carte .detail.quantite {
+  color: var(--sable-100);
+}
+
+.heure-carte .detail.quantite.sec {
+  color: var(--sable-300);
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+/* La pastille d'averse remplace le pourcentage de risque, qui se lisait comme
+   une quantite. Elle passe a deux lignes sur les vignettes etroites plutot
+   que de deborder de la carte. */
+.heure-carte .puce-averse {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
   color: var(--eau-400);
+  border: 1px solid rgba(79, 179, 169, 0.4);
+  border-radius: 8px;
+  padding: 2px 6px;
+  line-height: 1.3;
+  max-width: 100%;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.heure-carte .puce-averse .point {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--eau-400);
+  flex: 0 0 auto;
+}
+
+/* Pastille eteinte : elle tient sa place — et donc la hauteur exacte qu'elle
+   occuperait allumee, sur une ou deux lignes — sans rien afficher. */
+.heure-carte .puce-averse--eteinte {
+  visibility: hidden;
 }
 
 .heure-carte .detail svg {
@@ -1198,6 +1243,18 @@ main {
 .jour-ligne .pluie svg {
   width: 1em;
   height: 1em;
+}
+
+/* Le pourcentage de la tendance est un RISQUE d'averse, pas une lame d'eau —
+   et il reste un pourcentage ici, faute de modele a maille fine a seize
+   jours. Le mot le dit, en retrait pour ne pas peser autant que le chiffre :
+   sans lui, la meme goutte suivie d'un « % » se relirait comme une quantite,
+   maintenant que la vignette juste au-dessus en affiche vraiment une. */
+.jour-ligne .pluie .risque-mot {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
 }
 
 .jour-ligne .temps {

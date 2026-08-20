@@ -113,6 +113,18 @@ function esc(s) {
   }[c]));
 }
 
+// mmTexte ecrit une lame d'eau, au dixieme de millimetre. Trois cas et non
+// deux : « 0 mm » est reserve a une heure VRAIMENT seche, et une bruine que le
+// dixieme arrondirait a zero s'ecrit « < 0,1 mm » — le serveur envoie le
+// centieme precisement pour que cette distinction reste possible ici. Une
+// vignette qui annoncerait « 0 mm » sur une heure ou il tombe quelque chose
+// serait le defaut que ce changement corrige, en plus petit.
+function mmTexte(mm) {
+  if (mm === 0) return "0 mm";
+  if (mm < 0.05) return "< 0,1 mm";
+  return `${mm.toFixed(1).replace(".", ",")} mm`;
+}
+
 function icone(cle, classe) {
   const contenu = ICONES[cle] || ICONES.nuage;
   return `<svg class="${classe || "icone"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">${contenu}</svg>`;
@@ -179,15 +191,35 @@ function rendrePrevisions(donnees) {
     joursMeteoActuels = donnees.jours || [];
     actualiserTendance();
   } else {
+    const reserverAverse = (donnees.heures || []).some((h) => h.averse_possible);
     rangee.innerHTML = (donnees.heures || [])
       .map((h) => {
-        // pluie_pct/vent_kmh/vagues_m sont chacun independamment absents
-        // (Open-Meteo rend `null` au bord de sa fenetre) : chaque ligne est
-        // alors laissee de cote plutot que d'afficher un zero invente
+        // pluie_mm/vent_kmh/vagues_m sont chacun independamment absents
+        // (Open-Meteo rend `null` au bord de sa fenetre, et la serie de pluie
+        // a son propre mode de panne) : chaque ligne est alors laissee de
+        // cote plutot que d'afficher un zero invente
         // (prp/02-horizon-confiance-vent.md, section Degradation).
+        //
+        // La vignette porte une LAME D'EAU en millimetres depuis le 20 aout
+        // 2026, la meme grandeur et la meme serie que la courbe de la section
+        // pluie. Le risque d'averse, lui, n'est plus un pourcentage a cote
+        // d'elle mais une pastille : c'est le serveur qui decide du seuil
+        // (averse_possible), cette page ne fait que la poser.
         const pluie =
-          h.pluie_pct != null
-            ? `<span class="detail pluie">${icone("goutte")}${h.pluie_pct}%</span>`
+          h.pluie_mm != null
+            ? `<span class="detail quantite${h.pluie_mm === 0 ? " sec" : ""}">${icone("goutte")}${mmTexte(h.pluie_mm)}</span>`
+            : "";
+        // La pastille garde sa place meme eteinte, sans quoi le vent et les
+        // vagues ne s'alignent plus d'une vignette a l'autre. Une pastille
+        // VRAIE rendue invisible plutot qu'un vide de hauteur fixe : elle
+        // s'ecrit sur une ou deux lignes selon la largeur de la carte, et un
+        // vide fige se serait desaligne a l'une des deux. `visibility` la
+        // retire aussi de l'arbre d'accessibilite.
+        // Rien n'est reserve quand aucune heure de la bande n'a d'averse : le
+        // creux vaudrait alors pour toutes les vignettes d'une semaine seche.
+        const averse =
+          h.averse_possible || reserverAverse
+            ? `<span class="puce-averse${h.averse_possible ? "" : " puce-averse--eteinte"}"${h.averse_possible ? "" : ' aria-hidden="true"'}><span class="point"></span>averse possible</span>`
             : "";
         const vent =
           h.vent_kmh != null
@@ -204,6 +236,7 @@ function rendrePrevisions(donnees) {
           <span class="temperature">${Math.round(h.temperature_c)}°</span>
           <div class="stats">
             ${pluie}
+            ${averse}
             ${vent}
             ${vagues}
           </div>
@@ -640,7 +673,7 @@ function actualiserTendance() {
         <div class="jour-principale">
           <span class="jour-nom">${esc(j.jour_semaine)}</span>
           ${icone(j.symbole, "icone")}
-          <span class="pluie">${j.pluie_pct_max != null ? `${icone("goutte")}${j.pluie_pct_max}%` : ""}</span>
+          <span class="pluie">${j.pluie_pct_max != null ? `${icone("goutte")}<span class="risque-mot">risque</span> ${j.pluie_pct_max}&nbsp;%` : ""}</span>
           <span class="temps"><span class="max">${Math.round(j.temp_max_c)}°</span> <span class="min">${Math.round(j.temp_min_c)}°</span></span>
         </div>
         ${ligneMaree}

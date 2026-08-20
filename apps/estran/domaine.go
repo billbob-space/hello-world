@@ -12,16 +12,34 @@ import (
 
 // VueHeure ne porte que des heures dont la temperature est CONNUE (filtrees
 // en amont dans vuePrevisions) : TemperatureC reste donc un float64 requis.
-// PluiePct/VentKmh/VentDirectionDeg, eux, sont des grandeurs secondaires qui
+// PluieMm/VentKmh/VentDirectionDeg, eux, sont des grandeurs secondaires qui
 // peuvent manquer independamment de la temperature (Open-Meteo rend `null`
 // au bord de sa fenetre, prp/02-horizon-confiance-vent.md, section
 // Degradation) : nullables + omitempty, leur ligne est laissee de cote cote
 // page plutot que d'afficher un zero invente. VaguesM reste le modele deja
 // en place.
+//
+// PluieMm a REMPLACE PluiePct le 20 aout 2026 (PRODUCT.md, « Ajoute apres les
+// PRP »). Le pourcentage etait une probabilite d'ensemble rendue par une
+// goutte et un « % », que l'ecran ne distinguait pas d'une lame d'eau : la
+// vignette annoncait 100 % quand la courbe de la section pluie annoncait
+// 0 mm sur la meme heure, et les deux avaient raison. Ce que la vignette
+// porte est desormais la MEME grandeur, tiree de la MEME serie que la courbe
+// (pluieParHeure).
 type VueHeure struct {
-	Heure            string   `json:"heure"`
-	TemperatureC     float64  `json:"temperature_c"`
-	PluiePct         *int     `json:"pluie_pct,omitempty"`
+	Heure        string  `json:"heure"`
+	TemperatureC float64 `json:"temperature_c"`
+	// PluieMm est la lame d'eau attendue PENDANT cette heure, en millimetres.
+	// Absent quand la source de la courbe est en panne ou ne couvre pas cette
+	// heure : la ligne est alors laissee de cote, jamais remplacee par un
+	// « 0 mm » qui se lirait comme une promesse de temps sec.
+	PluieMm *float64 `json:"pluie_mm,omitempty"`
+	// AversePossible dit que le risque d'averse de l'heure atteint
+	// seuilAversePossible. Un booleen, jamais le pourcentage : c'est
+	// precisement le chiffre qui se lisait de travers, et le rendre a nouveau
+	// rouvrirait la question que ce champ ferme. Il survit a la panne de la
+	// courbe — il vient de l'appel previsions, pas de la serie de pluie.
+	AversePossible   bool     `json:"averse_possible,omitempty"`
 	VentKmh          *int     `json:"vent_kmh,omitempty"`
 	VentDirectionDeg *int     `json:"vent_direction_deg,omitempty"`
 	VaguesM          *float64 `json:"vagues_m,omitempty"`
@@ -95,11 +113,18 @@ const joursNavigationAvant = 15
 // quel que soit le jour regarde (prp/01-navigation-temporelle.md).
 // maintenant est un parametre explicite, jamais time.Now() appele ici : la
 // fonction reste testable sans horloge reelle.
-func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *time.Time) ReponsePrevisions {
+//
+// pluie porte la serie de la section Pluie, la MEME que celle dont la courbe
+// est tiree : c'est ce partage, et non une seconde source, qui garantit que la
+// vignette d'une heure et la courbe du jour ne peuvent plus annoncer deux
+// chiffres differents. Une serie vide (source en panne, ou fenetre non
+// couverte) laisse simplement les vignettes sans ligne de pluie.
+func vuePrevisions(p Previsions, pluie SeriePluie, maintenant time.Time, frais bool, dateCible *time.Time) ReponsePrevisions {
 	v := ReponsePrevisions{
 		GenereA: maintenant.Format(time.RFC3339),
 		Frais:   frais,
 	}
+	lames := pluieParHeure(pluie)
 
 	if dateCible == nil {
 		debut := maintenant.Truncate(time.Hour)
@@ -124,7 +149,7 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 			if !h.Heure.Before(finAujourdhui) && len(v.Heures) >= nombreHeuresMinimum {
 				break
 			}
-			v.Heures = append(v.Heures, vueHeureMeteo(h))
+			v.Heures = append(v.Heures, vueHeureMeteo(h, lames))
 		}
 	} else {
 		debutCible := debutDuJour(*dateCible)
@@ -139,7 +164,7 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 			if h.TemperatureC == nil {
 				continue
 			}
-			v.Heures = append(v.Heures, vueHeureMeteo(h))
+			v.Heures = append(v.Heures, vueHeureMeteo(h, lames))
 		}
 		v.JourAffiche = debutCible.Format("2006-01-02")
 		v.JourAfficheLibelle = libelleJourFr(debutCible)
@@ -174,18 +199,34 @@ func vuePrevisions(p Previsions, maintenant time.Time, frais bool, dateCible *ti
 // vueHeureMeteo suppose h.TemperatureC non nil : c'est a l'appelant
 // (vuePrevisions) de filtrer les heures sans temperature avant d'appeler
 // cette fonction, jamais a elle de decider une valeur de repli.
-func vueHeureMeteo(h HeureMeteo) VueHeure {
+func vueHeureMeteo(h HeureMeteo, lames map[string]float64) VueHeure {
 	libelle, symbole := libelleCiel(h.CodeMeteo, h.NebulositeBassePct, h.NebulositeMoyennePct, h.NebulositeHautePct)
-	return VueHeure{
+	v := VueHeure{
 		Heure:            h.Heure.Format("15:04"),
 		TemperatureC:     arrondi1(*h.TemperatureC),
-		PluiePct:         arrondiEntierPtr(h.PluiePct),
+		AversePossible:   h.PluiePct != nil && *h.PluiePct >= seuilAversePossible,
 		VentKmh:          arrondiEntierPtr(h.VentKmh),
 		VentDirectionDeg: arrondiEntierPtr(h.VentDirectionDeg),
 		VaguesM:          h.VaguesM,
 		Libelle:          libelle,
 		Symbole:          symbole,
 	}
+	// Presence dans la carte, jamais valeur par defaut : une heure que la
+	// serie ne couvre pas n'a pas de lame d'eau connue, et 0 mm en tiendrait
+	// lieu de reponse.
+	//
+	// Arrondi au centieme, comme les points de la courbe (courbePluie) et non
+	// au dixieme affiche : au dixieme, une bruine a 0,08 mm devenait 0,1 sur
+	// la vignette, et vingt-quatre arrondis vers le haut faisaient un cumul
+	// superieur de 0,1 mm a celui de la courbe — le meme genre d'ecart
+	// inexplicable que ce changement supprime. La page arrondit pour
+	// l'affichage, et sait alors distinguer une heure vraiment seche d'une
+	// bruine qui s'arrondirait a zero.
+	if mm, ok := lames[cleHeure(h.Heure)]; ok {
+		arrondie := arrondi2(mm)
+		v.PluieMm = &arrondie
+	}
+	return v
 }
 
 // vueJourMeteo suppose j.TempMinC et j.TempMaxC non nil : c'est a l'appelant
@@ -490,6 +531,85 @@ func couvreLeJour(pas []PasPluie, jour, fin time.Time, duree time.Duration) bool
 		return false
 	}
 	return len(pas) == int(fin.Sub(jour)/duree)
+}
+
+// seuilAversePossible est le risque a partir duquel la vignette d'une heure
+// porte la pastille « averse possible ». Le pourcentage lui-meme ne s'affiche
+// plus (VueHeure) : ce qu'il vaut vraiment, c'est de dire s'il faut emporter
+// un impermeable, pas de mettre un nombre a deux chiffres a cote d'une lame
+// d'eau en millimetres. 60 % est le seuil retenu le 20 aout 2026 avec
+// l'utilisateur — sur la journee qui a motive le changement, il allume la
+// pastille sur les quatre heures d'averses annoncees et la laisse eteinte sur
+// les quatre suivantes.
+const seuilAversePossible = 60
+
+// cleHeure identifie une heure de facon stable. Une cle de texte, PAS un
+// time.Time : deux time.Time du meme instant ne sont egaux en cle de carte que
+// s'ils portent aussi le meme pointeur de fuseau et la meme part monotone, ce
+// que rien ne garantit entre une heure venue de meteo.go et un pas venu de
+// pluie.go.
+func cleHeure(t time.Time) string {
+	return t.In(parisTZ).Format("2006-01-02T15")
+}
+
+// pluieParHeure rend la lame d'eau attendue, heure par heure, sur toute la
+// fenetre couverte par la serie. C'est LA fonction qui tient la promesse du
+// 20 aout 2026 : elle applique jour par jour exactement la regle de vuePluie —
+// le quart d'heure quand il couvre le jour de bout en bout, l'horaire sinon —
+// si bien que la vignette d'une heure et la courbe du meme jour sortent
+// toujours de la meme serie.
+//
+// Une heure absente de la carte rendue est une heure INCONNUE (hors fenetre,
+// ou source en panne) ; une heure presente a 0 est une heure connue seche. Les
+// deux se lisent differemment a l'ecran, d'ou la carte plutot qu'un tableau de
+// zeros.
+func pluieParHeure(s SeriePluie) map[string]float64 {
+	parHeure := make(map[string]float64, len(s.Heures))
+
+	// L'horaire couvre toute la fenetre de navigation : il pose le fond.
+	for _, p := range s.Heures {
+		parHeure[cleHeure(p.Instant)] = p.Mm
+	}
+
+	// La ou le quart d'heure couvre un jour entier, il REMPLACE l'horaire pour
+	// ce jour-la. Remise a zero des vingt-quatre heures d'abord : le jour est
+	// desormais connu de bout en bout, y compris ses heures seches, et une
+	// valeur horaire laissee la ferait un total different de celui de la
+	// courbe.
+	for _, jour := range joursCouvertsAuQuart(s.Quarts) {
+		fin := jour.AddDate(0, 0, 1)
+		for h := jour; h.Before(fin); h = h.Add(time.Hour) {
+			parHeure[cleHeure(h)] = 0
+		}
+		for _, p := range pasDuJour(s.Quarts, jour, fin) {
+			parHeure[cleHeure(p.Instant)] += p.Mm
+		}
+	}
+	return parHeure
+}
+
+// joursCouvertsAuQuart rend les jours que la serie fine couvre de la premiere
+// a la derniere minute. Une couverture PARTIELLE — le jour ou le modele a
+// maille fine s'arrete — n'y figure pas : ce jour-la reste entierement a
+// l'horaire, comme la courbe (vuePluie). Melanger les deux echelles a
+// l'interieur d'une meme journee ferait un cumul que la courbe ne montre nulle
+// part.
+func joursCouvertsAuQuart(quarts []PasPluie) []time.Time {
+	var jours []time.Time
+	vus := make(map[string]bool)
+	for _, p := range quarts {
+		jour := debutDuJour(p.Instant)
+		cle := jour.Format("2006-01-02")
+		if vus[cle] {
+			continue
+		}
+		vus[cle] = true
+		fin := jour.AddDate(0, 0, 1)
+		if couvreLeJour(pasDuJour(quarts, jour, fin), jour, fin, dureePasFin) {
+			jours = append(jours, jour)
+		}
+	}
+	return jours
 }
 
 func courbePluie(pas string, points []PasPluie) *VueCourbePluie {
