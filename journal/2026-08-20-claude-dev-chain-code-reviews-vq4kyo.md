@@ -1889,3 +1889,32 @@ jour meme, deux par moi et celui-ci par la CI, sur la pull request qui les
 apportait. Ecrire un garde-fou et l'ecrire JUSTE sont deux choses differentes,
 et seule la seconde compte — un garde-fou faux se contourne, puis se supprime,
 et emporte avec lui la regle qu'il portait.
+
+### 27. Une etape de CI n'est jamais lancee avant d'etre poussee — et c'est le probleme
+
+**Symptome** — deuxieme echec du job `contrat` sur la meme PR, une seule ligne :
+`base: unbound variable`. La reecriture de l'anomalie 26 avait supprime, avec le
+bloc qu'elle remplacait, la ligne qui calculait `base`.
+
+**Cause** — l'etape est ecrite en YAML, poussee, et decouverte a l'execution.
+Rien dans la boucle de travail ne la joue avant. Deux echecs de suite sur le
+meme job, pour deux causes differentes, sont le symptome de cette boucle-la et
+pas de la difficulte du sujet.
+
+Ce qui a SAUVE ce cas est `set -u`, present dans l'etape : sans lui, `base`
+aurait valu la chaine vide, `git diff "" HEAD` aurait compare autre chose, et le
+controle serait passe au VERT en n'ayant rien verifie. Encore un vert silencieux
+evite — par une option de trois caracteres.
+
+**Detecte par** — `CI`
+
+**Action** — `comportement` — l'etape se joue desormais EN LOCAL avant d'etre
+poussee : on l'extrait du YAML, on remplace les expressions `${{ }}` par des
+valeurs reelles, et on la lance sur trois cas — corps de PR correct, section
+absente, gabarit non rempli. Les trois verifies avant la poussee suivante.
+
+Rien a automatiser ici : c'est la lecon qui compte, et elle vaut pour toute
+etape de workflow un peu longue. Une etape de CI est du code que personne ne
+teste, dans un langage sans compilateur, executee dans un environnement qu'on
+n'a pas sous la main. Deux tours de CI pour deux fautes triviales coutent plus
+cher que dix minutes de mise sous bac a sable.

@@ -94,6 +94,12 @@ jobs:
           #    Decision de l'utilisateur : seuls les ecrans qui bougent
           #    desormais sont concernes. Les apps qui n'ont jamais eu de
           #    critique ne sont pas rattrapees.
+          # La base de comparaison. Elle vivait dans le bloc precedent, supprime
+          # avec lui lors de la reecriture — d'ou un « base: unbound variable »
+          # decouvert en CI plutot qu'ici. Sous set -u, une variable absente
+          # arrete le script ; sans set -u, elle aurait valu la chaine vide et
+          # « git diff "" HEAD » aurait compare n'importe quoi EN SILENCE.
+          base=$(git merge-base "origin/${{ github.event.pull_request.base.ref }}" HEAD)
           touches=$(git diff --name-only "$base" HEAD)
           # Meme liste d'exclusion que scripts/pret.sh : « web/ » en entier
           # attraperait aussi configurations, tests et documentation, et un
