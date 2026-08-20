@@ -26,29 +26,9 @@ cd "$(git rev-parse --show-toplevel)"
 
 BASE=$(fab base_branch main)
 
-fichiers_touches() {  # tout ce que la branche touche, travail non committe inclus
-  {
-    git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
-    git status --porcelain 2>/dev/null | cut -c4- || true
-  } | LC_ALL=C sort -u
-}
-
-fichiers_ajoutes() {  # ceux que la branche CREE — les autres statuts ne comptent pas
-  {
-    git diff --name-status --diff-filter=A "origin/$BASE...HEAD" 2>/dev/null | cut -f2- || true
-    git status --porcelain 2>/dev/null | grep -E '^(A.|\?\?)' | cut -c4- || true
-  } | LC_ALL=C sort -u
-}
-
-apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
-  fichiers_touches | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
-    | while IFS= read -r a; do
-        # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
-        # ferait sortir la boucle en code 1, donc la substitution de commande,
-        # donc le script entier — et pret.sh s'arreterait sans rien dire.
-        if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
-      done
-}
+# fichiers_touches, fichiers_ajoutes et apps_touchees vivent desormais dans
+# lib/socle.sh : revue.sh doit relire exactement les apps que ce script teste,
+# et deux copies de la meme mesure finissent par diverger.
 
 courante=$(branche_courante)
 echo "Etape en cours — branche $courante"

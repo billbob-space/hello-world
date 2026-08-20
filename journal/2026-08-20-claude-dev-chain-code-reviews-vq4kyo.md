@@ -129,3 +129,45 @@ faux pour toute app dont le binaire embarque un artefact construit. Un contrat
 l'appellent tous deux quand il existe, donc la preparation est ecrite UNE fois.
 C'est la regle deja posee pour `lib/socle.sh` — une chose y entre quand un
 DEUXIEME metier en a besoin, jamais avant. Ici le deuxieme arrive.
+
+### 7. `jscpd` ecarte en silence tout fichier de plus de 1000 lignes
+
+**Symptome** — le garde-fou de perimetre ecrit apres l'anomalie 3 a bloque le
+premier semis des barres : « jscpd n'a lu que 25 fichiers sur 26 ». Sur
+`estran`, le manquant est `web/style.css`, 1471 lignes. Le format `css`
+n'apparaissait meme pas dans `statistics.formats` du rapport — ce qui ressemble
+trait pour trait a un nom de format faux, et n'en est pas un.
+
+**Cause** — `jscpd` porte deux bornes par defaut, `--max-lines` a 1000 et
+`--max-size` a 100 ko, et ecarte sans un mot tout fichier au-dela. Ce sont
+exactement les GROS fichiers, c'est-a-dire ceux ou la duplication a le plus de
+place pour se cacher. Bornes levees a 100 000 lignes et 5 Mo, la mesure d'estran
+passe de 0,27 % a 0,47 % sur le meme code.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — le garde-fou de l'anomalie 3 a fait exactement ce pour
+quoi il a ete ecrit, deux heures apres l'avoir ete, sur un mode d'echec DIFFERENT
+de celui qui l'avait motive. Rien a changer au contrat : c'est la demonstration
+que « comparer le perimetre analyse au perimetre attendu » ne visait pas un bogue
+particulier mais une famille entiere. Les deux bornes sont desormais passees
+explicitement, avec la mesure d'avant et d'apres en commentaire.
+
+### 8. La couverture navigateur ecrivait un separateur de colonnes dans le manifeste
+
+**Symptome** — le premier semis a produit `revue_couverture_web:` VIDE pour
+`marcq-handball`, `pilabelle` et `renaissance-gym`. Un manifeste avec une cle
+sans valeur — que `--check` aurait refuse, mais qui aurait pu etre committe.
+
+**Cause** — `node --test --experimental-test-coverage` rend
+« `# all files | 86.83 | 91.70 | 88.84` ». Les barres verticales sont des
+separateurs de COLONNES et non des champs ; le quatrieme champ vaut donc « | »
+et non le pourcentage. Aggrave par un second choix malheureux : la valeur
+transitait dans une variable ou « | » servait justement de separateur interne.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — corrige, et surtout couvert par un cas de test ou
+`node` n'est PAS double. Doubler node aurait rejoue le format que je CROIS qu'il
+produit — or c'est la lecture de ce format qui se trompait. Un bouchon qui
+reproduit ma propre erreur de lecture valide l'erreur.

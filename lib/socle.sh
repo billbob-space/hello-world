@@ -258,6 +258,45 @@ map_keys() {  # map_keys <flux> <index> — les cles distinctes de cet element
   printf '%s\n' "$1" | awk -F'\t' -v i="$2" '$1 == i && !vu[$2]++ { print $2 }'
 }
 
+# --- ce que la branche touche ---------------------------------------------------
+#
+# Ces trois fonctions ont vecu dans pret.sh jusqu'a ce qu'un DEUXIEME metier en
+# ait besoin — revue.sh, qui doit relire exactement les apps que pret.sh teste.
+# C'est la regle de ce fichier : une chose y entre quand un deuxieme appelant
+# arrive, jamais avant. Les garder en double aurait laisse les deux mesures
+# diverger, et « teste » aurait cesse de vouloir dire « relu ».
+#
+# La base est celle de fabrique.yml. Elle est relue a chaque appel plutot que
+# figee dans une globale : ces fonctions sont sourcees par des scripts qui ont
+# leur propre notion de ce qui est deja calcule, et une globale a moitie posee
+# est plus couteuse a debusquer qu'un yget de plus.
+
+fichiers_touches() {  # tout ce que la branche touche, travail non committe inclus
+  local base; base=$(fab base_branch main)
+  {
+    git diff --name-only "origin/$base...HEAD" 2>/dev/null || true
+    git status --porcelain 2>/dev/null | cut -c4- || true
+  } | LC_ALL=C sort -u
+}
+
+fichiers_ajoutes() {  # ceux que la branche CREE — les autres statuts ne comptent pas
+  local base; base=$(fab base_branch main)
+  {
+    git diff --name-status --diff-filter=A "origin/$base...HEAD" 2>/dev/null | cut -f2- || true
+    git status --porcelain 2>/dev/null | grep -E '^(A.|\?\?)' | cut -c4- || true
+  } | LC_ALL=C sort -u
+}
+
+apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+  fichiers_touches | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+    | while IFS= read -r a; do
+        # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
+        # ferait sortir la boucle en code 1, donc la substitution de commande,
+        # donc le script entier — et l'appelant s'arreterait sans rien dire.
+        if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
+      done
+}
+
 # --- applications --------------------------------------------------------------
 #
 # discover_apps peuple APPS : les repertoires sous apps/ qui portent un app.yml,

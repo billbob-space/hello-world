@@ -2117,6 +2117,18 @@ check_shared_services() {
   done
 }
 
+# E2E_OBLIGATOIRE — le cran d'arret de la montee en charge du bout en bout.
+#
+# Trois apps sur dix avaient une suite quand le contrat a ete pose, et aucune ne
+# tournait en integration continue. Exiger « e2e/lancer.sh » partout des le
+# premier jour aurait rendu --check rouge pour tout le monde sur une dette que
+# personne n'avait choisie ; ne rien exiger du tout aurait laisse la regle a
+# l'etat d'intention. D'ou un drapeau, ici et pas dans une tete de chapitre :
+# tant qu'il vaut 0, l'absence AVERTIT ; le jour ou la dixieme suite est ecrite,
+# il passe a 1 et l'absence devient KO. Le cran est dans le code, pas dans une
+# promesse.
+E2E_OBLIGATOIRE=0
+
 check_app_files() {
   load_app "$1"
   local p="[$APP]" d="apps/$APP"
@@ -2209,6 +2221,39 @@ check_app_files() {
     || bad "$p $d/test.sh absent ou non executable — ses tests ne tourneront jamais"
   [ -f "$d/.dockerignore" ] && ok "$p .dockerignore" || warn "$p pas de .dockerignore : la doc casse le cache de build"
   [ -f "$d/PRODUCT.md" ]   && ok "$p PRODUCT.md"    || warn "$p pas de PRD"
+
+  # prepare.sh est FACULTATIF, mais un prepare.sh non executable est pire que
+  # pas de prepare.sh : test.sh et revue.sh l'appellent tous les deux, et
+  # echoueraient tous les deux sur un fichier que l'auteur croit branche.
+  if [ -f "$d/prepare.sh" ] && [ ! -x "$d/prepare.sh" ]; then
+    bad "$p $d/prepare.sh existe mais n'est pas executable — test.sh et la revue l'appellent"
+  fi
+
+  # Le bout en bout. Voir E2E_OBLIGATOIRE plus haut pour le pourquoi du cran.
+  if [ -x "$d/e2e/lancer.sh" ]; then
+    ok "$p e2e/lancer.sh executable"
+  elif [ -f "$d/e2e/lancer.sh" ]; then
+    bad "$p $d/e2e/lancer.sh existe mais n'est pas executable — la CI ne le lancera pas"
+  elif [ "$E2E_OBLIGATOIRE" = 1 ]; then
+    bad "$p $d/e2e/lancer.sh absent — aucune verification en navigateur reel"
+  else
+    warn "$p pas de e2e/lancer.sh : rien ne verifie cette app dans un navigateur reel"
+  fi
+
+  # Les seuils de revue. On verifie la FORME et jamais la valeur : mesurer une
+  # couverture demande de lancer les tests, ce que --check ne fait pas et ne doit
+  # pas faire. Un seuil mal forme est en revanche un piege silencieux — « 64 % »
+  # au lieu de « 64 » rend la comparaison de revue.sh fausse sans rien casser.
+  local k v
+  for k in revue_couverture revue_couverture_web revue_duplication; do
+    v=$(yget "$d/app.yml" "$k" "")
+    [ -n "$v" ] || continue
+    if printf '%s' "$v" | grep -qE '^[0-9]+$' && [ "$v" -le 100 ]; then
+      ok "$p $k : $v"
+    else
+      bad "$p $k vaut '$v' — attendu un entier de 0 a 100, sans signe pourcent"
+    fi
+  done
 }
 
 # --- les huit sections de --check -----------------------------------------------

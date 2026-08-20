@@ -43,6 +43,16 @@ tarifs:
 taux_usd_eur: 0.86843
 taux_date: 2026-08-04     # source : Frankfurter, reference BCE
 
+# Les outils de la revue — « ./scripts/revue.sh ». Versions EPINGLEES ici et
+# nulle part ailleurs : une version qui vit dans deux fichiers finit par vivre
+# a deux versions. Rien ne s'installe, tout passe par « go run <module>@<version> »
+# et « npx --yes <paquet>@<version> » ; le premier appel telecharge, et sans
+# reseau la revue est KO plutot que verte.
+outil_staticcheck: honnef.co/go/tools/cmd/staticcheck@2025.1.1
+outil_gosec: github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+outil_govulncheck: golang.org/x/vuln/cmd/govulncheck@v1.7.0
+outil_jscpd: jscpd@4.0.5
+
 # Services partages par plusieurs applications. Ils vivent sur apps_net, sont
 # joignables par leur nom depuis n'importe quelle app, et ne sont JAMAIS routes :
 # init.sh leur pose « traefik.enable=false », le seul label qui RETIRE du
