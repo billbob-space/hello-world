@@ -3401,3 +3401,71 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1911 agent claude-haiku-4-5-20251001 444 18074 2
 -->
 <!-- /cout -->
+
+### 44. Le bout en bout d'ardoise partait avant que sa base existe
+
+**Symptome** — `bout-en-bout (ardoise)` a rougi sur `406a7dc`, alors que le
+meme job etait VERT huit minutes plus tot sur `41bb249` et que la branche ne
+touche pas une ligne d'`ardoise`. Le test qui ecrit une ligne puis la relit
+echouait sur `element(s) not found` ; **les quatre autres passaient**.
+
+**Cause, etablie sans reproduction, par le code de l'app elle-meme** — la
+repartition des echecs etait deja l'indice : le seul test qui touche la base
+echoue, les quatre qui n'y touchent pas passent. `apps/ardoise/api.go` le
+confirme en toutes lettres :
+
+- `/healthz` **ne sonde ni la base ni le cache, deliberement** — « ce que
+  `/healthz` affirme est *le serveur ecoute*, rien de plus » ;
+- `/api/lignes` repond **503 « la base n'est pas encore prete »** tant que
+  postgres est injoignable ;
+- et `base_test.go` teste explicitement ce couple : 200 sur `/healthz`, 503 sur
+  les donnees.
+
+Or `e2e/lancer.sh` n'attendait QUE `/healthz`, et il recree un volume **vide** a
+chaque passage : postgres doit derouler son `initdb`, plusieurs secondes, quand
+le binaire Go ecoute en quelques centaines de millisecondes. Le journal du run
+le montre — conteneur applicatif lance a 13:32:55,18, tests Playwright demarres
+a 13:32:55,41. **230 millisecondes.**
+
+Ce n'est donc pas un aleatoire : c'est une **course**, gagnee ou perdue selon la
+vitesse du runner. Elle se perdait rarement parce que postgres gagne le plus
+souvent — assez rarement pour qu'on l'appelle « instabilite » et qu'on relance.
+
+**La meme faute dormait dans `compteur`**, seule autre app a monter une base :
+meme `/healthz` volontairement muet (« meme raison que dans ardoise », dit son
+commentaire), meme attente sur lui seul. Corrigee aussi, avant qu'elle ne coute
+un second diagnostic.
+
+**Detecte par** — `CI`
+
+**Action** — `garde-fou` — les deux lanceurs attendent desormais la route de
+**donnees**, la seule a dire la verite sur l'etat reel : `curl -f` echoue tant
+qu'elle repond 503. Et si elle ne repond jamais, le lanceur **s'arrete fort** :
+une attente qui abandonne en silence rendrait la main a Playwright contre une
+app inutilisable — soit exactement le defaut corrige.
+
+**Contre-epreuve, faite sans Docker** — ce conteneur n'en a pas, donc la course
+n'etait pas reproductible ici. La condition a donc ete **fabriquee** : un serveur
+de doublure qui repond 200 sur `/healthz` et 503 sur les donnees pendant N
+secondes, exactement comme l'app. Trois cas, tous les trois joues :
+
+1. **l'ancien comportement** — `/healthz` repond 200 pendant que `/api/lignes`
+   repond 503 : le lanceur serait parti en tests a cet instant precis. L'echec
+   de CI est reproduit hors de la CI ;
+2. **base lente (4 s)** — l'attente laisse venir, puis rend la main ;
+3. **base absente** — l'attente echoue franchement, code 1, message nomme. Pas
+   de faux vert.
+
+**Ce que ce cas ajoute a la serie** — c'est le dixieme vert silencieux de la
+branche, et le premier ou le signal trompeur est **honnete** : `/healthz` ne
+ment pas, il dit exactement ce qu'il promet — « le serveur ecoute ». C'est le
+LECTEUR qui lui a fait dire « l'application est prete ». La regle ne porte donc
+pas sur la sonde mais sur son usage : **on attend l'invariant dont le test a
+besoin, pas le premier signal vert a portee de main.**
+
+**Et un commentaire faux a servi a ne pas chercher.** Les deux lanceurs
+portaient en tete « n'est PAS lance par la CI » — devenu faux quand le job
+`bout-en-bout` a ete ajoute au workflow, sans que personne ne relise ces
+en-tetes. Lu de bonne foi, il classait l'echec en « suite manuelle, pas mon
+probleme ». Corrige dans les deux. Un commentaire faux coute plus cher que pas
+de commentaire du tout.
