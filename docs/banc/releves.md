@@ -9,6 +9,31 @@ se comparent pas.
 
 ---
 
+## 2026-08-21 (2) — la revue passe en parallèle
+
+Même machine, mêmes outils, même commit de code applicatif que la référence
+ci-dessous. Seul `scripts/revue.sh` a changé : une app par **processus**, quatre
+en vol, plafonné à `nproc`.
+
+| scénario | avant | après | verdict |
+|---|---:|---:|---|
+| `revue-toutes` | 55,01 s [53,33 – 55,90] | **26,88 s** [26,80 – 27,29] | intervalles disjoints — **gain déclaré, ×2,05** |
+| `revue-serie` *(témoin, `REVUE_PARALLELE=1`)* | — | 55,79 s [55,78 – 56,03] | recouvre l'ancienne mesure : le témoin dit la vérité |
+
+Le témoin est ce qui rend ce relevé démontrable plutôt que déclaratif : il rejoue
+l'ancien chemin dans les conditions du jour, et retombe sur l'ancien chiffre.
+Sans lui, on ne saurait pas distinguer un vrai gain d'une machine devenue plus
+rapide.
+
+**Deux secondes d'écart avec la mesure brute** du 21 août (25,4 s en `xargs`
+direct) : chaque enfant refait le contrôle de présence des trois binaires et
+l'amorçage du cache `npx`. C'est le prix du garde-fou, il est payé une fois par
+app, et il est visible plutôt que caché.
+
+Les autres scénarios ne sont pas rejoués : aucun ne traverse le code modifié.
+
+---
+
 ## 2026-08-21 — référence initiale
 
 ```

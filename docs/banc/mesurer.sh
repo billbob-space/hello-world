@@ -27,12 +27,13 @@ declare -A SCENARIOS=(
   [tests-petite]='5|go vet + go test sur la plus petite app : le cout plancher|./apps/hello-world/test.sh'
   [revue-petite]='5|les cinq axes sur 403 lignes : le cout fixe de la revue|./scripts/revue.sh hello-world'
   [revue-moyenne]='3|les cinq axes en configuration complete (Go + JS, 3 seuils)|./scripts/revue.sh pilabelle'
-  [revue-toutes]='3|les dix apps en serie — le chiffre que le parallelisme vise|./scripts/revue.sh --toutes'
+  [revue-toutes]='3|les dix apps par le chemin par defaut — le chiffre a suivre|./scripts/revue.sh --toutes'
+  [revue-serie]='3|les memes dix apps forcees en serie — le temoin du parallelisme|REVUE_PARALLELE=1 ./scripts/revue.sh --toutes'
   [tests-grosse]='3|npm ci + esbuild + tsc + vitest + go test -race sur 10 paquets|./apps/ramure-v2/test.sh'
 )
 LEGERS=(contrat tests-petite revue-petite revue-moyenne)
-LOURDS=(revue-toutes tests-grosse)
-ORDRE=(contrat tests-petite revue-petite revue-moyenne revue-toutes tests-grosse)
+LOURDS=(revue-toutes revue-serie tests-grosse)
+ORDRE=(contrat tests-petite revue-petite revue-moyenne revue-toutes revue-serie tests-grosse)
 
 liste() {
   printf 'Scenarios du banc :\n\n'

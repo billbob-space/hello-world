@@ -85,14 +85,11 @@ latence **humaine**, la plus longue de toutes.
 
 **Horloge visée : le temps d'horloge du développeur.**
 
-Mesure du 2026-08-21, caches chauds, quatre cœurs : `./scripts/revue.sh --toutes`
-tient **55,0 s** en série. Les mêmes dix apps lancées comme **dix processus
-séparés à quatre en vol** tiennent **25,4 s** — code de sortie correct, dépôt
-inchangé. Protocole et relevé : [banc/releves.md](banc/releves.md).
-
-```bash
-ls apps | xargs -P "$(nproc)" -n 1 ./scripts/revue.sh
-```
+**Appliqué.** `./scripts/revue.sh` lance désormais une app par processus,
+`nproc` en vol, dès qu'il a plus d'une cible. Mesuré au banc : **55,0 s
+[53,3 – 55,9] avant, 26,9 s [26,8 – 27,3] après**, intervalles disjoints, soit
+×2,05 — et `pret.sh` en hérite sans rien changer. `REVUE_PARALLELE=1` rend la
+série, et sert de témoin au banc. Relevé : [banc/releves.md](banc/releves.md).
 
 **Pourquoi un processus par app et pas un sous-shell.** `revue.sh` fait `cd`
 dans le répertoire de l'app *dans le shell principal*, et `bad()` incrémente une
@@ -128,15 +125,21 @@ inverse l'une de l'autre.** Élargir une matrice raccourcit l'attente et alourdi
 la facture : trente-cinq runners pendant le plus long job coûtent plus que quatre
 runners pendant la somme.
 
-1. **`build` attend `test` sans raison.** Rien dans `build` ne consomme quoi que
-   ce soit produit par `test` ; la dépendance est politique — « ne pas publier
+1. **`build` attendait `test` sans raison — coupé le 2026-08-21.** Rien dans
+   `build` ne consomme quoi que ce soit produit par `test` ; la dépendance est politique — « ne pas publier
    l'image d'une app dont les tests tombent ». Or `deploy` porte déjà cette
    garantie, plus finement, en testant `needs.test.result` un par un. Une image
    publiée sans test vert n'atteint jamais la production : `deploy` ne tourne
    pas, donc rien n'est épinglé, donc dockhand ne voit rien. Le seul effet
    résiduel serait un tag mutable `:main` déplacé — et **`compose.yaml` n'en
-   référence plus aucun**, les dix apps sont épinglées par SHA. C'est la seule
-   arête du graphe qui enchaîne deux matrices de dix.
+   référence plus aucun**, les dix apps sont épinglées par SHA. C'était la seule
+   arête du graphe qui enchaînait deux matrices de dix.
+
+   **Ce qu'il reste à surveiller** : la pointe de jobs simultanés monte d'une
+   dizaine. Le plafond de jobs concurrents du compte GitHub n'est écrit nulle
+   part dans le dépôt — au premier run après ce changement, comparer la durée du
+   **run** et non celle des jobs : c'est là, et seulement là, qu'une file
+   saturée se voit.
 2. **Le cache de la revue ne couvre pas ses propres binaires.** `revue.sh` pose
    ses outils dans `.revue-outils/<toolchain>/`, que le workflow ne met dans
    aucun `path:` de cache. Trois `go install` sont donc refaits dans **chacun**
