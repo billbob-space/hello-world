@@ -176,10 +176,61 @@ cette entrée : la règle globale `[hidden]` manquante sur `marcq-handball`, `pi
 et `renaissance-gym`, et le test `TestCadragePlusEtroitSurEcranEtroit` que le PRD de
 `ramure-v2` promet sans qu'il existe.
 
+### 6. L'interblocage artisan / hook `Stop`, deux fois sur cette branche, drapeau explicite compris
+
+**Symptome** — deux fois de suite, le hook `Stop` a refusé de terminer le tour sur
+« 1 fichier(s) non committé(s) » alors que le fichier en question était en cours
+d'écriture par un artisan lancé quelques secondes plus tôt. Committer aurait capturé
+un demi-fichier ; ne rien faire était refusé.
+
+**Cause** — c'est le verrou n° 1 de `docs/parallelisme.md`, mot pour mot : « le hook
+`Stop` refuse de terminer un tour sur un arbre sale, et l'artisan salit l'arbre —
+interblocage documenté, résolu la dernière fois en abandonnant le parallélisme ». Sauf
+qu'ici il n'y a **aucun parallélisme** : un seul artisan, lancé avec
+`run_in_background: false`. Le harnais l'a mis au fond quand même — exactement ce que
+la même page annonce deux paragraphes plus bas (« `run_in_background: false` n'est pas
+une garantie ; deux entrées de journal rapportent le harnais démarrant en fond un
+artisan lancé avec le drapeau explicite »). Ces deux occurrences portent le compte à
+quatre au moins.
+
+La sortie existe et le hook la donne lui-même : « Si ce travail ne doit délibérément
+pas être committé, dis-le explicitement. » Dire pourquoi débloque le tour sans rien
+committer. C'est la bonne réponse, mais elle demande de connaître à la fois le verrou
+et sa porte de sortie — un agent qui ne les connaît pas committera un fichier à moitié
+écrit, ce que le garde-fou cherchait précisément à empêcher.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — trois issues, et le choix n'appartient pas à celui qui code.
+Faire que le hook `Stop` ignore un arbre sali pendant qu'un sous-agent tourne demande
+au hook de connaître l'état du harnais, qu'il ne voit pas. Attendre l'artisan avant de
+rendre la main suppose que le drapeau soit tenu, ce qu'il n'est pas. Renoncer à
+l'artisan pour les changements d'une ligne contredit le contrat. Aucune n'est
+gratuite ; les trois se défendent.
+
+**Le travail d'application, app par app.** Trois artisans lancés l'un après l'autre —
+jamais en parallèle, les cinq verrous de `docs/parallelisme.md` étant toujours en place.
+
+`marcq-handball` portait un correctif classe par classe (`.nav-app[hidden]`), retiré au
+profit de la règle globale. `renaissance-gym` en portait **deux**, chacun avec son
+symptôme écrit dans le commentaire — « une barre grise vide traîne au bas de l'écran »,
+« "Remettre à zéro" restait affiché sur les exercices qui se comptent » : le même défaut
+rencontré et rustiné deux fois sur place, ce que l'avertissement désigne exactement en
+disant que le remède est une seule règle globale.
+
+`pilabelle` est le cas honnête à écrire : **l'avertissement y était une heuristique
+large**. Ses deux seuls usages de `hidden` portent la classe `.erreur` sur un `<p>`, et
+ni `p` ni `.erreur` ne déclarent `display` — rien n'était concrètement affecté. Le
+contrôle se déclenche dès qu'un usage de `.hidden` en JS coexiste avec *n'importe
+quelle* règle de classe posant `display` dans le fichier, pas nécessairement sur
+l'élément concerné. La règle reste bonne à poser — elle ferme la classe de défaut pour
+tout élément futur — mais elle ne réparait aucun symptôme visible. Le dire évite qu'on
+croie plus tard avoir corrigé un bug qui n'existait pas.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-21 à 14:46 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-21 à 16:33 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -187,26 +238,26 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 259 | 0,00 $ |
-| Écriture de cache | 455 214 | 2,48 $ |
-| Lecture de cache | 17 969 712 | 8,69 $ |
-| Sortie | 89 272 | 2,20 $ |
-| **Total** | **18 514 457** | **13,37 $ — 11,61 €** |
+| Entrée | 637 | 0,00 $ |
+| Écriture de cache | 1 324 002 | 5,91 $ |
+| Lecture de cache | 44 643 950 | 20,38 $ |
+| Sortie | 163 224 | 3,48 $ |
+| **Total** | **46 131 813** | **29,78 $ — 25,86 €** |
 
 **Ce qui coûte**
 
-- **128 appel(s) au modèle** — un par réponse, outils compris —, dont 26 par des sous-agents — 1 116 439 jetons, 0,53 $.
+- **322 appel(s) au modèle** — un par réponse, outils compris —, dont 120 par des sous-agents — 5 329 687 jetons, 2,67 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 219 jetons, écrits une fois par session puis relus à chaque
-  échange : 6 890 119 jetons de relecture, 38 % de tout ce qui a été relu.
-- **Tours courts** — 63 des 128 tours (49 %) sortent
+  échange : 13 712 019 jetons de relecture, 30 % de tout ce qui a été relu.
+- **Tours courts** — 174 des 322 tours (54 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 5,43 $, soit 40 % de la facture.
+  une sortie de rien. Ils coûtent 12,18 $, soit 40 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 68 219 jetons relus au premier appel qui relise
-  quelque chose, 36 867 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 375 136 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 18514457 -->
+<!-- cout-total: 46131813 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68219 0 183
 2 principal claude-opus-5 4024 68219 511
@@ -310,31 +361,225 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 100 principal claude-opus-4-7 7667 29200 100
 101 principal claude-opus-5 2211 255917 272
 102 principal claude-opus-4-7 183 36867 95
-103 agent claude-sonnet-5 15927 0 3
-104 agent claude-sonnet-5 1485 15927 2
-105 agent claude-sonnet-5 8123 17412 5
-106 agent claude-sonnet-5 4680 25535 2
-107 agent claude-sonnet-5 1639 30215 6
-108 agent claude-sonnet-5 2674 31854 3
-109 agent claude-sonnet-5 699 34528 2
-110 agent claude-sonnet-5 1269 35227 6
-111 agent claude-sonnet-5 3768 36496 6
-112 agent claude-sonnet-5 3805 40264 3
-113 agent claude-sonnet-5 807 44069 7
-114 agent claude-sonnet-5 595 44876 6
-115 agent claude-sonnet-5 442 45471 3
-116 agent claude-sonnet-5 585 45913 3
-117 agent claude-sonnet-5 1316 46498 2
-118 agent claude-sonnet-5 660 47814 7
-119 agent claude-sonnet-5 348 48474 20
-120 agent claude-sonnet-5 935 48822 5
-121 agent claude-sonnet-5 438 49757 20
-122 agent claude-sonnet-5 445 50195 7
-123 agent claude-sonnet-5 429 50640 3
-124 agent claude-sonnet-5 2462 51069 3
-125 agent claude-sonnet-5 1282 53531 2
-126 agent claude-sonnet-5 249 54813 2
-127 agent claude-sonnet-5 432 55062 2
-128 agent claude-sonnet-5 802 55494 5
+103 principal claude-opus-4-7 272 37050 84
+104 principal claude-opus-4-7 0 36867 128
+105 principal claude-opus-4-7 23172 37322 131
+106 principal claude-opus-4-7 1049 36867 113
+107 principal claude-opus-4-7 9740 60494 126
+108 principal claude-opus-4-7 252 37916 77
+109 principal claude-opus-4-7 1974 70234 122
+110 principal claude-opus-4-7 160 38168 84
+111 principal claude-opus-4-7 1210 72208 123
+112 principal claude-opus-4-7 23172 38328 128
+113 principal claude-opus-5 625 258128 2022
+114 principal claude-opus-5 2414 258753 606
+115 principal claude-opus-4-7 9818 61500 3397
+116 principal claude-opus-4-7 3284 73418 3821
+117 principal claude-opus-4-7 3450 71318 126
+118 principal claude-opus-4-7 324 74768 81
+119 principal claude-opus-4-7 9690 75092 400
+120 principal claude-opus-4-7 3570 84782 214
+121 principal claude-opus-4-7 1186 88352 231
+122 principal claude-opus-4-7 1006 89538 181
+123 principal claude-opus-5 1898 261773 1166
+124 principal claude-opus-5 1228 263671 475
+125 principal claude-opus-4-7 3889 29200 114
+126 principal claude-opus-4-7 9785 33089 288
+127 principal claude-opus-5 809 264899 2376
+128 principal claude-opus-5 2441 265708 219
+129 principal claude-opus-5 3745 268149 726
+130 principal claude-opus-5 940 271894 417
+131 principal claude-opus-5 349 273251 30
+132 principal claude-opus-5 695 273600 376
+133 principal claude-opus-5 3015 274295 523
+134 principal claude-opus-5 1058 277310 251
+135 principal claude-opus-5 742 278368 433
+136 principal <synthetic> 0 0 0
+137 principal claude-opus-5 286618 0 30
+138 principal claude-opus-5 859 286618 465
+139 principal claude-opus-5 530 287477 842
+140 principal claude-opus-5 1055 288007 30
+141 principal claude-opus-5 6970 289092 30
+142 principal claude-opus-5 827 296062 249
+143 principal claude-opus-5 2730 296889 325
+144 principal claude-opus-5 6963 299944 30
+145 principal claude-opus-5 1025 306907 375
+146 principal claude-opus-5 1822 307932 409
+147 principal claude-opus-5 2945 309754 92
+148 principal claude-opus-5 845 312699 356
+149 principal claude-opus-5 166 313900 1308
+150 principal claude-opus-5 2336 314066 963
+151 principal claude-opus-5 4334 316402 1064
+152 principal claude-opus-5 2487 320736 1837
+153 principal claude-opus-5 2789 323223 3936
+154 principal claude-opus-5 4473 326012 573
+155 principal claude-opus-5 1156 330485 109
+156 principal claude-opus-5 883 331641 239
+157 principal claude-opus-5 852 332524 1268
+158 principal claude-opus-5 1314 333376 268
+159 principal claude-opus-5 520 334690 856
+160 principal claude-opus-5 1181 335210 1347
+161 principal claude-opus-5 3300 336391 790
+162 principal claude-opus-5 1281 339691 114
+163 principal claude-opus-5 911 340972 1040
+164 principal claude-opus-5 1205 341883 2217
+165 principal claude-opus-5 2589 343088 178
+166 principal claude-opus-5 424 345677 623
+167 principal claude-opus-5 1086 346101 467
+168 principal claude-opus-5 956 347187 301
+169 principal claude-opus-5 352 348143 1139
+170 principal claude-opus-5 1198 348495 1570
+171 principal claude-opus-4-7 34839 0 3268
+172 principal claude-opus-4-7 3416 34839 117
+173 principal claude-opus-4-7 220 38255 122
+174 principal claude-opus-4-7 2415 38475 162
+175 principal claude-opus-4-7 2247 40890 996
+176 principal claude-opus-4-7 1401 43137 122
+177 principal claude-opus-4-7 769 44538 1179
+178 principal claude-opus-5 2399 349693 1009
+179 principal claude-opus-5 1128 352092 1031
+180 principal claude-opus-5 1559 353220 599
+181 principal claude-opus-5 863 354779 377
+182 principal claude-opus-5 458 355642 629
+183 principal claude-opus-5 2777 355642 184
+184 principal claude-opus-5 275 358419 673
+185 principal claude-opus-5 738 358694 1283
+186 principal claude-opus-5 2359 359432 818
+187 principal claude-opus-5 1153 361791 887
+188 principal claude-opus-4-7 25077 29200 230
+189 principal claude-opus-5 2346 362944 361
+190 principal claude-opus-4-7 429 54277 295
+191 principal claude-opus-4-7 16839 54706 278
+192 principal claude-opus-4-7 11062 71545 176
+193 principal claude-opus-5 1064 365290 1627
+194 principal claude-opus-4-7 7906 82607 5310
+195 principal claude-opus-5 2797 366354 621
+196 principal claude-opus-5 885 369151 249
+197 principal claude-opus-5 340 370036 274
+198 principal claude-opus-5 2516 370036 382
+199 principal claude-opus-5 1699 372552 480
+200 principal claude-opus-5 885 374251 2458
+201 principal claude-opus-4-7 4460 29200 318
+202 principal claude-opus-5 2713 375136 1989
+203 agent claude-sonnet-5 6517 11464 3
+204 agent claude-sonnet-5 23087 17981 2
+205 agent claude-sonnet-5 2085 41068 2
+206 agent claude-sonnet-5 1586 43153 2
+207 agent claude-sonnet-5 535 44739 2
+208 agent claude-sonnet-5 984 45274 6
+209 agent claude-sonnet-5 662 46258 17
+210 agent claude-sonnet-5 523 46920 2
+211 agent claude-sonnet-5 1362 47443 2
+212 agent claude-sonnet-5 1273 48805 1
+213 agent claude-sonnet-5 302 50078 4
+214 agent claude-sonnet-5 17814 0 3
+215 agent claude-sonnet-5 3687 17814 5
+216 agent claude-sonnet-5 2306 21501 3
+217 agent claude-sonnet-5 2629 23807 3
+218 agent claude-sonnet-5 633 26436 2
+219 agent claude-sonnet-5 995 27069 7
+220 agent claude-sonnet-5 1860 28064 4
+221 agent claude-sonnet-5 1226 29924 5
+222 agent claude-sonnet-5 425 31150 3
+223 agent claude-sonnet-5 821 31575 5
+224 agent claude-sonnet-5 731 32396 1
+225 agent claude-sonnet-5 1205 33127 1
+226 agent claude-sonnet-5 289 34332 2
+227 agent claude-sonnet-5 6876 11464 5
+228 agent claude-sonnet-5 4543 18340 5
+229 agent claude-sonnet-5 5266 22883 6
+230 agent claude-sonnet-5 1145 28149 5
+231 agent claude-sonnet-5 962 29294 7
+232 agent claude-sonnet-5 1530 30256 7
+233 agent claude-sonnet-5 2657 31786 2
+234 agent claude-sonnet-5 800 34443 3
+235 agent claude-sonnet-5 1082 35243 4
+236 agent claude-sonnet-5 5174 36325 2
+237 agent claude-sonnet-5 2651 41499 2
+238 agent claude-sonnet-5 1308 44150 2
+239 agent claude-sonnet-5 1052 45458 2
+240 agent claude-sonnet-5 251 46510 1
+241 agent claude-sonnet-5 6269 11464 4
+242 agent claude-sonnet-5 4723 17733 2
+243 agent claude-sonnet-5 10031 22456 4
+244 agent claude-sonnet-5 671 32487 2
+245 agent claude-sonnet-5 1044 33158 2
+246 agent claude-sonnet-5 614 34202 3
+247 agent claude-sonnet-5 341 34816 5
+248 agent claude-sonnet-5 2619 35157 4
+249 agent claude-sonnet-5 3738 37776 2
+250 agent claude-sonnet-5 775 41514 2
+251 agent claude-sonnet-5 733 42289 1
+252 agent claude-sonnet-5 1088 43022 2
+253 agent claude-sonnet-5 195 44110 3
+254 agent claude-sonnet-5 930 44305 2
+255 agent claude-sonnet-5 1808 45235 5
+256 agent claude-sonnet-5 297 47043 20
+257 agent claude-sonnet-5 447 47340 4
+258 agent claude-sonnet-5 717 47787 1
+259 agent claude-sonnet-5 497 48504 20
+260 agent claude-sonnet-5 162 49001 2
+261 agent claude-sonnet-5 16777 0 2
+262 agent claude-sonnet-5 1905 16777 6
+263 agent claude-sonnet-5 1409 18682 4
+264 agent claude-sonnet-5 3383 20091 7
+265 agent claude-sonnet-5 2998 23474 3
+266 agent claude-sonnet-5 2149 26472 3
+267 agent claude-sonnet-5 809 28621 2
+268 agent claude-sonnet-5 3515 29430 5
+269 agent claude-sonnet-5 627 32945 6
+270 agent claude-sonnet-5 759 33572 2
+271 agent claude-sonnet-5 462 34331 3
+272 agent claude-sonnet-5 1340 34793 2
+273 agent claude-sonnet-5 1238 36133 8
+274 agent claude-sonnet-5 7230 37371 3
+275 agent claude-sonnet-5 1048 44601 20
+276 agent claude-sonnet-5 2686 45649 2
+277 agent claude-sonnet-5 774 48335 3
+278 agent claude-sonnet-5 335 49109 17
+279 agent claude-sonnet-5 4485 49444 2
+280 agent claude-sonnet-5 4433 53929 2
+281 agent claude-sonnet-5 726 58362 2
+282 agent claude-sonnet-5 588 59088 14
+283 agent claude-sonnet-5 604 59676 9
+284 agent claude-sonnet-5 869 60280 2
+285 agent claude-sonnet-5 3799 61149 5
+286 agent claude-sonnet-5 1043 64948 20
+287 agent claude-sonnet-5 1420 65991 3
+288 agent claude-sonnet-5 24286 67411 3
+289 agent claude-sonnet-5 5681 91697 5
+290 agent claude-sonnet-5 3248 97378 2
+291 agent claude-sonnet-5 626 100626 3
+292 agent claude-sonnet-5 747 101252 3
+293 agent claude-sonnet-5 555 101999 8
+294 agent claude-sonnet-5 562 102554 3
+295 agent claude-sonnet-5 1852 103116 1
+296 agent claude-sonnet-5 1309 104968 4
+297 agent claude-sonnet-5 15927 0 3
+298 agent claude-sonnet-5 1485 15927 2
+299 agent claude-sonnet-5 8123 17412 5
+300 agent claude-sonnet-5 4680 25535 2
+301 agent claude-sonnet-5 1639 30215 6
+302 agent claude-sonnet-5 2674 31854 3
+303 agent claude-sonnet-5 699 34528 2
+304 agent claude-sonnet-5 1269 35227 6
+305 agent claude-sonnet-5 3768 36496 6
+306 agent claude-sonnet-5 3805 40264 3
+307 agent claude-sonnet-5 807 44069 7
+308 agent claude-sonnet-5 595 44876 6
+309 agent claude-sonnet-5 442 45471 3
+310 agent claude-sonnet-5 585 45913 3
+311 agent claude-sonnet-5 1316 46498 2
+312 agent claude-sonnet-5 660 47814 7
+313 agent claude-sonnet-5 348 48474 20
+314 agent claude-sonnet-5 935 48822 5
+315 agent claude-sonnet-5 438 49757 20
+316 agent claude-sonnet-5 445 50195 7
+317 agent claude-sonnet-5 429 50640 3
+318 agent claude-sonnet-5 2462 51069 3
+319 agent claude-sonnet-5 1282 53531 2
+320 agent claude-sonnet-5 249 54813 2
+321 agent claude-sonnet-5 432 55062 2
+322 agent claude-sonnet-5 802 55494 5
 -->
 <!-- /cout -->
