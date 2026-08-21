@@ -17,3 +17,10 @@ apps/*/.impeccable/hook.cache.json
 /.impeccable/
 /apps/ramure-v2/ramure-v2
 .revue-outils/
+
+# Le serveur MCP du navigateur ecrit relativement a la racine de la SESSION, pas
+# au repertoire sur lequel l'agent travaille : l'esthete peut respecter son
+# perimetre dans tous ses gestes de fichier et salir quand meme la racine. Aucune
+# consigne d'agent ne peut l'en empecher — seul le depot peut s'en proteger.
+/.playwright-mcp/
+/*.png

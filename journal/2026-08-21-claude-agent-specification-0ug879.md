@@ -56,9 +56,46 @@ facture : claude-opus-4-7 » et « claude-haiku-4-5-20251001 ». Ces deux moteur
 `claude-haiku-4-5-20251001`, et n'a jamais reçu `claude-opus-4-7`. Le rapprochement se
 fait sur le nom exact, donc silencieusement à vide.
 
-**Detecte par** — `outillage` — la commande le dit elle-même, sous « ce qui manque ».
+**Detecte par** — `auteur` — la commande le dit elle-même, sous « ce qui manque ».
 
 **Action** — `garde-fou` — tout le travail des agents en haiku est aujourd'hui compté en
 jetons et pas en argent, c'est-à-dire invisible dans la seule mesure qui sert à décider.
 `jetons.sh` devrait rendre KO, et non signaler en passant, quand un moteur porte des
 appels sans tarif.
+
+### 4. L'esthète écrit hors de son arbre de travail, par son navigateur
+
+**Symptôme** — l'esthète du banc travaillait dans un arbre de travail git dédié, sous
+`scratchpad/`, et sa mission le lui disait explicitement. À la fin du relevé, huit
+fichiers non suivis étaient apparus **à la racine du vrai dépôt** : `.playwright-mcp/`
+et sept captures d'écran.
+
+**Cause** — le serveur MCP du navigateur n'écrit pas relativement au répertoire sur
+lequel l'agent travaille, mais relativement à la racine de la session. Un agent peut
+donc respecter scrupuleusement son périmètre dans tous ses gestes de fichier et salir
+malgré tout le dépôt par un geste de navigateur. La règle « tu ne sors pas de
+`apps/<nom>/` » ne couvre que ce que l'agent contrôle.
+
+**Detecte par** — `CI` — le garde-fou de commit, qui a refusé de laisser passer huit
+fichiers non enregistrés. Sans lui, ils partaient dans le commit suivant.
+
+**Action** — `garde-fou` — `.gitignore` devrait porter `.playwright-mcp/` et les
+captures de racine, car aucune consigne d'agent ne peut empêcher un outil d'écrire où
+il veut. Le contrat demande à l'esthète de ne pas sortir de son app ; il faut aussi que
+le dépôt survive au cas où il en sort sans le vouloir.
+
+### 5. L'esthète coûte dix à vingt fois n'importe quel autre agent, et personne ne l'avait mesuré
+
+**Symptôme** — une seule critique de `cadran`, une app d'un seul écran, a coûté 6,19 $
+sur le moteur intermédiaire : 16 745 072 jetons relus, 94 gestes, quinze minutes. Les
+huit autres relevés du banc coûtent entre 0,07 $ et 1,95 $.
+
+**Cause** — chaque geste de navigateur ramène une capture ou un arbre d'accessibilité
+dans le contexte, et tout le contexte est relu au geste suivant. Le coût croît donc avec
+le carré du nombre de gestes, pas linéairement. Aucun plafond ne borne ce nombre.
+
+**Detecte par** — `auteur` — en chiffrant le banc, poste par poste.
+
+**Action** — `garde-fou` — l'esthète est le seul agent dont le coût justifie un plafond
+chiffré dans sa consigne, et il est aujourd'hui le seul, avec l'analyste, à ne déclarer
+aucun moteur : il tourne donc sur le plus cher, par défaut et non par décision.
