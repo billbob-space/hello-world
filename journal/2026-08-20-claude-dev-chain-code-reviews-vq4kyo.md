@@ -3037,6 +3037,11 @@ identique ne laisse aucune trace agregeable — il faut avoir vu passer les deux
 runs. Piste pour qui la reprendra : relever, par app et par mois, le nombre de
 runs ou un job a echoue puis reussi sans changement de code.
 
+**RESOLU — voir l'anomalie 43.** La cause n'etait ni un aleatoire, ni le
+service worker : `axe-core` descendait dans l'iframe YouTube de l'ecran
+`exercice` et mesurait l'accessibilite du lecteur de YouTube. Le vert local
+ne mesurait pas l'absence du defaut, il mesurait l'absence de reseau.
+
 ### 41. Un resultat d'outil archive, TRONQUE, resservi comme s'il etait complet
 
 **Symptome** — pour completer la section `## Revue` du corps de la pull request,
@@ -3130,3 +3135,68 @@ qu'une chaine complete par virgule.
 La forme generale, elle, depasse ce job : **un garde-fou qui dit quoi corriger
 sans dire ce qu'il faut faire ENSUITE pour qu'il reverdisse est a moitie ecrit.**
 Le premier a le subir a ete son auteur, le jour de sa mise en service.
+
+### 43. La suite bout en bout de pilabelle mesurait l'accessibilite de YouTube
+
+**Resolution de l'anomalie 40.** Trois jours d'intermittence, une piste
+« service worker » consignee puis DEMENTIE : la cause est ailleurs, et elle
+n'est pas dans le depot.
+
+**Symptome** — `bout-en-bout (pilabelle)` rougissait un run sur trois avec
+`aria-prohibited-attr (serious)` sur l'ecran `exercice`, et la reprise expirait
+en attendant `input[name="niveau"]`. Onze passages locaux verts, dont cinq
+d'affilee.
+
+**Ce que le message enrichi a dit, des le premier run rouge :**
+
+```
+exercice : aria-prohibited-attr (serious) : Elements must only use permitted
+ARIA attributes -- iframe #movie_player :: <div class="html5-video-player y..."
+tabindex="" id="movie_player" data-version="/s/player/2574220e/p..."
+aria-label="YouTube Video Player"> :: Fix all of the following: aria-label
+attribute cannot be used on a div with no valid role attribute.
+```
+
+**Cause** — l'ecran `exercice` incruste une iframe YouTube (`web/video.js`,
+`web/vue-seance.js`). `axe-core` DESCEND dans les iframes qu'il peut atteindre :
+il rapportait le balisage du lecteur de YouTube comme une violation de notre
+app. L'intermittence n'etait donc pas un aleatoire — c'etait la question
+« le lecteur YouTube a-t-il fini de s'initialiser avant le scan ? », dont la
+reponse depend de la charge reseau du runner. Le meme retard explique le second
+symptome : la reprise chargeait la page pendant que les requetes sortantes
+trainaient encore.
+
+**Pourquoi onze passages locaux verts ne prouvaient rien, mesure et non
+supposee** — la contre-epreuve a instrumente le parcours et compte les hotes
+appeles. Sans coupure, la page appelle bien `www.youtube.com`, et la frame reste
+a l'URL vide : le reseau sortant du poste est filtre, le lecteur ne s'initialise
+JAMAIS ici, donc `axe` ne voit rien a signaler. **Le vert local ne mesurait pas
+l'absence du defaut, il mesurait l'absence de reseau.** C'est la forme la plus
+pure du vert silencieux rencontree sur cette branche : un environnement qui
+rend un verdict rassurant parce qu'il est moins capable, pas parce que le code
+est meilleur.
+
+**Detecte par** — `CI`
+
+**Action** — `garde-fou` — la suite ne parle plus qu'a notre binaire : tout hote
+autre que le sien est coupe net (`couperLeMondeExterieur`), pour les contextes
+par defaut comme pour ceux fabriques a la main. Le defaut de fond etait pire que
+son symptome : une suite qui mesure l'accessibilite d'un TIERS n'est pas
+seulement instable, elle est **incontrolable**. Le `data-version` du lecteur le
+montre — ce balisage change sans nous, et YouTube pouvait rendre rouge la
+fabrique ENTIERE un matin, sans qu'une ligne du depot bouge.
+
+Une assertion garde le coupe-circuit : aucune frame chargee en http(s) ne doit
+avoir une autre origine que la notre. Elle a ete **jouee contre le defaut** avant
+d'etre crue, en deux temps, et les deux ont servi :
+
+1. Premiere version, elle comptait `chrome-error://chromewebdata/` — la
+   signature d'une frame COUPEE — comme une origine etrangere, et rougissait
+   donc sur le cas REUSSI. Trouvee au premier passage, pas au vingtieme.
+2. Corrigee, elle ne mordait toujours pas en local, ou l'iframe reste vide. La
+   condition de l'integration continue a donc ete FABRIQUEE : au lieu d'abandonner
+   la requete YouTube, on la SERT. La garde voit alors `www.youtube.com`. Sans ce
+   second temps, elle aurait ete decorative et personne ne l'aurait su.
+
+La regle generale, qui depasse `pilabelle` : **un bout en bout mesure NOTRE app,
+jamais le reseau.** Un tiers incruste se coupe, et la coupure se garde.
