@@ -158,9 +158,9 @@ jobs:
   #     et pour une raison precise : il valide init.sh --check, dont le job
   #     contrat n'est que l'execution. Mettre en ligne sur la foi d'un verrou
   #     dont on n'a pas verifie le mecanisme, c'est n'avoir aucun verrou ;
-  #   - ses quatre scripts tournent en parallele.
+  #   - ses six scripts tournent en parallele.
   #
-  # fail-fast: false — on veut les quatre verdicts, pas le premier. Une shard
+  # fail-fast: false — on veut les six verdicts, pas le premier. Une shard
   # annulee rendrait le job rouge et bloquerait deploy de toute facon, mais sans
   # dire ce qui va mal ailleurs.
   outillage:
@@ -171,7 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # test-init.sh   : le plus long des quatre, et le seul que deploy attende
+        # test-init.sh   : le plus long des six, et le seul que deploy attende
         #                  legitimement — voir plus haut.
         # test-cout.sh   : cout.sh ne casse rien quand il se trompe, il ment.
         # test-pret.sh   : son garde-fou « le PRD suit-il ? » est le seul de la
@@ -193,13 +193,24 @@ jobs:
         #                  qu'il ne connait pas, puis les fichiers de plus de
         #                  mille lignes — deux fois un rapport bien forme sur un
         #                  perimetre vide.
-        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh, test-revue.sh]
+        # test-deploiement.sh : le verdict de mise en ligne est le DERNIER mot
+        #                  de la chaine, il vit en shell inline dans ce fichier,
+        #                  et ses trois entrees — code HTTP, corps rendu par
+        #                  dockhand, et ce que l'etape precedente a etabli — ne se
+        #                  combinent jamais toutes sur un run reel. Le 21 aout
+        #                  2026 il accusait le serveur d'etre mal configure alors
+        #                  qu'il venait de deployer : un quart d'heure de chasse a
+        #                  une panne inexistante, et rien dans le diff ne pouvait
+        #                  le montrer. Ses cas EXTRAIENT le bloc de ce fichier au
+        #                  lieu de le recopier — une recopie se desynchroniserait
+        #                  et continuerait a rendre vert.
+        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh, test-revue.sh, test-deploiement.sh]
     steps:
       - uses: actions/checkout@v4
       - run: ./${{ matrix.script }}
 
-  # Un seul nom de controle pour les quatre shards. La matrice ci-dessus publie
-  # « outillage (test-init.sh) » et trois freres, dont les noms changeraient a
+  # Un seul nom de controle pour les six shards. La matrice ci-dessus publie
+  # « outillage (test-init.sh) » et cinq freres, dont les noms changeraient a
   # chaque fois qu'on redecoupe ; la regle qui protege main, elle, exige des
   # controles de statut nommes. Ce job garde donc le nom historique, stable quoi
   # qu'il arrive a la matrice.
@@ -234,7 +245,7 @@ jobs:
             exit 1
           fi
           case "$resultat" in
-            success) echo "  ok    outillage : les cinq scripts sont verts" ;;
+            success) echo "  ok    outillage : les six scripts sont verts" ;;
             skipped) echo "  ok    outillage : rien n'a bouge, matrice sautee" ;;
             *)       echo "  KO    outillage : $resultat" ; exit 1 ;;
           esac
@@ -1020,8 +1031,14 @@ jobs:
 
           # Ce qui empeche la livraison unitaire ne doit jamais empecher la
           # LIVRAISON : on repasse par le webhook, en disant pourquoi.
+          # Le second argument dit si ce repli a ETABLI qu'il y a bien quelque
+          # chose a deployer. Il decide du verdict quand dockhand repond
+          # « skipped » -- voir l'etape « declencher le deploiement ». Par
+          # defaut « non » : un repli qui ne s'est pas prononce ne prouve rien,
+          # et c'est le cas de tous ceux qui abandonnent AVANT de comparer.
           repli() {
             echo "webhook=true" >> "$GITHUB_OUTPUT"
+            echo "etabli=${2:-non}" >> "$GITHUB_OUTPUT"
             echo "::warning::livraison unitaire ecartee — $1"
             echo "le deploiement repasse par le webhook : TOUTE la stack sera recreee"
             exit 0
@@ -1054,7 +1071,7 @@ jobs:
           if printf '%s\n' "$bouge" | grep -qvE '^[+-][[:space:]]*image:[[:space:]]'; then
             echo "le compose change ailleurs que sur des lignes image: —"
             printf '%s\n' "$bouge" | grep -vE '^[+-][[:space:]]*image:[[:space:]]' | head -20
-            repli "changement de structure, que seul le deploiement complet sait poser"
+            repli "changement de structure, que seul le deploiement complet sait poser" oui
           fi
 
           # Un seul point de sortie vers dockhand. Il distingue les trois echecs
@@ -1140,7 +1157,7 @@ jobs:
           PY
           )
           case "$a_livrer" in
-            MANQUE*) repli "conteneur(s) absent(s) de l hote : ${a_livrer#MANQUE }" ;;
+            MANQUE*) repli "conteneur(s) absent(s) de l hote : ${a_livrer#MANQUE }" oui ;;
           esac
           if [ -z "$a_livrer" ]; then
             echo "les images en ligne sont deja celles du compose — rien a recreer"
@@ -1205,6 +1222,9 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
           WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
+          # « oui » seulement si l'etape precedente a ETABLI qu'il y a quelque
+          # chose a deployer. Seul ce cas rend un « skipped » anormal.
+          ETABLI: ${{ steps.unitaire.outputs.etabli }}
         run: |
           if [ -z "$WEBHOOK" ]; then
             echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — images publiees, deploiement NON declenche"
@@ -1267,13 +1287,34 @@ jobs:
 
           # dockhand ne redeploie que s'il voit un commit nouveau, et repond 200
           # quand il saute : sans ce test, la CI serait verte et le serveur
-          # servirait toujours les images d'avant. On n'arrive ici qu'avec un
-          # compose.yaml qui a bel et bien change et ete pousse — un saut ne
-          # peut donc plus vouloir dire « rien a faire », il veut dire que
-          # dockhand n'a pas vu la poussee.
+          # servirait toujours les images d'avant.
+          #
+          # MAIS « skipped » ne veut pas dire la meme chose selon la facon dont
+          # on est arrive ici, et la version precedente confondait les deux. Elle
+          # affirmait « on n'arrive ici qu'avec un compose.yaml qui a bel et bien
+          # change », donc accusait dockhand de ne pas voir la poussee. C'etait
+          # faux : « webhook=true » n'est pose QUE par repli(), et la plupart des
+          # replis abandonnent AVANT d'avoir compare quoi que ce soit -- secret
+          # absent, declenchement manuel (github.event.before est vide), compose
+          # identique au commit precedent. Sur ces chemins-la, « skipped » est la
+          # bonne reponse de dockhand : la stack est deja sur ce commit.
+          #
+          # Constate le 21 aout 2026 : la fusion avait deploye pour de bon a
+          # 13:49, un declenchement manuel « toutes » quatre minutes plus tard a
+          # recu « No changes detected » -- exact -- et le job a affiche « verifie
+          # que le conteneur dockhand resout github.com ». Un quart d'heure de
+          # chasse a une panne inexistante, sur une infrastructure saine.
           if grep -q '"skipped":[[:space:]]*true' reponse.txt; then
-            echo "::error::dockhand a saute le deploiement alors que compose.yaml a change sur main."
-            echo "::error::Il n'a pas vu la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com)."
-            exit 1
+            if [ "${ETABLI:-non}" = oui ]; then
+              echo "::error::dockhand a saute le deploiement alors qu'il y a bel et bien quelque chose a deployer (voir l avertissement de l etape precedente)."
+              echo "::error::Il n'a pas vu la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com)."
+              exit 1
+            fi
+            # Pas d'echec : rien n'etablit qu'il y avait a faire. Pas de silence
+            # non plus -- si la stack N'EST pas sur ce commit, ce message est le
+            # seul endroit ou la piste existe.
+            echo "::warning::dockhand n'avait rien a deployer : il considere la stack deja sur ce commit. Normal apres un deploiement qui vient d'avoir lieu, ou sur un declenchement manuel qui ne change rien."
+            echo "::warning::Si les apps en ligne ne sont PAS a jour, alors dockhand ne voit pas la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com). Etat reel : ./scripts/prod.sh"
+            exit 0
           fi
           echo "deploiement declenche"
