@@ -55,6 +55,20 @@ jobs:
       # Sur une pull request seulement, et c'est deliberé : la relecture vient en
       # FIN de branche. L'exiger a chaque commit ferait echouer le premier de
       # chaque branche, ce qui apprend a contourner.
+      #
+      # PIEGE, constate au premier passage reel : le corps lu ici est celui que
+      # PORTAIT L'EVENEMENT, pas le corps actuel. « pull_request: » sans
+      # « types: » n'ecoute que opened / synchronize / reopened — une EDITION du
+      # corps ne declenche rien, et « Re-run » rejoue le payload d'origine, donc
+      # le corps perime. Corriger la section « ## Revue » ne reverdit ce job
+      # qu'apres un nouveau COMMIT POUSSE ; les messages d'erreur ci-dessous le
+      # disent, faute de quoi on tourne en rond en croyant la regle cassee.
+      #
+      # Pourquoi ne pas ajouter « edited » aux types : ce workflow construit les
+      # images et lance les tests bout en bout. Le declencher a chaque frappe
+      # dans le corps d'une pull request paierait une chaine complete pour une
+      # virgule, et le « cancel-in-progress » des pull requests annulerait au
+      # passage le run utile en cours. Un commit de plus coute moins cher.
       - name: les deux relecteurs ont-ils eu lieu
         if: github.event_name == 'pull_request'
         env:
@@ -70,10 +84,10 @@ jobs:
             echo "::error::le corps de la pull request n'a pas de section « ## Revue ». Le gabarit .github/pull_request_template.md la porte : remplis-la."
             echec=1
           elif printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\*.*AAAA-MM-JJ'; then
-            echo "::error::la ligne « Code » de la section « ## Revue » est restee au gabarit. Lance l agent relecteur sur la branche et ecris ce qu il a trouve."
+            echo "::error::la ligne « Code » de la section « ## Revue » est restee au gabarit. Lance l agent relecteur sur la branche et ecris ce qu il a trouve. ATTENTION : corriger le corps ne suffit pas a reverdir ce job — il faut POUSSER un commit ensuite (voir le commentaire ci-dessus)."
             echec=1
           elif ! printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\* .*[0-9]{4}-[0-9]{2}-[0-9]{2}.*[A-Za-z]'; then
-            echo "::error::la ligne « Code » de la section « ## Revue » est vide ou sans date. Forme attendue : « - **Code** — relecteur, le 2026-08-20 : <ce qu il a trouve> »."
+            echo "::error::la ligne « Code » de la section « ## Revue » est vide ou sans date. Forme attendue : « - **Code** — relecteur, le 2026-08-20 : <ce qu il a trouve> ». ATTENTION : corriger le corps ne suffit pas a reverdir ce job — il faut POUSSER un commit ensuite (voir le commentaire ci-dessus)."
             echec=1
           else
             echo "  ok    relecture de code consignee"

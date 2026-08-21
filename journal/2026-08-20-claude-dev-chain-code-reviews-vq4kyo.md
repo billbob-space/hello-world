@@ -3111,3 +3111,22 @@ qu'un controle puisse etre saute « quand on sait que c'est sans risque ».
 
 Neuvieme vert silencieux de la serie, et le seul que la branche ait attrape
 elle-meme.
+
+**Suite — le controle avait raison, et son message etait inutilisable.** Une
+fois la section `## Revue` corrigee, le job est reste rouge. Le corps lu par
+l'etape est celui que PORTAIT L'EVENEMENT, pas le corps actuel : `pull_request:`
+sans `types:` n'ecoute que `opened` / `synchronize` / `reopened`, une EDITION du
+corps ne declenche rien, et « Re-run » rejoue le payload d'origine — donc le
+corps perime. Le message disait quoi corriger et taisait que le corriger ne
+suffisait pas ; on tourne alors en rond en croyant la regle cassee.
+
+Les deux messages de l'etape disent desormais qu'il faut POUSSER un commit
+ensuite. Ce qui n'a PAS ete fait, et pourquoi : ajouter `edited` aux types
+declencherait la construction des images et le bout en bout a chaque frappe
+dans le corps d'une pull request, et le `cancel-in-progress` des pull requests
+annulerait au passage le run utile en cours. Un commit de plus coute moins cher
+qu'une chaine complete par virgule.
+
+La forme generale, elle, depasse ce job : **un garde-fou qui dit quoi corriger
+sans dire ce qu'il faut faire ENSUITE pour qu'il reverdisse est a moitie ecrit.**
+Le premier a le subir a ete son auteur, le jour de sa mise en service.
