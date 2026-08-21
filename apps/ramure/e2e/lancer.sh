@@ -56,9 +56,22 @@ nettoyer() {
 }
 trap nettoyer EXIT
 
+# Le PID est un ARGUMENT, et pas une commodite : sans lui, cette fonction ne
+# peut pas distinguer « mon serveur repond » de « quelque chose repond sur ce
+# port ». Scenario reel du 2026-08-21 : le binaire meurt au demarrage (« bind:
+# address already in use »), un processus etranger repond, curl /healthz
+# reussit, et Playwright joue ses tests contre le serveur du voisin.
+# Contre-epreuve faite sur hello-world avec un imposteur : la suite partait, et
+# son test de sonde de sante PASSAIT AU VERT contre le mauvais serveur pendant
+# que les deux autres echouaient en imitant une regression.
 attend_healthz() {
-  local port="$1" nom="$2" log="$3"
+  local port="$1" nom="$2" log="$3" pid="$4"
   for _ in $(seq 1 30); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      echo "$nom s'est arrete au demarrage (port $port) — si quelque chose y repond, c'est un AUTRE processus" >&2
+      cat "$log" >&2
+      exit 1
+    fi
     curl -fsS "http://localhost:$port/healthz" >/dev/null 2>&1 && return 0
     sleep 1
   done
@@ -77,6 +90,11 @@ echo "==> fixture Deezer locale sur :$FIXTURE_PORT"
 FIXTURE_PORT="$FIXTURE_PORT" node fixture-deezer.js >"$TRAV/fixture.log" 2>&1 &
 FIX_PID=$!
 for _ in $(seq 1 30); do
+  if ! kill -0 "$FIX_PID" 2>/dev/null; then
+    echo "la fixture Deezer s'est arretee au demarrage (port $FIXTURE_PORT) — si quelque chose y repond, c'est un AUTRE processus" >&2
+    cat "$TRAV/fixture.log" >&2
+    exit 1
+  fi
   curl -fsS "http://localhost:$FIXTURE_PORT/portrait.svg" >/dev/null 2>&1 && break
   sleep 1
 done
@@ -89,13 +107,13 @@ echo "==> demarrage sur :$PORT (Deezer -> fixture locale)"
 PORT="$PORT" RAMURE_BASE_DEEZER="http://localhost:$FIXTURE_PORT" \
   "$BIN" >"$TRAV/ramure.log" 2>&1 &
 SRV_PID=$!
-attend_healthz "$PORT" "l'application" "$TRAV/ramure.log"
+attend_healthz "$PORT" "l'application" "$TRAV/ramure.log" "$SRV_PID"
 
 echo "==> demarrage sur :$PORT_PANNE (Deezer -> port fermé, pour F-36/F-38)"
 PORT="$PORT_PANNE" RAMURE_BASE_DEEZER="http://127.0.0.1:$PORT_FERME" \
   "$BIN" >"$TRAV/ramure-panne.log" 2>&1 &
 SRV_PANNE_PID=$!
-attend_healthz "$PORT_PANNE" "l'application (instance panne)" "$TRAV/ramure-panne.log"
+attend_healthz "$PORT_PANNE" "l'application (instance panne)" "$TRAV/ramure-panne.log" "$SRV_PANNE_PID"
 
 echo "==> tests Playwright"
 RAMURE_E2E_URL="http://localhost:$PORT" \

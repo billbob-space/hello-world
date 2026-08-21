@@ -1963,3 +1963,58 @@ positif apparait, nomme `hello-world` deux fois.
 C'est le sixieme vert silencieux de la branche, et le seul qu'aucune execution
 en CI n'aurait jamais pu reveler : les cinq autres attendaient qu'on lise leur
 sortie, celui-ci attendait qu'on soit sur deux apps a la fois.
+
+### 29. Une suite de bout en bout pouvait passer au vert en testant une AUTRE application
+
+**Symptome** — trouve par l'artisan de `pilabelle`, en vrai, pendant son
+chantier. Son premier lancement de `e2e/lancer.sh` echoue avec des symptomes de
+regression : « Bienvenue 👋 » introuvable, champ de formulaire introuvable. Le
+code n'y etait pour rien. Dans `/tmp/pilabelle-e2e.log` : `listen tcp :18090:
+bind: address already in use`. Le serveur de `pilabelle` n'avait jamais demarre,
+un binaire etranger occupait le port, et Playwright avait joue toute la suite
+contre lui.
+
+**Cause** — les dix `lancer.sh` demarrent leur serveur en tache de fond, puis
+attendent une reponse sur `/healthz`. Ils n'interrogent que **le port**, jamais
+**le processus qu'ils ont lance**. Or le port ne prouve rien : n'importe qui
+peut y repondre. Le nôtre peut etre mort a la premiere seconde — port occupe,
+configuration absente, dependance manquante, permission refusee — sans que rien
+ne le dise, parce que `curl` obtient son 200 d'ailleurs.
+
+C'est le meme mode d'echec que l'anomalie 28, un cran plus profond. 28 empechait
+deux apps de **declarer** le meme port ; 29 dit que la declaration ne suffit
+pas, parce qu'un processus oublie d'une session precedente ne declare rien.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — les dix suites verifient desormais que **leur propre
+serveur est encore vivant** avant de conclure : `kill -0` sur le PID lance pour
+les huit natives, `docker inspect -f '{{.State.Running}}'` pour les deux qui
+montent des conteneurs. Le PID et le nom de conteneur sont les seules choses
+qu'un tiers ne peut pas usurper. Les serveurs annexes ont le meme garde-fou —
+le stub d'`estran`, la fixture Deezer de `ramure` —, ils avaient le meme trou.
+
+**La contre-epreuve est la partie qui compte, et elle est pire que prevu.** Un
+imposteur pose sur le port de `hello-world` (un serveur qui rend 200 sur tout),
+puis la suite lancee sans le garde-fou :
+
+```
+==> tests Playwright
+  ✘  1 la page d'accueil s'affiche
+  ✓  2 la sonde de sante repond          <-- VERT, contre le serveur d'un autre
+  ✘  3 aucune violation d'accessibilite serieuse
+```
+
+Un test **passe au vert contre un serveur qui n'est pas celui de l'app**, et les
+deux qui echouent imitent une regression du code qu'on vient d'ecrire. Avec le
+garde-fou : refus, code 1, zero test joue. Une suite plus generique dans ses
+assertions — et beaucoup le sont — serait passee entierement verte.
+
+Septieme vert silencieux de la branche. Les six premiers rendaient un verdict
+sans avoir rien lu ; celui-ci lit vraiment, mais chez le voisin.
+
+**Non verifie ici** — `ardoise` et `compteur` montent des conteneurs et le demon
+Docker n'est pas joignable depuis cette session (deja note en anomalie 18). Leur
+garde-fou est ecrit et analyse par `bash -n`, il n'est pas joue. La CI le
+tranchera. Les huit autres suites ont ete rejouees apres le correctif : 63 tests
+verts, `axe` compris.
