@@ -2968,3 +2968,54 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1711 agent claude-haiku-4-5-20251001 444 18074 2
 -->
 <!-- /cout -->
+
+### 40. Une suite de bout en bout rouge une fois sur trois, sur un code identique
+
+**Symptome** — `bout-en-bout (pilabelle)` echoue en CI sur le commit e82a2d9 :
+`aria-prohibited-attr (serious)` sur l'ecran d'exercice. Le meme job etait VERT
+quinze minutes plus tot sur bb9dae1, et le seul commit entre les deux ajoute un
+fichier de documentation sous `docs/`. Le code de l'app est identique a l'octet
+pres.
+
+Second symptome, dans le meme journal de job : la reprise automatique
+n'echoue pas de la meme facon. Elle expire au bout de vingt secondes en
+attendant `input[name="niveau"]`, c'est-a-dire le PREMIER champ du premier
+ecran. La page n'etait donc pas dans l'etat attendu du tout.
+
+**Cause** — non etablie, et c'est le constat. Ce qui a ete ecarte :
+
+- **une montee de version d'axe** : `@axe-core/playwright` est declare en
+  `^4.13.0`, la derniere version publiee EST 4.13.0, et c'est celle installee
+  ici. Rien n'a bouge sous le caret ;
+- **un defaut deterministe** : la suite passe **quatre fois sur quatre** en
+  local, accessibilite comprise ;
+- **une regression de cette branche** : le job repasse au VERT au run suivant
+  (390) sans qu'une ligne de `pilabelle` ait ete touchee.
+
+La piste que je n'ai pas pu confirmer depuis cette session est le **service
+worker** (`apps/pilabelle/web/sw.js`) servant une version en cache pendant que
+le scan tourne. C'est un mode d'echec que le depot a DEJA rencontre sur
+`ramure` — anomalie 20 de cette meme branche, « le service worker rechargeait
+la page sous le nez du scan ». Deux apps, meme symptome intermittent, meme
+piece suspecte.
+
+**Detecte par** — `CI`
+
+**Action** — `garde-fou` — rien n'est corrige ici, et c'est assume : je n'ai pas
+reproduit, donc je ne saurais pas si un correctif corrige quoi que ce soit. Ce
+qui est ecrit, c'est la piste et l'ecartement des trois autres, pour que le
+prochain ne refasse pas ce travail.
+
+Ce qui rend ce cas digne d'une entree plutot que d'un haussement d'epaules :
+**un controle qui rougit une fois sur trois apprend a le relancer, pas a le
+lire.** C'est la version lente du vert silencieux — au lieu de rassurer a tort,
+il inquiete a tort, et le resultat est le meme : on cesse de le croire. Les
+sept verts silencieux de cette branche ont ete trouves parce que quelqu'un a
+regarde un verdict au lieu de le relancer ; un job instable retire exactement
+cette habitude-la.
+
+Le garde-fou qui manque n'est pas dans `pilabelle` : c'est que la fabrique ne
+sait pas COMPTER ses jobs instables. Un job qui rougit puis verdit sur un code
+identique ne laisse aucune trace agregeable — il faut avoir vu passer les deux
+runs. Piste pour qui la reprendra : relever, par app et par mois, le nombre de
+runs ou un job a echoue puis reussi sans changement de code.
