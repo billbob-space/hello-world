@@ -3019,3 +3019,40 @@ sait pas COMPTER ses jobs instables. Un job qui rougit puis verdit sur un code
 identique ne laisse aucune trace agregeable — il faut avoir vu passer les deux
 runs. Piste pour qui la reprendra : relever, par app et par mois, le nombre de
 runs ou un job a echoue puis reussi sans changement de code.
+
+### 41. Un resultat d'outil archive, TRONQUE, resservi comme s'il etait complet
+
+**Symptome** — pour completer la section `## Revue` du corps de la pull request,
+un agent devait relire ce corps puis le reecrire entier. Le plugin
+`token-optimizer` a intercepte l'appel — « cet appel a deja tourne, son resultat
+complet est archive sur disque » — et l'a renvoye vers l'archive plutot que vers
+GitHub.
+
+L'archive faisait **5 425 caracteres** la ou le corps reel en fait **7 254**.
+Elle etait tronquee de 25 %, et les apostrophes y etaient echappees en entites
+HTML. Reecrire le corps depuis cette archive l'aurait **ampute d'un quart**, en
+publiant le resultat sur la pull request.
+
+**Cause** — l'archive est presentee comme « le resultat complet », et le message
+d'interception decourage explicitement de rappeler l'outil (« re-fetching would
+re-inflate context »). Rien dans ce message ne dit que l'archive peut etre
+tronquee, ni comment le verifier. L'agent ne s'en est apercu qu'en comparant a
+la source : il est alle relire le corps par l'API publique.
+
+Le mecanisme est juste dans son intention — eviter de repayer un gros resultat
+deja obtenu — et faux dans un cas precis : quand le resultat n'est pas lu pour
+etre RESUME mais pour etre REECRIT. Une troncature invisible est sans
+consequence dans le premier usage et destructrice dans le second.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — la regle qui en sort ne demande aucun code :
+**un contenu qu'on va reecrire se relit a la source, jamais depuis un cache.**
+Le cache d'un outil sert a repondre a une question ; il ne sert pas de version
+de reference pour une modification. La difference est la meme qu'entre lire un
+resume et editer l'original.
+
+C'est encore le mode d'echec de toute cette branche, deplace dans l'outillage :
+un intermediaire qui rend un resultat bien forme, plausible, et incomplet — sans
+que rien n'echoue. Huitieme de la serie, et le premier a ne pas venir de la
+fabrique elle-meme.
