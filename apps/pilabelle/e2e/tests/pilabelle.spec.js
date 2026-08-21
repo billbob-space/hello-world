@@ -60,7 +60,19 @@ test("aucune violation d'accessibilite serieuse sur les ecrans visites", async (
       .analyze();
     for (const v of resultat.violations) {
       if (v.impact === "serious" || v.impact === "critical") {
-        violationsGraves.push(`${nomEcran} : ${v.id} (${v.impact}) : ${v.help}`);
+        // Le NOEUD fautif, et pas seulement la regle enfreinte. Une violation
+        // INTERMITTENTE ne se diagnostique pas autrement : le rapport detaille
+        // que Playwright ecrit dans test-results/ ne survit pas au runner, et
+        // « aria-prohibited-attr sur l'ecran exercice » ne dit pas sur QUEL
+        // element. Trois noeuds au plus, tronques : de quoi nommer le coupable
+        // sans noyer le journal du job.
+        const noeuds = (v.nodes || [])
+          .slice(0, 3)
+          .map((n) => `${(n.target || []).join(" ")} :: ${String(n.html || "").slice(0, 200)}`)
+          .join(" | ");
+        violationsGraves.push(
+          `${nomEcran} : ${v.id} (${v.impact}) : ${v.help} -- ${noeuds}`,
+        );
       }
     }
   }

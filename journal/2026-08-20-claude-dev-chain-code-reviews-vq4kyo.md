@@ -2999,6 +2999,23 @@ le scan tourne. C'est un mode d'echec que le depot a DEJA rencontre sur
 la page sous le nez du scan ». Deux apps, meme symptome intermittent, meme
 piece suspecte.
 
+**SUITE, ET DEMENTI — le meme jour, sur main.** Ce qui precede concluait a un
+alea. C'est faux, et la fusion l'a montre tout de suite : le run 393 sur `main`
+(e0577712) echoue sur le MEME job, la MEME regle, le MEME ecran. Troisieme
+occurrence. Ce n'est pas un alea, c'est un defaut intermittent.
+
+Consequence immediate, et elle est bonne : `deploy` a ete **saute**, donc rien
+n'est parti en production. Le garde-fou a fait exactement son travail — une
+suite en navigateur rouge empeche la mise en ligne, y compris apres une fusion.
+
+Ce que ce dementi apprend sur la methode, plus que sur pilabelle : **« je n'ai
+pas reproduit » et « ce n'est pas reproductible » sont deux affirmations
+differentes**, et j'ai ecrit la seconde en n'ayant etabli que la premiere. Cinq
+passages locaux verts ne prouvent rien sur un runner dont la charge, la vitesse
+et l'ordonnancement ne sont pas les miens. La regle qui en sort : un echec de CI
+non reproduit en local se declare **non diagnostique**, jamais **non
+reproductible**.
+
 **Detecte par** — `CI`
 
 **Action** — `garde-fou` — rien n'est corrige ici, et c'est assume : je n'ai pas
