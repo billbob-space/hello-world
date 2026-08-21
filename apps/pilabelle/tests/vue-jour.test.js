@@ -39,6 +39,12 @@ test('cas a-faire : le programme se voit (une li par bloc, jamais de classe) et 
 	const app = installerDom();
 	vueJour(app, { jour: { cas: 'a-faire', seance: SEANCE }, onCommencer: () => {}, onReglages: () => {}, onPersonnel: () => {} });
 
+	// « Le programme en une ligne » (decision du 21 aout 2026) : la liste porte
+	// la classe `programme`, qui la met en rangee de pastilles plutot qu'en
+	// colonne (regle CSS verifiee cote style dans style-ecran-jour.test.js).
+	const liste = app.querySelector('ul');
+	assert.equal(liste.className, 'programme');
+
 	const blocs = app.querySelectorAll('ul li');
 	assert.equal(blocs.length, 2, 'chaque bloc de la seance doit rester visible');
 	for (const bloc of blocs) {

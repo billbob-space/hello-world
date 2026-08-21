@@ -4,8 +4,12 @@
    utilisable même sur un réseau capricieux, posée au sol pendant l'effort. */
 
 :root {
-	/* Couleurs — un rose tendre en primaire, une lavande en secondaire,
-	   un vert doux pour la validation, jamais saturés à fond. */
+	/* Couleurs — un rose tendre en primaire, un vert doux pour la validation,
+	   jamais saturés à fond. La lavande a longtemps aussi habillé
+	   button.secondaire (« en secondaire ») ; depuis la décision du 21 août
+	   2026, elle ne désigne plus que « à faire » (les blocs du programme,
+	   .programme li) — button.secondaire est passé en encre/encre-douce
+	   (voir plus bas), pour que lavande ne dise plus deux choses à la fois. */
 	--rose-50:  #fff5f7;
 	--rose-100: #ffe3ea;
 	--rose-300: #ffb4c6;
@@ -189,21 +193,44 @@ button:disabled {
 }
 
 button.secondaire {
-	background: var(--lavande-100);
-	/* Meme correctif de contraste que ci-dessus : --lavande-500 sur
-	   --lavande-100 ne rendait que 2,46:1. */
+	/* Decision du 21 aout 2026 (PRODUCT.md, « la lavande ne fait plus deux
+	   metiers ») : la lavande habillait a la fois les blocs « a faire »
+	   (.programme li) et button.secondaire — les deux ne se croisent jamais
+	   sur le meme ecran, mais c'est le raisonnement qui avait laisse le vert
+	   dire deux choses pendant des semaines.
+	   
+	   ROSE PALE, et pas un neutre fonce. Le premier essai posait un fond
+	   --encre-douce a texte blanc : contraste de texte excellent (6,20:1),
+	   et hierarchie INVERSEE. Capture faite a 390 px sur l'ecran de
+	   ressenti : le bouton principal est un rose PASTEL (--rose-300), donc
+	   deux boutons secondaires fonces et pleins l'ecrasaient — l'oeil allait
+	   d'abord aux actions secondaires. Sur cet ecran-la, l'app se mettait a
+	   pousser « Correct » et « Difficile » ; ailleurs, « Plus tard » pesait
+	   plus lourd que « Activer ». Cela casse l'engagement du PRD : un seul
+	   element par ecran porte l'action principale.
+	   
+	   Le rose reste la famille du TAPABLE — c'est la regle du 20 aout —, et
+	   les deux poids de la famille disent les deux rangs : --rose-300 plein
+	   pour le principal, --rose-100 avec un filet pour le secondaire. La
+	   lavande est bien partie, et la hierarchie est dans le bon sens.
+	   --encre sur --rose-100 : 10,74:1 (tests/style-ecran-jour.test.js). */
+	background: var(--rose-100);
 	color: var(--encre);
+	border: 1px solid var(--rose-300);
 	box-shadow: none;
 }
 
 button.secondaire:hover {
-	background: var(--lavande-300);
+	background: var(--rose-100);
+	border-color: var(--rose-500);
 	color: var(--encre);
 }
 
 button.secondaire:active {
-	background: var(--lavande-500);
-	color: #fff;
+	background: var(--rose-100);
+	border-color: var(--rose-500);
+	color: var(--encre);
+	box-shadow: none;
 }
 
 button.danger {
@@ -335,8 +362,12 @@ hr {
    Regle retenue (decision du 20 aout 2026, PRODUCT.md « l'ecran de seance
    montre le programme ») : menthe = fait, lavande = a faire, rose = a taper ;
    une note qui parle (.pique, .defi non releve) porte un filet et jamais de
-   fond, pour ne plus se confondre avec button.secondaire qui, lui, se tape
-   vraiment. */
+   fond. Decision du 21 aout 2026 (« le programme en une ligne, et la lavande
+   ne fait plus deux metiers ») : button.secondaire a change de teinte (voir
+   plus bas), donc lavande ne designe plus QUE « a faire » ; et le programme
+   se resume en une rangee de pastilles (.programme) plutot qu'en liste
+   empilee, pour garder le bouton « Commencer » dans l'ecran a 360px de large
+   meme le jour ou la pique et le defi s'affichent tous les deux. */
 
 .pique {
 	background: transparent;
@@ -348,8 +379,8 @@ hr {
 }
 
 .defi {
-	/* Une note qui parle : filet, jamais de fond — sinon elle se confond avec
-	   button.secondaire, qui partage le meme fond --lavande-100. */
+	/* Une note qui parle : filet, jamais de fond — un pave rempli ressemblerait
+	   a un pave « a faire » (.programme li) plutot qu'a une note. */
 	background: transparent;
 	border: 1px solid var(--lavande-300);
 	color: var(--encre);
@@ -388,6 +419,30 @@ ul li {
 	padding: 0.75rem var(--espace);
 	font-weight: 600;
 	font-size: 0.95rem;
+}
+
+/* .programme (ecran du jour uniquement, web/vue-jour.js) : « le programme en
+   une ligne » (decision du 21 aout 2026, PRODUIT.md « le programme en une
+   ligne, et la lavande ne fait plus deux metiers »). Sur un Android de 360px
+   de large, au retour d'une absence — pique ET defi affiches au-dessus —, la
+   liste empilee de blocs (~48px chacun) faisait passer le bouton
+   « Commencer » sous le bas de l'ecran. Une rangee de pastilles qui s'enroule
+   remplace la liste : le cout assume est qu'elle se lit moins bien de loin
+   qu'une liste (PRODUIT.md), en echange de la certitude que le bouton reste
+   atteignable. Les couleurs restent celles de `ul li` ci-dessus (lavande = a
+   faire) ; seule la mise en page change. */
+ul.programme {
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}
+
+.programme li {
+	border-radius: 999px;
+	padding: 0.3rem 0.65rem;
+	font-size: 0.72rem;
+	flex: 0 1 auto;
+	white-space: nowrap;
 }
 
 /* Écran de séance ----------------------------------------------------------- */

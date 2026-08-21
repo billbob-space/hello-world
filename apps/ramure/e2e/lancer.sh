@@ -37,6 +37,16 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# ramure reserve QUATRE ports contigus, 18086 a 18089 : un seul est litteral,
+# les trois autres se derivent. ./init.sh --check les connait tous — il resout
+# les formes $((PORT + N)) — et refusera qu'un voisin s'y pose. Ce n'etait pas
+# le cas avant le 21 aout : le registre ne lisait que les defauts litteraux,
+# et TROIS apps campaient ici sans que rien ne le dise.
+#
+# PORT_FERME merite son cran a part. Il n'est pas un port qu'on ouvre, c'est un
+# port qu'on garde FERME pour simuler une source injoignable. Le jour ou un
+# voisin y ecoute, la panne testee n'est plus une panne : le test passe au vert
+# en ayant verifie l'exact contraire de ce qu'il annonce.
 PORT="${RAMURE_E2E_PORT:-18086}"
 FIXTURE_PORT=$((PORT + 1))
 PORT_PANNE=$((PORT + 2))

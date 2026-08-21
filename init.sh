@@ -696,23 +696,54 @@ check_volume_noms() {
 # CI n'aurait jamais revele. D'ou un controle de --check, la seule chose qui
 # regarde les dix apps ENSEMBLE.
 check_e2e_ports() {
-  local a f p col=0; declare -A vu=()
+  local a f ligne var base signe delta p col=0 total=0
+  declare -A vu=() origine=()
   for a in "${APPS[@]}"; do
     f="apps/$a/e2e/lancer.sh"
     [ -f "$f" ] || continue
-    # Les defauts de la forme ${NOM:-18083}. On ne lit pas les ports passes par
-    # l'environnement : ceux-la sont le moyen de sortir d'une collision, pas de
-    # la creer.
-    for p in $(grep -hoE ':-1[0-9]{4}\}' "$f" | tr -dc '0-9\n'); do
+    unset locales; declare -A locales=()
+    while IFS= read -r ligne; do
+      # 1. Un defaut litteral : PORT="${NOM_E2E_PORT:-18083}"
+      if [[ "$ligne" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=\"?\$\{[A-Za-z_][A-Za-z0-9_]*:-([0-9]{4,5})\}\"?[[:space:]]*$ ]]; then
+        locales[${BASH_REMATCH[1]}]="${BASH_REMATCH[2]}"
+      # 2. Un port DERIVE par calcul : PORT_PANNE=$((PORT + 2))
+      #
+      #    La premiere version de ce controle ne lisait que la forme 1, et
+      #    c'est le relecteur qui a vu le trou. ramure declare UN port litteral
+      #    et en calcule TROIS autres ; ils etaient invisibles au registre, et
+      #    deux d'entre eux etaient entres en collision avec le correctif meme
+      #    qui avait deplace hello-world et marcq-handball. Le garde-fou
+      #    annoncait « ports distincts » sur trois paires qui ne l'etaient pas :
+      #    un vert silencieux dans le controle ecrit CONTRE les verts
+      #    silencieux.
+      elif [[ "$ligne" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=\$\(\([[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([+-])[[:space:]]*([0-9]+)[[:space:]]*\)\) ]]; then
+        var="${BASH_REMATCH[1]}"; base="${BASH_REMATCH[2]}"
+        signe="${BASH_REMATCH[3]}"; delta="${BASH_REMATCH[4]}"
+        if [ -n "${locales[$base]+x}" ]; then
+          if [ "$signe" = "+" ]; then locales[$var]=$(( locales[$base] + delta ))
+          else                        locales[$var]=$(( locales[$base] - delta )); fi
+        else
+          bad "apps/$a/e2e/lancer.sh derive $var de $base, port inconnu du registre — le controle ne peut pas savoir sur quoi il tombe"
+          col=$((col+1))
+        fi
+      fi
+    done < "$f"
+    # Un port RESERVE ferme compte comme les autres : ramure s'en sert pour
+    # simuler une source injoignable (« personne n'ecoute ici »). Le jour ou un
+    # voisin y ecoute, la panne testee n'est plus une panne, et le test passe au
+    # vert en ayant verifie le contraire de ce qu'il annonce.
+    for var in "${!locales[@]}"; do
+      p="${locales[$var]}"
+      total=$((total+1))
       if [ -n "${vu[$p]+x}" ] && [ "${vu[$p]}" != "$a" ]; then
-        bad "port $p par defaut dans apps/${vu[$p]}/e2e/lancer.sh ET apps/$a/e2e/lancer.sh — lancer les deux suites en meme temps fait tester une app par la suite de l'autre ; la CI ne le verra jamais, chaque app y tourne seule"
+        bad "port $p : ${origine[$p]} ET apps/$a/e2e/lancer.sh ($var) — lancer les deux suites en meme temps fait tester une app par la suite de l'autre ; la CI ne le verra jamais, chaque app y tourne seule"
         col=$((col+1))
       else
-        vu[$p]="$a"
+        vu[$p]="$a"; origine[$p]="apps/$a/e2e/lancer.sh ($var)"
       fi
     done
   done
-  [ "$col" -eq 0 ] && ok "ports de bout en bout distincts entre apps (${#vu[@]} port(s))"
+  [ "$col" -eq 0 ] && ok "ports de bout en bout distincts entre apps ($total declare(s), litteraux et derives)"
 }
 
 mem_to_mb() {  # 128m -> 128, 1g -> 1024
