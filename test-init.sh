@@ -460,6 +460,25 @@ avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
 
 avertit() { detache avertit_corps "$1" "$2" "$(cat)"; }
 
+section 'bout en bout'
+
+# Les dix suites de bout en bout bindent chacune un port en dur. Elles ont ete
+# ecrites app par app, sans registre, et trois paires se sont retrouvees sur le
+# meme port. Ce defaut est INVISIBLE en CI — chaque app y tourne seule dans son
+# conteneur — et ne mord que sur un poste, ou lancer deux suites de front est le
+# geste normal. --check est le seul controle qui regarde les dix apps ensemble.
+refuse "deux apps sur le meme port de bout en bout sont refusees" "18088" <<'FIN'
+sed -i 's/:-18082}/:-18088}/' apps/cadran/e2e/lancer.sh
+FIN
+
+# Le pendant du cas ci-dessus, et il n'est pas theorique : estran declare TROIS
+# ports dans son lancer.sh (degrade, connu, stub). Un controle qui compterait
+# les repetitions sans regarder a quelle app elles appartiennent le refuserait
+# lui-meme, et le garde-fou mourrait de son premier faux positif.
+avertit "une app qui repete son propre port n'est pas une collision" "ports de bout en bout distincts" <<'FIN'
+printf 'PORT_BIS="${HELLO_WORLD_E2E_PORT_BIS:-18088}"\n' >> apps/hello-world/e2e/lancer.sh
+FIN
+
 section 'journal'
 
 # Huit entrees reelles portent deja un total sans detail ; la neuvieme prouve que

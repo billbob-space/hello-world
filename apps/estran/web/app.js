@@ -63,17 +63,79 @@ function libelleJourNav(decalage) {
   );
 }
 
+// ---------- bandeau de jours (PRODUCT.md, "Deux decisions d'ecran... — 20
+// aout 2026") -----------------------------------------------------------
+//
+// Remplace la rangee centree qui flottait au-dessus du premier titre et
+// atterrissait dans la gouttiere entre les deux colonnes a 1440px (mesure :
+// libelle a x 661-778, colonne gauche 140-657, colonne droite 705-1300) :
+// une pastille par jour, de J-7 a J+15, pour sauter DIRECTEMENT a celui
+// qu'on veut — le choix du jour est un controle visible, jamais deduit d'un
+// autre element (engagement du PRD).
+//
+// construireBandeauJours() cree les 23 boutons UNE SEULE FOIS (la fenetre ne
+// change jamais) ; majNavigation() ne fait ensuite que basculer une classe
+// et un texte lu par le lecteur d'ecran sur les boutons existants — jamais
+// de reconstruction du DOM, pour que le focus clavier reste en place d'un
+// jour a l'autre. Chaque pastille est un vrai <button>, jamais un conteneur
+// qui vole les fleches du clavier : Tab entre/sort normalement, le
+// navigateur cadre lui-meme le bouton focalise dans la piste defilante —
+// aucun gestionnaire de clavier propre ici, donc aucun risque de reproduire
+// le piege du 20 aout (les fleches globales qui reconstruisaient la bande
+// horaire et remettaient son defilement a zero).
+function libellePastilleNom(decalage) {
+  if (decalage === 0) return "auj.";
+  return capitaliser(
+    dateLocale(decalage).toLocaleDateString("fr-FR", { weekday: "short" }).replace(/\.$/, "")
+  );
+}
+
+function construireBandeauJours() {
+  const piste = document.getElementById("bandeau-jours-piste");
+  if (!piste) return;
+
+  const boutons = [];
+  for (let d = -JOURS_ARRIERE_MAX; d <= JOURS_AVANT_MAX; d++) {
+    const num = dateLocale(d).getDate();
+    boutons.push(`
+      <button type="button" class="pastille-jour${d === 0 ? " pastille-jour--aujourdhui" : ""}" data-decalage="${d}">
+        <span class="pour-lecteur pastille-jour-prefixe"></span>
+        <span class="pastille-jour-nom" aria-hidden="true">${esc(libellePastilleNom(d))}</span>
+        <span class="pastille-jour-num" aria-hidden="true">${num}</span>
+        <span class="pour-lecteur">${esc(libelleJourNav(d))}</span>
+      </button>`);
+  }
+  piste.innerHTML = boutons.join("");
+
+  piste.addEventListener("click", (e) => {
+    const bouton = e.target.closest(".pastille-jour");
+    if (!bouton) return;
+    allerAuJour(Number(bouton.dataset.decalage));
+  });
+}
+
 function majNavigation() {
-  const libelle = document.getElementById("nav-jour-libelle");
   const precedent = document.getElementById("nav-precedent");
   const suivant = document.getElementById("nav-suivant");
   const retour = document.getElementById("nav-aujourdhui");
-  if (!libelle || !precedent || !suivant || !retour) return;
+  const piste = document.getElementById("bandeau-jours-piste");
+  if (!precedent || !suivant || !retour) return;
 
-  libelle.textContent = libelleJourNav(decalageJour);
   precedent.disabled = decalageJour <= -JOURS_ARRIERE_MAX;
   suivant.disabled = decalageJour >= JOURS_AVANT_MAX;
   retour.hidden = decalageJour === 0;
+
+  if (piste) {
+    piste.querySelectorAll(".pastille-jour").forEach((bouton) => {
+      const actif = Number(bouton.dataset.decalage) === decalageJour;
+      bouton.classList.toggle("pastille-jour--actif", actif);
+      if (actif) bouton.setAttribute("aria-current", "date");
+      else bouton.removeAttribute("aria-current");
+      const prefixe = bouton.querySelector(".pastille-jour-prefixe");
+      if (prefixe) prefixe.textContent = actif ? "Jour affiché : " : "Voir : ";
+      if (actif) bouton.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  }
 }
 
 // allerAuJour ignore silencieusement une cible hors fenêtre : les flèches
@@ -165,6 +227,44 @@ function horlogeLocale() {
   setInterval(tick, 30 * 1000);
 }
 
+// ---------- indisponibilite : un seul gabarit, partout (PRODUCT.md, "Deux
+// decisions d'ecran... — 20 aout 2026") -----------------------------------
+//
+// Avant : quatre presentations pour une seule situation (carte+titre+
+// explication sur la maree, carte+phrase sur la pluie, texte nu sans carte
+// du tout sur les prochaines heures, carte etroite au texte colle au bord
+// haut sur la tendance). Une panne partielle est un etat ORDINAIRE de cette
+// app (README, « une section seule affiche son indisponibilite ») : elle
+// merite une forme sobre et repetable, pas quatre improvisations.
+//
+// Pas de bannière ni de constat global en tete d'ecran (ecarte : cout de
+// tenue, une bannière doit rester juste a mesure que les sources changent).
+// Jamais la derniere valeur connue, meme hachuree et datee (ecarte : un
+// chiffre perime sur un ecran de maree et de meteo est pire que pas de
+// chiffre). Le message affiche vient toujours du serveur (ou d'un texte fixe
+// pour la configuration manquante) : cette fonction ne fait que le poser
+// dans le meme cadre partout.
+//
+// TOUJOURS le meme fond de carte (.indisponible-carte), y compris sur la
+// maree et la pluie qui en ont deja un en permanence (.jauge-carte,
+// .pluie-carte) : ce sont EXACTEMENT les memes fond/bordure/rayon/ombre
+// (voir style.css), donc aucun risque de carte-dans-une-carte — les deux
+// styles se confondent en un seul. C'est ce qui rend le gabarit vraiment
+// identique partout, plutot que « presque » identique.
+function carteIndisponible(el, message) {
+  if (!el) return;
+  el.classList.add("indisponible-carte");
+  el.innerHTML = `<div class="indisponible"><p>${esc(message)}</p></div>`;
+}
+
+// retireCarteIndisponible retire la classe posee par carteIndisponible, a
+// appeler avant de rendre un contenu normal sur un conteneur qui a pu
+// afficher une indisponibilite au tour precedent — sinon le fond de carte
+// ajoute reste colle a un contenu qui n'en a plus besoin.
+function retireCarteIndisponible(el) {
+  if (el) el.classList.remove("indisponible-carte");
+}
+
 async function chargerJSON(url) {
   const reponse = await fetch(url, { headers: { accept: "application/json" } });
   if (!reponse.ok) throw new Error(`${url} : statut ${reponse.status}`);
@@ -183,7 +283,6 @@ function rendrePrevisions(donnees) {
   // nombre de vignettes d'aujourd'hui varie desormais avec l'heure (minimum
   // cinq, prp/02-horizon-confiance-vent.md, section 1).
   const autreJour = Boolean(donnees.jour_affiche);
-  rangee.classList.add("heures-rangee--defile");
   if (titre) {
     titre.textContent = autreJour
       ? donnees.jour_affiche_libelle || "Ce jour"
@@ -191,15 +290,26 @@ function rendrePrevisions(donnees) {
   }
 
   if (donnees.erreur) {
-    rangee.innerHTML = `<p class="etat-attente">${esc(donnees.erreur)}</p>`;
+    // Meme gabarit d'indisponibilite que les trois autres sections (voir
+    // carteIndisponible ci-dessus) : cette section n'avait AUCUNE carte
+    // avant, seulement du texte nu — c'est le defaut le plus visible releve
+    // par la critique du 20 aout 2026.
+    rangee.classList.remove("heures-rangee--defile");
+    carteIndisponible(rangee, donnees.erreur);
   } else if (autreJour && !(donnees.heures || []).length) {
     // Degradation attendue en bord de fenetre (le fournisseur meteo ne
     // couvre pas tout a fait aussi loin que la navigation) : absence
-    // affichee, jamais une carte inventee (PRODUCT.md, principe 3).
+    // affichee, jamais une carte inventee (PRODUCT.md, principe 3). Ce n'est
+    // PAS une indisponibilite — c'est un resultat vide legitime en bord de
+    // fenetre — donc pas le meme gabarit que carteIndisponible.
+    retireCarteIndisponible(rangee);
+    rangee.classList.add("heures-rangee--defile");
     rangee.innerHTML = `<p class="etat-attente">aucune prévision pour ce jour</p>`;
     joursMeteoActuels = donnees.jours || [];
     actualiserTendance();
   } else {
+    retireCarteIndisponible(rangee);
+    rangee.classList.add("heures-rangee--defile");
     const reserverAverse = (donnees.heures || []).some((h) => h.averse_possible);
     rangee.innerHTML = (donnees.heures || [])
       .map((h) => {
@@ -379,10 +489,11 @@ function rendrePluie(donnees) {
   if (!carte) return;
 
   if (donnees.erreur) {
-    carte.innerHTML = `<p class="etat-attente">${esc(donnees.erreur)}</p>`;
+    carteIndisponible(carte, donnees.erreur);
     return;
   }
 
+  retireCarteIndisponible(carte);
   carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour, donnees.desaccord)]
     .filter(Boolean)
     .join("");
@@ -670,9 +781,15 @@ function actualiserTendance() {
   const rangee = document.getElementById("jours-rangee");
   if (!joursMeteoActuels || !joursMeteoActuels.length) {
     majTitreTendance(0);
-    rangee.innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
+    // Meme gabarit d'indisponibilite que les trois autres sections : avant,
+    // le texte s'ecrivait tel quel dans .jours-rangee (bordure + coins
+    // arrondis, mais aucun rembourrage), et venait se coller a son bord
+    // haut. .indisponible-carte lui donne le meme fond et le meme
+    // rembourrage que les autres sections en panne.
+    carteIndisponible(rangee, "tendance indisponible");
     return;
   }
+  retireCarteIndisponible(rangee);
   majTitreTendance(joursMeteoActuels.length);
 
   const mareeParDate = new Map((joursMareeActuels || []).map((j) => [j.date, j]));
@@ -743,12 +860,10 @@ function rendreJauge(m) {
   const carte = document.getElementById("jauge-carte");
 
   if (!m.configure) {
-    carte.innerHTML = `
-      <div class="jauge-non-configuree">
-        <strong>Configuration requise</strong>
-        La clé api-maree.fr (variable API_MAREE_KEY) n'est pas encore posée
-        côté serveur — la jauge de marée s'activera dès qu'elle le sera.
-      </div>`;
+    carteIndisponible(
+      carte,
+      "Configuration requise : la clé api-maree.fr (variable API_MAREE_KEY) n'est pas encore posée côté serveur. La jauge de marée s'activera dès qu'elle le sera."
+    );
     prochaineBasculeISO = null;
     joursMareeActuels = null;
     actualiserTendance();
@@ -756,7 +871,7 @@ function rendreJauge(m) {
   }
 
   if (m.erreur) {
-    carte.innerHTML = `<div class="jauge-non-configuree"><strong>Marée indisponible</strong>${esc(m.erreur)}</div>`;
+    carteIndisponible(carte, m.erreur);
     prochaineBasculeISO = null;
     joursMareeActuels = null;
     actualiserTendance();
@@ -765,6 +880,7 @@ function rendreJauge(m) {
 
   joursMareeActuels = m.jours || null;
   actualiserTendance();
+  retireCarteIndisponible(carte);
 
   // jour_affiche n'est present que si un `date` a ete demande : sur un
   // autre jour qu'aujourd'hui, la jauge instantanee n'a pas de sens — elle
@@ -868,21 +984,29 @@ function majCompteARebours() {
 }
 
 async function tout() {
+  // Ces trois blocs `catch` couvrent une panne de RESEAU ou de JS (fetch qui
+  // rejette), distincte du champ `erreur` que le serveur rend en 200 quand
+  // un fournisseur externe est muet (rendrePrevisions/rendrePluie/rendreJauge
+  // ci-dessus) : les deux cas affichent le meme gabarit (carteIndisponible),
+  // pour ne pas ajouter une CINQUIEME presentation a celles deja unifiees.
   try {
     rendrePrevisions(await chargerJSON(urlAvecJour("/api/previsions")));
   } catch (e) {
-    document.getElementById("heures-rangee").innerHTML = `<p class="etat-attente">prévisions indisponibles</p>`;
-    document.getElementById("jours-rangee").innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
+    const heures = document.getElementById("heures-rangee");
+    heures.classList.remove("heures-rangee--defile");
+    carteIndisponible(heures, "prévisions indisponibles");
+    joursMeteoActuels = [];
+    actualiserTendance();
   }
   try {
     rendreJauge(await chargerJSON(urlAvecJour("/api/maree")));
   } catch (e) {
-    document.getElementById("jauge-carte").innerHTML = `<p class="etat-attente">marée indisponible</p>`;
+    carteIndisponible(document.getElementById("jauge-carte"), "marée indisponible");
   }
   try {
     rendrePluie(await chargerJSON(urlAvecJour("/api/pluie")));
   } catch (e) {
-    document.getElementById("pluie-carte").innerHTML = `<p class="etat-attente">pluie indisponible</p>`;
+    carteIndisponible(document.getElementById("pluie-carte"), "pluie indisponible");
   }
 }
 
@@ -927,6 +1051,7 @@ function initNavigation() {
     else if (e.key === "ArrowRight") allerAuJour(decalageJour + 1);
   });
 
+  construireBandeauJours();
   majNavigation();
 }
 

@@ -46,6 +46,23 @@ for _ in $(seq 1 30); do
   if curl -fsS "http://localhost:$PORT/healthz" >/dev/null 2>&1; then break; fi
   sleep 1
 done
+# Le conteneur tourne-t-il encore ?
+#
+# Meme defaut que sur les huit suites natives, et meme correctif : sans ce
+# controle, un conteneur qui demarre puis meurt (boucle de redemarrage,
+# migration ratee) pendant qu'un processus etranger repond sur le meme port
+# laisse curl /healthz reussir, et Playwright teste alors le serveur du voisin.
+# Contre-epreuve faite sur hello-world avec un imposteur : le test de sonde de
+# sante PASSAIT AU VERT contre le mauvais serveur.
+#
+# On interroge l'etat du conteneur qu'on a nomme, pas le port : c'est la seule
+# chose que personne d'autre ne peut usurper.
+if [ "$(docker inspect -f '{{.State.Running}}' ardoise-e2e-app 2>/dev/null)" != "true" ]; then
+  echo "le conteneur ardoise-e2e-app ne tourne plus — si quelque chose repond sur :$PORT, c'est un AUTRE processus" >&2
+  docker logs ardoise-e2e-app >&2 || true
+  exit 1
+fi
+
 curl -fsS "http://localhost:$PORT/healthz" >/dev/null || {
   echo "l'application ne repond pas sur /healthz" >&2
   docker logs ardoise-e2e-app >&2 || true

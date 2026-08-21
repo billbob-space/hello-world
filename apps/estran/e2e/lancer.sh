@@ -67,9 +67,26 @@ nettoyer() {
 }
 trap nettoyer EXIT
 
+# Le PID est un ARGUMENT, et pas une commodite : sans lui, cette fonction ne
+# peut pas distinguer « mon serveur repond » de « quelque chose repond sur ce
+# port ». Le scenario est reel, rencontre le 2026-08-21 : le binaire meurt au
+# demarrage (« bind: address already in use »), un processus etranger repond,
+# curl /healthz reussit, et Playwright joue ses tests contre le serveur du
+# voisin. Contre-epreuve faite sur hello-world avec un imposteur : la suite
+# partait, et son test de sonde de sante PASSAIT AU VERT contre le mauvais
+# serveur pendant que les deux autres echouaient en imitant une regression.
+#
+# On interroge le PID qu'on a lance, la seule chose que personne ne peut
+# usurper. Le controle attrape aussi les morts subites sans rapport avec un
+# port : configuration, dependance manquante, permission refusee.
 attendre_healthz() {
-  local port="$1" log="$2"
+  local port="$1" log="$2" pid="$3"
   for _ in $(seq 1 30); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      echo "le serveur s'est arrete au demarrage (port $port) — si quelque chose y repond, c'est un AUTRE processus" >&2
+      cat "$log" >&2
+      return 1
+    fi
     curl -fsS "http://localhost:$port/healthz" >/dev/null 2>&1 && return 0
     sleep 1
   done
@@ -98,7 +115,7 @@ PORT="$PORT_DEGRADE" \
 "$BIN" >"$LOG_A" 2>&1 &
 SRV_A=$!
 
-attendre_healthz "$PORT_DEGRADE" "$LOG_A"
+attendre_healthz "$PORT_DEGRADE" "$LOG_A" "$SRV_A"
 ESTRAN_E2E_URL="http://localhost:$PORT_DEGRADE" npx playwright test tests/degrade.spec.js
 
 kill "$SRV_A" 2>/dev/null || true
@@ -111,6 +128,11 @@ node stub-serveur.js "$STUB_PORT" >"$LOG_STUB" 2>&1 &
 STUB=$!
 
 for _ in $(seq 1 30); do
+  if ! kill -0 "$STUB" 2>/dev/null; then
+    echo "le stub s'est arrete au demarrage (port $STUB_PORT) — si quelque chose y repond, c'est un AUTRE processus" >&2
+    cat "$LOG_STUB" >&2
+    exit 1
+  fi
   curl -fsS "http://127.0.0.1:$STUB_PORT/marine" >/dev/null 2>&1 && break
   sleep 1
 done
@@ -126,5 +148,5 @@ PORT="$PORT_CONNU" \
 "$BIN" >"$LOG_B" 2>&1 &
 SRV_B=$!
 
-attendre_healthz "$PORT_CONNU" "$LOG_B"
+attendre_healthz "$PORT_CONNU" "$LOG_B" "$SRV_B"
 ESTRAN_E2E_URL="http://localhost:$PORT_CONNU" npx playwright test tests/connu.spec.js

@@ -683,112 +683,6 @@ teste, dans un langage sans compilateur, executee dans un environnement qu'on
 n'a pas sous la main. Deux tours de CI pour deux fautes triviales coutent plus
 cher que dix minutes de mise sous bac a sable.
 
-### 28. Le graphe de CI a double de largeur sans qu'un chronometre repasse
-
-**Symptome** — les seules durees de CI que porte le depot datent du 2026-08-18 :
-run complet 9 min 49, `contrat` 19 s, `contrat` + `test` + `build` termines a
-2 min 15, mediane ramenee de 521 s a 196 s sur douze runs. Toutes valent pour
-**neuf apps et deux matrices**. Depuis, `revue` et `bout-en-bout` ont ajoute
-vingt shards, une dixieme app est arrivee, et aucune de ces mesures n'a ete
-refaite. Consequence : **le chemin critique est aujourd'hui inconnu**. Il passe
-soit par `contrat -> test -> build -> deploy`, soit par
-`contrat -> bout-en-bout -> deploy`, et rien ne permet de trancher.
-
-**Cause** — la campagne de mesure du 18 aout a ete faite pour un changement
-precis puis refermee. Rien n'attache une remesure a une modification du graphe :
-un `needs` ajoute, une matrice creee, un job scinde ne demandent aucun
-chronometre.
-
-Ce n'est pas une inquietude theorique : la meme branche de mesure a deja paye
-cette faute dans l'autre sens. Accelerer `test-pret.sh`, `test-cout.sh` et
-`test-jetons.sh` — 125 s cumulees, le travail le plus minutieux de la branche —
-n'a rien rapporte sur l'horloge, parce qu'aucun de ces scripts n'etait sur le
-chemin critique. Optimiser sans connaitre le chemin critique, c'est accelerer la
-branche qui n'est pas la plus lente.
-
-**Detecte par** — `auteur`
-
-**Action** — `outillage` — un banc de mesure est ecrit : `docs/banc/mesurer.sh`,
-six scenarios figes, protocole et pieges dans `docs/banc/README.md`, serie dans
-`docs/banc/releves.md`. Il couvre la chaine LOCALE ; la CI reste une serie
-separee, non encore relevee, et le relevé le dit plutot que de le taire.
-
-### 29. Le job `build` attend `test` sans que rien ne le lui demande
-
-**Symptome** — `.github/workflows/build.yml` : `build` porte
-`needs: [contrat, detect, test]`. C'est la seule arete du graphe qui enchaine
-deux matrices de dix. Or rien dans `build` ne consomme quoi que ce soit produit
-par `test` : le contexte de construction est `apps/<app>` seul, les tags viennent
-de `detect`, et les deux controles de l'etape « labels et taille » portent sur
-l'image.
-
-**Cause** — la dependance est politique, pas technique : « ne pas publier
-l'image d'une app dont les tests tombent ». Mais `deploy` porte deja cette
-garantie, plus finement, en testant `needs.test.result` job par job. Une image
-publiee sans test vert n'atteint jamais la production : `deploy` ne tourne pas,
-donc rien n'est epingle, donc `versions.yml` et `compose.yaml` ne bougent pas,
-donc dockhand ne voit rien. Le seul effet residuel serait un tag mutable `:main`
-deplace — et `compose.yaml` n'en reference plus aucun, les dix apps sont
-epinglees par SHA.
-
-**Detecte par** — `auteur`
-
-**Action** — `arbitrage` — couper l'arete sort toute la matrice `test` du chemin
-critique, mais fait monter la pointe de ~35 a ~45 jobs simultanes. Le plafond de
-jobs concurrents du compte GitHub n'est ecrit nulle part dans le depot : sous un
-plafond sature, l'attente se deplace du graphe vers la file, ou elle est
-invisible dans la duree des jobs. A trancher avec la mesure, pas sans.
-
-### 30. La revue reinstalle ses trois outils dans chacun des dix shards
-
-**Symptome** — `scripts/revue.sh` pose ses binaires dans
-`.revue-outils/<toolchain>/`, chemin que le workflow ne met dans aucun `path:` de
-cache et que `.gitignore` ecarte. Les trois `go install` de `staticcheck`,
-`gosec` et `govulncheck` tournent donc dans **chacun** des dix shards de `revue`,
-a chaque execution. Le cache `~/.cache/go-build` ramene la depense a une edition
-de liens plutot qu'a une compilation complete, mais elle est payee dix fois.
-
-**Cause** — le cache du job `revue` a ete ecrit pour les caches Go et npx, qui
-vivent sous `$HOME` ; le cache d'outils, lui, vit **dans le depot**, et a echappe
-a la liste. La variable prevue pour le deplacer, `REVUE_CACHE_OUTILS`, n'est
-posee nulle part dans le workflow.
-
-La cle du cache existant porte deja l'empreinte de `fabrique.yml`, ou vivent les
-quatre versions d'outils epinglees : elle change exactement quand les binaires
-doivent etre refaits. Le chemin manquait, pas la cle.
-
-**Detecte par** — `auteur`
-
-**Action** — `garde-fou` — un chemin d'ecriture d'un script de la fabrique qui
-n'est ni committe ni cache est une depense invisible, repetee par shard. `--check`
-sait deja lire `revue.sh` et `build.yml` : il peut verifier que tout repertoire de
-cache ecrit par un script figure dans le `path:` du job qui l'appelle. Meme forme
-que les autres garde-fous du depot : ce n'est pas une erreur, c'est un silence.
-
-### 31. `memory/travail.md` fonde l'innocuite du greffier sur un invariant faux
-
-**Symptome** — le fichier ecrit : « L'`analyste` et le `greffier` sont restreints
-a `Bash`, `Read` et `Grep` : l'absence d'outil d'edition n'est pas un detail de
-configuration, c'est ce qui garantit qu'un agent lance en fond ne touchera pas au
-depot pendant que tu travailles dessus. » Or le greffier fait `git add -A` puis
-`git commit` **par `Bash`**. Il modifie le depot, et `git add -A` capture tout
-l'arbre, y compris ce qu'un autre agent est en train d'ecrire.
-
-Au meme endroit, le fichier prend soin de dire que le `relecteur` « n'ecrit aucun
-fichier, donc se lance en tache de fond sans risque » et ne dit rien de
-l'`esthete`, dont la definition porte pourtant `Edit` et `Write` et dont
-l'autorite de correction est explicite dans le contrat.
-
-**Cause** — la regle a ete ecrite en regardant le champ `tools:` des agents, pas
-ce qu'ils font. `Bash` suffit a ecrire ; l'absence d'`Edit` ne prouve rien.
-
-**Detecte par** — `relecture`
-
-**Action** — `contrat` — l'invariant reel n'est pas « il n'edite pas », c'est
-« il n'edite pas de fichier de code » : ca suffit contre une lecture concurrente,
-pas contre une ecriture concurrente. Corrige dans `memory/travail.md`, et
-l'`esthete` y est range du cote de l'artisan, ou la regle du depot le met.
-
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
@@ -2427,3 +2321,209 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 1604 agent claude-opus-5 644 106572 5
 -->
 <!-- /cout -->
+
+### 28. Trois paires d'apps partageaient un port de bout en bout, et la CI ne pouvait pas le voir
+
+**Symptome** — au moment de lancer deux suites de bout en bout en meme temps
+depuis la meme session, collision. Releve sur les dix `e2e/lancer.sh` : trois
+paires se partagent un port par defaut — 18081 (`compteur` et `hello-world`),
+18084 (`estran` degrade et `marcq-handball`), 18085 (`estran` stub et
+`pilabelle`). Onze ports declares pour huit valeurs distinctes.
+
+**Cause** — les dix suites ont ete ecrites app par app, dans cette meme branche,
+chacune choisissant son port sans registre ni voisin a consulter. Le premier a
+pris 18080, et la numerotation a redemarre plusieurs fois.
+
+Ce qui rend le defaut interessant n'est pas la collision, c'est **son
+invisibilite structurelle** : en CI, chaque app tourne dans son propre conteneur
+de matrice, seule, et le port est libre a tous les coups. Les 49 jobs de la
+pull request sont verts, et le resteront. Le defaut ne se manifeste QUE sur un
+poste de developpement — c'est-a-dire a l'endroit ou la fabrique promet
+justement que le bout en bout natif est jouable, ce qui etait tout l'argument
+de ne PAS passer par Docker pour huit apps sur dix.
+
+Et il se manifeste mal. La seconde suite ne trouve pas un port occupe : elle
+attend `/healthz`, l'obtient — du serveur de la PREMIERE app — et joue ses
+tests contre l'app du voisin. Elle rend alors des echecs sans rapport avec ce
+qu'on vient d'ecrire, ou, sur des assertions assez generiques, elle **passe**.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — `check_e2e_ports` dans `--check`, le seul controle qui
+regarde les dix apps ENSEMBLE. Il lit les defauts de la forme `${VAR:-NNNNN}` et
+refuse deux apps sur la meme valeur ; les ports poses par l'environnement ne
+sont pas lus, ce sont eux qui permettent de sortir d'une collision, pas de la
+creer. `hello-world` passe a 18088, `marcq-handball` a 18089, `pilabelle` a
+18090 ; `estran` garde ses trois. Les deux suites deplacees ont ete rejouees
+sur leur nouveau port, vertes.
+
+Deux cas dans `test-init.sh`, qui passe de 38 a 40. Le second n'est pas du
+remplissage : `estran` declare TROIS ports, et un controle qui compterait les
+repetitions sans regarder a quelle app elles appartiennent le refuserait
+lui-meme. Contre-epreuve faite en retirant le garde de meme-app — le faux
+positif apparait, nomme `hello-world` deux fois.
+
+C'est le sixieme vert silencieux de la branche, et le seul qu'aucune execution
+en CI n'aurait jamais pu reveler : les cinq autres attendaient qu'on lise leur
+sortie, celui-ci attendait qu'on soit sur deux apps a la fois.
+
+### 29. Une suite de bout en bout pouvait passer au vert en testant une AUTRE application
+
+**Symptome** — trouve par l'artisan de `pilabelle`, en vrai, pendant son
+chantier. Son premier lancement de `e2e/lancer.sh` echoue avec des symptomes de
+regression : « Bienvenue 👋 » introuvable, champ de formulaire introuvable. Le
+code n'y etait pour rien. Dans `/tmp/pilabelle-e2e.log` : `listen tcp :18090:
+bind: address already in use`. Le serveur de `pilabelle` n'avait jamais demarre,
+un binaire etranger occupait le port, et Playwright avait joue toute la suite
+contre lui.
+
+**Cause** — les dix `lancer.sh` demarrent leur serveur en tache de fond, puis
+attendent une reponse sur `/healthz`. Ils n'interrogent que **le port**, jamais
+**le processus qu'ils ont lance**. Or le port ne prouve rien : n'importe qui
+peut y repondre. Le nôtre peut etre mort a la premiere seconde — port occupe,
+configuration absente, dependance manquante, permission refusee — sans que rien
+ne le dise, parce que `curl` obtient son 200 d'ailleurs.
+
+C'est le meme mode d'echec que l'anomalie 28, un cran plus profond. 28 empechait
+deux apps de **declarer** le meme port ; 29 dit que la declaration ne suffit
+pas, parce qu'un processus oublie d'une session precedente ne declare rien.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — les dix suites verifient desormais que **leur propre
+serveur est encore vivant** avant de conclure : `kill -0` sur le PID lance pour
+les huit natives, `docker inspect -f '{{.State.Running}}'` pour les deux qui
+montent des conteneurs. Le PID et le nom de conteneur sont les seules choses
+qu'un tiers ne peut pas usurper. Les serveurs annexes ont le meme garde-fou —
+le stub d'`estran`, la fixture Deezer de `ramure` —, ils avaient le meme trou.
+
+**La contre-epreuve est la partie qui compte, et elle est pire que prevu.** Un
+imposteur pose sur le port de `hello-world` (un serveur qui rend 200 sur tout),
+puis la suite lancee sans le garde-fou :
+
+```
+==> tests Playwright
+  ✘  1 la page d'accueil s'affiche
+  ✓  2 la sonde de sante repond          <-- VERT, contre le serveur d'un autre
+  ✘  3 aucune violation d'accessibilite serieuse
+```
+
+Un test **passe au vert contre un serveur qui n'est pas celui de l'app**, et les
+deux qui echouent imitent une regression du code qu'on vient d'ecrire. Avec le
+garde-fou : refus, code 1, zero test joue. Une suite plus generique dans ses
+assertions — et beaucoup le sont — serait passee entierement verte.
+
+Septieme vert silencieux de la branche. Les six premiers rendaient un verdict
+sans avoir rien lu ; celui-ci lit vraiment, mais chez le voisin.
+
+**Non verifie ici** — `ardoise` et `compteur` montent des conteneurs et le demon
+Docker n'est pas joignable depuis cette session (deja note en anomalie 18). Leur
+garde-fou est ecrit et analyse par `bash -n`, il n'est pas joue. La CI le
+tranchera. Les huit autres suites ont ete rejouees apres le correctif : 63 tests
+verts, `axe` compris.
+
+### 30. Le graphe de CI a double de largeur sans qu'un chronometre repasse
+
+**Symptome** — les seules durees de CI que porte le depot datent du 2026-08-18 :
+run complet 9 min 49, `contrat` 19 s, `contrat` + `test` + `build` termines a
+2 min 15, mediane ramenee de 521 s a 196 s sur douze runs. Toutes valent pour
+**neuf apps et deux matrices**. Depuis, `revue` et `bout-en-bout` ont ajoute
+vingt shards, une dixieme app est arrivee, et aucune de ces mesures n'a ete
+refaite. Consequence : **le chemin critique est aujourd'hui inconnu**. Il passe
+soit par `contrat -> test -> build -> deploy`, soit par
+`contrat -> bout-en-bout -> deploy`, et rien ne permet de trancher.
+
+**Cause** — la campagne de mesure du 18 aout a ete faite pour un changement
+precis puis refermee. Rien n'attache une remesure a une modification du graphe :
+un `needs` ajoute, une matrice creee, un job scinde ne demandent aucun
+chronometre.
+
+Ce n'est pas une inquietude theorique : la meme branche de mesure a deja paye
+cette faute dans l'autre sens. Accelerer `test-pret.sh`, `test-cout.sh` et
+`test-jetons.sh` — 125 s cumulees, le travail le plus minutieux de la branche —
+n'a rien rapporte sur l'horloge, parce qu'aucun de ces scripts n'etait sur le
+chemin critique. Optimiser sans connaitre le chemin critique, c'est accelerer la
+branche qui n'est pas la plus lente.
+
+**Detecte par** — `auteur`
+
+**Action** — `outillage` — un banc de mesure est ecrit : `docs/banc/mesurer.sh`,
+six scenarios figes, protocole et pieges dans `docs/banc/README.md`, serie dans
+`docs/banc/releves.md`. Il couvre la chaine LOCALE ; la CI reste une serie
+separee, non encore relevee, et le relevé le dit plutot que de le taire.
+
+### 31. Le job `build` attend `test` sans que rien ne le lui demande
+
+**Symptome** — `.github/workflows/build.yml` : `build` porte
+`needs: [contrat, detect, test]`. C'est la seule arete du graphe qui enchaine
+deux matrices de dix. Or rien dans `build` ne consomme quoi que ce soit produit
+par `test` : le contexte de construction est `apps/<app>` seul, les tags viennent
+de `detect`, et les deux controles de l'etape « labels et taille » portent sur
+l'image.
+
+**Cause** — la dependance est politique, pas technique : « ne pas publier
+l'image d'une app dont les tests tombent ». Mais `deploy` porte deja cette
+garantie, plus finement, en testant `needs.test.result` job par job. Une image
+publiee sans test vert n'atteint jamais la production : `deploy` ne tourne pas,
+donc rien n'est epingle, donc `versions.yml` et `compose.yaml` ne bougent pas,
+donc dockhand ne voit rien. Le seul effet residuel serait un tag mutable `:main`
+deplace — et `compose.yaml` n'en reference plus aucun, les dix apps sont
+epinglees par SHA.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — couper l'arete sort toute la matrice `test` du chemin
+critique, mais fait monter la pointe de ~35 a ~45 jobs simultanes. Le plafond de
+jobs concurrents du compte GitHub n'est ecrit nulle part dans le depot : sous un
+plafond sature, l'attente se deplace du graphe vers la file, ou elle est
+invisible dans la duree des jobs. A trancher avec la mesure, pas sans.
+
+### 32. La revue reinstalle ses trois outils dans chacun des dix shards
+
+**Symptome** — `scripts/revue.sh` pose ses binaires dans
+`.revue-outils/<toolchain>/`, chemin que le workflow ne met dans aucun `path:` de
+cache et que `.gitignore` ecarte. Les trois `go install` de `staticcheck`,
+`gosec` et `govulncheck` tournent donc dans **chacun** des dix shards de `revue`,
+a chaque execution. Le cache `~/.cache/go-build` ramene la depense a une edition
+de liens plutot qu'a une compilation complete, mais elle est payee dix fois.
+
+**Cause** — le cache du job `revue` a ete ecrit pour les caches Go et npx, qui
+vivent sous `$HOME` ; le cache d'outils, lui, vit **dans le depot**, et a echappe
+a la liste. La variable prevue pour le deplacer, `REVUE_CACHE_OUTILS`, n'est
+posee nulle part dans le workflow.
+
+La cle du cache existant porte deja l'empreinte de `fabrique.yml`, ou vivent les
+quatre versions d'outils epinglees : elle change exactement quand les binaires
+doivent etre refaits. Le chemin manquait, pas la cle.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — un chemin d'ecriture d'un script de la fabrique qui
+n'est ni committe ni cache est une depense invisible, repetee par shard. `--check`
+sait deja lire `revue.sh` et `build.yml` : il peut verifier que tout repertoire de
+cache ecrit par un script figure dans le `path:` du job qui l'appelle. Meme forme
+que les autres garde-fous du depot : ce n'est pas une erreur, c'est un silence.
+
+### 33. `memory/travail.md` fonde l'innocuite du greffier sur un invariant faux
+
+**Symptome** — le fichier ecrit : « L'`analyste` et le `greffier` sont restreints
+a `Bash`, `Read` et `Grep` : l'absence d'outil d'edition n'est pas un detail de
+configuration, c'est ce qui garantit qu'un agent lance en fond ne touchera pas au
+depot pendant que tu travailles dessus. » Or le greffier fait `git add -A` puis
+`git commit` **par `Bash`**. Il modifie le depot, et `git add -A` capture tout
+l'arbre, y compris ce qu'un autre agent est en train d'ecrire.
+
+Au meme endroit, le fichier prend soin de dire que le `relecteur` « n'ecrit aucun
+fichier, donc se lance en tache de fond sans risque » et ne dit rien de
+l'`esthete`, dont la definition porte pourtant `Edit` et `Write` et dont
+l'autorite de correction est explicite dans le contrat.
+
+**Cause** — la regle a ete ecrite en regardant le champ `tools:` des agents, pas
+ce qu'ils font. `Bash` suffit a ecrire ; l'absence d'`Edit` ne prouve rien.
+
+**Detecte par** — `relecture`
+
+**Action** — `contrat` — l'invariant reel n'est pas « il n'edite pas », c'est
+« il n'edite pas de fichier de code » : ca suffit contre une lecture concurrente,
+pas contre une ecriture concurrente. Corrige dans `memory/travail.md`, et
+l'`esthete` y est range du cote de l'artisan, ou la regle du depot le met.

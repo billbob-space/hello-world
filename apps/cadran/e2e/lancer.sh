@@ -41,6 +41,25 @@ for _ in $(seq 1 30); do
   curl -fsS "http://localhost:$PORT/healthz" >/dev/null 2>&1 && break
   sleep 1
 done
+# Notre propre serveur est-il encore vivant ?
+#
+# Sans ce controle, la suite peut passer au VERT en ayant teste une AUTRE
+# application. Le scenario est reel, rencontre le 2026-08-21 : le binaire meurt
+# au demarrage (« bind: address already in use »), un processus etranger repond
+# sur le meme port, curl /healthz reussit, et Playwright joue ses tests contre
+# le serveur du voisin. Les echecs qui en sortent ressemblent trait pour trait a
+# une regression du code qu'on vient d'ecrire — ou, sur des assertions assez
+# generiques, il n'y a pas d'echec du tout.
+#
+# On interroge donc le PID qu'on a lance, et pas le port : c'est la seule chose
+# que personne d'autre ne peut usurper. Le controle attrape aussi les morts
+# subites sans rapport avec un port — panne de configuration, dependance
+# manquante, permission refusee.
+kill -0 "$SRV" 2>/dev/null || {
+  echo "le serveur de cadran s'est arrete au demarrage — si quelque chose repond sur :$PORT, c'est un AUTRE processus" >&2
+  cat /tmp/cadran-e2e.log >&2
+  exit 1; }
+
 curl -fsS "http://localhost:$PORT/healthz" >/dev/null || {
   echo "l'application ne repond pas sur /healthz" >&2
   cat /tmp/cadran-e2e.log >&2
