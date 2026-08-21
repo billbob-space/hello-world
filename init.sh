@@ -10,11 +10,13 @@
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
 #
-# Cinq autres metiers vivent dans leur propre script, chacun son sujet :
+# Sept autres metiers vivent dans leur propre script, chacun son sujet :
 #
 #   ./scripts/branche.sh <app>/<sujet>   cree la branche de travail, et son entree de journal
 #   ./scripts/pret.sh                    l'etape en cours est-elle committable ?
+#   ./scripts/revue.sh [<app>…]          la revue outillee d'une app : les cinq axes et leurs seuils
 #   ./scripts/cout.sh                    releve les jetons consommes et leur cout, dans le journal
+#   ./scripts/jetons.sh                  ce que la fabrique entiere a consomme, lu dans journal/
 #   ./scripts/fusionnees.sh              quelles branches distantes peuvent partir
 #   ./scripts/prod.sh                    l'etat, les journaux et les fichiers de la production
 #
@@ -2647,7 +2649,13 @@ check_traces_risques() {
   for d in apps/*/; do
     [ -d "$d" ] || continue
     n=${d#apps/}; n=${n%/}
-    tests=$(ls "$d"*_test.go "$d"tests/*.test.js 2>/dev/null || true)
+    # Recursif, et non « a plat » : ramure-v2 range ses tests Go sous internal/
+    # et ses tests de vue sous web/tests/. Un motif fixe ne les voyait pas, et le
+    # controle annoncait alors « test introuvable » la ou il aurait du dire « je
+    # n'ai pas cherche la » — sept avertissements dont six faux, le 21 aout.
+    tests=$(find "$d" -name node_modules -prune -o \
+      \( -name '*_test.go' -o -name '*.test.js' -o -name '*.test.ts' \
+         -o -name '*.spec.js' -o -name '*.spec.ts' \) -print 2>/dev/null || true)
     for f in "$d"PRODUCT.md "$d"prp/*.md; do
       [ -f "$f" ] || continue
       dans_table=0
@@ -2767,6 +2775,30 @@ check_fabrique() {
     done
   done
   [ "$morts" -eq 0 ] && ok "aucun lien mort entre les documents"
+
+  # Le README racine annonce les applications de la fabrique, et c'est le
+  # premier document que lit un humain. Le 21 aout 2026 il en decrivait SIX sur
+  # dix : estran, pilabelle, ramure-v2 et renaissance-gym avaient ete livrees
+  # sans jamais y entrer, et ramure retiree sans en sortir. Aucun controle ne le
+  # voyait — les liens morts ne regardent que les cibles en .md, jamais un lien
+  # vers un repertoire. Avertissement et non KO : un README incomplet ne casse
+  # aucun deploiement, et bloquer la CI de tout le monde sur une ligne de
+  # tableau serait hors de proportion. La ligne manquante coute dix secondes.
+  abs=0; fant=0
+  if [ ! -f README.md ]; then
+    warn "README.md absent — la table des applications ne peut pas etre verifiee"
+  else
+    for d in apps/*/; do
+      [ -d "$d" ] || continue
+      n=${d#apps/}; n=${n%/}
+      grep -qF "(apps/$n/)" README.md || { warn "README.md ne cite pas l'app '$n' — sa table des applications a derive"; abs=$((abs+1)); }
+    done
+    for cible in $(grep -oE '\(apps/[a-z0-9-]+/\)' README.md | sed -E 's/^\((.*)\)$/\1/' | sort -u); do
+      [ -d "$cible" ] || { warn "README.md cite '$cible', qui n'existe plus sous apps/"; fant=$((fant+1)); }
+    done
+    [ "$abs" -eq 0 ] && [ "$fant" -eq 0 ] \
+      && ok "README.md cite exactement les ${#APPS[@]} app(s) de apps/"
+  fi
 
   # Deux sections de meme titre dans un meme document sont deux sources de
   # verite sur le meme sujet : le lecteur tombe sur l'une et ignore l'autre,

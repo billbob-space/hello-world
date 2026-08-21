@@ -13,30 +13,63 @@ Le contrat que doit respecter chaque application est dans
 ./init.sh --list
 ```
 
+Neuf applications en ligne, une retirée. La colonne « Auth » est le **palier
+d'exposition**, appliqué par Traefik avant que la requête n'atteigne le
+conteneur — il y en a trois, et le choix se fait dans l'`app.yml` de l'app :
+
+| Palier | Qui passe |
+|---|---|
+| `private` *(défaut)* | les seuls comptes de la liste blanche du serveur |
+| `google` | n'importe quel compte Google authentifié |
+| `public` | tout le monde, sans authentification |
+
+En cas d'hésitation, le plus fermé : `private` se desserre en une ligne,
+l'inverse a déjà exposé les données. Détail :
+[`memory/exposition.md`](memory/exposition.md).
+
 | App | URL | Auth | Ce qu'elle fait |
 |---|---|---|---|
 | [`hello-world`](apps/hello-world/) | `hello-world.apps.billbob.ovh` | `private` | rend visible l'état du déploiement |
 | [`cadran`](apps/cadran/) | `cadran.apps.billbob.ovh` | `private` | l'heure du serveur, sur un cadran à aiguilles |
-| [`ramure`](apps/ramure/) | `ramure.apps.billbob.ovh` | `private` | l'arbre de parenté musicale, qu'on parcourt de branche en branche |
 | [`ardoise`](apps/ardoise/) | `ardoise.apps.billbob.ovh` | `private` | la plus petite app qui exerce les quatre étages du contrat : interface, service, base, cache |
 | [`compteur`](apps/compteur/) | `compteur.apps.billbob.ovh` | `google` | le second passage de la validation de bout en bout, sur ce qu'`ardoise` seule n'exerçait pas |
 | [`marcq-handball`](apps/marcq-handball/) | `marcq-handball.apps.billbob.ovh` | `public` | le programme d'avant-reprise d'une équipe U15, qui se coche et se compare |
+| [`renaissance-gym`](apps/renaissance-gym/) | `renaissance-gym.apps.billbob.ovh` | `public` | le programme de vacances d'un club de gymnastique, en séance du jour qui se déroule seule |
+| [`pilabelle`](apps/pilabelle/) | `pilabelle.apps.billbob.ovh` | `private` | une séance de pilates doux par jour, qui s'ajuste au ressenti de la veille |
+| [`estran`](apps/estran/) | `estran.apps.billbob.ovh` | `private` | météo marine et jauge de marée pour Le Touquet / Étaples |
+| [`ramure-v2`](apps/ramure-v2/) | `ramure-v2.apps.billbob.ovh` | `google` | l'arbre de parenté musicale, qu'on parcourt de branche en branche |
+| [`ramure`](apps/ramure/) | — | `private` | **retirée** — première version de l'arbre musical, remplacée par `ramure-v2` le 20 août 2026 |
+
+`ramure` porte `enabled: false` : son code et ses documents restent dans le
+dépôt, elle n'entre plus dans `compose.yaml` et n'a plus d'URL. C'est la même
+bascule qu'une app neuve, dans l'autre sens.
 
 ## Arborescence
 
 ```
 apps/<nom>/          une application : app.yml, .dockerignore, test.sh, README.md,
-                     PRODUCT.md (écrits par --add), Dockerfile et code (à toi)
+                     PRODUCT.md (écrits par --add), Dockerfile et code (à toi) ;
+                     prp/ porte les documents d'implémentation, CLAUDE.md est GÉNÉRÉ
 compose.yaml         GÉNÉRÉ — la stack : les apps activées, leurs services annexes,
                      les services partagés, et le bloc volumes: s'il y a des volumes
-fabrique.yml         org, dépôt, registre, domaine, réseau, plafonds, et
+versions.yml         GÉNÉRÉ par la CI — le commit sur lequel chaque app tourne en ligne
+fabrique.yml         org, dépôt, registre, domaine, réseau, plafonds, tarifs, et
                      shared_services — les services partagés par plusieurs apps
 init.sh              le générateur et le vérificateur
+scripts/, lib/       les sept métiers de scripts — branche, pret, revue, cout,
+                     jetons, fusionnees, prod — et ce qu'ils partagent ;
+                     ./init.sh --help les recense en une ligne chacun
 go.work              GÉNÉRÉ — les modules Go, pour gopls
+CLAUDE.md            le contrat que respecte chaque application
+PRODUCT.md           ce que la fabrique elle-même est, et ce qu'elle refuse d'être
+memory/              un fichier par sujet sorti du contrat, lu à la demande
+docs/                ce qui n'est propre à aucune app : specs, plans, banc de mesure
+journal/             une entrée par branche : les anomalies rencontrées
 .github/workflows/   ordinaire — construction par app, déploiement unique ;
                      --check en vérifie deux propriétés, pas l'égalité à un modèle
-.claude/             outillage de l'agent — settings.json s'édite à la main,
-                     cloud-setup.sh est GÉNÉRÉ depuis les langages du dépôt
+.claude/             outillage de l'agent — fichiers ordinaires, édités à la main :
+                     settings.json, les hooks, les agents, les commandes de mode,
+                     et cloud-setup.sh que --check compare aux langages du dépôt
 ```
 
 Le nom du répertoire sous `apps/` **est** l'identité de l'application : son
@@ -499,15 +532,24 @@ Le stockage étant local à la machine, chaque conteneur repart de zéro — et
 **aucun script du dépôt ne peut combler ce vide à temps** : Claude Code charge
 ses plugins avant qu'un hook `SessionStart` ne s'exécute, et `/reload-plugins`
 n'existe pas sur le web. L'installation appartient donc au **setup script de
-l'environnement**, seul point d'accroche antérieur au lancement. Voir
-[`CLAUDE.md`](CLAUDE.md) : il se colle une fois, et `init.sh` en génère le
-contenu dans `.claude/cloud-setup.sh`.
+l'environnement**, seul point d'accroche antérieur au lancement.
+`.claude/cloud-setup.sh` en porte le contenu — un fichier ordinaire, édité à la
+main, à coller une fois dans le champ *Setup script* de l'environnement cloud.
+`init.sh` ne l'écrit pas ; `--check` se borne à signaler l'écart entre ce qu'il
+installe et ce que les apps exigent. Détail :
+[`memory/outillage.md`](memory/outillage.md).
 
 Le hook, lui, se borne à dire ce qu'il voit :
 
 ```
-Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents.
+Outillage : 14/14 plugins installes, 2/2 serveurs LSP presents, 1/1 binaires de hook presents.
 ```
+
+Les trois compteurs sont indépendants et se lisent de gauche à droite : les
+plugins déclarés dans `settings.json`, les serveurs de langage que certains
+d'entre eux lancent (`gopls`, `typescript-language-server`), et les binaires
+qu'un hook du dépôt appelle. Un plugin peut être installé et son serveur absent
+— c'est tout l'objet de la section suivante.
 
 ### La dépendance aux binaires LSP
 
@@ -542,8 +584,10 @@ les crée. Rien de tout cela ne se demande à l'infrastructure. Voir
 
 La stack en porte aujourd'hui : deux bases annexes (`ardoise-base`,
 `compteur-base`), un cache partagé (`redis`, un Valkey pour toutes les apps), et
-trois volumes nommés (`ardoise-donnees`, `compteur-donnees`,
-`marcq-handball-donnees`).
+six volumes nommés (`ardoise-donnees`, `compteur-donnees`,
+`marcq-handball-donnees`, `pilabelle-donnees`, `ramure-v2-donnees`,
+`renaissance-gym-donnees`). Chacun est préfixé du nom de son propriétaire, et
+`--check` refuse qu'il en soit autrement.
 
 Ce qui reste **hors de ce dépôt** est plus étroit, et ne se traite pas d'un seul
 geste — même règle que [`CLAUDE.md`](CLAUDE.md) :
@@ -556,8 +600,10 @@ geste — même règle que [`CLAUDE.md`](CLAUDE.md) :
 - **trois refus**, qui ne se demandent pas parce que le contrat offre déjà
   l'alternative — un **port publié** sur l'hôte (c'est Traefik qui joint le
   conteneur par `apps_net`), un **bind mount** depuis un chemin de l'hôte (un
-  volume nommé, créé par `docker compose up`), et une **exposition sans
-  authentification** (il n'y a que `private` et `google`).
+  volume nommé, créé par `docker compose up`), et une **exposition choisie
+  ailleurs que dans le manifeste** : les trois paliers — `private`, `google`,
+  `public` — se décident dans l'`app.yml`, et `public` s'assume dans le PRD de
+  l'app plutôt qu'il ne se demande à l'infrastructure.
 
 **Un point reste à régler côté serveur : l'accès en lecture aux paquets GHCR.**
 La construction publie bien les images, mais `dockhand` échoue à les récupérer :
@@ -594,9 +640,10 @@ une image, ni dans `.claude/settings.json`.
   de résolution jusque-là.
 - **Certificats** : Let's Encrypt délivre un certificat par nom d'hôte.
 - **Mémoire** : `memory_budget` dans `fabrique.yml` est un plafond déclaratif,
-  pas une mesure de la RAM du serveur. **Il est dépassé aujourd'hui** — neuf
-  services pour 1216 Mo engagés contre 1024 déclarés, et `--check` l'avertit à
-  chaque passage. Ajuste-le à la réalité de la machine, ou réduis les `memory:`.
+  pas une mesure de la RAM du serveur. Douze services engagent aujourd'hui
+  1600 Mo pour 2048 déclarés ; `--check` avertit dès que la somme dépasse. Le
+  plafond a été relevé de 1024 à 2048 quand la stack a grandi — l'ajuster à la
+  machine reste un geste humain, la fabrique ne mesure rien du serveur.
 - **Conteneur orphelin** : si la stack `dockhand` est recréée plutôt que mise à
   jour, l'ancien conteneur survit hors projet et bloque le nouveau
   (`container name already in use`) — la stack entière refuse alors de démarrer.

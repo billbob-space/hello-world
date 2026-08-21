@@ -67,7 +67,7 @@ documents est une app dont le code n'est pas encore écrit. Les compétences `su
 ```bash
 ./init.sh          # régénère les artefacts dérivés depuis les manifestes
 ./init.sh --check  # vérifie les manifestes, puis le dépôt service par service
-./init.sh --help   # les autres options, et les cinq métiers de scripts/
+./init.sh --help   # les autres options, et les sept métiers de scripts/
 ```
 
 `apps/<nom>/app.yml` est la source de vérité, **jamais réécrit par `init.sh`** : tu l'édites

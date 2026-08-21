@@ -137,7 +137,7 @@ Sur `claude.ai/code` : icône nuage au-dessus de la zone de saisie → engrenage
 l'environnement → champ **Setup script**. Le résultat est figé dans un instantané du
 disque : le script ne rejoue qu'après modification de l'environnement ou expiration du
 cache (~7 jours). Si le serveur de langage ne s'installe pas en une commande à travers
-l'allowlist réseau, le script généré pose un `TODO` explicite plutôt qu'une commande
+l'allowlist réseau, pose dans le script un `TODO` explicite plutôt qu'une commande
 inventée : complète-le avant de le coller. Cette configuration vit **hors du dépôt**,
 dans ton compte, et rien ne la met à jour automatiquement : après avoir édité
 `.claude/cloud-setup.sh` pour un `stack` ou un `ui` nouveau, recolle le fichier
@@ -145,7 +145,7 @@ dans ton compte, et rien ne la met à jour automatiquement : après avoir édit�
 
 Puisqu'aucun hook ne peut installer à temps, `.claude/check-plugins.sh` se contente de
 rapporter : il s'exécute à chaque ouverture de session et écrit dans ton contexte
-`Outillage : 12/12 plugins installes, 1/1 serveurs LSP presents, 1/1 binaires de hook
+`Outillage : 14/14 plugins installes, 2/2 serveurs LSP presents, 1/1 binaires de hook
 presents.` — une ligne quand tout va bien, sinon la liste des manquants et le geste
 qui répare. Il vérifie trois choses qui peuvent diverger : le plugin dans le cache
 local, le **binaire** de chaque LSP sur la machine, et celui de chaque binaire de

@@ -197,12 +197,13 @@ est en train de lire. Parade : lui interdire de corriger avant que le relecteur
 ait rendu. Gain : la plus longue des deux passes au lieu de leur somme, sur le
 seul point de la branche où l'utilisateur attend sans que rien d'autre avance.
 
-À corriger dans la doctrine au passage : `memory/travail.md` fonde l'innocuité du
-`greffier` sur « l'absence d'outil d'édition ». Le greffier fait `git add -A` par
-`Bash` — l'invariant réel n'est pas qu'il n'édite pas, c'est qu'il n'édite pas de
-**code**. Ça suffit contre une lecture concurrente, pas contre une écriture. Et
-l'`esthete` a `Edit` et `Write` : par la règle du dépôt, il est dans la case de
-l'artisan, pas dans celle du relecteur.
+Correction de doctrine issue de ce constat, **depuis appliquée** dans
+`memory/travail.md` : l'innocuité du `greffier` y était fondée sur « l'absence
+d'outil d'édition », alors qu'il fait `git add -A` par `Bash`. L'invariant réel
+n'est pas qu'il n'édite pas, c'est qu'il n'édite pas de **code** — ça suffit
+contre une lecture concurrente, pas contre une écriture. Et l'`esthete` a `Edit`
+et `Write` : par la règle du dépôt, il est dans la case de l'artisan, pas dans
+celle du relecteur. Les deux points sont écrits au contrat aujourd'hui.
 
 **Deux artisans sur deux apps différentes** : ce n'est pas interdit, c'est déjà
 arrivé — trois artisans en parallèle sur `cadran`, `ramure` et `pilabelle`, et

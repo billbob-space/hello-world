@@ -550,10 +550,10 @@ passent tous la compilation et les tests unitaires.
 
 ## 14 · Risques
 
-Chaque risque nomme le test qui le tient. Les noms cités sont ceux que la série
-de PRP écrit ; tant que le code n'existe pas, `./init.sh --check` signale qu'il
-ne les trouve pas — c'est le comportement attendu, et il s'éteint à mesure que
-les tests sont écrits.
+Chaque risque nomme le test qui le tient, et `./init.sh --check` vérifie que ce
+nom existe pour de vrai. Tous les tests cités ici sont écrits et passent depuis
+le 21 août 2026 : la dernière promesse encore en l'air — le cadrage plus étroit
+sur écran étroit — a été tenue ce jour-là.
 
 | Risque | Grav. | Mitigation exigée | Test |
 |---|---|---|---|

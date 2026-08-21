@@ -128,6 +128,31 @@ func TestLargeurInconnueRetombeSurLarge(t *testing.T) {
 	}
 }
 
+// Le cadrage etroit est ce qui tient le risque « le canevas exige de la place »
+// du PRD : sur un ecran etroit le serveur rend MOINS de branches, et c'est lui
+// qui en decide (cadragePour). TestLargeurInconnueRetombeSurLarge tenait deja le
+// repli ; sans ce test-ci, la moitie qui compte — la reduction reelle — n'etait
+// promise que par le PRD.
+func TestCadragePlusEtroitSurEcranEtroit(t *testing.T) {
+	d := construireStackDeTest(t, "Portishead", 20)
+	rec := httptest.NewRecorder()
+	Routes(d).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/centre?nom=Portishead&largeur=etroit", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, attendu 200, corps = %s", rec.Code, rec.Body.String())
+	}
+	var reponse reponseCentreDeTest
+	if err := json.Unmarshal(rec.Body.Bytes(), &reponse); err != nil {
+		t.Fatalf("decodage : %v (corps = %s)", err, rec.Body.String())
+	}
+	if len(reponse.Branches) != 6 {
+		t.Fatalf("branches = %d, attendu 6 (cadrage etroit)", len(reponse.Branches))
+	}
+	if len(reponse.Branches) >= 10 {
+		t.Fatalf("l'ecran etroit rend autant de branches que le large — le cadrage ne suit pas la largeur")
+	}
+}
+
 func TestArtisteSansVoisinsRepond200(t *testing.T) {
 	d := construireStackDeTest(t, "Portishead", 0)
 	rec := httptest.NewRecorder()
