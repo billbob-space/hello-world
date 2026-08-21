@@ -2472,11 +2472,17 @@ epinglees par SHA.
 
 **Detecte par** — `auteur`
 
-**Action** — `arbitrage` — couper l'arete sort toute la matrice `test` du chemin
-critique, mais fait monter la pointe de ~35 a ~45 jobs simultanes. Le plafond de
-jobs concurrents du compte GitHub n'est ecrit nulle part dans le depot : sous un
-plafond sature, l'attente se deplace du graphe vers la file, ou elle est
-invisible dans la duree des jobs. A trancher avec la mesure, pas sans.
+**Action** — `arbitrage` — rendu le 2026-08-21 : l'arete est coupee,
+`build` ne porte plus que `contrat` et `detect`. Toute la matrice `test` sort du
+chemin critique ; la garantie qui comptait reste entiere, `deploy` exigeant
+toujours `needs.test.result == success || skipped`.
+
+Ce que l'arbitrage a mis en balance et qu'il faut surveiller : la pointe passe
+de ~35 a ~45 jobs simultanes, et le plafond de jobs concurrents du compte
+GitHub n'est ecrit nulle part dans le depot. Sous un plafond sature, l'attente
+se deplace du graphe vers la FILE, ou elle est invisible dans la duree des jobs
+et n'apparait que dans celle du run. C'est donc la duree du RUN qu'il faut
+comparer au premier passage, pas celle des jobs.
 
 ### 32. La revue reinstalle ses trois outils dans chacun des dix shards
 

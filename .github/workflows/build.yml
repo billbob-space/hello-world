@@ -492,7 +492,31 @@ jobs:
           fi
 
   build:
-    needs: [contrat, detect, test]
+    # PAS de « test » dans needs, et c'est delibere. Rien ici ne consomme quoi
+    # que ce soit produit par « test » : le contexte de construction est
+    # apps/<app> seul, les tags viennent de detect, et les deux controles de
+    # l'etape « labels et taille » portent sur l'image. La dependance etait
+    # POLITIQUE — ne pas publier l'image d'une app dont les tests tombent — et
+    # « deploy » la porte deja, plus finement, en exigeant
+    # « needs.test.result == success || skipped » job par job. Une image publiee
+    # sans test vert n'atteint donc JAMAIS la production : deploy ne tourne pas,
+    # rien n'est epingle, versions.yml et compose.yaml ne bougent pas, dockhand
+    # ne voit rien. Le seul effet residuel serait un tag mutable « :main »
+    # deplace — et compose.yaml n'en reference plus aucun, les dix apps y sont
+    # epinglees par SHA ; une app qui n'y figure pas encore est au premier de
+    # ses deux commits, donc enabled: false, donc sans bloc dans le compose. Sur
+    # une pull request la question ne se pose meme pas : push vaut false.
+    #
+    # CE QUE CA REND : « build » etait la seule matrice du graphe a en attendre
+    # une autre. Elle demarre desormais EN MEME TEMPS que test, revue et
+    # bout-en-bout, et sort du chemin critique.
+    #
+    # CE QUE CA COUTE, et il faut le surveiller : la pointe de jobs simultanes
+    # monte d'une dizaine. Si le plafond de jobs concurrents du compte est
+    # atteint, l'attente se deplace du graphe vers la FILE, ou elle est
+    # invisible dans la duree des jobs et n'apparait que dans celle du run.
+    # Le detail, et le reste des gisements : docs/parallelisme.md.
+    needs: [contrat, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 25

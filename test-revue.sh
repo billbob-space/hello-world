@@ -128,6 +128,10 @@ GO
   cat > "$d/bin/faux-staticcheck" <<'SC'
 #!/usr/bin/env bash
 set -uo pipefail
+# FAUX_TUE=<app> tue le processus qui a lance cet outil, depuis le repertoire de
+# cette app. C'est le seul moyen de fabriquer ce qu'aucun test ne peut demander
+# poliment : un enfant du fan-out qui meurt SANS rendre de verdict.
+[ "${FAUX_TUE:-}" = "$(basename "$PWD")" ] && kill -9 "$PPID"
 [ -n "${FAUX_STATICCHECK:-}" ] && { printf '%s\n' "$FAUX_STATICCHECK"; exit 1; }
 exit 0
 SC
@@ -246,6 +250,19 @@ avec_verrou_npm() {
 revue() {
   local d="$1"; shift
   ( cd "$d" && PATH="$d/bin:$PATH" ./scripts/revue.sh appx "$@" 2>&1 ) || true
+}
+
+# Le fan-out ne se declenche qu'a partir de DEUX cibles : ces deux aides sont
+# ce qui separe le chemin serie du chemin parallele.
+bac2() {  # bac2 <couverture> — le bac ordinaire, plus une seconde app « appy »
+  local d; d=$(bac "$1")
+  cp -r "$d/apps/appx" "$d/apps/appy"
+  printf '%s' "$d"
+}
+
+revue2() {  # revue2 <bac> [<options>] — les deux apps, donc le fan-out
+  local d="$1"; shift
+  ( cd "$d" && PATH="$d/bin:$PATH" ./scripts/revue.sh appx appy "$@" 2>&1 ) || true
 }
 
 # cas <nom> <motif attendu dans la sortie> — le bac et l'appel viennent de
@@ -431,6 +448,44 @@ FIN
 cas "une app sans app.yml n'est pas une app" \
     "KO.*pas d'app.yml" <<'FIN'
 d=$(bac 64); rm "$d/apps/appx/app.yml"; revue "$d"
+FIN
+
+echo
+echo "-- le fan-out"
+#
+# Une app par processus. Ce qui se teste ici n'est pas la vitesse — elle se
+# mesure au banc, docs/banc/ — mais les trois choses que le parallelisme peut
+# casser en silence : l'ordre de la sortie, l'agregation des verdicts, et le
+# sort d'un enfant qui meurt.
+
+cas "les deux apps sont relues, et dans l'ordre demande" \
+    '^── appx ── appy$' <<'FIN'
+d=$(bac2 64); revue2 "$d" | grep '^── ' | tr '\n' ' ' | sed 's/ $//'
+FIN
+
+cas "un KO dans une seule app fait sortir l'ensemble en rouge" \
+    "KO.*\[appy\] pas d'app.yml.*1 point\(s\) bloquant\(s\)" <<'FIN'
+d=$(bac2 64); rm "$d/apps/appy/app.yml"; revue2 "$d" | tr '\n' '|'
+FIN
+
+cas "les points bloquants des deux apps s'additionnent" \
+    '2 point\(s\) bloquant\(s\)' <<'FIN'
+d=$(bac2 64); rm "$d/apps/appx/app.yml" "$d/apps/appy/app.yml"; revue2 "$d"
+FIN
+
+cas "un enfant tue sans rendre de verdict est un KO, jamais un vert" \
+    'KO.*\[appy\].*aucun verdict' <<'FIN'
+d=$(bac2 64); FAUX_TUE=appy revue2 "$d"
+FIN
+
+cas "un enfant tue fait sortir l'ensemble en rouge" \
+    '1 point\(s\) bloquant\(s\)' <<'FIN'
+d=$(bac2 64); FAUX_TUE=appy revue2 "$d"
+FIN
+
+cas "REVUE_PARALLELE=1 rend la serie, et relit toujours les deux apps" \
+    '── appx.*── appy.*Revue verte' <<'FIN'
+d=$(bac2 64); REVUE_PARALLELE=1 revue2 "$d" | tr '\n' '|'
 FIN
 
 echo

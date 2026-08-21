@@ -612,13 +612,92 @@ releve_axe() {
 }
 
 # --- la boucle ----------------------------------------------------------------
+#
+# Une app par PROCESSUS, jamais par sous-shell. Deux raisons, et aucune n'est de
+# style : relire_app fait « cd » dans le shell courant, et bad() incremente une
+# globale. Un sous-shell perdrait le compteur — les KO s'afficheraient en rouge
+# et le script sortirait en 0. C'est le vert silencieux que tout ce fichier
+# passe son temps a interdire. Un processus separe, lui, a son propre repertoire
+# courant et rend son verdict par un CODE DE SORTIE, qui remonte.
+#
+# Mesure du 2026-08-21, dix apps, caches chauds, quatre coeurs : 55,0 s en serie
+# [53,3-55,9] contre 25,4 s [24,6-25,9] ici. Protocole et serie : docs/banc/.
+# Les gisements restants et leurs verrous : docs/parallelisme.md.
+#
+# DEUX AMORCAGES AVANT LE FAN-OUT, sans lesquels le parallelisme fabrique de
+# faux KO : les trois binaires Go — deja poses plus haut par outil(), c'est
+# pourquoi ces appels sont AVANT la boucle et doivent y rester — et le cache de
+# npx, sinon dix « npx --yes » installent le meme paquet dans le meme repertoire
+# en meme temps, et l'axe duplication rend « aucun rapport produit », un KO qui
+# ne dit rien du code.
+#
+# LE PLAFOND EST nproc, ET IL EST DUR. gosec, staticcheck et « go test -race »
+# chargent chacun le graphe complet d'un module. Au-dela, on echange du temps
+# gagne contre du temps perdu en memoire, et un OOM rend « gosec a echoue
+# (code 137) » : encore un faux KO.
 
-echo "Revue — ${#CIBLES[@]} app(s)"
-[ "$RELEVE" = 1 ] && echo "  (mode releve : les seuils de app.yml sont serres, jamais desserres)"
+if [ "${REVUE_ENFANT:-0}" != 1 ]; then
+  echo "Revue — ${#CIBLES[@]} app(s)"
+  if [ "$RELEVE" = 1 ]; then
+    echo "  (mode releve : les seuils de app.yml sont serres, jamais desserres)"
+  fi
+fi
 
-for cible in "${CIBLES[@]}"; do
-  relire_app "$cible"
-done
+# REVUE_PARALLELE=1 rend la serie — pour comparer au banc, ou pour lire une
+# sortie qui s'ecrit au fil de l'eau plutot qu'app par app.
+COEURS=${REVUE_PARALLELE:-$(nproc 2>/dev/null || echo 1)}
+
+if [ "${#CIBLES[@]}" -le 1 ] || [ "$COEURS" -le 1 ]; then
+  for cible in "${CIBLES[@]}"; do
+    relire_app "$cible"
+  done
+else
+  npx --yes "$JSCPD" --version >"$TRAVAIL/amorce-npx.log" 2>&1 || true
+
+  OPT=()
+  if [ "$RELEVE" = 1 ]; then OPT=(--releve); fi
+
+  actifs=0
+  for cible in "${CIBLES[@]}"; do
+    if [ "$actifs" -ge "$COEURS" ]; then
+      # « || true » : sous set -e, un enfant qui sort en 1 tuerait le pere ici,
+      # avant qu'il ait affiche ce qu'il fallait corriger. Le verdict de cet
+      # enfant n'est pas perdu pour autant — il est dans son fichier de compte.
+      wait -n || true
+      actifs=$((actifs-1))
+    fi
+    REVUE_ENFANT=1 REVUE_COMPTE="$TRAVAIL/compte-$cible"       "$RACINE/scripts/revue.sh" "${OPT[@]}" "$cible"       >"$TRAVAIL/sortie-$cible" 2>&1 &
+    actifs=$((actifs+1))
+  done
+  wait
+
+  # L'affichage suit l'ordre des CIBLES, jamais celui des fins de processus :
+  # deux relevés du meme depot doivent se comparer ligne a ligne.
+  #
+  # ET LE COMPTE NE SE DEDUIT PAS DU CODE DE SORTIE. Chaque enfant ecrit son
+  # nombre de points bloquants dans un fichier ; un fichier ABSENT ou illisible
+  # est un KO, jamais un zero. Un enfant tue — OOM, interruption, disque plein —
+  # sortirait sinon sans un mot, et la revue rendrait vert en n'ayant rien lu.
+  # Meme decompte que l'inspection des images du compose, pour la meme raison.
+  for cible in "${CIBLES[@]}"; do
+    cat "$TRAVAIL/sortie-$cible" 2>/dev/null || true
+    compte=$(cat "$TRAVAIL/compte-$cible" 2>/dev/null || echo "")
+    if printf '%s' "$compte" | grep -qE '^[0-9]+$'; then
+      FAILED=$((FAILED + compte))
+    else
+      echo
+      bad "[$cible] la revue n'a rendu aucun verdict — processus interrompu ?"
+    fi
+  done
+fi
+
+if [ "${REVUE_ENFANT:-0}" = 1 ]; then
+  # Enfant d'un fan-out : ni en-tete ni verdict d'ensemble, le pere les rend.
+  # Son compte part dans un fichier, et son code de sortie avec.
+  printf '%s\n' "$FAILED" > "$REVUE_COMPTE"
+  [ "$FAILED" -eq 0 ] || exit 1
+  exit 0
+fi
 
 echo
 if [ "$FAILED" -gt 0 ]; then
