@@ -292,7 +292,11 @@ test('un refus de reprise ne dit jamais si c’est le pseudo ou le code qui est 
 
   const erreur = hote.querySelectorAll('.erreur-champ').find((p) => p.textContent !== '');
   assert.ok(erreur);
-  assert.equal(erreur.textContent, 'Pseudo ou code incorrect.');
+  assert.match(erreur.textContent, /^Pseudo ou code incorrect\./);
+  // Le refus ne se contente pas de constater : il dit à quoi ressemble un
+  // pseudonyme, et nomme le geste qui reste (« Retour »). Sans cette phrase,
+  // l'écran est un cul-de-sac pour celle qui a perdu son pseudonyme.
+  assert.match(erreur.textContent, /Retour/);
 });
 
 test('une reprise réussie navigue vers #/jour', async () => {

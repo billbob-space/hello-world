@@ -1073,6 +1073,14 @@ input[type='text']:focus,
   height: auto;
 }
 
+/* L'etat vide de l'ecran : une seule phrase, sous le dessin, tant qu'aucune
+   parure n'est acquise. Centree sous la figure, jamais plus forte qu'elle. */
+.justaucorps__mot {
+  font-size: var(--taille-texte);
+  line-height: 1.5;
+  text-align: center;
+}
+
 .justaucorps__couleurs {
   display: flex;
   flex-direction: column;
