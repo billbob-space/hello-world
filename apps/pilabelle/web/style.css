@@ -331,10 +331,15 @@ hr {
 	margin: 0;
 }
 
-/* Écran du jour ----------------------------------------------------------- */
+/* Écran du jour -----------------------------------------------------------
+   Regle retenue (decision du 20 aout 2026, PRODUCT.md « l'ecran de seance
+   montre le programme ») : menthe = fait, lavande = a faire, rose = a taper ;
+   une note qui parle (.pique, .defi non releve) porte un filet et jamais de
+   fond, pour ne plus se confondre avec button.secondaire qui, lui, se tape
+   vraiment. */
 
 .pique {
-	background: var(--lavande-100);
+	background: transparent;
 	border-radius: var(--rayon);
 	padding: var(--espace);
 	font-weight: 600;
@@ -343,9 +348,10 @@ hr {
 }
 
 .defi {
-	background: var(--lavande-100);
-	/* Meme correctif de contraste que les boutons ci-dessus : --lavande-500
-	   sur --lavande-100 ne rendait que 2,46:1. */
+	/* Une note qui parle : filet, jamais de fond — sinon elle se confond avec
+	   button.secondaire, qui partage le meme fond --lavande-100. */
+	background: transparent;
+	border: 1px solid var(--lavande-300);
 	color: var(--encre);
 	border-radius: var(--rayon-sm);
 	padding: 0.6rem var(--espace);
@@ -355,8 +361,11 @@ hr {
 }
 
 .defi.defi-releve {
+	/* Un defi releve est un etat « fait », pas une note qui parle : il garde
+	   son fond plein, comme .niveau-monte et .calendrier-jour.jour-fait. */
 	background: var(--menthe-100);
 	color: var(--menthe-700);
+	border: none;
 }
 
 ul {
@@ -369,8 +378,12 @@ ul {
 }
 
 ul li {
-	background: var(--menthe-100);
-	color: var(--menthe-700);
+	/* Les blocs de la seance sont a faire, pas faits : le vert menthe ne doit
+	   signifier « fait » que la ou c'est vrai (.defi-releve, .progression
+	   span.faite, .niveau-monte, .calendrier-jour.jour-fait). Meme motif que
+	   .niveaux li, qui utilise deja lavande-100/lavande-700. */
+	background: var(--lavande-100);
+	color: var(--lavande-700);
 	border-radius: var(--rayon-sm);
 	padding: 0.75rem var(--espace);
 	font-weight: 600;
