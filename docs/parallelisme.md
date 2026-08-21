@@ -28,10 +28,19 @@ de `bout-en-bout` — et **aucun chronomètre n'est repassé depuis**. Les seule
 durées de CI que porte le dépôt datent du 2026-08-18 et valent pour neuf apps et
 deux matrices. Elles ne décrivent plus la chaîne d'aujourd'hui.
 
-Conséquence pratique : **le chemin critique de la CI est aujourd'hui inconnu**.
-Il passe soit par `contrat → test → build → deploy`, soit par
-`contrat → bout-en-bout → deploy`, et personne ne sait lequel. Optimiser la
-mauvaise branche ne gagne rien — c'est exactement l'accident du 18 août.
+**Mesuré le 2026-08-21, et la réponse n'était aucune des deux hypothèses.** On
+soupçonnait `contrat → test → build → deploy` ou `contrat → bout-en-bout →
+deploy` ; le chemin critique est en réalité **la chaîne de l'outillage**,
+`test-init.sh` en tête — 3 min 13 s sur un run de 3 min 50 s. Les dix apps,
+leurs tests, leurs revues, leurs suites en navigateur et leurs dix images
+tiennent toutes à l'intérieur de ce seul script. **Le prochain gain de CI est
+là, et nulle part ailleurs.** Relevé : [banc/releves.md](banc/releves.md).
+
+C'est la démonstration de la règle : les deux gisements de CI listés plus bas
+sont réels et valent leur correction pour la facture de runners, mais aucun des
+deux ne raccourcira l'attente tant que `test-init.sh` tiendra le chemin. Sans la
+mesure, on aurait passé la journée du bon côté du problème — c'est exactement
+l'accident du 18 août, à l'identique.
 
 Le banc existe pour ça. Un gain n'est déclaré que si la nouvelle médiane sort de
 l'intervalle `[min – max]` de la mesure de référence.
