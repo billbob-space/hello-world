@@ -2679,11 +2679,22 @@ check_traces_risques() {
         #
         # La forme compte autant que l'endroit : « grep -F » sur le nom nu
         # trouvait aussi une mention en COMMENTAIRE, si bien qu'un test cite
-        # dans le PRD et seulement evoque dans le code passait pour ecrit. On
-        # exige donc une declaration Go, ou un nom de test entre guillemets
-        # pour les tests JavaScript.
-        if ! grep -rqE "^func $motif\(|['\"]$motif['\"]" "$d" \
-             --include='*_test.go' --include='*.test.js' \
+        # dans le PRD et seulement evoque dans le code passait pour ecrit.
+        #
+        # Exiger « un nom entre guillemets » ne suffit pas, et le relecteur l'a
+        # montre : c'est la forme meme sous laquelle un test s'ecrit, donc la
+        # forme sous laquelle il est COMMENTE quand on le desactive.
+        # « // test('X', ...) » repondait present. Un test mis de cote pendant
+        # que le PRD continue de le citer serait reste vert — exactement le
+        # defaut qu'on croyait fermer, rouvert par sa porte principale.
+        #
+        # D'ou les deux exigences cumulees : un CONTEXTE D'APPEL avant le
+        # guillemet — nul ne commente « test( » par accident — et « ^[^/]* »,
+        # qui interdit tout « / » avant lui et ecarte donc les lignes
+        # commentees. Conservateur dans le bon sens : une ligne ecartee a tort
+        # produit un avertissement, jamais un silence.
+        if ! grep -rqE "^func $motif\(|^[^/]*(test|it|describe|t\.Run) *\( *['\"\`]$motif['\"\`]" "$d" \
+             --include='*_test.go' --include='*.test.js' --include='*.test.ts' \
              --exclude-dir=node_modules 2>/dev/null; then
           warn "[$n] $f cite le test « $nom » — introuvable dans les tests de l'app"
           manquants=$((manquants+1))

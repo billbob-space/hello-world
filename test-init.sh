@@ -652,6 +652,23 @@ printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le quot
 printf '\n// TODO: ecrire TestQuotaBorne, il manque encore.\n' >> apps/renaissance-gym/api_test.go
 FIN
 
+# Le cas PRECEDENT ne prouvait presque rien, et le relecteur l'a dit : « TODO:
+# ecrire TestQuotaBorne » n'est pas guillemete, donc il etait deja rejete avant
+# la refonte. Le cas DANGEREUX est celui-ci — un test DESACTIVE, mis en
+# commentaire sous sa forme d'ecriture normale, pendant que le PRD continue de
+# le citer. C'est la forme qui repondait « present » et laissait le garde-fou
+# vert sur une promesse que plus rien ne tenait.
+avertit "un test desactive en commentaire, guillemets compris, ne compte pas" "introuvable dans les tests" <<'FIN'
+printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| La file deborde | On la borne | `TestFileBornee` |\n' >> apps/renaissance-gym/PRODUCT.md
+printf "\n// test('TestFileBornee', () => { expect(1).toBe(1); })\n" >> apps/renaissance-gym/tests/api.test.js
+FIN
+
+# Et son pendant Go : un sous-test t.Run desactive de la meme facon.
+avertit "un sous-test Go desactive en commentaire ne compte pas" "introuvable dans les tests" <<'FIN'
+printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le verrou saute | On le tient | `TestVerrouTenu` |\n' >> apps/renaissance-gym/PRODUCT.md
+printf '\n// t.Run("TestVerrouTenu", func(t *testing.T) {})\n' >> apps/renaissance-gym/api_test.go
+FIN
+
 # La priorite CSS de [hidden] : trois occurrences dans le depot, dont deux dans
 # le meme fichier a une semaine d'intervalle. ramure porte deja la regle globale
 # et doit rester silencieuse — c'est ce que ce cas verifie en la retirant.
