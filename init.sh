@@ -134,8 +134,11 @@ MEMORY_TENU='--check|CI|hook'
 
 # --- applications ---------------------------------------------------------------
 
+# Sans processus, comme yget et pour la meme raison : appelee 131 fois par
+# --check, elle forkait un printf et un grep a chaque nom verifie. La classe et
+# les bornes sont celles de l'expression reguliere d'avant, a la lettre.
 valid_svc_name() {  # label DNS : ni tiret en tete ni tiret en queue
-  printf '%s' "$1" | grep -qE '^[a-z0-9]([a-z0-9-]{0,29}[a-z0-9])?$'
+  [[ "$1" =~ ^[a-z0-9]([a-z0-9-]{0,29}[a-z0-9])?$ ]]
 }
 
 valid_name() {  # meme regle pour une app, mais elle dit pourquoi elle refuse

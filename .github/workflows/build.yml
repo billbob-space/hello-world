@@ -384,6 +384,24 @@ jobs:
         app: ${{ fromJSON(needs.detect.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
+      # Ce job n'avait AUCUN cache jusqu'au 2026-08-21 : huit test.sh sur dix
+      # font « go vet ./... » puis « go test ./... », et ramure-v2 y ajoute un
+      # « npm ci ». Modules et compilation etaient donc repayes de zero dans les
+      # dix shards, a chaque execution.
+      #
+      # Cle DISTINCTE de celle du job « revue » (« test-… » et non « revue-… ») :
+      # deux jobs qui ecrivent la meme cle se la disputent, un seul gagne, et
+      # les autres echouent en « cache already exists ». Elle porte sur les
+      # go.sum et les verrous npm — elle change quand une dependance change, et
+      # seulement alors.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.npm
+          key: test-${{ runner.os }}-${{ hashFiles('**/go.sum', '**/package-lock.json') }}
+          restore-keys: test-${{ runner.os }}-
       # Chaque app dit comment elle se teste dans un executable, comme elle dit
       # comment elle se construit dans un Dockerfile : la fabrique n'a pas a
       # connaitre les langages. Le runner fournit Go, Node, Python et Java ;
@@ -410,16 +428,27 @@ jobs:
         app: ${{ fromJSON(needs.detect.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
-      # Les outils passent par « go run <module>@<version> » : sans cache, chaque
-      # job les retelecharge et les recompile. La cle porte sur fabrique.yml,
-      # seul endroit ou leurs versions sont ecrites — elle change donc quand, et
-      # seulement quand, un outil change de version.
+      # Les outils sont installes par « go install » dans .revue-outils/ : sans
+      # cache, chaque job les retelecharge et les recompile. La cle porte sur
+      # fabrique.yml, seul endroit ou leurs versions sont ecrites — elle change
+      # donc quand, et seulement quand, un outil change de version.
+      #
+      # « .revue-outils » est dans cette liste depuis le 2026-08-21, et son
+      # absence coutait cher en silence : revue.sh y depose staticcheck, gosec et
+      # govulncheck (le chemin exact porte $GOTOOLCHAIN en composante), le
+      # repertoire est a la RACINE DU DEPOT et non sous $HOME, et il est
+      # gitignore. Il echappait donc a la fois au depot et au cache : les trois
+      # « go install » etaient refaits dans CHACUN des dix shards, a chaque
+      # execution. Le cache de build Go ramenait la depense a une edition de
+      # liens plutot qu'a une compilation complete — ce qui est exactement ce qui
+      # rendait la perte invisible.
       - uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
             ~/.npm/_npx
+            .revue-outils
           key: revue-${{ runner.os }}-${{ hashFiles('fabrique.yml') }}
           restore-keys: revue-${{ runner.os }}-
       # L'app est NOMMEE. Sans argument, revue.sh deduirait le perimetre de

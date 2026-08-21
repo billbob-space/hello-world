@@ -7,6 +7,41 @@ trancher, dans [../parallelisme.md](../parallelisme.md).
 Chaque bloc porte l'en-tête imprimé par `mesurer.sh` : sans lui, deux relevés ne
 se comparent pas.
 
+## 2026-08-21 (3) — la lecture des manifestes perd ses processus
+
+Même machine, mêmes outils, même code applicatif. Seuls `lib/socle.sh` et une
+fonction d'`init.sh` ont changé : `yget`, `ylist` et `valid_svc_name` ne lancent
+plus un seul processus.
+
+| scénario | avant | après | verdict |
+|---|---:|---:|---|
+| `contrat` | 13,24 s [12,89 – 13,53] | **7,59 s** [7,43 – 7,86] | intervalles disjoints — **gain déclaré, ×1,74** |
+| `outillage` *(`test-init.sh`, 40 cas)* | 131,9 s | **66,3 s** | **×1,99** |
+
+**Pourquoi c'est le bon endroit.** Le relevé CI de la veille avait nommé le
+chemin critique : `test-init.sh`, 3 min 13 s sur un run de 3 min 50 s. Ce
+harnais est **parfaitement parallèle et purement lié au calcul** — 40 cas, une
+vérification complète chacun, quatre en vol, 97 % d'efficacité mesurée. Le seul
+levier était donc de réduire le *travail*, pas de mieux le répartir.
+
+**Où était le travail.** Une vérification complète exécutait **258 000 commandes**
+et lisait 1 104 valeurs de manifeste. Chaque lecture enchaînait `tr | sed | head`
+puis un second `sed` : cinq processus, plus la substitution qui l'entoure, pour
+lire une ligne dans un fichier de trente. Environ **sept mille processus par
+vérification** — et la vérification est jouée quarante fois.
+
+**Ce que la mesure a écarté en chemin** : `check_traces_risques` parcourt 30 000
+lignes de documents en bash pur et semblait le suspect idéal. Neutralisée, elle
+ne fait gagner que 0,4 s. Sans la mesure, c'est là qu'on aurait passé la journée.
+
+**Deux gisements restants, chiffrés et volontairement non pris** : la
+duplication de `load_app`, appelée 128 fois pour 10 apps, et les substitutions
+`$(...)` qui entourent chaque lecture — environ 2 100 forks résiduels. Le second
+demanderait de changer des centaines de sites d'appel dans un script de 150 Ko
+qui garde les dix apps. Le rapport gain/risque ne le justifie pas aujourd'hui.
+
+---
+
 ## Série CI — à ne jamais comparer à la série locale
 
 Runners GitHub, caches d'actions, images préchauffées : une durée de CI ne se

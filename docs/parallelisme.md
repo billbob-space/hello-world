@@ -42,6 +42,18 @@ deux ne raccourcira l'attente tant que `test-init.sh` tiendra le chemin. Sans la
 mesure, on aurait passé la journée du bon côté du problème — c'est exactement
 l'accident du 18 août, à l'identique.
 
+**Traité le 2026-08-21.** Le harnais est parfaitement parallèle — 97 %
+d'efficacité mesurée — donc le seul levier était de réduire le travail. La
+lecture des manifestes lançait cinq processus par valeur lue, mille cent fois
+par vérification ; elle n'en lance plus aucun. La vérification passe de 13,2 s à
+7,6 s, le harnais de 131,9 s à 66,3 s, sortie identique octet à octet. Le même
+gain vaut pour `pret.sh` et pour le job `contrat`, qui appellent la même
+vérification.
+
+Ce que la mesure a écarté mérite d'être retenu autant que ce qu'elle a trouvé :
+la boucle qui parcourt 30 000 lignes de documents en bash pur avait l'air du
+coupable évident. Elle coûte 0,4 s.
+
 Le banc existe pour ça. Un gain n'est déclaré que si la nouvelle médiane sort de
 l'intervalle `[min – max]` de la mesure de référence.
 

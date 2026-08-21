@@ -45,8 +45,14 @@ montent des conteneurs Docker, le coût qu'on cherche justement à éviter.
 | `tests-petite` | 5 | `go vet` + `go test` sur la plus petite app — le coût plancher d'un cycle |
 | `revue-petite` | 5 | les cinq axes sur 403 lignes — le coût fixe de la revue |
 | `revue-moyenne` | 3 | les cinq axes en configuration complète, Go + JS |
-| `revue-toutes` | 3 | les dix apps en série — **le chiffre que le parallélisme vise** |
+| `revue-toutes` | 3 | les dix apps par le chemin par défaut |
+| `revue-serie` | 3 | les mêmes, forcées en série — **le témoin** du parallélisme |
+| `outillage` | 1 | `test-init.sh`, 40 cas — **le chemin critique de la CI** |
 | `tests-grosse` | 3 | `npm ci` + esbuild + `tsc` + vitest + `go test -race` sur 10 paquets |
+
+Le **témoin** est ce qui rend un gain démontrable plutôt que déclaratif : il
+rejoue l'ancien chemin dans les conditions du jour. Sans lui, on ne distingue
+pas un vrai gain d'une machine devenue plus rapide.
 
 Deux scénarios manquent encore et le relevé doit continuer à le dire :
 `e2e-navigateur` (`apps/estran/e2e/lancer.sh`) et `revue-froid` (le coût d'un

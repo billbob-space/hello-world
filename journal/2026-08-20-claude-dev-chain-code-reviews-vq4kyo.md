@@ -2595,3 +2595,54 @@ qu'un test absent se voit.
 C'est le meme mode d'echec que les sept verts silencieux de cette branche,
 cette fois dans un test tout neuf ecrit pour en fermer un. Le defaut ne se
 lasse pas.
+
+### 35. Le coupable evident coutait 0,4 s ; le vrai etait invisible
+
+**Symptome** — le releve CI de la veille avait nomme le chemin critique :
+`test-init.sh`, 3 min 13 s sur un run de 3 min 50 s. Restait a savoir pourquoi.
+Le harnais est deja parallele, et la mesure le confirme : 40 cas, quatre en vol,
+131,9 s pour 512 s de calcul cumule — **97 % d'efficacite**. Il n'y avait donc
+rien a mieux repartir, seulement du travail a retirer.
+
+Deux suspects. Le premier saute aux yeux : `check_traces_risques` parcourt
+30 000 lignes de PRODUCT.md et de PRP en bash pur, ligne a ligne, et represente
+a lui seul 30 000 des 258 000 commandes executees par une verification.
+Neutralise, il fait gagner **0,4 seconde**.
+
+Le vrai cout ne se voyait dans aucun profil de fonction : `yget`, le lecteur de
+manifeste, enchaine `tr | sed | head` puis un second `sed`. Cinq processus,
+plus la substitution qui l'entoure, **pour lire une ligne dans un fichier de
+trente**. Il est appele 1 104 fois par verification — environ sept mille
+processus — et la verification est jouee quarante fois par le harnais.
+
+**Cause** — un lecteur ecrit pour etre lu, pas pour etre appele mille fois. Rien
+dans sa forme ne dit ce qu'il coute : chaque appel pris isolement est
+irreprochable. Le cout n'existe qu'au pluriel, et aucun des garde-fous du depot
+ne compte les appels.
+
+Ce qui rendait le diagnostic contre-intuitif : le nombre de COMMANDES designe
+`check_traces_risques` (30 000 iterations), le nombre de PROCESSUS designe
+`yget`. Ce sont deux mesures differentes, et seule la seconde predit le temps.
+Compter les lignes de trace aurait fait travailler toute une journee du mauvais
+cote.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — corrige. `yget`, `ylist` et `valid_svc_name` ne lancent
+plus un seul processus ; la semantique est celle d'avant a la lettre, verifiee
+en comparant la sortie complete de `--check` **octet a octet**, avant et apres.
+Verification : 13,2 s -> 7,6 s. Harnais : 131,9 s -> 66,3 s. Les cinq harnais
+verts (40, 36, 14, 20, 15 cas). Le meme gain vaut pour `pret.sh` et pour le job
+`contrat`, qui appellent la meme verification.
+
+Pas de garde-fou propose, et c'est un choix : un controle qui refuserait un
+`sed` dans une fonction chaude serait du bruit sur les quatre-vingt-dix-neuf
+appels ou il ne coute rien. Ce qui manquait n'etait pas une regle, c'etait une
+mesure — elle existe desormais, scenario `outillage` du banc.
+
+**Deux gisements laisses en place, chiffres** : `load_app` est appelee 128 fois
+pour 10 apps, et les substitutions `$(...)` qui entourent chaque lecture pesent
+encore environ 2 100 forks. Le second demanderait de changer des centaines de
+sites d'appel dans un script de 150 Ko qui garde les dix apps d'un bloc. Le
+rapport gain/risque ne le justifie pas aujourd'hui ; il est ecrit pour celui qui
+reviendra avec une meilleure raison.

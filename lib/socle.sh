@@ -64,10 +64,33 @@ render() {
 # commentaire de fin de ligne et les guillemets, sans quoi « port: 8080 # todo »
 # produirait un compose invalide.
 
+# SANS AUCUN PROCESSUS, et c'est la seule raison de cette forme un peu raide.
+# La version d'avant enchainait « tr | sed | head » puis un second sed : cinq
+# processus, plus la substitution qui l'entoure, pour lire UNE valeur. Un
+# ./init.sh --check appelle yget 1104 fois — environ sept mille processus pour
+# lire des fichiers de trente lignes. Mesure : --check passe de 12,8 s a 7,5 s
+# rien qu'en retirant ces processus, et --check est joue 40 fois par
+# test-init.sh, qui tient le chemin critique de la CI. Voir docs/banc/.
+#
+# La semantique est celle d'avant, a la lettre : premiere ligne dont la cle est
+# en colonne 0, espaces de tete retires, commentaire de fin precede d'au moins
+# une espace retire, espaces de queue retires, une paire de guillemets retiree.
+# Verifie en comparant la sortie complete de --check, octet a octet.
 yget() {  # yget <fichier> <cle> <defaut>
-  local f="$1" k="$2" d="${3-}" v=""
-  [ -f "$f" ] && v=$(tr -d '\r' < "$f" | sed -nE "s/^$k:[[:space:]]*(.*)$/\1/p" | head -1)
-  v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
+  local f="$1" k="$2" d="${3-}" v="" ligne
+  if [ -f "$f" ]; then
+    # « || [ -n "$ligne" ] » : une derniere ligne sans saut final serait
+    # autrement perdue, ce que « tr < fichier » ne faisait pas.
+    while IFS= read -r ligne || [ -n "$ligne" ]; do
+      ligne=${ligne%$'\r'}
+      case "$ligne" in
+        "$k:"*) v=${ligne#"$k:"}; break ;;
+      esac
+    done < "$f"
+  fi
+  v=${v#"${v%%[![:space:]]*}"}
+  case "$v" in *[[:space:]]#*) v=${v%%[[:space:]]#*} ;; esac
+  v=${v%"${v##*[![:space:]]}"}
   v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
   printf '%s' "${v:-$d}"
 }
@@ -100,7 +123,8 @@ fab() { yget fabrique.yml "$1" "$2"; }
 
 ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
   [ -f "$1" ] || return 0
-  tr -d '\r' < "$1" | awk -v k="$2" '
+  awk -v k="$2" '
+    { gsub(/\r/, "") }   # ce que faisait « tr -d \\r » en amont, un processus de moins
     BEGIN { Q = sprintf("%c", 39); inlist = 0 }
     function clean(s,   f, l) {
       sub(/[ \t]+#.*$/, "", s)
@@ -161,12 +185,13 @@ ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
       }
       inlist = 0
     }
-  '
+  ' "$1"
 }
 
 ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>valeur »
   [ -f "$1" ] || return 0
-  tr -d '\r' < "$1" | awk -v k="$2" '
+  awk -v k="$2" '
+    { gsub(/\r/, "") }   # ce que faisait « tr -d \\r » en amont, un processus de moins
     BEGIN { Q = sprintf("%c", 39); st = 0; idx = -1; dash = -1; pend = "" }
     function clean(s,   f, l) {
       sub(/[ \t]+#.*$/, "", s)
@@ -236,7 +261,7 @@ ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>
       if (idx >= 0 && ind > dash) pair(s)
       else st = 0
     }
-  '
+  ' "$1"
 }
 
 # Accesseurs sur le flux produit par ymaps. Passer le flux en argument plutot que
