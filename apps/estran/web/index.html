@@ -10,19 +10,35 @@
 <body>
   <div class="fond"></div>
 
+  <!-- « estran » quitte l'ecran (critique du 21 aout 2026, constat 2 : 158 px
+       d'en-tete pour un ecran de telephone deja court) : il ne vit plus que
+       dans <title> (ci-dessus) et l'icone. Le nom du lieu devient LE titre de
+       l'en-tete — seul <h1> de la page, comme "estran" l'etait avant lui — et
+       reste le bouton qui ouvre l'ecran de choix (prp/05-ecran-de-choix.md,
+       section 2), avec son rectangle sensible de 44 px (style.css, .lieu::before). -->
   <header class="entete">
-    <div class="entete-titre">
-      <h1>estran</h1>
-      <!-- Le nom du lieu est desormais un BOUTON (prp/05-ecran-de-choix.md,
-           section 2) : seul point d'entree de l'ecran de choix, jamais deduit
-           d'un autre element (contrat d'ecran du 20 aout 2026). Le texte reste
-           celui d'ouverture tant qu'aucun lieu n'a ete choisi ; app.js/
-           majEnteteLieu le remplace au changement, jamais avant. -->
-      <button type="button" class="lieu" id="bouton-lieu" aria-haspopup="dialog">
-        <span id="bouton-lieu-texte">Le Touquet-Paris-Plage · Étaples</span>
-      </button>
+    <div class="entete-rangee">
+      <h1 class="entete-titre">
+        <!-- Le texte reste celui d'ouverture tant qu'aucun lieu n'a ete
+             choisi ; app.js/majEnteteLieu le remplace au changement, jamais
+             avant. -->
+        <button type="button" class="lieu" id="bouton-lieu" aria-haspopup="dialog">
+          <span id="bouton-lieu-texte">Le Touquet-Paris-Plage · Étaples</span>
+        </button>
+      </h1>
+      <!-- La date complete quitte l'en-tete avec elle (critique du 21 aout
+           2026, constat 2) : l'horloge ne porte plus que l'heure — la date du
+           jour regarde reste ecrite une seule fois, dans le titre de la
+           section horaire (#titre-previsions), la ou la decision du 21 aout
+           matin l'avait deja mise. -->
+      <p class="horloge" id="horloge" aria-live="off"></p>
     </div>
-    <p class="horloge" id="horloge" aria-live="off"></p>
+    <!-- Absence de maree du lieu regarde (prp/05-ecran-de-choix.md, section 7 ;
+         critique du 21 aout 2026, "Montre, pas tranche" § 3) : sur un lieu
+         SANS maree, la section Maree entiere quitte la tete d'ecran et cette
+         ligne, sous le nom du lieu, porte l'absence a sa place — jamais sur
+         un lieu qui a une maree (app.js/rendreJauge la laisse `hidden`). -->
+    <p class="entete-absence-maree" id="entete-absence-maree" hidden></p>
   </header>
 
   <!-- Ecran de choix du lieu (prp/05-ecran-de-choix.md) : <dialog> natif +
@@ -66,7 +82,7 @@
   </nav>
 
   <main>
-    <section class="jauge-section" aria-labelledby="titre-jauge">
+    <section class="jauge-section" id="jauge-section" aria-labelledby="titre-jauge">
       <h2 id="titre-jauge" class="titre-section">Marée</h2>
       <div class="jauge-carte" id="jauge-carte">
         <div class="jauge-chargement" id="jauge-etat">chargement…</div>

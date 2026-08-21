@@ -550,3 +550,85 @@ accessoire. Un lieu peut donc être de littoral sans avoir de marée : c'est un
 troisième cas, dit comme un fait. L'état de la mer, lui, y est servi normalement.
 Conception détaillée : `prp/04-le-lieu-devient-une-donnee.md` et
 `prp/05-ecran-de-choix.md`.
+
+### Trois décisions d'écran de plus, tranchées le 21 août 2026 au soir
+
+Rendues par la critique UX de l'écran de choix construit — celle qui a tranché
+la *forme* le matin même n'avait vu que des maquettes. Les trois portent sur ce
+que l'écran de choix a laissé derrière lui, et elles se renforcent l'une l'autre.
+
+**Ce que l'écran de choix dit quand il ne sait pas — retenu : chaque ligne
+interroge sa propre source, et la fiche tient en trois jetons.**
+
+Le défaut nommé était grave, et il visait exactement la promesse de la variante
+retenue le matin : la fiche annonçait « marée — on verra sur place », et l'écran
+suivant, un clic plus tard, répondait « pas de marée ici, le point de mesure le
+plus proche est à 622 km ». L'écran qui existe pour annoncer *avant* se taisait,
+et celui d'après tranchait du tac au tac. La cause : la marée et l'état de la mer
+ne viennent pas de la même source — la première du catalogue de sites, la seconde
+du fournisseur marin — et un échec du second rendait la première « inconnue »
+alors qu'elle était parfaitement connaissable.
+
+Un troisième repère apparaît donc, **« à vérifier »**, en pointillé, pour un lieu
+dont on ne sait vraiment rien — distinct de *littoral* et d'*intérieur*. Et la
+fiche passe de cinq lignes à trois jetons : quatre lieux se voient sans faire
+défiler au lieu de deux.
+
+*Écarté — l'état corrigé en cinq lignes* (le témoin). Chaque absence y garde sa
+raison en toutes lettres sur sa propre ligne. Écarté pour la place : sur un écran
+de choix, voir deux lieux à la fois est déjà une gêne.
+
+*Le prix accepté* : la raison d'une absence descend d'un cran dans la hiérarchie,
+en sous-ligne du jeton plutôt qu'en ligne pleine.
+
+**Où s'écrit le nom du lieu — retenu : il devient le titre.** « estran » quitte
+l'écran et ne vit plus que dans l'onglet et l'icône.
+
+Mesure qui a fait la décision : à 390 px, il fallait descendre **37 % de la
+hauteur visible** avant d'atteindre la marée — l'en-tête empilait trois lignes
+(le nom de l'app, le lieu, l'horloge) parce qu'à cette largeur elles ne tiennent
+pas côte à côte, quand à 1440 px elle n'en prend que deux. **C'est l'écran le
+plus court qui payait la ligne en trop.** L'en-tête passe de 158 px à 54.
+
+L'argument est le même que celui qui a fait écarter le bandeau de lieux le matin
+— « une rangée de plus en haut d'un écran de téléphone déjà court, au-dessus de
+la marée qu'on vient voir en premier ». Il valait aussi contre l'en-tête, et le
+refuser là après l'avoir accepté ici aurait été incohérent.
+
+*Écarté — l'horloge remonte sur la ligne du titre*, l'arrangement exact de
+1440 px. Rendait 52 px et unifiait la grammaire des deux largeurs. Écarté parce
+que le gain est deux fois moindre pour le même dérangement.
+
+*Le prix accepté* : la date complète quitte l'en-tête. Elle reste écrite une
+seule fois, dans le titre de la section horaire, où la décision du 21 août au
+matin l'avait déjà mise.
+
+**Ce qu'on voit sur un lieu sans marée — retenu : une ligne sous le nom du
+lieu.** La section Marée et son cadre pointillé disparaissent de la tête d'écran.
+
+À Arras, le premier tiers de l'écran de téléphone portait un titre « MARÉE » et
+un cadre disant qu'il n'y en avait pas — 280 px pour une absence — et la pluie,
+seule section qui ait quelque chose à dire là-bas, ne commençait qu'à 560 px.
+Elle commence maintenant à 248.
+
+La décision du 21 août au matin n'est pas touchée : une absence légitime ne se
+présente toujours pas comme une panne. Ce qui change est sa **place**, pas sa
+forme — l'absence de marée est un fait qui appartient au lieu, pas un trou dans
+une rubrique, et elle s'écrit donc là où le lieu s'écrit. Le cadre pointillé
+reste la forme des absences légitimes partout ailleurs, et la carte
+d'indisponibilité reste réservée aux sources muettes : un catalogue injoignable
+n'est pas un lieu sans marée, et les deux ne se ressemblent pas à l'écran.
+
+*Écarté — la section descend en bas, entière.* Rien de neuf à écrire, seul
+l'ordre change. Écarté parce qu'une rubrique qui se déplace selon le lieu rend
+l'écran imprévisible, pour un gain identique.
+
+**Ce que ces décisions engagent** : le nom du lieu est le titre de l'écran, donc
+ce qui le qualifie s'écrit avec lui ; et une capacité ne se déclare inconnue que
+si *sa* source est muette, jamais parce qu'une source voisine l'est.
+
+**Deux correctifs factuels, non soumis** : le mot « côte » était faux — ce qui
+est à 54 km d'une plage méditerranéenne, c'est le point de mesure de marée le
+plus proche, pas la mer — et l'écran de choix ne couvrait que 42 % de la hauteur
+d'un téléphone, laissant lire « pas de marée » avec la marée du lieu qu'on
+quittait vivante juste dessous. Les deux PRP promettaient l'inverse.
