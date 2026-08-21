@@ -62,13 +62,14 @@ type JourMaree struct {
 	Coefficient *int
 }
 
-// ClientMaree interroge api-maree.fr pour un site fixe. Sans cle, Recuperer
-// rend ErrCleAbsente sans jamais contacter le reseau : c'est un etat normal
-// de l'application (secret non encore pose cote serveur), pas une panne.
+// ClientMaree interroge api-maree.fr. Sans cle, Recuperer rend ErrCleAbsente
+// sans jamais contacter le reseau : c'est un etat normal de l'application
+// (secret non encore pose cote serveur), pas une panne. Le site n'est plus un
+// champ du client (prp/04-le-lieu-devient-une-donnee.md) : il varie desormais
+// avec le lieu regarde, et se passe en argument de Recuperer/RecupererA.
 type ClientMaree struct {
 	BaseURL string
 	HTTP    *http.Client
-	Site    string
 	CleAPI  string
 }
 
@@ -78,11 +79,10 @@ type ClientMaree struct {
 // ESTRAN_BASE_MAREE n'est jamais posee : le defaut, inchange, s'applique.
 var baseMaree = env("ESTRAN_BASE_MAREE", "https://api-maree.fr")
 
-func NouveauClientMaree(site, cleAPI string) *ClientMaree {
+func NouveauClientMaree(cleAPI string) *ClientMaree {
 	return &ClientMaree{
 		BaseURL: baseMaree,
 		HTTP:    &http.Client{Timeout: 10 * time.Second},
-		Site:    site,
 		CleAPI:  cleAPI,
 	}
 }
@@ -110,12 +110,14 @@ type reponseNiveauxBrute struct {
 
 // Recuperer utilise l'heure reelle. RecupererA, ci-dessous, prend l'heure en
 // parametre explicite : c'est elle que les tests appellent, pour rester
-// reproductibles sans dependre de l'horloge du poste qui les execute.
-func (c *ClientMaree) Recuperer(ctx context.Context) (Maree, error) {
-	return c.RecupererA(ctx, time.Now().In(parisTZ))
+// reproductibles sans dependre de l'horloge du poste qui les execute. site
+// est l'identifiant api-maree.fr du site le plus proche du lieu regarde
+// (lieu.go) : ce n'est plus un champ fixe du client.
+func (c *ClientMaree) Recuperer(ctx context.Context, site string) (Maree, error) {
+	return c.RecupererA(ctx, time.Now().In(parisTZ), site)
 }
 
-func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Maree, error) {
+func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time, site string) (Maree, error) {
 	if c.CleAPI == "" {
 		return Maree{}, ErrCleAbsente
 	}
@@ -126,7 +128,7 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 	// navigation temporelle (joursNavigationArriere/Avant jours de part et
 	// d'autre d'aujourd'hui) — sans appel HTTP supplementaire quel que soit
 	// le jour ensuite regarde (prp/01-navigation-temporelle.md).
-	extrema, err := c.recupererExtrema(ctx, maintenant.AddDate(0, 0, -joursNavigationArriere), maintenant.AddDate(0, 0, joursNavigationAvant))
+	extrema, err := c.recupererExtrema(ctx, maintenant.AddDate(0, 0, -joursNavigationArriere), maintenant.AddDate(0, 0, joursNavigationAvant), site)
 	if err != nil {
 		return Maree{}, fmt.Errorf("horaires de maree : %w", err)
 	}
@@ -135,7 +137,7 @@ func (c *ClientMaree) RecupererA(ctx context.Context, maintenant time.Time) (Mar
 		return Maree{}, err
 	}
 
-	hauteur, heureMesure, err := c.recupererHauteurActuelle(ctx, maintenant)
+	hauteur, heureMesure, err := c.recupererHauteurActuelle(ctx, maintenant, site)
 	if err != nil {
 		return Maree{}, fmt.Errorf("hauteur d'eau : %w", err)
 	}
@@ -219,11 +221,11 @@ func extremaDuJour(extrema []Extremum, jour time.Time) []Extremum {
 	return du
 }
 
-func (c *ClientMaree) recupererExtrema(ctx context.Context, de, a time.Time) ([]Extremum, error) {
+func (c *ClientMaree) recupererExtrema(ctx context.Context, de, a time.Time, site string) ([]Extremum, error) {
 	url := fmt.Sprintf("%s/tide-extrema?site=%s&from=%s&to=%s&tz=Europe/Paris&key=%s",
-		c.BaseURL, c.Site, de.Format("2006-01-02"), a.Format("2006-01-02"), c.CleAPI)
+		c.BaseURL, site, de.Format("2006-01-02"), a.Format("2006-01-02"), c.CleAPI)
 	var r reponseExtremaBrute
-	if err := recupererJSON(ctx, c.HTTP, url, &r); err != nil {
+	if err := recupererJSON(ctx, c.HTTP, c.BaseURL, url, &r); err != nil {
 		return nil, err
 	}
 
@@ -246,14 +248,14 @@ func (c *ClientMaree) recupererExtrema(ctx context.Context, de, a time.Time) ([]
 	return extrema, nil
 }
 
-func (c *ClientMaree) recupererHauteurActuelle(ctx context.Context, maintenant time.Time) (float64, time.Time, error) {
+func (c *ClientMaree) recupererHauteurActuelle(ctx context.Context, maintenant time.Time, site string) (float64, time.Time, error) {
 	de := maintenant.Add(-30 * time.Minute)
 	a := maintenant.Add(30 * time.Minute)
 	url := fmt.Sprintf("%s/water-levels?site=%s&from=%s&to=%s&step=10&tz=Europe/Paris&key=%s",
-		c.BaseURL, c.Site,
+		c.BaseURL, site,
 		de.Format("2006-01-02T15:04"), a.Format("2006-01-02T15:04"), c.CleAPI)
 	var r reponseNiveauxBrute
-	if err := recupererJSON(ctx, c.HTTP, url, &r); err != nil {
+	if err := recupererJSON(ctx, c.HTTP, c.BaseURL, url, &r); err != nil {
 		return 0, time.Time{}, err
 	}
 	if len(r.Data) == 0 {

@@ -50,9 +50,10 @@ anticiper la semaine, jamais au même niveau de détail.
 
 ## Operating Context
 
-- Le lieu est fixe : Étaples–Le Touquet, le secteur du bulletin marine de
-  référence consulté par l'utilisateur. Pas de recherche, pas de changement
-  de ville.
+- Le lieu d'ouverture est Étaples–Le Touquet, le secteur du bulletin marine de
+  référence consulté par l'utilisateur. Il n'est plus le seul depuis le
+  21 août 2026 : voir « Le lieu se choisit » plus bas. Il reste le défaut, et
+  l'écran s'ouvre dessus sans qu'on ait rien à choisir.
 - Fuseau `Europe/Paris`.
 - Consultation aussi bien depuis un téléphone, au moment de partir, que
   depuis un poste.
@@ -112,9 +113,11 @@ Contraintes techniques :
   est temporairement indisponible : elle affiche alors la dernière donnée
   connue plutôt qu'un écran cassé.
 
-Décision écartée : couvrir plusieurs plages ou ports. L'application n'a qu'un
-secteur, et c'est voulu — c'est ce qui la rend plus rapide à lire qu'une
-application météo générale.
+Décision écartée à la conception, **rouverte et renversée le 21 août 2026** :
+couvrir plusieurs plages ou ports. L'argument d'origine — un seul secteur rend
+l'écran plus rapide à lire qu'une application météo générale — tenait sur la
+lecture, pas sur le nombre de lieux : c'est de ne rien demander à l'ouverture
+que vient la rapidité, et le défaut la conserve. Voir « Le lieu se choisit ».
 
 ## Brand Commitments
 
@@ -148,8 +151,10 @@ est une limite connue plutôt qu'un objectif non atteint.
 
 ## Product Principles
 
-1. **Un seul lieu, tout de suite lisible** — pas de recherche, pas de menu de
-   villes.
+1. **Rien à choisir pour lire l'écran** — il s'ouvre sur un lieu, tout de
+   suite lisible. Choisir en est un geste distinct, jamais un préalable.
+   *(Formulé « un seul lieu, pas de recherche » jusqu'au 21 août 2026 ; ce qui
+   comptait était l'absence de préalable, pas l'unicité du lieu.)*
 2. **La jauge de marée est aussi centrale que la météo** — c'est elle qui
    distingue `estran` d'une application météo généraliste, jamais un ajout
    secondaire.
@@ -475,3 +480,73 @@ reste entière, et elle ne se règle pas dans une carte vide.
 **Ce que ces décisions engagent** : une absence *légitime* et une *panne* ne se
 présentent pas de la même façon, et cette différence est portée par la forme,
 pas seulement par les mots.
+
+### Le lieu se choisit, et l'écran dit ce qu'il sait de lui — 21 août 2026
+
+**Ce qui existe maintenant** : le nom du secteur, sous le titre, ouvre un écran
+de choix. On y cherche une commune française par son nom, ou on laisse
+l'appareil donner sa position. Chaque lieu proposé y porte **trois lignes** qui
+disent d'avance ce qu'on y trouvera — marée, état de la mer, pluie à la minute —
+présentes ou absentes, et pourquoi.
+
+Trois conséquences sur le reste de l'écran :
+
+- **La marée n'est plus figée sur Berck.** Le site de référence est désormais le
+  plus proche du lieu regardé, choisi dans le catalogue du fournisseur, et sa
+  distance s'affiche toujours — c'est elle qui permet de juger l'approximation.
+- **Sur un lieu de littoral, rien ne change** : l'état de la mer est demandé et
+  affiché comme au Touquet. C'est la clause centrale de la demande — sur la
+  plage, la météo marine est la seule fiable — et aucune section ne la retire.
+- **Sur un lieu de l'intérieur**, la carte de marée cède la place à une phrase
+  encadrée de pointillés qui dit à quelle distance est la côte, et la houle
+  disparaît des vignettes horaires. Ce n'est pas une panne, et la décision du
+  21 août 2026 sur la forme des absences s'applique telle quelle.
+
+**Ce qui l'a demandé** : l'usage, le 21 août 2026, depuis la plage du
+Touquet-Paris-Plage — « il faut bien pouvoir choisir les zones de littoral, qui
+sont différentes des zones intérieures ; il est donc indispensable que la météo
+marine soit utilisée ».
+
+**Ce que le PRD affirmait avant** : « le lieu est fixe », « pas de recherche,
+pas de menu de villes », et une décision écartée explicite — « couvrir plusieurs
+plages ou ports ». C'est le premier renversement d'une décision *écartée* de ce
+document, et non le comblement d'un silence. L'argument d'origine reste juste sur
+son objet : ce qui rend `estran` plus rapide à lire qu'une application météo
+générale, c'est qu'elle ne demande rien avant d'afficher. Le défaut conserve
+cette propriété entière ; c'est l'unicité du lieu qui n'en était que le moyen le
+plus simple. Le principe 1 est reformulé en conséquence, dans le même commit.
+
+**Ce qui a été écarté**, montré en trois maquettes et tranché par l'utilisateur :
+
+*Écarté — la recherche dans l'en-tête*, un champ qui s'ouvre sous le nom du lieu.
+La plus économe : rien n'est ajouté à l'écran d'ouverture, et le geste se devine.
+Écartée parce qu'elle ne dit jamais ce qu'on va perdre — on choisit un lieu de
+l'intérieur, et on découvre l'absence de marée en voyant un trou.
+
+*Écarté — un bandeau de lieux* au-dessus du bandeau de jours, sur le modèle exact
+du choix du jour. La plus rapide à l'usage, et la plus régulière : une grammaire
+pour le jour et le lieu, pas deux. Écartée pour une rangée de plus en haut d'un
+écran de téléphone déjà court, au-dessus de la marée qu'on vient voir en premier,
+et pour la même cécité sur les capacités du lieu. **À rouvrir si l'usage montre
+qu'on alterne vraiment entre deux ou trois lieux.**
+
+**Ce que la variante retenue coûte, et qui est assumé** : changer de lieu demande
+deux gestes et un écran entier, à chaque fois, alors que l'annonce des capacités
+ne sert vraiment que la première visite d'un lieu.
+
+**Ce que cela ne change pas** : toujours aucun compte, et rien envoyé nulle part
+— les lieux vus restent dans le navigateur de l'appareil, le lieu regardé vit
+dans l'adresse et non dans un stockage. L'exclusion de l'**historique personnel**
+tient : cette liste ne dit ni ce qui a été consulté ni quand. Et le principe 3 —
+dégrader, jamais casser — reçoit ici une règle plus stricte que d'ordinaire :
+**une capacité qu'on ne sait pas évaluer ne s'affiche jamais comme absente.** Une
+plage déclarée « intérieur » par une panne réseau serait exactement la valeur
+inventée que ce document interdit partout.
+
+**Une limite écrite plutôt que masquée** : la recherche ne couvre que les
+communes françaises, et la Méditerranée comme la Corse n'ont **pas de marée**
+disponible — aucun fournisseur gratuit ne la donne, et son marnage la rend
+accessoire. Un lieu peut donc être de littoral sans avoir de marée : c'est un
+troisième cas, dit comme un fait. L'état de la mer, lui, y est servi normalement.
+Conception détaillée : `prp/04-le-lieu-devient-une-donnee.md` et
+`prp/05-ecran-de-choix.md`.

@@ -72,12 +72,11 @@ func TestClientMaree_RecupererA_EncadreEtInterpole(t *testing.T) {
 	c := &ClientMaree{
 		BaseURL: srv.URL,
 		HTTP:    srv.Client(),
-		Site:    "berck-plage-fort-mahon",
 		CleAPI:  "test-key",
 	}
 	maintenant := time.Date(2026, 8, 9, 15, 0, 0, 0, parisTZ)
 
-	m, err := c.RecupererA(context.Background(), maintenant)
+	m, err := c.RecupererA(context.Background(), maintenant, "berck-plage-fort-mahon")
 	if err != nil {
 		t.Fatalf("RecupererA : %v", err)
 	}
@@ -122,13 +121,13 @@ func TestClientMaree_RecupererA_EncadreEtInterpole(t *testing.T) {
 // marge d'un jour + la tendance a 7 jours d'avant cette capacite.
 func TestClientMaree_RecupererA_FenetreNavigation(t *testing.T) {
 	srv, from, to := serveurMareeCaptureFenetre(t)
-	c := &ClientMaree{BaseURL: srv.URL, HTTP: srv.Client(), Site: "berck-plage-fort-mahon", CleAPI: "test-key"}
+	c := &ClientMaree{BaseURL: srv.URL, HTTP: srv.Client(), CleAPI: "test-key"}
 	// L'heure choisie doit rester encadree par les extrema de la fixture
 	// (extremaJSON, le 9 aout) : seule la fenetre from/to demandee nous
 	// interesse ici, pas l'encadrement lui-meme (deja teste ailleurs).
 	maintenant := time.Date(2026, 8, 9, 15, 0, 0, 0, parisTZ)
 
-	if _, err := c.RecupererA(context.Background(), maintenant); err != nil {
+	if _, err := c.RecupererA(context.Background(), maintenant, "berck-plage-fort-mahon"); err != nil {
 		t.Fatalf("RecupererA : %v", err)
 	}
 
@@ -168,8 +167,8 @@ func TestExtremaDuJour(t *testing.T) {
 }
 
 func TestClientMaree_Recuperer_SansCle(t *testing.T) {
-	c := NouveauClientMaree("berck-plage-fort-mahon", "")
-	_, err := c.Recuperer(context.Background())
+	c := NouveauClientMaree("")
+	_, err := c.Recuperer(context.Background(), "berck-plage-fort-mahon")
 	if err != ErrCleAbsente {
 		t.Fatalf("erreur = %v, attendu ErrCleAbsente", err)
 	}

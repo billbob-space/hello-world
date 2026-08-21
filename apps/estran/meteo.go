@@ -83,13 +83,13 @@ type Previsions struct {
 // ClientMeteo interroge Open-Meteo (previsions) et Open-Meteo Marine (etat de
 // mer), sans cle : les deux API sont publiques et gratuites. Les URL de base
 // sont des champs, pas des constantes, pour que les tests pointent vers un
-// serveur local plutot que vers le reseau.
+// serveur local plutot que vers le reseau. lat/lon ne sont plus des champs du
+// client (prp/04-le-lieu-devient-une-donnee.md) : un meme client sert
+// desormais n'importe quel lieu, recu en argument de Recuperer.
 type ClientMeteo struct {
 	BaseForecast string
 	BaseMarine   string
 	HTTP         *http.Client
-	Latitude     float64
-	Longitude    float64
 }
 
 // baseMeteoForecast et baseMeteoMarine sont les URL de PRODUCTION des deux
@@ -106,13 +106,11 @@ var (
 	baseMeteoMarine   = env("ESTRAN_BASE_METEO_MARINE", "https://marine-api.open-meteo.com/v1/marine")
 )
 
-func NouveauClientMeteo(lat, lon float64) *ClientMeteo {
+func NouveauClientMeteo() *ClientMeteo {
 	return &ClientMeteo{
 		BaseForecast: baseMeteoForecast,
 		BaseMarine:   baseMeteoMarine,
 		HTTP:         &http.Client{Timeout: 10 * time.Second},
-		Latitude:     lat,
-		Longitude:    lon,
 	}
 }
 
@@ -195,8 +193,8 @@ type reponseMarineBrute struct {
 // par horodatage. Un echec de la Marine API degrade (vagues absentes) plutot
 // que de faire echouer toute la prevision ; un echec de la prevision
 // principale, lui, est fatal a l'appel — sans elle il n'y a rien a fusionner.
-func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
-	forecast, err := c.recupererForecast(ctx)
+func (c *ClientMeteo) Recuperer(ctx context.Context, lat, lon float64) (Previsions, error) {
+	forecast, err := c.recupererForecast(ctx, lat, lon)
 	if err != nil {
 		return Previsions{}, fmt.Errorf("previsions : %w", err)
 	}
@@ -207,7 +205,7 @@ func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
 	// vagues[t]; ok` plus bas le prendrait pour une vraie mesure de 0.0
 	// (prp/02-horizon-confiance-vent.md, section Degradation).
 	vagues := map[string]float64{}
-	if marine, err := c.recupererMarine(ctx); err == nil {
+	if marine, err := c.recupererMarine(ctx, lat, lon); err == nil {
 		for i, t := range marine.Hourly.Time {
 			if i < len(marine.Hourly.WaveHeight) && marine.Hourly.WaveHeight[i] != nil {
 				vagues[t] = *marine.Hourly.WaveHeight[i]
@@ -271,7 +269,7 @@ func (c *ClientMeteo) Recuperer(ctx context.Context) (Previsions, error) {
 	// ne doit JAMAIS echouer a cause de cet appel.
 	ctxAccord, annulerAccord := context.WithTimeout(ctx, delaiAccord)
 	defer annulerAccord()
-	if accord, err := c.recupererAccord(ctxAccord); err != nil {
+	if accord, err := c.recupererAccord(ctxAccord, lat, lon); err != nil {
 		log.Printf("indice de confiance indisponible : %v", err)
 	} else {
 		parDate := make(map[string]accordJour, len(accord))
@@ -331,14 +329,14 @@ func couchesJour(heures []HeureMeteo, date time.Time) (bas, moyenne, haute float
 // 16 est le maximum qu'Open-Meteo rende sans abonnement. past_days=7 : les 7
 // jours precedents, ajoutes pour la navigation temporelle. La tendance a 16
 // jours (aujourd'hui a J+15) reste entierement couverte par ce meme appel.
-func (c *ClientMeteo) recupererForecast(ctx context.Context) (reponseForecastBrute, error) {
+func (c *ClientMeteo) recupererForecast(ctx context.Context, lat, lon float64) (reponseForecastBrute, error) {
 	url := fmt.Sprintf(
 		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=16&past_days=7"+
 			"&hourly=temperature_2m,precipitation_probability,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,is_day,wind_speed_10m,wind_direction_10m,weather_code"+
 			"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant",
-		c.BaseForecast, c.Latitude, c.Longitude)
+		c.BaseForecast, lat, lon)
 	var r reponseForecastBrute
-	err := recupererJSON(ctx, c.HTTP, url, &r)
+	err := recupererJSON(ctx, c.HTTP, c.BaseForecast, url, &r)
 	return r, err
 }
 
@@ -347,12 +345,12 @@ func (c *ClientMeteo) recupererForecast(ctx context.Context) (reponseForecastBru
 // porte a 16 (aujourd'hui compte dans la fenetre Open-Meteo, cf.
 // recupererForecast ci-dessus), plus past_days=7 pour le passe
 // (prp/01-navigation-temporelle.md, prp/02-horizon-confiance-vent.md).
-func (c *ClientMeteo) recupererMarine(ctx context.Context) (reponseMarineBrute, error) {
+func (c *ClientMeteo) recupererMarine(ctx context.Context, lat, lon float64) (reponseMarineBrute, error) {
 	url := fmt.Sprintf(
 		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=16&past_days=7&hourly=wave_height",
-		c.BaseMarine, c.Latitude, c.Longitude)
+		c.BaseMarine, lat, lon)
 	var r reponseMarineBrute
-	err := recupererJSON(ctx, c.HTTP, url, &r)
+	err := recupererJSON(ctx, c.HTTP, c.BaseMarine, url, &r)
 	return r, err
 }
 
@@ -363,13 +361,13 @@ func (c *ClientMeteo) recupererMarine(ctx context.Context) (reponseMarineBrute, 
 // confiance (prp/02-horizon-confiance-vent.md, section 3). Pas de past_days
 // : le passe n'a pas besoin d'indice de confiance, seule la tendance a venir
 // (16 jours, comme recupererForecast) en a un.
-func (c *ClientMeteo) recupererAccord(ctx context.Context) ([]accordJour, error) {
+func (c *ClientMeteo) recupererAccord(ctx context.Context, lat, lon float64) ([]accordJour, error) {
 	url := fmt.Sprintf(
 		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&forecast_days=16"+
 			"&models=%s&daily=temperature_2m_max,precipitation_probability_max",
-		c.BaseForecast, c.Latitude, c.Longitude, strings.Join(modelesAccord, ","))
+		c.BaseForecast, lat, lon, strings.Join(modelesAccord, ","))
 	var r reponseAccordBrute
-	if err := recupererJSON(ctx, c.HTTP, url, &r); err != nil {
+	if err := recupererJSON(ctx, c.HTTP, c.BaseForecast, url, &r); err != nil {
 		return nil, err
 	}
 
@@ -502,12 +500,28 @@ func calculerConfiance(temperatures, pluies []float64) (niveau string, nbModeles
 // des erreurs de type *url.Error qui embarquent l'URL complete telle
 // qu'appelee. sansRequete() et causeSansURL() gardent l'erreur utile sans le
 // secret.
-func recupererJSON(ctx context.Context, client *http.Client, cible string, dest any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cible, nil)
+//
+// base est le fournisseur attendu pour cet appel (le champ Base/BaseURL/
+// BaseForecast/BaseMarine du client, ou le baseXxx de paquet directement
+// appele par lieu.go) : cibleAutorisee verifie qu'il decrit bien la MEME
+// destination reseau que cible avant toute requete. gosec (G704) remonte
+// cible comme une SSRF potentielle parce qu'elle est construite par
+// fmt.Sprintf a partir de lat/lon et, pour la recherche BAN, d'un texte
+// libre ; ces deux points sont deja surs cote construction (lat/lon en
+// %.3f/%.4f/%.5f sur des float64, alphabet de sortie [0-9.-], aucun
+// separateur d'hote possible ; texte passe par url.QueryEscape en lieu.go)
+// et l'hote ne vient jamais d'ailleurs que d'un baseXxx pose au demarrage
+// depuis l'environnement — mais ce garde le VERIFIE au lieu de le supposer,
+// et protege aussi un appelant futur qui construirait cible autrement.
+func recupererJSON(ctx context.Context, client *http.Client, base, cible string, dest any) error {
+	if !cibleAutorisee(base, cible) {
+		return fmt.Errorf("%s : cible hors du fournisseur configure", sansRequete(cible))
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cible, nil) // #nosec G704 -- cibleAutorisee ci-dessus a deja verifie que cible partage le scheme+hote de base, jamais construit depuis la requete
 	if err != nil {
 		return fmt.Errorf("%s : requete invalide", sansRequete(cible))
 	}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) // #nosec G704 -- meme garde que ci-dessus : req vient de cible, deja verifiee par cibleAutorisee
 	if err != nil {
 		return fmt.Errorf("%s : %w", sansRequete(cible), causeSansURL(err))
 	}
@@ -516,6 +530,24 @@ func recupererJSON(ctx context.Context, client *http.Client, cible string, dest 
 		return fmt.Errorf("%s : statut %d", sansRequete(cible), resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(dest)
+}
+
+// cibleAutorisee compare le scheme et l'hote de cible a ceux de base : seule
+// une egalite stricte des deux passe. base+"?..." ou base+"/chemin" ne
+// peuvent jamais deplacer cette frontiere (elle precede toute valeur
+// injectee dans la requete ou le chemin), donc cette comparaison suffit a
+// garantir que la requete part bien vers le fournisseur configure pour cet
+// appel, quoi que la requete entrante ou le texte de recherche contiennent.
+func cibleAutorisee(base, cible string) bool {
+	bu, err := url.Parse(base)
+	if err != nil || bu.Scheme == "" || bu.Host == "" {
+		return false
+	}
+	cu, err := url.Parse(cible)
+	if err != nil {
+		return false
+	}
+	return cu.Scheme == bu.Scheme && cu.Host == bu.Host
 }
 
 // sansRequete retire la chaine de requete (donc toute cle d'API) d'une URL,
