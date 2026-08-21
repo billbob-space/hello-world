@@ -30,7 +30,7 @@ func serveurPluieDeTest(t *testing.T, minutely, hourly string, statutMinutely in
 		_, _ = w.Write([]byte(hourly))
 	}))
 	t.Cleanup(srv.Close)
-	return &ClientPluie{Base: srv.URL, HTTP: srv.Client(), Latitude: 50.517, Longitude: 1.583}
+	return &ClientPluie{Base: srv.URL, HTTP: srv.Client()}
 }
 
 func TestClientPluie_Recuperer_FusionneLesDeuxEchelles(t *testing.T) {
@@ -38,7 +38,7 @@ func TestClientPluie_Recuperer_FusionneLesDeuxEchelles(t *testing.T) {
 	                              "precipitation":[0.4,null,0.2]}}`
 	hourly := `{"hourly":{"time":["2026-08-19T00:00","2026-08-19T01:00"],"precipitation":[0.6,0.0]}}`
 
-	s, err := serveurPluieDeTest(t, minutely, hourly, http.StatusOK).Recuperer(context.Background())
+	s, err := serveurPluieDeTest(t, minutely, hourly, http.StatusOK).Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -69,7 +69,7 @@ func TestClientPluie_Recuperer_FusionneLesDeuxEchelles(t *testing.T) {
 func TestClientPluie_Recuperer_FinEnPanne_DegradeSurHoraire(t *testing.T) {
 	hourly := `{"hourly":{"time":["2026-08-19T00:00"],"precipitation":[0.6]}}`
 
-	s, err := serveurPluieDeTest(t, "", hourly, http.StatusInternalServerError).Recuperer(context.Background())
+	s, err := serveurPluieDeTest(t, "", hourly, http.StatusInternalServerError).Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer ne doit pas echouer quand seul l'appel fin tombe : %v", err)
 	}
@@ -88,7 +88,7 @@ func TestClientPluie_Recuperer_HoraireEnPanne_Echoue(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &ClientPluie{Base: srv.URL, HTTP: srv.Client()}
 
-	if _, err := c.Recuperer(context.Background()); err == nil {
+	if _, err := c.Recuperer(context.Background(), 50.517, 1.583); err == nil {
 		t.Fatal("Recuperer doit echouer quand l'horaire tombe : sans lui il n'y a pas de repli")
 	}
 }
@@ -108,7 +108,7 @@ func TestClientPluie_Recuperer_ModeleNommeDansLAppelFin(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &ClientPluie{Base: srv.URL, HTTP: srv.Client()}
 
-	if _, err := c.Recuperer(context.Background()); err != nil {
+	if _, err := c.Recuperer(context.Background(), 50.517, 1.583); err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
 	if !strings.Contains(requeteFine, "models="+modelePluieFine) {
@@ -125,7 +125,7 @@ func serveurNowcastDeTest(t *testing.T, corps string) *ClientNowcast {
 		_, _ = w.Write([]byte(corps))
 	}))
 	t.Cleanup(srv.Close)
-	return &ClientNowcast{Base: srv.URL, HTTP: srv.Client(), Latitude: 50.517, Longitude: 1.583}
+	return &ClientNowcast{Base: srv.URL, HTTP: srv.Client()}
 }
 
 func TestClientNowcast_Recuperer(t *testing.T) {
@@ -134,7 +134,7 @@ func TestClientNowcast_Recuperer(t *testing.T) {
 	           "forecast":[{"dt":1787142300,"rain":2},{"dt":1787142600,"rain":9},
 	                       {"dt":1787142900,"rain":null},{"dt":1787143200,"rain":1}]}`
 
-	n, err := serveurNowcastDeTest(t, corps).Recuperer(context.Background())
+	n, err := serveurNowcastDeTest(t, corps).Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -160,7 +160,7 @@ func TestClientNowcast_Recuperer(t *testing.T) {
 func TestClientNowcast_Recuperer_ProduitAbsent(t *testing.T) {
 	corps := `{"position":{"name":"Ailleurs","rain_product_available":0},"forecast":[]}`
 
-	if _, err := serveurNowcastDeTest(t, corps).Recuperer(context.Background()); err != ErrNowcastIndisponible {
+	if _, err := serveurNowcastDeTest(t, corps).Recuperer(context.Background(), 50.517, 1.583); err != ErrNowcastIndisponible {
 		t.Fatalf("erreur = %v, attendu ErrNowcastIndisponible", err)
 	}
 }
@@ -169,7 +169,7 @@ func TestClientNowcast_Recuperer_AucunPasUtilisable(t *testing.T) {
 	corps := `{"position":{"name":"Le Touquet","rain_product_available":1},
 	           "forecast":[{"dt":1787142300,"rain":null}]}`
 
-	if _, err := serveurNowcastDeTest(t, corps).Recuperer(context.Background()); err != ErrNowcastIndisponible {
+	if _, err := serveurNowcastDeTest(t, corps).Recuperer(context.Background(), 50.517, 1.583); err != ErrNowcastIndisponible {
 		t.Fatalf("erreur = %v, attendu ErrNowcastIndisponible pour une bande vide", err)
 	}
 }
@@ -318,10 +318,11 @@ func TestHandlePluie_JourEntier(t *testing.T) {
 		strings.Join(instants, ","), strings.Join(valeurs, ","))
 
 	s := nouveauServeur(
-		NouveauClientMeteo(50.517, 1.583),
-		NouveauClientMaree("berck-plage-fort-mahon", ""),
+		NouveauClientMeteo(),
+		NouveauClientMaree(""),
 		serveurPluieDeTest(t, `{"minutely_15":{"time":[],"precipitation":[]}}`, hourly, http.StatusOK),
 		&ClientNowcast{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		NouveauCatalogueMaree(),
 	)
 	req := httptest.NewRequest(http.MethodGet, "/api/pluie", nil)
 	rec := httptest.NewRecorder()
@@ -353,10 +354,11 @@ func TestHandlePluie_JourEntier(t *testing.T) {
 
 func TestHandlePluie_DateHorsFenetre(t *testing.T) {
 	s := nouveauServeur(
-		NouveauClientMeteo(50.517, 1.583),
-		NouveauClientMaree("berck-plage-fort-mahon", ""),
-		NouveauClientPluie(50.517, 1.583),
-		NouveauClientNowcast(50.517, 1.583),
+		NouveauClientMeteo(),
+		NouveauClientMaree(""),
+		NouveauClientPluie(),
+		NouveauClientNowcast(),
+		NouveauCatalogueMaree(),
 	)
 	horsFenetre := time.Now().In(parisTZ).AddDate(0, 0, joursNavigationAvant+3).Format("2006-01-02")
 	req := httptest.NewRequest(http.MethodGet, "/api/pluie?date="+horsFenetre, nil)

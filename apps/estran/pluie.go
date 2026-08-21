@@ -38,12 +38,12 @@ type SeriePluie struct {
 }
 
 // ClientPluie interroge Open-Meteo deux fois, sans cle. Base est un champ,
-// pas une constante, pour que les tests pointent vers un serveur local.
+// pas une constante, pour que les tests pointent vers un serveur local. lat/
+// lon ne sont plus des champs (prp/04-le-lieu-devient-une-donnee.md) : ils se
+// passent en argument de Recuperer.
 type ClientPluie struct {
-	Base      string
-	HTTP      *http.Client
-	Latitude  float64
-	Longitude float64
+	Base string
+	HTTP *http.Client
 }
 
 // basePluie est l'URL de production d'Open-Meteo pour la courbe de pluie,
@@ -55,12 +55,10 @@ type ClientPluie struct {
 // ESTRAN_BASE_PLUIE n'est jamais posee : le defaut, inchange, s'applique.
 var basePluie = env("ESTRAN_BASE_PLUIE", "https://api.open-meteo.com/v1/forecast")
 
-func NouveauClientPluie(lat, lon float64) *ClientPluie {
+func NouveauClientPluie() *ClientPluie {
 	return &ClientPluie{
-		Base:      basePluie,
-		HTTP:      &http.Client{Timeout: 10 * time.Second},
-		Latitude:  lat,
-		Longitude: lon,
+		Base: basePluie,
+		HTTP: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -100,16 +98,16 @@ type reponseHoraireBrute struct {
 // sur les jours qu'AROME ne couvre pas — son echec est donc fatal a l'appel.
 // L'appel FIN, lui, degrade : echec journalise, courbe servie au pas horaire
 // (prp/03-graphe-de-pluie.md, section 4).
-func (c *ClientPluie) Recuperer(ctx context.Context) (SeriePluie, error) {
+func (c *ClientPluie) Recuperer(ctx context.Context, lat, lon float64) (SeriePluie, error) {
 	var s SeriePluie
 
-	horaire, err := c.recupererHoraire(ctx)
+	horaire, err := c.recupererHoraire(ctx, lat, lon)
 	if err != nil {
 		return SeriePluie{}, fmt.Errorf("pluie horaire : %w", err)
 	}
 	s.Heures = pasDepuisSeries(horaire.Hourly.Time, horaire.Hourly.Precipitation)
 
-	fine, err := c.recupererFine(ctx)
+	fine, err := c.recupererFine(ctx, lat, lon)
 	if err != nil {
 		return s, nil
 	}
@@ -117,13 +115,13 @@ func (c *ClientPluie) Recuperer(ctx context.Context) (SeriePluie, error) {
 	return s, nil
 }
 
-func (c *ClientPluie) recupererFine(ctx context.Context) (reponseMinutelleBrute, error) {
+func (c *ClientPluie) recupererFine(ctx context.Context, lat, lon float64) (reponseMinutelleBrute, error) {
 	url := fmt.Sprintf(
 		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&past_days=%d&forecast_days=%d"+
 			"&models=%s&minutely_15=precipitation",
-		c.Base, c.Latitude, c.Longitude, joursNavigationArriere, joursPluieFine, modelePluieFine)
+		c.Base, lat, lon, joursNavigationArriere, joursPluieFine, modelePluieFine)
 	var r reponseMinutelleBrute
-	err := recupererJSON(ctx, c.HTTP, url, &r)
+	err := recupererJSON(ctx, c.HTTP, c.Base, url, &r)
 	return r, err
 }
 
@@ -131,12 +129,12 @@ func (c *ClientPluie) recupererFine(ctx context.Context) (reponseMinutelleBrute,
 // 16 en avant — aujourd'hui compte dans la fenetre Open-Meteo, cf.
 // recupererForecast), pour qu'aucun jour navigable ne se retrouve sans
 // courbe. Serie unique et legere : la lame d'eau, rien d'autre.
-func (c *ClientPluie) recupererHoraire(ctx context.Context) (reponseHoraireBrute, error) {
+func (c *ClientPluie) recupererHoraire(ctx context.Context, lat, lon float64) (reponseHoraireBrute, error) {
 	url := fmt.Sprintf(
 		"%s?latitude=%.4f&longitude=%.4f&timezone=Europe%%2FParis&past_days=%d&forecast_days=%d&hourly=precipitation",
-		c.Base, c.Latitude, c.Longitude, joursNavigationArriere, joursNavigationAvant+1)
+		c.Base, lat, lon, joursNavigationArriere, joursNavigationAvant+1)
 	var r reponseHoraireBrute
-	err := recupererJSON(ctx, c.HTTP, url, &r)
+	err := recupererJSON(ctx, c.HTTP, c.Base, url, &r)
 	return r, err
 }
 
@@ -191,10 +189,8 @@ type Nowcast struct {
 // SEULE source d'un pas de 10 minutes sur ce lieu, et sa panne ne coute rien
 // (la bande disparait, la courbe du jour reste), d'ou l'arbitrage.
 type ClientNowcast struct {
-	Base      string
-	HTTP      *http.Client
-	Latitude  float64
-	Longitude float64
+	Base string
+	HTTP *http.Client
 }
 
 // jetonNowcast n'est PAS un secret et ne se declare pas en `env:` : c'est le
@@ -212,12 +208,10 @@ const jetonNowcast = "__Wj7dVSTjV9YGu1guveLyDq0g7S7TfTjaHBTPTpO0kj8__"
 // posee : le defaut, inchange, s'applique.
 var baseNowcast = env("ESTRAN_BASE_NOWCAST", "https://webservice.meteofrance.com/rain")
 
-func NouveauClientNowcast(lat, lon float64) *ClientNowcast {
+func NouveauClientNowcast() *ClientNowcast {
 	return &ClientNowcast{
-		Base:      baseNowcast,
-		HTTP:      &http.Client{Timeout: 10 * time.Second},
-		Latitude:  lat,
-		Longitude: lon,
+		Base: baseNowcast,
+		HTTP: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -239,10 +233,10 @@ type reponseNowcastBrute struct {
 // l'heure perimee est pire qu'une bande absente.
 var ErrNowcastIndisponible = fmt.Errorf("prevision immediate indisponible sur ce point")
 
-func (c *ClientNowcast) Recuperer(ctx context.Context) (Nowcast, error) {
-	url := fmt.Sprintf("%s?lat=%.4f&lon=%.4f&token=%s", c.Base, c.Latitude, c.Longitude, jetonNowcast)
+func (c *ClientNowcast) Recuperer(ctx context.Context, lat, lon float64) (Nowcast, error) {
+	url := fmt.Sprintf("%s?lat=%.4f&lon=%.4f&token=%s", c.Base, lat, lon, jetonNowcast)
 	var r reponseNowcastBrute
-	if err := recupererJSON(ctx, c.HTTP, url, &r); err != nil {
+	if err := recupererJSON(ctx, c.HTTP, c.Base, url, &r); err != nil {
 		return Nowcast{}, err
 	}
 	if r.Position.RainProductAvailable != 1 {
