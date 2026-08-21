@@ -39,6 +39,26 @@ test("l'ecran du prenom s'affiche", async ({ page }) => {
   await expect(page.getByText("Ton prénom reste sur ton téléphone.")).toBeVisible();
 });
 
+// Le seul bouton de l'application ne pouvait pas rester muet sur un champ vide
+// (vue-prenom.js). Ce cas ne se preterait pas a `tests/vues.test.js`, qui ne
+// teste jamais le montage DOM des vues par convention : on le joue ici, contre
+// un vrai navigateur, exactement comme le reste du premier ecran ci-dessus.
+test("un prenom vide est refuse, annonce, et ne fait pas avancer l'ecran", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "C’est parti" }).click();
+
+  // La MEME phrase qu'aux reglages (vue-reglages.js) pour le meme refus.
+  const retour = page.getByText("Il faut un prénom, même court.");
+  await expect(retour).toBeVisible();
+  // `role="status"` : annonce sans voler le focus, qui reste au champ.
+  await expect(retour).toHaveAttribute("role", "status");
+  await expect(page.getByLabel("Ton prénom")).toBeFocused();
+
+  // Aucune navigation n'a eu lieu : l'ecran du jour ne s'est pas ouvert.
+  await expect(page.getByText("Salut")).toHaveCount(0);
+});
+
 test("la sonde de sante repond", async ({ request }) => {
   const r = await request.get("/healthz");
   expect(r.ok()).toBeTruthy();
