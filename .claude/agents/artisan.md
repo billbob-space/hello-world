@@ -20,10 +20,20 @@ attendus et ou vivent ses documents. Elle t'evite d'ouvrir `compose.yaml`,
 Si cette notice manque, dis-le et arrete-toi : elle se regenere par
 `./init.sh`, et ce n'est pas ton geste.
 
-## La taille de ton chantier
+## Plafond
 
-Un chantier porte **un seul PRP**, jamais deux, et se dimensionne pour tenir sous
-**100 000 jetons de contexte, PRP compris**. Lis le PRP, pas `apps/<nom>/PRODUCT.md` :
+Moteur `sonnet`, chantier sous **100 000 jetons de contexte, PRP compris**. Repere
+mesure au banc des agents du 2026-08-21 : **0,96 $** le chantier.
+
+`haiku` couterait deux fois et demie moins, et l'arbitrage a ete pose a
+l'utilisateur avec les chiffres : sur le meme PRP et les memes douze tests
+d'acceptation ecrits d'avance, les deux passent **12/12**. Mais `haiku` commente
+son code en anglais dans un depot qui ecrit ses commentaires en francais, laisse un
+champ mort que `go vet` ne voit pas, et a introduit un defaut qu'aucun test
+n'attrape. Tranche en faveur du code propre : ce qu'un code moins soigne fait
+economiser au chantier, il le rend en relectures et en allers-retours.
+
+Un chantier porte **un seul PRP**, jamais deux. Lis le PRP, pas `apps/<nom>/PRODUCT.md` :
 `prp/README.md` fixe l'ordre d'autorite et le PRP est autoportant. Si tu te
 surprends a relire les memes fichiers de nombreuses fois, ou si le chantier
 s'etire au-dela, ecris-le dans « Ce que tu n'as pas pu faire » et rends la main :

@@ -3007,6 +3007,23 @@ check_outillage() {
     if [ ! -f "$f" ]; then
       bad "$f absent"; proto=$((proto+1)); continue
     fi
+    # Un agent sans 'model:' ne tombe pas en panne : il prend le moteur le plus
+    # CHER par defaut, silencieusement. C'est ce qui est arrive a l'analyste et a
+    # l'esthete pendant des semaines, et le banc du 2026-08-21 a chiffre l'esthete
+    # a 17,06 $ la passe sans que ce soit une decision de qui que ce soit. Le
+    # defaut coute ; il doit donc etre ecrit.
+    if ! grep -qE '^model: (haiku|sonnet|opus|fable)$' "$f"; then
+      bad "$f : pas de 'model:' declare — l'agent prendrait le moteur le plus cher par defaut"
+      proto=$((proto+1))
+    fi
+    # Et un moteur declare ne dit rien de ce que l'agent AVALE. Le banc a montre
+    # que le prix se fait la : 141 gestes de navigateur coutent seize fois une
+    # relecture, a moteur egal. Le plafond est la borne, et il vit dans la
+    # consigne pour que l'agent la lise, pas seulement son appelant.
+    if ! grep -q '^## Plafond' "$f"; then
+      bad "$f : section '## Plafond' absente — rien ne borne ce que l'agent avale"
+      proto=$((proto+1))
+    fi
     if ! grep -q '^## Rendu' "$f"; then
       bad "$f : section '## Rendu' absente — l'agent n'a plus de format de rendu"
       proto=$((proto+1)); continue
@@ -3022,7 +3039,7 @@ check_outillage() {
         || { bad "$f : le champ '$champ' manque a son rendu"; proto=$((proto+1)); }
     done
   done
-  [ "$proto" -eq 0 ] && ok "cinq agents : section '## Rendu' et champs obligatoires"
+  [ "$proto" -eq 0 ] && ok "cinq agents : 'model:', '## Plafond', '## Rendu' et ses champs"
 
   # Les scripts generes le sont par substitution de fragments : une erreur du
   # generateur produit un fichier plausible mais inanalysable, qui echouerait
