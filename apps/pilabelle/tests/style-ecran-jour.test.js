@@ -123,6 +123,97 @@ test('un defi releve porte la MEME couleur sur les deux ecrans qui l\'annoncent'
 	assert.equal(encre(surLaFin), encre(surLeJour), 'meme fait, meme encre');
 });
 
+// Decision du 21 aout 2026 (PRODUCT.md, « le programme en une ligne, et la
+// lavande ne fait plus deux metiers »). Deux points : button.secondaire perd
+// la lavande (elle ne dit plus que « a faire »), et le programme devient une
+// rangee de pastilles pour garder « Commencer » visible a 360px de large.
+
+test('button.secondaire n\'est plus lavande : la lavande ne dit plus qu\'une chose', () => {
+	const base = blocRegle(CSS, 'button.secondaire');
+	const survol = blocRegle(CSS, 'button.secondaire:hover');
+	const actif = blocRegle(CSS, 'button.secondaire:active');
+	for (const bloc of [base, survol, actif]) {
+		assert.doesNotMatch(bloc, /var\(--lavande/, 'button.secondaire ne doit plus porter la lavande, reservee a "a faire" (.programme li)');
+	}
+});
+
+// Contre-epreuve : si le defaut revient (button.secondaire redevient
+// lavande), ce test doit rougir.
+test('contre-epreuve : le motif fautif (button.secondaire en lavande) est bien detecte comme fautif', () => {
+	const defautConnu = 'button.secondaire {\n\tbackground: var(--lavande-100);\n\tcolor: var(--encre);\n}';
+	assert.match(defautConnu, /var\(--lavande/);
+});
+
+// Resout « propriete: var(--jeton) » dans un bloc, et rend la valeur
+// hexadecimale reelle. On lit la feuille plutot que de recopier une couleur
+// dans le test : un test qui repete la valeur qu'il verifie ne verifie rien.
+function valeurJeton(bloc, propriete) {
+	const m = bloc.match(new RegExp('(?:^|[;{\\s])' + propriete + ':\\s*var\\(--([\\w-]+)\\)'));
+	return m ? JETONS[m[1]] : null;
+}
+
+test('button.secondaire reste lisible : contrastes mesures, pas supposes', () => {
+	const secondaire = blocRegle(CSS, 'button.secondaire');
+	const fond = valeurJeton(secondaire, 'background');
+	const encre = valeurJeton(secondaire, 'color');
+	assert.ok(fond && encre, 'le fond et l\'encre du secondaire doivent se resoudre a des jetons de :root');
+	assert.ok(contraste(encre, fond) >= 4.5, `texte du secondaire sur son fond (${encre} sur ${fond})`);
+});
+
+// LE TEST QUI MANQUAIT LE 21 AOUT AU MATIN, et qui a coute une capture d'ecran
+// pour etre ecrit. Le premier essai de « la lavande ne fait plus deux metiers »
+// posait un fond --encre-douce a texte blanc : contraste de texte excellent
+// (6,20:1), regle de couleur respectee — et hierarchie INVERSEE. Le bouton
+// principal de cette app est un rose PASTEL ; deux boutons secondaires fonces
+// et pleins l'ecrasent. Sur l'ecran de ressenti, l'app se mettait a pousser
+// « Correct » et « Difficile » ; ailleurs, « Plus tard » pesait plus lourd
+// qu'« Activer ». Aucun test ne l'a vu, parce qu'ils mesuraient tous la
+// LISIBILITE d'un bouton isole et jamais le RAPPORT entre les deux.
+//
+// L'engagement du PRD est « un seul element par ecran porte l'action
+// principale ». C'est un rapport, donc il se teste comme un rapport.
+test('button.secondaire pese MOINS que le bouton principal', () => {
+	const principal = blocRegle(CSS, 'button');
+	const secondaire = blocRegle(CSS, 'button.secondaire');
+	const fondPrincipal = valeurJeton(principal, 'background');
+	const fondSecondaire = valeurJeton(secondaire, 'background');
+	assert.ok(fondPrincipal && fondSecondaire, 'les deux fonds doivent se resoudre a un jeton de :root');
+
+	const lumP = luminanceRelative(hexVersRgb(fondPrincipal));
+	const lumS = luminanceRelative(hexVersRgb(fondSecondaire));
+	assert.ok(
+		lumS > lumP,
+		`le fond du secondaire (${fondSecondaire}) doit etre PLUS CLAIR que celui du principal (${fondPrincipal}) : sur fond clair, le plus fonce attire l'oeil en premier`,
+	);
+});
+
+// Et il garde un FOND. Un secondaire sans fond retomberait dans la forme des
+// notes qui parlent (.pique, .defi : filet et jamais de fond) — la confusion
+// exacte que la decision du 20 aout venait de defaire.
+test('button.secondaire garde un fond : sinon il ressemble a une note qui parle', () => {
+	const secondaire = blocRegle(CSS, 'button.secondaire');
+	assert.doesNotMatch(secondaire, /background:\s*(transparent|none)/, 'un bouton se distingue d\'une note par son fond');
+});
+
+test('le programme se resume en une rangee de pastilles (.programme), pas une liste empilee', () => {
+	const ul = blocRegle(CSS, 'ul.programme');
+	assert.match(ul, /flex-direction:\s*row/, 'une rangee, pas une colonne');
+	assert.match(ul, /flex-wrap:\s*wrap/, 'les pastilles s\'enroulent plutot que de deborder');
+
+	const li = blocRegle(CSS, '.programme li');
+	assert.match(li, /border-radius:\s*999px/, 'une pastille est une pilule, pas un bloc a coins arrondis');
+	// La couleur (lavande = a faire) reste celle de la regle generique `ul li` :
+	// seule la mise en page change, pas la grammaire de couleur.
+	assert.doesNotMatch(li, /background|color/, '.programme li ne doit pas redefinir la couleur de `ul li`');
+});
+
+// Contre-epreuve : si .programme redevenait une colonne (le defaut d'avant
+// cette decision), ce test doit rougir.
+test('contre-epreuve : le motif fautif (.programme en colonne) est bien detecte comme fautif', () => {
+	const defautConnu = 'ul.programme {\n\tflex-direction: column;\n}';
+	assert.doesNotMatch(defautConnu, /flex-direction:\s*row/);
+});
+
 test('le corail reste reserve a ce qui n\'est pas fait, a l\'erreur et au danger', () => {
 	// Les trois seuls emplois legitimes du corail dans l'app. Si un quatrieme
 	// apparait, ce test le fait remarquer plutot que de le laisser passer.
