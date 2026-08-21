@@ -511,8 +511,17 @@ ul li {
 }
 
 .defi-recompense {
-	background: var(--corail-100);
-	color: var(--corail-700);
+	/* Un defi releve est un « fait » : il porte le vert, comme il le porte deja
+	   sur l'ecran du jour (.defi.defi-releve). Il etait en corail — la couleur
+	   que l'app emploie partout ailleurs pour « seance non faite »
+	   (.calendrier-jour.jour-manque), pour l'erreur de formulaire (.erreur) et
+	   pour l'action destructrice (button.danger). La recompense la plus forte
+	   de l'app portait donc la couleur de l'echec, et le MEME fait changeait de
+	   couleur d'un ecran a l'autre. Decision du 20 aout 2026 (PRODUCT.md,
+	   « l'ecran de seance montre le programme ») : le vert signifie « fait »
+	   PARTOUT dans l'app. */
+	background: var(--menthe-100);
+	color: var(--menthe-700);
 	border-radius: var(--rayon);
 	padding: var(--espace);
 	text-align: center;

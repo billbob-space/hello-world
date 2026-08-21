@@ -98,3 +98,43 @@ test('contrastes mesures, pas supposes : le texte reste lisible sur chaque fond 
 	// comme couleur de texte sur --lavande-100.
 	assert.doesNotMatch(blocRegle(CSS, 'ul li'), /color:\s*var\(--lavande-500\)/);
 });
+
+// Le vert « fait » ne s'arrete pas a l'ecran du jour. La decision du 20 aout
+// 2026 engage l'app ENTIERE : « le vert signifie fait PARTOUT dans l'app ».
+// Le premier passage l'avait tenu sur l'ecran du jour et oublie sur l'ecran de
+// fin, ou la recompense du defi restait en corail — la couleur que l'app
+// emploie par ailleurs pour « seance non faite », pour l'erreur de formulaire
+// et pour l'action destructrice. Le MEME fait (« defi releve ») changeait donc
+// de couleur selon l'ecran qui l'annoncait.
+
+test('.defi-recompense (ecran de fin) porte le vert du « fait », comme .defi-releve sur l\'ecran du jour', () => {
+	const bloc = blocRegle(CSS, '.defi-recompense');
+	assert.match(bloc, /background:\s*var\(--menthe-100\)/, 'un defi releve est un fait : menthe, pas corail');
+	assert.match(bloc, /color:\s*var\(--menthe-700\)/);
+	assert.doesNotMatch(bloc, /var\(--corail/, 'le corail dit « non fait » / « danger » ailleurs dans l\'app — jamais une recompense');
+});
+
+test('un defi releve porte la MEME couleur sur les deux ecrans qui l\'annoncent', () => {
+	const surLeJour = blocRegle(CSS, '.defi.defi-releve');
+	const surLaFin = blocRegle(CSS, '.defi-recompense');
+	const fond = (b) => b.match(/background:\s*(var\(--[\w-]+\))/)[1];
+	const encre = (b) => b.match(/color:\s*(var\(--[\w-]+\))/)[1];
+	assert.equal(fond(surLaFin), fond(surLeJour), 'meme fait, meme fond');
+	assert.equal(encre(surLaFin), encre(surLeJour), 'meme fait, meme encre');
+});
+
+test('le corail reste reserve a ce qui n\'est pas fait, a l\'erreur et au danger', () => {
+	// Les trois seuls emplois legitimes du corail dans l'app. Si un quatrieme
+	// apparait, ce test le fait remarquer plutot que de le laisser passer.
+	const emploisAttendus = ['button.danger', '.erreur', '.calendrier-jour.jour-manque'];
+	for (const sel of emploisAttendus) {
+		assert.match(blocRegle(CSS, sel), /var\(--corail/, `${sel} doit porter le corail`);
+	}
+	const blocsCorail = [...CSS.matchAll(/([^{}]+)\{([^{}]*var\(--corail[^{}]*)\}/g)]
+		.map((m) => m[1].trim().split('\n').pop().trim())
+		.filter((sel) => !sel.startsWith(':root'));
+	for (const sel of blocsCorail) {
+		const base = sel.replace(/:(hover|active|focus-visible|disabled)$/, '');
+		assert.ok(emploisAttendus.includes(base), `emploi inattendu du corail : ${sel}`);
+	}
+});
