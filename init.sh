@@ -2785,16 +2785,20 @@ check_fabrique() {
   # aucun deploiement, et bloquer la CI de tout le monde sur une ligne de
   # tableau serait hors de proportion. La ligne manquante coute dix secondes.
   abs=0; fant=0
-  for d in apps/*/; do
-    [ -d "$d" ] || continue
-    n=${d#apps/}; n=${n%/}
-    grep -qF "(apps/$n/)" README.md || { warn "README.md ne cite pas l'app '$n' — sa table des applications a derive"; abs=$((abs+1)); }
-  done
-  for cible in $(grep -oE '\(apps/[a-z0-9-]+/\)' README.md | sed -E 's/^\((.*)\)$/\1/' | sort -u); do
-    [ -d "$cible" ] || { warn "README.md cite '$cible', qui n'existe plus sous apps/"; fant=$((fant+1)); }
-  done
-  [ "$abs" -eq 0 ] && [ "$fant" -eq 0 ] \
-    && ok "README.md cite exactement les ${#APPS[@]} app(s) de apps/"
+  if [ ! -f README.md ]; then
+    warn "README.md absent — la table des applications ne peut pas etre verifiee"
+  else
+    for d in apps/*/; do
+      [ -d "$d" ] || continue
+      n=${d#apps/}; n=${n%/}
+      grep -qF "(apps/$n/)" README.md || { warn "README.md ne cite pas l'app '$n' — sa table des applications a derive"; abs=$((abs+1)); }
+    done
+    for cible in $(grep -oE '\(apps/[a-z0-9-]+/\)' README.md | sed -E 's/^\((.*)\)$/\1/' | sort -u); do
+      [ -d "$cible" ] || { warn "README.md cite '$cible', qui n'existe plus sous apps/"; fant=$((fant+1)); }
+    done
+    [ "$abs" -eq 0 ] && [ "$fant" -eq 0 ] \
+      && ok "README.md cite exactement les ${#APPS[@]} app(s) de apps/"
+  fi
 
   # Deux sections de meme titre dans un meme document sont deux sources de
   # verite sur le meme sujet : le lecteur tombe sur l'une et ignore l'autre,
