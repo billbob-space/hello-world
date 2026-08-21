@@ -45,26 +45,126 @@ function decalageDepuisISO(iso) {
   return Math.round(diffMs / 86400000);
 }
 
+// capitaliser ne touche QUE la premiere lettre. La feuille de style employait
+// `text-transform: capitalize`, qui en met une a chaque mot et donnait
+// « Vendredi 21 Août » : en francais le nom de mois s'ecrit en minuscules.
+function capitaliser(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 function libelleJourNav(decalage) {
   if (decalage === 0) return "Aujourd’hui";
-  return dateLocale(decalage).toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
+  return capitaliser(
+    dateLocale(decalage).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    })
+  );
+}
+
+// ---------- bandeau de jours (PRODUCT.md, "Deux decisions d'ecran... — 20
+// aout 2026") -----------------------------------------------------------
+//
+// Remplace la rangee centree qui flottait au-dessus du premier titre et
+// atterrissait dans la gouttiere entre les deux colonnes a 1440px (mesure :
+// libelle a x 661-778, colonne gauche 140-657, colonne droite 705-1300) :
+// une pastille par jour, de J-7 a J+15, pour sauter DIRECTEMENT a celui
+// qu'on veut — le choix du jour est un controle visible, jamais deduit d'un
+// autre element (engagement du PRD).
+//
+// construireBandeauJours() cree les 23 boutons UNE SEULE FOIS (la fenetre ne
+// change jamais) ; majNavigation() ne fait ensuite que basculer une classe
+// et un texte lu par le lecteur d'ecran sur les boutons existants — jamais
+// de reconstruction du DOM, pour que le focus clavier reste en place d'un
+// jour a l'autre. Chaque pastille est un vrai <button>, jamais un conteneur
+// qui vole les fleches du clavier : Tab entre/sort normalement, le
+// navigateur cadre lui-meme le bouton focalise dans la piste defilante —
+// aucun gestionnaire de clavier propre ici, donc aucun risque de reproduire
+// le piege du 20 aout (les fleches globales qui reconstruisaient la bande
+// horaire et remettaient son defilement a zero).
+function libellePastilleNom(decalage) {
+  if (decalage === 0) return "auj.";
+  return capitaliser(
+    dateLocale(decalage).toLocaleDateString("fr-FR", { weekday: "short" }).replace(/\.$/, "")
+  );
+}
+
+function construireBandeauJours() {
+  const piste = document.getElementById("bandeau-jours-piste");
+  if (!piste) return;
+
+  const boutons = [];
+  for (let d = -JOURS_ARRIERE_MAX; d <= JOURS_AVANT_MAX; d++) {
+    const num = dateLocale(d).getDate();
+    boutons.push(`
+      <button type="button" class="pastille-jour${d === 0 ? " pastille-jour--aujourdhui" : ""}" data-decalage="${d}">
+        <span class="pour-lecteur pastille-jour-prefixe"></span>
+        <span class="pastille-jour-nom" aria-hidden="true">${esc(libellePastilleNom(d))}</span>
+        <span class="pastille-jour-num" aria-hidden="true">${num}</span>
+        <span class="pour-lecteur">${esc(libelleJourNav(d))}</span>
+      </button>`);
+  }
+  piste.innerHTML = boutons.join("");
+
+  piste.addEventListener("click", (e) => {
+    const bouton = e.target.closest(".pastille-jour");
+    if (!bouton) return;
+    allerAuJour(Number(bouton.dataset.decalage));
   });
 }
 
 function majNavigation() {
-  const libelle = document.getElementById("nav-jour-libelle");
   const precedent = document.getElementById("nav-precedent");
   const suivant = document.getElementById("nav-suivant");
   const retour = document.getElementById("nav-aujourdhui");
-  if (!libelle || !precedent || !suivant || !retour) return;
+  const piste = document.getElementById("bandeau-jours-piste");
+  if (!precedent || !suivant || !retour) return;
 
-  libelle.textContent = libelleJourNav(decalageJour);
   precedent.disabled = decalageJour <= -JOURS_ARRIERE_MAX;
   suivant.disabled = decalageJour >= JOURS_AVANT_MAX;
   retour.hidden = decalageJour === 0;
+
+  if (piste) {
+    piste.querySelectorAll(".pastille-jour").forEach((bouton) => {
+      const actif = Number(bouton.dataset.decalage) === decalageJour;
+      bouton.classList.toggle("pastille-jour--actif", actif);
+      if (actif) bouton.setAttribute("aria-current", "date");
+      else bouton.removeAttribute("aria-current");
+      const prefixe = bouton.querySelector(".pastille-jour-prefixe");
+      if (prefixe) prefixe.textContent = actif ? "Jour affiché : " : "Voir : ";
+      if (actif) centrerPastille(piste, bouton);
+    });
+  }
+}
+
+// centrerPastille amene la pastille du jour affiche au MILIEU de sa piste, en
+// ne touchant QUE le defilement horizontal de la piste.
+//
+// `scrollIntoView` ne convient pas ici, pour deux raisons mesurees au
+// navigateur le 21 aout 2026 :
+//
+//  1. `inline: "nearest"` amene la pastille tout juste au bord de la piste,
+//     puis `scroll-snap-type: x proximity` (style.css) recale aussitot la
+//     piste sur le point d'accrochage voisin — deux pastilles en arriere. A
+//     390 px, la pastille du jour affiche ressortait donc COUPEE de 23 px sur
+//     54 (43 % de sa largeur, son chiffre tronque), au chargement comme apres
+//     chaque fleche : le seul element qui dit ou l'on se trouve etait celui
+//     qu'on ne pouvait pas lire entierement.
+//  2. `block: "nearest"` fait aussi defiler la PAGE verticalement des que le
+//     bandeau est sorti de l'ecran : cliquer une ligne de tendance depuis le
+//     bas de la page la remontait de 783 px a 172 px, sans que le geste ne
+//     l'ait demande.
+//
+// Centrer a la main est ce que `scroll-snap-align: center` declare deja sur
+// chaque pastille : le recalage d'accrochage retombe alors exactement sur la
+// valeur posee ici et ne deplace plus rien. Les rectangles plutot que
+// `offsetLeft` : la piste n'est pas positionnee, elle n'est donc pas
+// l'`offsetParent` de ses pastilles.
+function centrerPastille(piste, bouton) {
+  const p = piste.getBoundingClientRect();
+  const b = bouton.getBoundingClientRect();
+  piste.scrollLeft += b.left - p.left - (p.width - b.width) / 2;
 }
 
 // allerAuJour ignore silencieusement une cible hors fenêtre : les flèches
@@ -156,6 +256,59 @@ function horlogeLocale() {
   setInterval(tick, 30 * 1000);
 }
 
+// ---------- indisponibilite : un seul gabarit, partout (PRODUCT.md, "Deux
+// decisions d'ecran... — 20 aout 2026") -----------------------------------
+//
+// Avant : quatre presentations pour une seule situation (carte+titre+
+// explication sur la maree, carte+phrase sur la pluie, texte nu sans carte
+// du tout sur les prochaines heures, carte etroite au texte colle au bord
+// haut sur la tendance). Une panne partielle est un etat ORDINAIRE de cette
+// app (README, « une section seule affiche son indisponibilite ») : elle
+// merite une forme sobre et repetable, pas quatre improvisations.
+//
+// Pas de bannière ni de constat global en tete d'ecran (ecarte : cout de
+// tenue, une bannière doit rester juste a mesure que les sources changent).
+// Jamais la derniere valeur connue, meme hachuree et datee (ecarte : un
+// chiffre perime sur un ecran de maree et de meteo est pire que pas de
+// chiffre). Le message affiche vient toujours du serveur (ou d'un texte fixe
+// pour la configuration manquante) : cette fonction ne fait que le poser
+// dans le meme cadre partout.
+//
+// LA PHRASE AUSSI est la meme partout, et pas seulement le cadre — c'est ce
+// que la decision engage (« exactement de la meme facon »), et ce n'etait pas
+// tenu au 21 aout 2026 : trois sections nommaient leur fournisseur muet, la
+// quatrieme disait « tendance indisponible » et rien d'autre, et les trois
+// messages de secours (les `catch` de tout()) etaient muets eux aussi. Un
+// seul gabarit de phrase, en trois temps :
+//
+//     <Sujet> indisponible : <qui ne repond pas>. Nouvelle tentative
+//     automatique dans 5 minutes.
+//
+// Ni « le reste de la page est a jour » : une section ne peut rien affirmer
+// des trois autres sans devenir la banniere globale ecartee — et en panne
+// TOTALE cette phrase s'affichait trois fois de suite alors qu'elle etait
+// fausse les trois fois (mesure au navigateur, 21 aout 2026).
+//
+// TOUJOURS le meme fond de carte (.indisponible-carte), y compris sur la
+// maree et la pluie qui en ont deja un en permanence (.jauge-carte,
+// .pluie-carte) : ce sont EXACTEMENT les memes fond/bordure/rayon/ombre
+// (voir style.css), donc aucun risque de carte-dans-une-carte — les deux
+// styles se confondent en un seul. C'est ce qui rend le gabarit vraiment
+// identique partout, plutot que « presque » identique.
+function carteIndisponible(el, message) {
+  if (!el) return;
+  el.classList.add("indisponible-carte");
+  el.innerHTML = `<div class="indisponible"><p>${esc(message)}</p></div>`;
+}
+
+// retireCarteIndisponible retire la classe posee par carteIndisponible, a
+// appeler avant de rendre un contenu normal sur un conteneur qui a pu
+// afficher une indisponibilite au tour precedent — sinon le fond de carte
+// ajoute reste colle a un contenu qui n'en a plus besoin.
+function retireCarteIndisponible(el) {
+  if (el) el.classList.remove("indisponible-carte");
+}
+
 async function chargerJSON(url) {
   const reponse = await fetch(url, { headers: { accept: "application/json" } });
   if (!reponse.ok) throw new Error(`${url} : statut ${reponse.status}`);
@@ -174,7 +327,6 @@ function rendrePrevisions(donnees) {
   // nombre de vignettes d'aujourd'hui varie desormais avec l'heure (minimum
   // cinq, prp/02-horizon-confiance-vent.md, section 1).
   const autreJour = Boolean(donnees.jour_affiche);
-  rangee.classList.add("heures-rangee--defile");
   if (titre) {
     titre.textContent = autreJour
       ? donnees.jour_affiche_libelle || "Ce jour"
@@ -182,15 +334,26 @@ function rendrePrevisions(donnees) {
   }
 
   if (donnees.erreur) {
-    rangee.innerHTML = `<p class="etat-attente">${esc(donnees.erreur)}</p>`;
+    // Meme gabarit d'indisponibilite que les trois autres sections (voir
+    // carteIndisponible ci-dessus) : cette section n'avait AUCUNE carte
+    // avant, seulement du texte nu — c'est le defaut le plus visible releve
+    // par la critique du 20 aout 2026.
+    rangee.classList.remove("heures-rangee--defile");
+    carteIndisponible(rangee, donnees.erreur);
   } else if (autreJour && !(donnees.heures || []).length) {
     // Degradation attendue en bord de fenetre (le fournisseur meteo ne
     // couvre pas tout a fait aussi loin que la navigation) : absence
-    // affichee, jamais une carte inventee (PRODUCT.md, principe 3).
+    // affichee, jamais une carte inventee (PRODUCT.md, principe 3). Ce n'est
+    // PAS une indisponibilite — c'est un resultat vide legitime en bord de
+    // fenetre — donc pas le meme gabarit que carteIndisponible.
+    retireCarteIndisponible(rangee);
+    rangee.classList.add("heures-rangee--defile");
     rangee.innerHTML = `<p class="etat-attente">aucune prévision pour ce jour</p>`;
     joursMeteoActuels = donnees.jours || [];
     actualiserTendance();
   } else {
+    retireCarteIndisponible(rangee);
+    rangee.classList.add("heures-rangee--defile");
     const reserverAverse = (donnees.heures || []).some((h) => h.averse_possible);
     rangee.innerHTML = (donnees.heures || [])
       .map((h) => {
@@ -370,10 +533,11 @@ function rendrePluie(donnees) {
   if (!carte) return;
 
   if (donnees.erreur) {
-    carte.innerHTML = `<p class="etat-attente">${esc(donnees.erreur)}</p>`;
+    carteIndisponible(carte, donnees.erreur);
     return;
   }
 
+  retireCarteIndisponible(carte);
   carte.innerHTML = [grapheHeure(donnees.heure), courbeJour(donnees.jour, donnees.desaccord)]
     .filter(Boolean)
     .join("");
@@ -661,9 +825,18 @@ function actualiserTendance() {
   const rangee = document.getElementById("jours-rangee");
   if (!joursMeteoActuels || !joursMeteoActuels.length) {
     majTitreTendance(0);
-    rangee.innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
+    // Meme gabarit d'indisponibilite que les trois autres sections : avant,
+    // le texte s'ecrivait tel quel dans .jours-rangee (bordure + coins
+    // arrondis, mais aucun rembourrage), et venait se coller a son bord
+    // haut. .indisponible-carte lui donne le meme fond et le meme
+    // rembourrage que les autres sections en panne.
+    carteIndisponible(
+      rangee,
+      "Tendance indisponible : Open-Meteo ne rend aucun jour. Nouvelle tentative automatique dans 5 minutes."
+    );
     return;
   }
+  retireCarteIndisponible(rangee);
   majTitreTendance(joursMeteoActuels.length);
 
   const mareeParDate = new Map((joursMareeActuels || []).map((j) => [j.date, j]));
@@ -707,6 +880,13 @@ function actualiserTendance() {
       const actif = decalage === decalageJour ? " jour-ligne--actif" : "";
       return `
       <button type="button" class="jour-ligne${actif}" data-decalage="${decalage}" aria-current="${decalage === decalageJour}">
+        <!-- Le nom accessible de ce bouton est, sans cette ligne, la suite
+             brute de ses chiffres : « jeudi 10% 21° 15° 5,5 m 1,0 m coef 45
+             20 km/h rafales 30 km/h SO confiance inconnue ». Rien n'y dit
+             qu'appuyer mene au jour decrit — a l'oeil c'est le curseur qui
+             l'apprend, et au doigt comme a l'oreille, rien. Un controle
+             annonce ce qu'il fait. -->
+        <span class="pour-lecteur">${actif ? "Jour affiché :" : "Voir ce jour :"}</span>
         <div class="jour-principale">
           <span class="jour-nom">${esc(j.jour_semaine)}</span>
           ${icone(j.symbole, "icone")}
@@ -727,12 +907,10 @@ function rendreJauge(m) {
   const carte = document.getElementById("jauge-carte");
 
   if (!m.configure) {
-    carte.innerHTML = `
-      <div class="jauge-non-configuree">
-        <strong>Configuration requise</strong>
-        La clé api-maree.fr (variable API_MAREE_KEY) n'est pas encore posée
-        côté serveur — la jauge de marée s'activera dès qu'elle le sera.
-      </div>`;
+    carteIndisponible(
+      carte,
+      "Configuration requise : la clé api-maree.fr (variable API_MAREE_KEY) n'est pas encore posée côté serveur. La jauge de marée s'activera dès qu'elle le sera."
+    );
     prochaineBasculeISO = null;
     joursMareeActuels = null;
     actualiserTendance();
@@ -740,7 +918,7 @@ function rendreJauge(m) {
   }
 
   if (m.erreur) {
-    carte.innerHTML = `<div class="jauge-non-configuree"><strong>Marée indisponible</strong>${esc(m.erreur)}</div>`;
+    carteIndisponible(carte, m.erreur);
     prochaineBasculeISO = null;
     joursMareeActuels = null;
     actualiserTendance();
@@ -749,6 +927,7 @@ function rendreJauge(m) {
 
   joursMareeActuels = m.jours || null;
   actualiserTendance();
+  retireCarteIndisponible(carte);
 
   // jour_affiche n'est present que si un `date` a ete demande : sur un
   // autre jour qu'aujourd'hui, la jauge instantanee n'a pas de sens — elle
@@ -799,6 +978,14 @@ function rendreJauge(m) {
 // heure + hauteur + coefficient quand le fournisseur le porte — jamais une
 // position "maintenant" sur un jour qui n'est pas aujourd'hui (PRODUCT.md,
 // "Ajouté après les PRP").
+//
+// Ne repete PLUS la date du jour ici (PRODUCT.md, "Deux decisions d'ecran de
+// plus... — 21 aout 2026") : mesuree a 1440 px sur un jour autre
+// qu'aujourd'hui, elle s'affichait ici ET dans le titre de la section
+// horaire (#titre-previsions), au meme y — deux lectures cote a cote de la
+// meme information, sans compter la pastille du bandeau. La date du jour
+// regarde ne s'ecrit plus qu'une fois, dans #titre-previsions ; cette carte
+// se contente de son role, la liste des marees du jour.
 function rendreExtremaJour(carte, m) {
   const extrema = m.extrema || [];
   const corps = extrema.length
@@ -816,7 +1003,6 @@ function rendreExtremaJour(carte, m) {
     : `<p class="etat-attente">aucune donnée de marée pour ce jour</p>`;
 
   carte.innerHTML = `
-    <p class="jauge-jour-titre">${esc(m.jour_affiche_libelle || "")}</p>
     <div class="jour-extrema-liste">${corps}</div>
     ${m.frais === false ? '<p class="jauge-perimee">dernière donnée connue, fournisseur indisponible</p>' : ""}
   `;
@@ -852,21 +1038,38 @@ function majCompteARebours() {
 }
 
 async function tout() {
+  // Ces trois blocs `catch` couvrent une panne de RESEAU ou de JS (fetch qui
+  // rejette), distincte du champ `erreur` que le serveur rend en 200 quand
+  // un fournisseur externe est muet (rendrePrevisions/rendrePluie/rendreJauge
+  // ci-dessus) : les deux cas affichent le meme gabarit (carteIndisponible),
+  // pour ne pas ajouter une CINQUIEME presentation a celles deja unifiees.
   try {
     rendrePrevisions(await chargerJSON(urlAvecJour("/api/previsions")));
   } catch (e) {
-    document.getElementById("heures-rangee").innerHTML = `<p class="etat-attente">prévisions indisponibles</p>`;
-    document.getElementById("jours-rangee").innerHTML = `<p class="etat-attente">tendance indisponible</p>`;
+    const heures = document.getElementById("heures-rangee");
+    heures.classList.remove("heures-rangee--defile");
+    carteIndisponible(
+      heures,
+      "Prévisions indisponibles : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
+    );
+    joursMeteoActuels = [];
+    actualiserTendance();
   }
   try {
     rendreJauge(await chargerJSON(urlAvecJour("/api/maree")));
   } catch (e) {
-    document.getElementById("jauge-carte").innerHTML = `<p class="etat-attente">marée indisponible</p>`;
+    carteIndisponible(
+      document.getElementById("jauge-carte"),
+      "Marée indisponible : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
+    );
   }
   try {
     rendrePluie(await chargerJSON(urlAvecJour("/api/pluie")));
   } catch (e) {
-    document.getElementById("pluie-carte").innerHTML = `<p class="etat-attente">pluie indisponible</p>`;
+    carteIndisponible(
+      document.getElementById("pluie-carte"),
+      "Pluie indisponible : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
+    );
   }
 }
 
@@ -895,10 +1098,23 @@ function initNavigation() {
 
   document.addEventListener("keydown", (e) => {
     if (e.target && ["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+    // La bande horaire est defilable ET focalisable (index.html) : quand le
+    // curseur clavier est DEDANS, les fleches lui appartiennent — c'est ce
+    // que son aria-describedby annonce, et c'est le seul moyen d'en atteindre
+    // les heures au clavier. Sans cette sortie, les deux gestes se
+    // declenchaient ensemble : une pression faisait defiler la bande de 92 px
+    // et changeait de jour, ce qui la reconstruisait aussitot en remettant son
+    // defilement a zero. Le clavier ne depassait donc jamais la 2e vignette,
+    // alors que le libelle promettait le contraire (mesure le 20 aout 2026).
+    // Le navigateur fait le defilement lui-meme : on se contente de ne pas
+    // voler la touche.
+    const bande = document.getElementById("heures-rangee");
+    if (bande && e.target instanceof Node && bande.contains(e.target)) return;
     if (e.key === "ArrowLeft") allerAuJour(decalageJour - 1);
     else if (e.key === "ArrowRight") allerAuJour(decalageJour + 1);
   });
 
+  construireBandeauJours();
   majNavigation();
 }
 

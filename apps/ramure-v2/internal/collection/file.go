@@ -57,7 +57,7 @@ func (f *fileStore) chemin(utilisateur string) string {
 }
 
 func lireEntrees(chemin string) ([]Entree, error) {
-	octets, err := os.ReadFile(chemin)
+	octets, err := os.ReadFile(chemin) // #nosec G304 -- chemin est toujours repertoire+hacherUtilisateur(utilisateur)+".json" : un hex sha256 (64 caracteres [0-9a-f]) ne peut jamais porter "/" ni ".." ; le nom d'utilisateur brut n'est jamais joint au chemin
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}

@@ -1,0 +1,10 @@
+{
+  "name": "ramure-e2e",
+  "private": true,
+  "description": "Bout en bout de ramure : un vrai navigateur contre le binaire reel, reseau externe coupe. Voir lancer.sh.",
+  "scripts": { "test": "playwright test" },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@axe-core/playwright": "^4.13.0"
+  }
+}

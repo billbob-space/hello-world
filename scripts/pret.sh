@@ -26,29 +26,9 @@ cd "$(git rev-parse --show-toplevel)"
 
 BASE=$(fab base_branch main)
 
-fichiers_touches() {  # tout ce que la branche touche, travail non committe inclus
-  {
-    git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true
-    git status --porcelain 2>/dev/null | cut -c4- || true
-  } | LC_ALL=C sort -u
-}
-
-fichiers_ajoutes() {  # ceux que la branche CREE — les autres statuts ne comptent pas
-  {
-    git diff --name-status --diff-filter=A "origin/$BASE...HEAD" 2>/dev/null | cut -f2- || true
-    git status --porcelain 2>/dev/null | grep -E '^(A.|\?\?)' | cut -c4- || true
-  } | LC_ALL=C sort -u
-}
-
-apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
-  fichiers_touches | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
-    | while IFS= read -r a; do
-        # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
-        # ferait sortir la boucle en code 1, donc la substitution de commande,
-        # donc le script entier — et pret.sh s'arreterait sans rien dire.
-        if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
-      done
-}
+# fichiers_touches, fichiers_ajoutes et apps_touchees vivent desormais dans
+# lib/socle.sh : revue.sh doit relire exactement les apps que ce script teste,
+# et deux copies de la meme mesure finissent par diverger.
 
 courante=$(branche_courante)
 echo "Etape en cours — branche $courante"
@@ -132,6 +112,31 @@ else
   done
 fi
 
+# La revue outillee, sur les memes apps que les tests ci-dessus. PROCESSUS
+# SEPARE, comme init.sh --check et cout.sh --rappel : la frontiere empeche ce
+# script de developper une dependance sur l'interieur de revue.sh, qui reste
+# libre de changer sans le casser.
+#
+# Elle relance les tests Go pour en mesurer la couverture, donc ils tournent
+# DEUX fois — une fois par test.sh, une fois par la revue. C'est assume : test.sh
+# est le contrat de l'app et peut faire davantage que du Go, la revue a besoin
+# d'un profil de couverture que test.sh ne produit pas, et faire produire ce
+# profil par test.sh reviendrait a imposer un format de sortie a dix apps pour
+# economiser quelques secondes. Si le cout devient penible, c'est la couverture
+# qui partira en CI seulement — pas la securite.
+#
+# Le bout en bout N'ENTRE PAS ici : il demande Docker et un navigateur, et
+# pret.sh passe a chaque etape. Il tourne en CI a chaque changement.
+if [ -n "$touchees" ]; then
+  if ./scripts/revue.sh $touchees >/tmp/.pret-revue.$$ 2>&1; then
+    ok "revue outillee verte"
+  else
+    bad "revue outillee :"
+    grep -E 'KO' /tmp/.pret-revue.$$ | sed 's/^/      /' || true
+  fi
+  rm -f /tmp/.pret-revue.$$
+fi
+
 # Le PRD ne suit pas tout seul. Une CORRECTION passe par une ligne deja ecrite
 # du document, donc la fait bouger ; une CAPACITE NEUVE ne passe par aucune —
 # elle s'ajoute A COTE du PRD, et le document continue d'affirmer le contraire
@@ -143,6 +148,19 @@ fi
 # vue-classement.js sont les trois, et les quatre corrections du meme jour n'en
 # ont cree aucun. Les .md et les tests sont exclus : un test qui accompagne un
 # correctif est un fichier neuf et ne dit rien du perimetre.
+#
+# « e2e/ » est exclu au meme titre que « tests/ », et pour la meme raison. Le
+# jour ou les dix suites bout en bout ont ete ecrites, cet avertissement s'est
+# allume sur les dix apps a la fois — un lancer.sh, un playwright.config.js et
+# un package.json sont des fichiers de code NEUFS, et aucun ne dit quoi que ce
+# soit du perimetre du produit. Un garde-fou heuristique qui crie sur dix apps
+# le meme jour n'apprend rien ; il apprend a ne plus le lire.
+#
+# « _test.go » manquait aussi, et depuis l'origine : le commentaire ci-dessus
+# annoncait que « les tests sont exclus », mais le motif ne couvrait que les
+# REPERTOIRES tests/ — or un test Go vit a cote du code qu'il teste, jamais dans
+# un repertoire dedie. Un correctif Go accompagne de son test declenchait donc
+# l'avertissement, ce que ce garde-fou promet explicitement de ne pas faire.
 #
 # Avertissement et non blocage, deliberement : le rapprochement est bon, il
 # n'est pas infaillible — un refactoring qui deplace du code dans un fichier
@@ -163,10 +181,42 @@ for a in $touchees; do
   [ -f "apps/$a/PRODUCT.md" ] || continue
   if grep -qxF "apps/$a/PRODUCT.md" <<< "$touches"; then continue; fi
   neufs=$(printf '%s\n' "$ajoutes" \
-    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/' || true)
+    | grep -E "^apps/$a/" | grep -vE '\.md$|(^|/)tests?/|(^|/)e2e/|_test\.go$|(^|/)\.impeccable/' || true)
   [ -n "$neufs" ] || continue
   warn "[$a] du code neuf, et apps/$a/PRODUCT.md ne bouge pas — une capacite neuve se declare dans le PRD :"
   printf '%s\n' "$neufs" | sed 's/^/          /'
+done
+
+# La critique UX suit-elle les ecrans ? AVERTISSEMENT ici, KO en CI sur la pull
+# request — le meme dedoublement que pour le journal, et pour la meme raison :
+# la critique vient en FIN de branche, bloquer des le premier commit apprendrait
+# a contourner ; ne bloquer nulle part laisserait la regle a l'etat d'intention.
+#
+# La regle est une COINCIDENCE DE DIFF : si la branche touche les ecrans d'une
+# app, elle doit AUSSI toucher la critique de cette app. Elle ne compare AUCUNE
+# date — la premiere version le faisait, en opposant l'horodatage du nom de
+# fichier a la date du commit, et elle ne pouvait jamais passer : on ecrit la
+# critique, puis on committe. Deux horloges differentes ne se comparent pas ; le
+# diff, lui, n'en a pas.
+#
+# Seules les apps dont CETTE BRANCHE touche les ecrans sont concernees. Celles
+# qui n'ont jamais eu de critique ne sont pas rattrapees : c'est l'arbitrage de
+# l'utilisateur, « seulement les nouveaux ».
+for a in $touchees; do
+  # Ce qui est un ECRAN, et ce qui n'en est pas. « web/ » en entier attraperait
+  # aussi les configurations, les tests et la documentation qui y vivent — et un
+  # garde-fou qui crie sur un fichier de doc apprend a etre ignore, ce que cette
+  # branche a deja constate une fois.
+  ecrans=$(printf '%s\n' "$touches" \
+    | grep -E "^apps/$a/(web/|page\.html|.*\.html$|.*\.css$)" \
+    | grep -vE '\.md$|(^|/)tests?/|\.config\.[jt]s$|(^|/)package(-lock)?\.json$|(^|/)tsconfig[^/]*\.json$' \
+    || true)
+  [ -n "$ecrans" ] || continue
+  if printf '%s\n' "$touches" | grep -q "^apps/$a/\.impeccable/critique/"; then
+    ok "[$a] critique UX rendue dans cette branche"
+  else
+    warn "[$a] les ecrans bougent sans critique UX — l'agent esthete la rend avant la pull request"
+  fi
 done
 
 # Ce qui est fusionne sur main tourne-t-il en ligne ? La CI epingle dans

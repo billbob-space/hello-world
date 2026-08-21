@@ -560,6 +560,122 @@ déduit du PRD.
 
 ## Ajouté après les PRP
 
+### Décision d'écran : l'écran de séance montre le programme
+
+Tranché par l'utilisateur le 20 août 2026, sur trois maquettes rendues par la
+critique UX. Ce qui suit vaut règle pour l'écran du jour et pour ceux qui lui
+ressembleront.
+
+**Retenu — « le programme se voit ».** Trois couleurs qui disent trois choses :
+ce qui est fait, ce qui reste à faire, ce qui se tape. L'utilisatrice voit toute
+sa séance d'un coup d'œil, et le bouton principal pèse un peu moins lourd qu'il
+ne le faisait.
+
+**Écarté — « le bouton d'abord ».** Un seul fond coloré à l'écran, la règle
+étant « ce qui est coloré se tape », et le programme réduit à une ligne de
+résumé. Le plus direct des trois, et le plus lisible pour qui n'a que dix
+secondes. Écarté parce qu'il cache ce qui attend : on ne sait pas ce qu'on
+commence.
+
+**Écarté — « la voix du compagnon ».** Ce qui parle prend une bulle, ce qui se
+tape une pastille, et le bouton descend là où le pouce arrive vraiment. Le plus
+chaleureux, et le mieux placé pour une main. Écarté pour sa bavardise : sur un
+écran vu tous les jours, le ton finit par coûter plus qu'il ne rapporte.
+
+**Ce que la décision engage** : le vert signifie « fait » **partout dans
+l'app**, écran du jour compris — c'était l'incohérence relevée. Et un seul
+élément par écran porte l'action principale ; les autres pavés informent, ils ne
+se tapent pas.
+
+**Reste ouvert, et volontairement** : « Facile » est aujourd'hui présenté comme
+la bonne réponse du ressenti, alors que c'est lui qui règle la difficulté du
+lendemain. La critique le signale, la décision ne le tranche pas — c'est une
+question de mécanique de progression, pas de mise en page, et elle appartient au
+PRD principal.
+
+
+### Décision d'écran : le programme en une ligne, et la lavande ne fait plus deux métiers
+
+Tranché par l'utilisateur le 21 août 2026, sur quatre écrans mesurés côte à côte,
+rendus par la critique UX du résultat construit. Cette décision **succède** à
+celle du 20 août et la corrige sur un point : le programme se voit toujours,
+mais plus sous la forme d'une liste.
+
+**Ce qui l'a emporté est un défaut mesuré, pas un goût.** Sur un Android de
+360 px de large, au retour d'une absence — pique et défi affichés au-dessus de
+la carte — le bouton « Commencer » passait **sous le bas de l'écran**. C'est le
+jour où la reprise est la plus fragile, et c'était le seul où le geste n'était
+pas sous les yeux. Des trois variantes proposées, une seule remettait le bouton
+dans l'écran dans tous les cas.
+
+**Retenu — « le programme en une ligne ».** La séance se résume en une rangée de
+pastilles plutôt qu'en une liste de blocs empilés. Le bouton reste visible sur
+l'Android le plus étroit, quel que soit le nombre de notes affichées au-dessus.
+
+Le coût est accepté et il est réel : **quatre petites pastilles se lisent moins
+bien de loin qu'une liste**. Sur un téléphone posé au sol, le programme se
+devine plutôt qu'il ne se lit. On échange de la lisibilité de loin contre la
+certitude que le geste principal est atteignable — l'app ne sert à rien si le
+bouton est hors de l'écran.
+
+*Écarté — « la liste s'allège »*, plus aucun fond coloré sauf le bouton. Le plus
+calme des trois, et le plus fidèle à l'esprit du 20 août. Écarté parce qu'il ne
+résout pas le défaut : le bouton reste hors de l'écran au retour d'une absence.
+
+*Écarté — « le bouton reprend du poids »*, la hiérarchie plutôt que la couleur.
+Séduisant, et il rendait le geste évident. Écarté parce qu'il **rate le bas
+d'écran de 2 px** : corriger la hiérarchie sans corriger la hauteur, c'est
+traiter ce qui se voit et laisser ce qui bloque.
+
+**La lavande ne fait plus deux métiers.** Depuis le 20 août, elle habillait à la
+fois les étapes de la séance à faire et les boutons secondaires. Les deux ne se
+croisent jamais sur le même écran, donc personne ne risquait de taper sur une
+étape — mais c'est exactement le raisonnement qui avait laissé le vert dire deux
+choses pendant des semaines. **Les boutons secondaires cessent d'être lavande** ;
+la lavande ne veut plus dire qu'une chose, « à faire », comme le vert ne veut
+dire que « fait ».
+
+*Écarté — garder les deux usages*, au motif qu'ils ne se rencontrent pas.
+Écarté : « ça ne gêne personne aujourd'hui » est la phrase qui a produit
+l'incohérence précédente. Une couleur qui dit deux choses finit par les dire sur
+le même écran, et personne ne s'en aperçoit le jour où ça arrive.
+
+**Reste ouvert, et toujours volontairement** : le filet de la pique ressort à
+1,51 contre 1 sur le fond de la page — sur un téléphone posé au sol, on ne le
+voit presque pas. La palette n'a **aucune couleur capable de tracer une ligne
+visible** ; il lui manque un ton, comme il lui manquait un `--lavande-700` le
+mois dernier. Ce n'est pas une décision de mise en page mais un ajout à la
+palette, et il se tranchera avec elle.
+
+### Dire quand le réseau tombe, et réessayer
+
+Ajouté le 20 août 2026, à la suite de la première critique UX outillée de
+l'app. Le PRD ne dit rien de ce qui se passe quand une requête n'aboutit pas,
+et l'app ne disait rien non plus : elle restait sur « Chargement… »
+indéfiniment, sans message ni bouton.
+
+Le cas qui a décidé de l'ajout n'est pas théorique — c'est le pire de tous :
+**elle termine sa séance, l'envoi de son ressenti échoue, et rien ne lui dit si
+son effort est perdu.** Une app qui se tait sur un échec demande à
+l'utilisatrice de deviner, et la réponse la plus probable qu'elle devine est
+« tout est perdu ».
+
+Un écran de panne explique donc ce qui se passe et propose de réessayer. Le
+réessai **rejoue la requête à l'identique** — le même ressenti, jamais une
+valeur reconstituée — et se réarme si la seconde tentative échoue aussi : une
+coupure réseau dure rarement une seule requête.
+
+Ce que cela ne change pas : aucune règle de la progression, aucun calcul de
+niveau, aucune donnée stockée différemment. C'est une porte de sortie sur un
+chemin qui n'en avait pas, comme la réinitialisation de profil plus bas.
+
+Son test vit dans `tests/app-panne.test.js` et `tests/reessai.test.js`, et
+couvre le parcours entier avec une coupure au moment exact de l'envoi. C'est
+délibéré : cet écran est **le seul de l'app que personne ne traverse en usage
+normal**, donc le seul dont une régression ne se verrait qu'au moment où elle
+en a besoin.
+
+
 ### Réinitialiser son propre profil
 
 Demandée en usage réel après la mise en ligne du lot 1, le 9 août 2026 :

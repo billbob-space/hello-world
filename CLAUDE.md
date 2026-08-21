@@ -137,12 +137,29 @@ Renseigne-le tôt.
 **Un commit par étape vérifiée**, pas un commit au kilomètre. Avant chaque commit :
 
 ```bash
-./scripts/pret.sh     # branche dédiée ? contrat vert ? tests verts ? apps bien livrées ?
+./scripts/pret.sh     # branche dédiée ? contrat vert ? tests verts ? revue verte ?
 ```
+
+`pret.sh` appelle `./scripts/revue.sh` sur les apps touchées : **sécurité, dépendances
+vulnérables, code mort ou compliqué, couverture, duplication**. Elle bloque. La barre de
+couverture et le plafond de duplication de chaque app vivent dans son `app.yml`, relevés
+au niveau du jour — **ils ne se déplacent que dans le sens qui serre**, et desserrer est
+une édition à la main, donc une ligne dans le diff.
+
+**Chaque constat de sécurité reçoit un verdict** : corrigé, ou écarté par un
+`// #nosec Gxxx -- <raison>` qui dit *ce qui* neutralise la teinte. « Faux positif » n'est
+pas une raison, et les mises à l'écart sont comptées à chaque passage. Détail et pièges :
+`memory/revue.md`.
 
 On pousse à chaque commit ; **la pull request vient à la fin**, une fois l'ensemble
 cohérent. Le raisonnement détaillé va dans les **messages de commit**, où il survit à la
 fusion.
+
+**Avant la pull request, deux relecteurs passent une fois** : l'agent `relecteur` sur
+le code — justesse, simplicité, PRD — et l'agent `esthete` sur les écrans, quand ils
+ont bougé, avec la compétence `impeccable`. L'esthète **corrige seul ce qui est
+objectif** et **montre le reste** ; sa critique datée vit dans l'app, et rien ne part
+avec des écrans plus récents qu'elle.
 
 **Le code d'une app se délègue à `artisan`, l'enregistrement git au `greffier`** — pas à
 toi directement. Leur contexte réduit (une seule app pour l'un, aucun outil d'édition pour
@@ -150,6 +167,21 @@ l'autre, modèle moins cher) évite de charger le tien de diffs et de fichiers r
 chaque tour qui suit. Toi, tu écris ce qui est partagé (`.claude/`, `scripts/`,
 `fabrique.yml`, `init.sh`) et ce qui demande un dialogue déjà eu avec l'utilisateur (PRD,
 PRP) ; l'artisan ne fait ni l'un ni l'autre. Détail : `memory/travail.md`.
+
+**Les appels d'outils indépendants partent dans le MÊME tour.** Un tour paie tout le
+contexte relu, quelle que soit sa sortie — deux lectures qui ne dépendent pas l'une de
+l'autre coûtent donc moitié moins groupées que séparées. Sur la branche la plus lourde du
+dépôt, **67 % des tours rendaient moins de 300 jetons et pesaient la moitié de la
+facture** : un appel nu qui paie tout le contexte pour ne presque rien rendre. `cout.sh`
+compte ces tours courts à chaque relevé — c'est le poste le plus cher, et le seul qui ne
+tienne qu'à une habitude.
+
+**Ce qui peut tourner en même temps est recensé une fois pour toutes** dans
+`docs/parallelisme.md` : les gisements — session, chaîne locale, CI, agents —, le verrou
+que chacun demande, et leur mode d'échec commun, le vert silencieux. Un gain de temps ne
+se déclare pas, il se chiffre : `./docs/banc/mesurer.sh` rejoue six scénarios figés et
+`docs/banc/releves.md` garde la série. Sans mesure, on accélère la branche qui n'était
+pas la plus lente — c'est déjà arrivé ici.
 
 **Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
 entrée de journal. Non relevé avant la fusion, il est perdu.
@@ -236,3 +268,4 @@ importés automatiquement** — `--check` le vérifie.
 | Paliers d'exposition, détail | `memory/exposition.md` | avant de changer une `exposure` ou de lire une identité |
 | Règles impératives, détail | `memory/regles-imperatives.md` | avant d'écrire un `Dockerfile` ou un `test.sh` |
 | Ce qui ne t'appartient pas, détail | `memory/perimetre.md` | avant de demander dans un README ce qui se déclare |
+| La revue outillée, détail | `memory/revue.md` | avant d'instruire un constat, de déplacer un seuil, d'ajouter un axe |

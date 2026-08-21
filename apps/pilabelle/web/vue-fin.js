@@ -11,7 +11,7 @@ export function texteRecompenseDefi(recap) {
 	return recap && recap.defi_releve ? '🏆 Défi de la semaine relevé !' : null;
 }
 
-export function vueFin(conteneur, { recap }) {
+export function vueFin(conteneur, { recap, onRetour }) {
 	conteneur.textContent = '';
 
 	const carte = document.createElement('div');
@@ -25,7 +25,11 @@ export function vueFin(conteneur, { recap }) {
 			textContent: 'Séance déjà comptée pour aujourd\'hui — merci d\'être revenue.',
 		}));
 	} else {
-		const encouragement = document.createElement('p');
+		// Titre de l'ecran : c'etait un <p>, donc l'ecran de fin n'avait aucun
+		// element de titre — rien a atteindre pour un lecteur d'ecran, sur le
+		// seul ecran que chaque seance termine. .encouragement garde le rendu
+		// (une classe l'emporte sur le selecteur d'element h1).
+		const encouragement = document.createElement('h1');
 		encouragement.className = 'encouragement';
 		encouragement.textContent = recap.encouragement;
 		carte.appendChild(encouragement);
@@ -66,5 +70,18 @@ export function vueFin(conteneur, { recap }) {
 		p.className = 'mot-doux';
 		p.textContent = recap.mot_doux;
 		carte.appendChild(p);
+	}
+
+	// Sortie de l'ecran de fin. Sans elle, la derniere image d'une seance
+	// reussie etait un ecran sans un seul bouton : le seul moyen d'en sortir
+	// etait de recharger la page ou de fermer l'application — dans une app
+	// dont toute la these est qu'elle revienne demain.
+	if (onRetour) {
+		const retour = document.createElement('button');
+		retour.type = 'button';
+		retour.className = 'secondaire';
+		retour.textContent = 'Retour à l\'accueil';
+		retour.addEventListener('click', onRetour);
+		carte.appendChild(retour);
 	}
 }

@@ -490,7 +490,6 @@ func TestLibelleJourFr(t *testing.T) {
 }
 
 func floatPtr(v float64) *float64 { return &v }
-func intPtr(v int) *int           { return &v }
 
 func TestArrondi(t *testing.T) {
 	if v := arrondi2(6.9449999); v != 6.94 {

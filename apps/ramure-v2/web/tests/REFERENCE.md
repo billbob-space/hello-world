@@ -18,7 +18,7 @@ Relevé le 19 août 2026, sur le commit qui introduit ce fichier.
 Le premier repère (PRP 02) était de 26 fonctions dans `internal/` ; la série
 en compte maintenant 161 sur l'ensemble du module.
 
-## Ce qui ne tourne QUE sur demande (`RAMURE_E2E=1 ./apps/ramure-v2/test.sh`)
+## Ce que joue `apps/ramure-v2/e2e/lancer.sh` (CI comprise)
 
 | Fichier | Ce qu'il joue | Tests |
 |---|---|---|
@@ -30,18 +30,23 @@ en compte maintenant 161 sur l'ensemble du module.
 | `web/tests/e2e/mise-a-jour.spec.ts` | **F-42/N-12** : détection → bannière → clic → activation, en un seul passage, avec un vrai redémarrage du serveur Go entre deux versions de `sw.js` | 1 |
 | **Total** | | **21** |
 
-Cette suite ne tourne **jamais en CI** : `RAMURE_E2E` n'est posée nulle part
-dans le workflow de la fabrique (voir `apps/ramure-v2/test.sh`, dont le
-`else` l'annonce explicitement). C'est une recette qu'on joue à la main avant
-une mise en ligne — assumé, PRP 09 tâche 1.
+Cette suite tourne dans le job « bout-en-bout » de la CI, via
+`apps/ramure-v2/e2e/lancer.sh` — plus derrière `RAMURE_E2E`, qui n'était posée
+nulle part dans le workflow (l'ancien garde de `apps/ramure-v2/test.sh` a été
+retiré avec la variable). Elle reste jouable à la main de la même façon :
+
+```bash
+./apps/ramure-v2/e2e/lancer.sh
+```
 
 Prérequis pour la jouer : `npm ci --prefix web` (installe `@playwright/test`
-et `@axe-core/playwright`), un Chromium accessible (`playwright install
-chromium`, ou `PLAYWRIGHT_CHROMIUM_PATH=/chemin/vers/chromium` si un
-navigateur est déjà présent sur la machine — c'est le cas du bac à sable où
-cette suite a été écrite, `/opt/pw-browsers/chromium`), et le binaire `go`
-sur le `PATH` (chaque fichier démarre son propre serveur réel via `go run .`
-— voir `web/tests/e2e/support/serveur.ts`).
+et `@axe-core/playwright` — `lancer.sh` s'en charge via `./prepare.sh`), un
+Chromium accessible (`playwright install chromium`, ou
+`PLAYWRIGHT_CHROMIUM_PATH=/chemin/vers/chromium` si un navigateur est déjà
+présent sur la machine — c'est le cas du bac à sable où cette suite a été
+écrite, `/opt/pw-browsers/chromium`, et `lancer.sh` le détecte tout seul), et
+le binaire `go` sur le `PATH` (chaque fichier démarre son propre serveur réel
+via `go run .` — voir `web/tests/e2e/support/serveur.ts`).
 
 ## Anomalies découvertes en écrivant cette recette
 

@@ -67,7 +67,7 @@ func EcrireProfilParID(racine, id string, p Profil) error {
 	}
 	dest := cheminProfilID(racine, id)
 	tmp := dest + ".tmp"
-	if err := os.WriteFile(tmp, brut, 0o600); err != nil {
+	if err := os.WriteFile(tmp, brut, 0o600); err != nil { // #nosec G703 -- id n'est jamais un chemin venant d'une requete : soit identifiantFichier(email), un hash SHA-256 hexadecimal tronque a 16 caracteres (alphabet [0-9a-f], donc jamais "/" ni ".."), soit un identifiant relu sur disque par ListerProfils (main.go, verifierNotifications), jamais fourni par un client HTTP. Verifie en lisant tous les appelants de EcrireProfilParID.
 		return err
 	}
 	return os.Rename(tmp, dest)
@@ -101,7 +101,7 @@ func ListerProfils(racine string) ([]string, error) {
 // fichier (ossature §7). Idempotent : un profil deja absent n'est pas une
 // erreur.
 func SupprimerProfil(racine, email string) error {
-	err := os.Remove(cheminProfil(racine, email))
+	err := os.Remove(cheminProfil(racine, email)) // #nosec G703 -- cheminProfil hache "email" via identifiantFichier (SHA-256, hex tronque a 16 caracteres) avant de batir le chemin : l'alphabet hexadecimal exclut "/" et "..", donc aucune traversee de repertoire n'est possible meme si email vient de l'en-tete HTTP X-Forwarded-User.
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

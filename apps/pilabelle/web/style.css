@@ -4,8 +4,12 @@
    utilisable même sur un réseau capricieux, posée au sol pendant l'effort. */
 
 :root {
-	/* Couleurs — un rose tendre en primaire, une lavande en secondaire,
-	   un vert doux pour la validation, jamais saturés à fond. */
+	/* Couleurs — un rose tendre en primaire, un vert doux pour la validation,
+	   jamais saturés à fond. La lavande a longtemps aussi habillé
+	   button.secondaire (« en secondaire ») ; depuis la décision du 21 août
+	   2026, elle ne désigne plus que « à faire » (les blocs du programme,
+	   .programme li) — button.secondaire est passé en encre/encre-douce
+	   (voir plus bas), pour que lavande ne dise plus deux choses à la fois. */
 	--rose-50:  #fff5f7;
 	--rose-100: #ffe3ea;
 	--rose-300: #ffb4c6;
@@ -15,6 +19,15 @@
 	--lavande-100: #f1eafc;
 	--lavande-300: #d8c7f5;
 	--lavande-500: #a988e0;
+	/* La palette a une regle implicite : le -700 d'une famille est l'encre qui
+	   se pose sur son -100 (menthe-700/menthe-100 = 4,67:1 ; corail-700/
+	   corail-100 = 5,56:1). Lavande etait la seule famille sans son -700, donc
+	   --lavande-500 y jouait ce role sans en avoir le contraste : 2,46:1 sur
+	   --lavande-100, 2,88:1 sur blanc. Trois usages en dependaient (.niveaux li,
+	   .phase.repos, .minuteur.repos), tous hors des quatre ecrans scannes par
+	   axe dans e2e/tests/pilabelle.spec.js. #6b4bab = 5,56:1 sur --lavande-100,
+	   la meme valeur que corail. --lavande-500 reste une couleur de fond. */
+	--lavande-700: #6b4bab;
 
 	--menthe-100: #e3f7ea;
 	--menthe-500: #6fbf8f;
@@ -143,7 +156,11 @@ button {
 	border: none;
 	border-radius: var(--rayon);
 	background: var(--rose-300);
-	color: var(--rose-700);
+	/* --rose-700 sur --rose-300 ne rendait que 2,31:1 (WCAG AA exige 4,5:1,
+	   detecte par le bout en bout, e2e/tests/pilabelle.spec.js) : --encre est
+	   deja le texte utilise par button.secondaire:hover sur ce meme fond
+	   pastel, on reprend le meme choix ici. */
+	color: var(--encre);
 	font-family: inherit;
 	font-size: 1.05rem;
 	font-weight: 700;
@@ -176,19 +193,44 @@ button:disabled {
 }
 
 button.secondaire {
-	background: var(--lavande-100);
-	color: var(--lavande-500);
+	/* Decision du 21 aout 2026 (PRODUCT.md, « la lavande ne fait plus deux
+	   metiers ») : la lavande habillait a la fois les blocs « a faire »
+	   (.programme li) et button.secondaire — les deux ne se croisent jamais
+	   sur le meme ecran, mais c'est le raisonnement qui avait laisse le vert
+	   dire deux choses pendant des semaines.
+	   
+	   ROSE PALE, et pas un neutre fonce. Le premier essai posait un fond
+	   --encre-douce a texte blanc : contraste de texte excellent (6,20:1),
+	   et hierarchie INVERSEE. Capture faite a 390 px sur l'ecran de
+	   ressenti : le bouton principal est un rose PASTEL (--rose-300), donc
+	   deux boutons secondaires fonces et pleins l'ecrasaient — l'oeil allait
+	   d'abord aux actions secondaires. Sur cet ecran-la, l'app se mettait a
+	   pousser « Correct » et « Difficile » ; ailleurs, « Plus tard » pesait
+	   plus lourd que « Activer ». Cela casse l'engagement du PRD : un seul
+	   element par ecran porte l'action principale.
+	   
+	   Le rose reste la famille du TAPABLE — c'est la regle du 20 aout —, et
+	   les deux poids de la famille disent les deux rangs : --rose-300 plein
+	   pour le principal, --rose-100 avec un filet pour le secondaire. La
+	   lavande est bien partie, et la hierarchie est dans le bon sens.
+	   --encre sur --rose-100 : 10,74:1 (tests/style-ecran-jour.test.js). */
+	background: var(--rose-100);
+	color: var(--encre);
+	border: 1px solid var(--rose-300);
 	box-shadow: none;
 }
 
 button.secondaire:hover {
-	background: var(--lavande-300);
+	background: var(--rose-100);
+	border-color: var(--rose-500);
 	color: var(--encre);
 }
 
 button.secondaire:active {
-	background: var(--lavande-500);
-	color: #fff;
+	background: var(--rose-100);
+	border-color: var(--rose-500);
+	color: var(--encre);
+	box-shadow: none;
 }
 
 button.danger {
@@ -316,10 +358,19 @@ hr {
 	margin: 0;
 }
 
-/* Écran du jour ----------------------------------------------------------- */
+/* Écran du jour -----------------------------------------------------------
+   Regle retenue (decision du 20 aout 2026, PRODUCT.md « l'ecran de seance
+   montre le programme ») : menthe = fait, lavande = a faire, rose = a taper ;
+   une note qui parle (.pique, .defi non releve) porte un filet et jamais de
+   fond. Decision du 21 aout 2026 (« le programme en une ligne, et la lavande
+   ne fait plus deux metiers ») : button.secondaire a change de teinte (voir
+   plus bas), donc lavande ne designe plus QUE « a faire » ; et le programme
+   se resume en une rangee de pastilles (.programme) plutot qu'en liste
+   empilee, pour garder le bouton « Commencer » dans l'ecran a 360px de large
+   meme le jour ou la pique et le defi s'affichent tous les deux. */
 
 .pique {
-	background: var(--lavande-100);
+	background: transparent;
 	border-radius: var(--rayon);
 	padding: var(--espace);
 	font-weight: 600;
@@ -328,8 +379,11 @@ hr {
 }
 
 .defi {
-	background: var(--lavande-100);
-	color: var(--lavande-500);
+	/* Une note qui parle : filet, jamais de fond — un pave rempli ressemblerait
+	   a un pave « a faire » (.programme li) plutot qu'a une note. */
+	background: transparent;
+	border: 1px solid var(--lavande-300);
+	color: var(--encre);
 	border-radius: var(--rayon-sm);
 	padding: 0.6rem var(--espace);
 	font-weight: 600;
@@ -338,8 +392,11 @@ hr {
 }
 
 .defi.defi-releve {
+	/* Un defi releve est un etat « fait », pas une note qui parle : il garde
+	   son fond plein, comme .niveau-monte et .calendrier-jour.jour-fait. */
 	background: var(--menthe-100);
 	color: var(--menthe-700);
+	border: none;
 }
 
 ul {
@@ -352,12 +409,40 @@ ul {
 }
 
 ul li {
-	background: var(--menthe-100);
-	color: var(--menthe-700);
+	/* Les blocs de la seance sont a faire, pas faits : le vert menthe ne doit
+	   signifier « fait » que la ou c'est vrai (.defi-releve, .progression
+	   span.faite, .niveau-monte, .calendrier-jour.jour-fait). Meme motif que
+	   .niveaux li, qui utilise deja lavande-100/lavande-700. */
+	background: var(--lavande-100);
+	color: var(--lavande-700);
 	border-radius: var(--rayon-sm);
 	padding: 0.75rem var(--espace);
 	font-weight: 600;
 	font-size: 0.95rem;
+}
+
+/* .programme (ecran du jour uniquement, web/vue-jour.js) : « le programme en
+   une ligne » (decision du 21 aout 2026, PRODUIT.md « le programme en une
+   ligne, et la lavande ne fait plus deux metiers »). Sur un Android de 360px
+   de large, au retour d'une absence — pique ET defi affiches au-dessus —, la
+   liste empilee de blocs (~48px chacun) faisait passer le bouton
+   « Commencer » sous le bas de l'ecran. Une rangee de pastilles qui s'enroule
+   remplace la liste : le cout assume est qu'elle se lit moins bien de loin
+   qu'une liste (PRODUIT.md), en echange de la certitude que le bouton reste
+   atteignable. Les couleurs restent celles de `ul li` ci-dessus (lavande = a
+   faire) ; seule la mise en page change. */
+ul.programme {
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}
+
+.programme li {
+	border-radius: 999px;
+	padding: 0.3rem 0.65rem;
+	font-size: 0.72rem;
+	flex: 0 1 auto;
+	white-space: nowrap;
 }
 
 /* Écran de séance ----------------------------------------------------------- */
@@ -386,7 +471,12 @@ ul li {
 	display: block;
 	width: 100%;
 	aspect-ratio: 9 / 16;
-	max-height: 55vh;
+	/* 55vh laissait le bouton principal deborder de 18px sous le bas de l'ecran
+	   a 390x844 (mesure : bas du bouton a 862px), avant meme la barre d'outils
+	   du navigateur mobile. Le chronometre et le bouton Pause doivent tenir
+	   sans defiler : c'est le seul geste que le PRD §7.3 promet « a tout
+	   moment ». A 42vh, le bas du bouton tombe a ~752px. */
+	max-height: 42vh;
 	border: none;
 	border-radius: var(--rayon-lg);
 	box-shadow: var(--ombre);
@@ -406,7 +496,7 @@ ul li {
 }
 
 .phase.repos {
-	color: var(--lavande-500);
+	color: var(--lavande-700);
 }
 
 .minuteur {
@@ -419,7 +509,7 @@ ul li {
 }
 
 .minuteur.repos {
-	color: var(--lavande-500);
+	color: var(--lavande-700);
 }
 
 /* Ressenti ----------------------------------------------------------- */
@@ -476,8 +566,17 @@ ul li {
 }
 
 .defi-recompense {
-	background: var(--corail-100);
-	color: var(--corail-700);
+	/* Un defi releve est un « fait » : il porte le vert, comme il le porte deja
+	   sur l'ecran du jour (.defi.defi-releve). Il etait en corail — la couleur
+	   que l'app emploie partout ailleurs pour « seance non faite »
+	   (.calendrier-jour.jour-manque), pour l'erreur de formulaire (.erreur) et
+	   pour l'action destructrice (button.danger). La recompense la plus forte
+	   de l'app portait donc la couleur de l'echec, et le MEME fait changeait de
+	   couleur d'un ecran a l'autre. Decision du 20 aout 2026 (PRODUCT.md,
+	   « l'ecran de seance montre le programme ») : le vert signifie « fait »
+	   PARTOUT dans l'app. */
+	background: var(--menthe-100);
+	color: var(--menthe-700);
 	border-radius: var(--rayon);
 	padding: var(--espace);
 	text-align: center;
@@ -508,7 +607,7 @@ ul li {
 	display: flex;
 	justify-content: space-between;
 	background: var(--lavande-100);
-	color: var(--lavande-500);
+	color: var(--lavande-700);
 	border-radius: var(--rayon-sm);
 	padding: 0.75rem var(--espace);
 	font-weight: 600;
@@ -553,6 +652,28 @@ ul li {
 	background: transparent;
 	color: var(--encre-douce);
 	opacity: 0.5;
+}
+
+.calendrier-legende {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--espace-sm);
+	margin-top: var(--espace-xs);
+	font-size: 0.85rem;
+	color: var(--encre-douce);
+}
+
+.calendrier-legende span {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.calendrier-legende i {
+	width: 1rem;
+	height: 1rem;
+	border-radius: 0.3rem;
+	flex-shrink: 0;
 }
 
 .calendrier-jour.jour-avenir {

@@ -164,6 +164,17 @@ cas "fichier existant modifie" silence non <<'FIN'
   printf 'export const deja = 2\n' > "apps/bidon/web/deja.js"
 FIN
 
+cas "test Go neuf a cote de son code, sur un correctif" silence non <<'FIN'
+  printf 'package bidon\n' > "apps/bidon/domaine_test.go"
+FIN
+
+cas "suite bout en bout neuve, sans PRODUCT.md" silence non <<'FIN'
+  mkdir -p "apps/bidon/e2e/tests"
+  printf '#!/usr/bin/env bash\n' > "apps/bidon/e2e/lancer.sh"
+  printf 'module.exports = {}\n'  > "apps/bidon/e2e/playwright.config.js"
+  printf 'test("x", () => {})\n'  > "apps/bidon/e2e/tests/bidon.spec.js"
+FIN
+
 cas "test neuf seul, sur un correctif" silence non <<'FIN'
   printf 'export const deja = 2\n' > "apps/bidon/web/deja.js"
   mkdir -p "apps/bidon/tests"

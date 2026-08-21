@@ -64,10 +64,41 @@ render() {
 # commentaire de fin de ligne et les guillemets, sans quoi « port: 8080 # todo »
 # produirait un compose invalide.
 
+# SANS AUCUN PROCESSUS, et c'est la seule raison de cette forme un peu raide.
+# La version d'avant enchainait « tr | sed | head » puis un second sed : cinq
+# processus, plus la substitution qui l'entoure, pour lire UNE valeur. Un
+# ./init.sh --check appelle yget 1104 fois — environ sept mille processus pour
+# lire des fichiers de trente lignes. Mesure : --check passe de 12,8 s a 7,5 s
+# rien qu'en retirant ces processus, et --check est joue 40 fois par
+# test-init.sh, qui tient le chemin critique de la CI. Voir docs/banc/.
+#
+# La semantique est celle d'avant, a la lettre : premiere ligne dont la cle est
+# en colonne 0, espaces de tete retires, commentaire de fin precede d'au moins
+# une espace retire, espaces de queue retires, une paire de guillemets retiree.
+# Verifie en comparant la sortie complete de --check, octet a octet.
 yget() {  # yget <fichier> <cle> <defaut>
-  local f="$1" k="$2" d="${3-}" v=""
-  [ -f "$f" ] && v=$(tr -d '\r' < "$f" | sed -nE "s/^$k:[[:space:]]*(.*)$/\1/p" | head -1)
-  v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
+  local f="$1" k="$2" d="${3-}" v="" ligne
+  if [ -f "$f" ]; then
+    # « || [ -n "$ligne" ] » : une derniere ligne sans saut final serait
+    # autrement perdue, ce que « tr < fichier » ne faisait pas.
+    while IFS= read -r ligne || [ -n "$ligne" ]; do
+      # TOUS les \r, pas seulement celui de fin : l'ancienne version faisait
+      # « tr -d '\r' » sur le fichier entier, et un \r colle au milieu d'une
+      # valeur — copier-coller depuis un terminal Windows — disparaissait lui
+      # aussi. Retirer le seul suffixe le laissait traverser jusqu'a la sortie.
+      # C'est aussi ce que font gsub(/\r/,"") dans les deux lecteurs awk d'a
+      # cote : les trois lecteurs de manifeste nettoient pareil, ou l'un d'eux
+      # finira par mentir. Trouve en relecture, pas par les manifestes reels —
+      # aucun d'eux ne porte de \r, d'ou les cas de test ci-dessous.
+      ligne=${ligne//$'\r'/}
+      case "$ligne" in
+        "$k:"*) v=${ligne#"$k:"}; break ;;
+      esac
+    done < "$f"
+  fi
+  v=${v#"${v%%[![:space:]]*}"}
+  case "$v" in *[[:space:]]#*) v=${v%%[[:space:]]#*} ;; esac
+  v=${v%"${v##*[![:space:]]}"}
   v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
   printf '%s' "${v:-$d}"
 }
@@ -100,7 +131,8 @@ fab() { yget fabrique.yml "$1" "$2"; }
 
 ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
   [ -f "$1" ] || return 0
-  tr -d '\r' < "$1" | awk -v k="$2" '
+  awk -v k="$2" '
+    { gsub(/\r/, "") }   # ce que faisait « tr -d \\r » en amont, un processus de moins
     BEGIN { Q = sprintf("%c", 39); inlist = 0 }
     function clean(s,   f, l) {
       sub(/[ \t]+#.*$/, "", s)
@@ -161,12 +193,13 @@ ylist() {  # ylist <fichier> <cle> — liste de scalaires, une valeur par ligne
       }
       inlist = 0
     }
-  '
+  ' "$1"
 }
 
 ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>valeur »
   [ -f "$1" ] || return 0
-  tr -d '\r' < "$1" | awk -v k="$2" '
+  awk -v k="$2" '
+    { gsub(/\r/, "") }   # ce que faisait « tr -d \\r » en amont, un processus de moins
     BEGIN { Q = sprintf("%c", 39); st = 0; idx = -1; dash = -1; pend = "" }
     function clean(s,   f, l) {
       sub(/[ \t]+#.*$/, "", s)
@@ -236,7 +269,7 @@ ymaps() {  # ymaps <fichier> <cle> — liste de mappings : « index<TAB>cle<TAB>
       if (idx >= 0 && ind > dash) pair(s)
       else st = 0
     }
-  '
+  ' "$1"
 }
 
 # Accesseurs sur le flux produit par ymaps. Passer le flux en argument plutot que
@@ -256,6 +289,45 @@ map_all() {  # map_all <flux> <index> <cle> — toutes les valeurs, une par lign
 map_keys() {  # map_keys <flux> <index> — les cles distinctes de cet element
   if [ -z "${1-}" ]; then return 0; fi
   printf '%s\n' "$1" | awk -F'\t' -v i="$2" '$1 == i && !vu[$2]++ { print $2 }'
+}
+
+# --- ce que la branche touche ---------------------------------------------------
+#
+# Ces trois fonctions ont vecu dans pret.sh jusqu'a ce qu'un DEUXIEME metier en
+# ait besoin — revue.sh, qui doit relire exactement les apps que pret.sh teste.
+# C'est la regle de ce fichier : une chose y entre quand un deuxieme appelant
+# arrive, jamais avant. Les garder en double aurait laisse les deux mesures
+# diverger, et « teste » aurait cesse de vouloir dire « relu ».
+#
+# La base est celle de fabrique.yml. Elle est relue a chaque appel plutot que
+# figee dans une globale : ces fonctions sont sourcees par des scripts qui ont
+# leur propre notion de ce qui est deja calcule, et une globale a moitie posee
+# est plus couteuse a debusquer qu'un yget de plus.
+
+fichiers_touches() {  # tout ce que la branche touche, travail non committe inclus
+  local base; base=$(fab base_branch main)
+  {
+    git diff --name-only "origin/$base...HEAD" 2>/dev/null || true
+    git status --porcelain 2>/dev/null | cut -c4- || true
+  } | LC_ALL=C sort -u
+}
+
+fichiers_ajoutes() {  # ceux que la branche CREE — les autres statuts ne comptent pas
+  local base; base=$(fab base_branch main)
+  {
+    git diff --name-status --diff-filter=A "origin/$base...HEAD" 2>/dev/null | cut -f2- || true
+    git status --porcelain 2>/dev/null | grep -E '^(A.|\?\?)' | cut -c4- || true
+  } | LC_ALL=C sort -u
+}
+
+apps_touchees() {  # les apps modifiees depuis la base, travail non committe inclus
+  fichiers_touches | sed -nE 's#^apps/([^/]+)/.*#\1#p' | LC_ALL=C sort -u \
+    | while IFS= read -r a; do
+        # Un if, et non « [ -f ... ] && printf » : sous set -e, un test faux
+        # ferait sortir la boucle en code 1, donc la substitution de commande,
+        # donc le script entier — et l'appelant s'arreterait sans rien dire.
+        if [ -f "apps/$a/app.yml" ]; then printf '%s\n' "$a"; fi
+      done
 }
 
 # --- applications --------------------------------------------------------------

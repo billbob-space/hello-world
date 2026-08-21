@@ -4,6 +4,8 @@ package collection
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -104,5 +106,52 @@ func TestEcrituresConcurrentesNePerdentRienDeux(t *testing.T) {
 	}
 	if len(entrees) != 2 {
 		t.Fatalf("attendu 2 entrees apres deux ajouts concurrents, obtenu %d : %+v", len(entrees), entrees)
+	}
+}
+
+// TestNomHostileNeSortJamaisDuRepertoire (gosec G304) : le chemin de fichier
+// derive TOUJOURS de hacherUtilisateur (un hex sha256), jamais du nom brut —
+// un identifiant hostile porteur de ".." ou d'un chemin absolu ne doit donc
+// jamais faire lire ou ecrire hors du repertoire donne a NouveauFileStore.
+func TestNomHostileNeSortJamaisDuRepertoire(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NouveauFileStore(dir)
+	if err != nil {
+		t.Fatalf("NouveauFileStore : %v", err)
+	}
+	ctx := context.Background()
+
+	hostiles := []string{
+		"../../../../etc/passwd",
+		"/etc/passwd",
+		"..%2F..%2Fetc%2Fpasswd",
+		"a@x/../../../hors-repertoire",
+	}
+	for _, nom := range hostiles {
+		if err := store.Ajouter(ctx, nom, Entree{Nom: "Portishead", MBID: "m1"}); err != nil {
+			t.Fatalf("ajouter avec nom hostile %q : %v", nom, err)
+		}
+	}
+
+	// Le repertoire ne contient que des fichiers <hash>.json ecrits DEDANS,
+	// aucune fuite hors de `dir`.
+	entrees, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("lecture du repertoire : %v", err)
+	}
+	if len(entrees) != len(hostiles) {
+		t.Fatalf("attendu %d fichiers dans %q, obtenu %d : %v", len(hostiles), dir, len(entrees), entrees)
+	}
+	for _, e := range entrees {
+		nomFichier := e.Name()
+		if filepath.Ext(nomFichier) != ".json" || strings.ContainsAny(strings.TrimSuffix(nomFichier, ".json"), "/.") {
+			t.Fatalf("nom de fichier inattendu (devrait etre un hash hex) : %q", nomFichier)
+		}
+	}
+
+	// Rien n'a ete cree en dehors du repertoire dedie (l'exemple le plus
+	// verifiable : /etc/passwd n'a pas ete ecrase).
+	if info, err := os.Stat("/etc/passwd"); err == nil && info.Size() == 0 {
+		t.Fatal("/etc/passwd a ete vide/ecrase : fuite hors du repertoire")
 	}
 }

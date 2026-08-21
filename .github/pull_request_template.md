@@ -15,6 +15,29 @@
 <!-- Une ou deux lignes : ce qui a ete lance, et le resultat. Des nombres
      plutot que des adjectifs. -->
 
+## Revue
+
+<!-- OBLIGATOIRE, et la CI le verifie sur les pull requests. Deux lignes, une par
+     relecteur, chacune datee. Les cinq axes outilles (securite, dependances,
+     qualite, couverture, duplication) sont deja verts par construction — la CI
+     les bloque — donc n'en parle pas ici : cette section porte sur ce qu'aucun
+     outil ne voit.
+
+     Code — agent `relecteur`, lance sur la branche entiere avant cette PR.
+     Ecris ce qu'il a trouve et ce qui en a ete fait. « Aucun constat » est une
+     reponse valable ; « non lance » n'en est pas une.
+
+     UX/UI — agent `esthete`, seulement si des ECRANS ont bouge. Sa critique vit
+     dans `apps/<nom>/.impeccable/critique/`, et elle doit etre plus recente que
+     le dernier changement d'ecran. Ce qui a ete tranche par l'utilisateur va
+     dans le `PRODUCT.md` de l'app, retenu ET ecarte.
+
+     Un constat ecarte se dit ici avec sa raison. Un constat tu n'est pas
+     ecarte : il est cache. -->
+
+- **Code** — `relecteur`, le AAAA-MM-JJ :
+- **UX/UI** — `esthete`, le AAAA-MM-JJ : <!-- ou « aucun ecran touche » -->
+
 ## Avant de fusionner
 
 <!-- Supprime cette section s'il n'y a rien a signaler. Sinon : points

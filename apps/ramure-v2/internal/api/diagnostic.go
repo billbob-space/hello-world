@@ -25,5 +25,5 @@ func diagnosticHandler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("[]"))
 		return
 	}
-	_, _ = w.Write(Mesure.JournalDeSession(session))
+	_, _ = w.Write(Mesure.JournalDeSession(session)) // #nosec G705 -- reponse Content-Type application/json produite par encoding/json.Marshal dans JournalDeSession, jamais du HTML ; session ne sert que de cle de lookup dans l'agregat, sa valeur n'est jamais reinjectee brute dans le corps
 }

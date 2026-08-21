@@ -18,6 +18,11 @@
      tailles de police trop petites sur le texte secondaire — c'est ce second
      levier qui a le plus compte, corrige partout ci-dessous. */
   --sable-300: #ddd0ae;
+  /* --eau-300 : reservee au texte teal sur le fond plus clair de la ligne
+     active de la tendance (--encre-600) — --eau-400 y tombe a 4,26:1, sous
+     le seuil AA de 4,5:1 (verifie avec @axe-core/playwright, 20 aout 2026,
+     apps/estran/e2e/tests/connu.spec.js). */
+  --eau-300: #6fcabd;
   --eau-400: #4fb3a9;
   --eau-500: #2f8f8c;
   --eau-600: #1f6b6f;
@@ -121,15 +126,38 @@ a {
   border-radius: 4px;
 }
 
+/* Lu par un lecteur d'ecran, invisible a l'oeil. Sert a deux endroits ou le
+   sens est porte par la MISE EN FORME et se perd a l'oreille : le verbe des
+   lignes de la tendance (une ligne de chiffres est un bouton, mais son nom
+   accessible ne dit pas ce qu'il fait) et le mode d'emploi de la bande
+   horaire (qui n'a pas sa place dans un aria-label, un nom n'est pas une
+   consigne). `clip-path` plutot que `display:none` : masque ne serait pas
+   annonce du tout. */
+.pour-lecteur {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* La page s'ecoule normalement de haut en bas (entete, main, pied en flux de
    bloc ordinaire) : pas de centrage vertical, pour que le contenu ne saute
    pas visuellement entre l'etat "chargement…" et l'etat charge, qui n'ont
    pas la meme hauteur. */
+/* padding-top : sans lui, le bord bas du bandeau de jours (sa propre
+   couleur de fond, pas un simple filet) touche exactement le haut du
+   premier titre de section — 0 px d'ecart, mesure au navigateur — le meme
+   defaut que « revenir a aujourd'hui » collait auparavant a « MAREE ». */
 main {
   width: 100%;
   max-width: var(--largeur-contenu);
   margin: 0 auto;
-  padding: 0 var(--espace-4) var(--espace-6);
+  padding: var(--espace-5) var(--espace-4) var(--espace-6);
   display: flex;
   flex-direction: column;
   gap: 2.5rem;
@@ -169,32 +197,40 @@ main {
   }
 }
 
-/* ---------- navigation entre les jours ---------- */
-/* Choisir le jour regarde (jusqu'a 7 jours en arriere, 15 en avant), ajout
-   sans mode d'emploi : deux fleches, un libelle, un retour a aujourd'hui
-   qui n'apparait que quand on s'en est eloigne (prp/01-navigation-
-   temporelle.md). */
+/* ---------- bandeau de jours ---------- */
+/* Decision d'ecran du 20 aout 2026 (PRODUCT.md, "Deux decisions d'ecran...") :
+   remplace la rangee centree qui flottait au-dessus du premier titre et
+   atterrissait, a 1440px, dans la gouttiere entre les deux colonnes de <main>
+   (mesure : libelle a x 661-778, colonne gauche 140-657, colonne droite
+   705-1300) sans appartenir visiblement a l'une ni a l'autre. Le bandeau vit
+   HORS de <main>, pleine largeur, avec son PROPRE FOND : une place franche,
+   qui n'appartient a aucune des deux colonnes puisqu'il precede leur partage
+   dans le flux de la page. */
+.bandeau-jours {
+  background: var(--encre-800);
+  border-bottom: 1px solid rgba(244, 236, 216, 0.08);
+  padding: var(--espace-3) 0 var(--espace-4);
+}
 
-.nav-jour {
+.bandeau-jours-rangee {
   max-width: var(--largeur-contenu);
-  margin: var(--espace-4) auto 0;
+  margin: 0 auto;
   padding: 0 var(--espace-4);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--espace-3);
+  gap: var(--espace-2);
 }
 
-.nav-fleche {
+.bandeau-fleche {
   appearance: none;
   border: 1px solid rgba(244, 236, 216, 0.14);
   background: var(--encre-700);
   color: var(--sable-100);
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.4rem;
+  height: 2.4rem;
   flex: 0 0 auto;
   border-radius: 50%;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -202,32 +238,105 @@ main {
   justify-content: center;
 }
 
-.nav-fleche:hover:not(:disabled) {
+.bandeau-fleche:hover:not(:disabled) {
   background: var(--encre-600);
 }
 
-.nav-fleche:disabled {
+.bandeau-fleche:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.nav-jour-centre {
+/* La piste defile horizontalement, comme la bande des heures — mais SANS le
+   piege du 20 aout : aucun `tabindex` ni gestionnaire de clavier propre ici.
+   Chaque pastille est un vrai <button>, Tab entre et sort normalement, et le
+   navigateur cadre lui-meme le bouton focalise dans la piste (comportement
+   natif d'un conteneur `overflow`). Les fleches globales du clavier
+   (app.js/initNavigation) restent donc libres de changer de jour sans rien
+   voler a personne. */
+.bandeau-jours-piste {
+  display: flex;
+  align-items: stretch;
+  gap: var(--espace-2);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--espace-1) 2px;
+  min-width: 0;
+  /* Sans `contain: layout`, les 23 pastilles (bien plus larges que l'ecran)
+     debordaient de la PAGE entiere plutot que de rester clipsees dans la
+     piste : mesure au navigateur, `document.documentElement.scrollWidth`
+     passait de 390 a 1469 a 390px de large, et un `window.scrollTo` reel
+     deplaçait effectivement toute la page de plus de 1000px — un vrai
+     debordement horizontal, pas un artefact de mesure. `contain: layout`
+     isole la piste (un conteneur DEFILANT en flex) du calcul de debordement
+     de ses ancetres, sans rien changer a son propre defilement interne. */
+  contain: layout;
+}
+
+.pastille-jour {
+  appearance: none;
+  border: 1px solid rgba(244, 236, 216, 0.14);
+  background: var(--encre-700);
+  color: var(--sable-100);
+  flex: 0 0 auto;
+  min-width: 3.4rem;
+  padding: var(--espace-1) var(--espace-2);
+  border-radius: var(--rayon-petit);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--espace-1);
-  min-width: 9rem;
+  gap: 2px;
+  cursor: pointer;
+  scroll-snap-align: center;
 }
 
-.nav-jour-libelle {
-  font-size: 1.15rem;
+.pastille-jour:hover:not(.pastille-jour--actif) {
+  background: var(--encre-600);
+}
+
+.pastille-jour-nom {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--sable-300);
+}
+
+.pastille-jour-num {
+  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--sable-100);
-  text-align: center;
-  text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Aujourd'hui, quand ce n'est pas le jour REGARDE : un simple lisere eau,
+   jamais l'ambre — reservee au jour regarde (voir plus bas) et a la maree
+   (en-tete de ce fichier, principe 2 du produit). Un lisere plutot qu'un
+   deuxieme signal concurrent : il aide a retrouver "aujourd'hui" sans jamais
+   rivaliser avec le seul vrai signal de l'ecran. */
+.pastille-jour--aujourdhui:not(.pastille-jour--actif) {
+  border-color: var(--eau-400);
+}
+
+/* Le jour REGARDE : meme signal ambre que le marqueur de la jauge et la
+   ligne active de la tendance (jamais un deuxieme signal concurrent). Fond
+   plein plutot qu'un simple filet : ces pastilles sont petites, un filet de
+   3px y serait peu visible. */
+.pastille-jour--actif {
+  background: var(--ambre-400);
+  border-color: var(--ambre-400);
+  color: var(--encre-900);
+}
+
+.pastille-jour--actif .pastille-jour-nom {
+  color: var(--encre-800);
+}
+
+/* min-height 24px : cible tactile de SC 2.5.8 (WCAG 2.2 AA). C'est le seul
+   retour direct a aujourd'hui quand sa pastille est scrollee hors champ —
+   les fleches n'y ramenent qu'en sept pressions. */
 .nav-aujourdhui {
+  display: block;
   appearance: none;
   border: none;
   background: none;
@@ -235,8 +344,12 @@ main {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0;
+  margin: var(--espace-2) auto 0;
+  padding: var(--espace-1) var(--espace-2);
+  min-height: 24px;
+  border-radius: var(--rayon-petit);
   text-decoration: underline;
+  text-align: center;
 }
 
 .nav-aujourdhui[hidden] {
@@ -244,18 +357,22 @@ main {
 }
 
 @media (min-width: 640px) {
-  .nav-jour-libelle {
-    font-size: 1.2rem;
+  .pastille-jour {
+    min-width: 3.8rem;
+  }
+
+  .pastille-jour-num {
+    font-size: 1.1rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .nav-jour {
-    margin-top: var(--espace-5);
+  .bandeau-jours {
+    padding-top: var(--espace-4);
   }
 
-  .nav-jour-libelle {
-    font-size: 1.3rem;
+  .pastille-jour {
+    min-width: 4.1rem;
   }
 }
 
@@ -306,6 +423,70 @@ main {
   font-size: 1rem;
 }
 
+/* ---------- indisponibilite : un seul gabarit, partout ---------- */
+/* Decision d'ecran du 20 aout 2026 (PRODUCT.md, "Deux decisions d'ecran...") :
+   avant, quatre presentations pour une seule situation — carte+titre+
+   explication (maree), carte+phrase (pluie), texte nu sans carte du tout
+   (previsions), carte etroite au texte colle a son bord haut (tendance).
+   Une panne partielle est un etat ORDINAIRE de cette app (README, « une
+   section seule affiche son indisponibilite ») : elle merite une forme
+   sobre et repetable, pas quatre improvisations. Posee/retiree par
+   app.js/carteIndisponible, jamais a la main dans une section. */
+.indisponible {
+  text-align: center;
+}
+
+.indisponible p {
+  margin: 0;
+  color: var(--sable-200);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+/* Posee par app.js/carteIndisponible sur LES QUATRE conteneurs, y compris
+   .jauge-carte et .pluie-carte qui portent deja ce meme fond en permanence :
+   les valeurs sont IDENTIQUES (meme fond, bordure, rayon, ombre, padding),
+   les deux styles se confondent alors en un seul — c'est ce qui rend le
+   gabarit vraiment identique partout, plutot que « presque » identique.
+   .heures-rangee et .jours-rangee, qui n'ont pas de carte en temps normal,
+   la recoivent uniquement dans cet etat, d'ou le passage force en `block`
+   ci-dessous : sans lui, la grille de 5 colonnes (previsions) ou la colonne
+   flex (tendance) laisserait le message hors-centre plutot que de remplir
+   la carte. */
+.indisponible-carte {
+  background: linear-gradient(165deg, var(--encre-700), var(--encre-800));
+  border: 1px solid rgba(244, 236, 216, 0.08);
+  border-radius: var(--rayon);
+  box-shadow: 0 12px 28px var(--ombre);
+  padding: var(--espace-4);
+}
+
+.heures-rangee.indisponible-carte,
+.jours-rangee.indisponible-carte {
+  display: block;
+}
+
+/* « Identiques » se mesure, et au 21 aout 2026 les quatre cartes ne l'etaient
+   pas encore tout a fait — deux regles ecrites AILLEURS dans cette feuille
+   passaient devant `.indisponible-carte`, a specificite egale, du seul fait
+   de leur position :
+     — `.jours-rangee` (bien plus bas) pose `border: 1px rgba(…, 0.06)` : la
+       carte de la tendance avait donc un filet plus pale que les trois
+       autres (0,06 contre 0,08) ;
+     — `.jauge-carte` passe a `--espace-5` au-dela de 1024 px : la carte de la
+       maree en panne etait rembourree de 32 px quand les trois autres l'etaient
+       de 20 px (mesure a 1440 px).
+   Ces quatre selecteurs a deux classes reprennent la main partout. Sans eux,
+   le gabarit reste « presque » identique, ce qui est precisement ce que la
+   decision du 20 aout 2026 refusait. */
+.jauge-carte.indisponible-carte,
+.pluie-carte.indisponible-carte,
+.heures-rangee.indisponible-carte,
+.jours-rangee.indisponible-carte {
+  padding: var(--espace-4);
+  border: 1px solid rgba(244, 236, 216, 0.08);
+}
+
 /* ---------- jauge de maree ---------- */
 
 .jauge-carte {
@@ -321,21 +502,6 @@ main {
   font-size: 1rem;
   text-align: center;
   padding: var(--espace-4) 0;
-}
-
-.jauge-non-configuree {
-  text-align: center;
-  padding: var(--espace-3) 0;
-  color: var(--sable-200);
-  font-size: 1rem;
-  line-height: 1.55;
-}
-
-.jauge-non-configuree strong {
-  display: block;
-  color: var(--sable-100);
-  font-size: 1.1rem;
-  margin-bottom: var(--espace-2);
 }
 
 .jauge-entete {
@@ -445,15 +611,10 @@ main {
 /* La jauge mesure un instant present : sur un autre jour, elle n'a pas de
    sens et est remplacee par la liste des pleines/basses mers de ce jour
    (prp/01-navigation-temporelle.md). Le teal reste celui des hauteurs
-   d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici. */
-.jauge-jour-titre {
-  margin: 0 0 var(--espace-3);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--sable-100);
-  text-align: center;
-  text-transform: capitalize;
-}
+   d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici.
+   Pas de titre de date ici : la date du jour regarde ne s'ecrit qu'une fois,
+   dans le titre de la section horaire (PRODUCT.md, "Deux decisions d'ecran
+   de plus... — 21 aout 2026") — voir app.js/rendreExtremaJour. */
 
 .jour-extrema-liste {
   display: flex;
@@ -494,20 +655,12 @@ main {
 }
 
 @media (min-width: 640px) {
-  .jauge-jour-titre {
-    font-size: 1.2rem;
-  }
-
   .jour-extremum {
     font-size: 1.1rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .jauge-jour-titre {
-    font-size: 1.3rem;
-  }
-
   .jour-extremum {
     font-size: 1.15rem;
   }
@@ -1260,6 +1413,17 @@ main {
   white-space: nowrap;
 }
 
+/* min-width + flex-wrap : la piste du risque de pluie occupe la colonne
+   `minmax(0, 1fr)` de .jour-principale, celle qui absorbe ce qui reste apres
+   le nom, l'icone et les temperatures. En dessous de ~400 px il ne reste plus
+   assez : le groupe (goutte + « risque » + « 10 % ») mesure 100 px pour une
+   piste de 88,6 px a 390 px, de 58,6 px a 360 px, de 18,6 px a 320 px. Sans
+   ces deux proprietes, un `display: flex` ne retrecit pas et ne coupe pas : il
+   DEBORDE de sa colonne et vient s'ecrire par-dessus les temperatures —
+   mesure au navigateur le 21 aout 2026, chevauchement de 3 px a 390 px, 33 px
+   a 360 px, 73 px a 320 px, ou « 10 % » et « 21° » se superposent lettre sur
+   lettre. Avec elles, le groupe passe a la ligne au lieu de recouvrir : deux
+   informations lisibles plutot qu'une bouillie. */
 .jour-ligne .pluie {
   font-size: 1.05rem;
   font-weight: 600;
@@ -1268,6 +1432,29 @@ main {
   align-items: center;
   gap: 4px;
   justify-self: start;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* Sur le fond plus clair de la ligne active (--encre-600), --eau-400 tombe a
+   4,26:1, sous le seuil AA de 4,5:1 (verifie avec @axe-core/playwright, 20
+   aout 2026, apps/estran/e2e/tests/connu.spec.js) — --eau-300 le remplace
+   ici, meme teinte percue, contraste suffisant. Doit rester APRES les regles
+   .jour-ligne .pluie / .jour-maree ci-dessus : a specificite egale (deux
+   classes), c'est l'ordre dans la feuille qui tranche.
+
+   :hover EST DANS LA MEME REGLE, et ce n'est pas une precaution : .jour-ligne
+   :hover pose exactement le meme fond --encre-600 (voir plus haut). Le
+   correctif d'origine ne couvrait que --actif, donc les quinze autres lignes
+   retombaient a 4,26:1 des qu'on pointait dessus — mesure le 20 aout 2026,
+   ligne « vendredi » survolee : .pluie et .jour-maree a 4,26:1. axe ne
+   survole rien et ne pouvait pas le voir. La regle porte donc sur le FOND,
+   pas sur l'etat qui l'a amene. */
+.jour-ligne--actif .pluie,
+.jour-ligne--actif .jour-maree,
+.jour-ligne:hover .pluie,
+.jour-ligne:hover .jour-maree {
+  color: var(--eau-300);
 }
 
 .jour-ligne .pluie svg {
@@ -1279,12 +1466,20 @@ main {
    et il reste un pourcentage ici, faute de modele a maille fine a seize
    jours. Le mot le dit, en retrait pour ne pas peser autant que le chiffre :
    sans lui, la meme goutte suivie d'un « % » se relirait comme une quantite,
-   maintenant que la vignette juste au-dessus en affiche vraiment une. */
+   maintenant que la vignette juste au-dessus en affiche vraiment une.
+   PAS d'opacity ici pour creer ce retrait : herite de .jour-ligne .pluie, qui
+   vaut deja --eau-400 au repos et --eau-300 sur --actif/:hover (regle
+   .jour-ligne--actif .pluie... plus bas) — ces deux couleurs passent seules
+   4,5:1 sur les trois fonds de ligne (encre-700, encre-800, encre-600 :
+   5,46 / 6,55 / 5,54, verifie avec @axe-core/playwright, 20 aout 2026). Une
+   opacity de 0.75 les MELANGE au fond et fait retomber le rapport a 4,32 (fond
+   encre-800) et 3,86 (fond encre-600, survol) — c'est cette opacity, pas la
+   couleur, qui faisait echouer connu.spec.js. Le retrait vient donc seulement
+   de la taille, du poids et de l'espacement des lettres ci-dessous. */
 .jour-ligne .pluie .risque-mot {
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  opacity: 0.75;
 }
 
 .jour-ligne .temps {

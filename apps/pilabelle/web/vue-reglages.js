@@ -62,7 +62,10 @@ function construireCarteNotifications(conteneur, profil) {
 
 	const boutonActiver = document.createElement('button');
 	boutonActiver.type = 'button';
-	boutonActiver.textContent = abonne ? 'Enregistrer' : 'Activer les rappels';
+	// « Enregistrer » tout court entrait en collision avec le bouton
+	// « Enregistrer » du formulaire de profil, juste au-dessus sur le meme
+	// ecran : deux boutons de meme nom pour deux actions differentes.
+	boutonActiver.textContent = abonne ? "Enregistrer l'heure du rappel" : 'Activer les rappels';
 	boutonActiver.addEventListener('click', async () => {
 		messageEtat.hidden = true;
 		const resultat = await demanderActivationNotifications(saisieHeure.value);

@@ -460,6 +460,42 @@ avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
 
 avertit() { detache avertit_corps "$1" "$2" "$(cat)"; }
 
+section 'bout en bout'
+
+# Les dix suites de bout en bout bindent chacune un port en dur. Elles ont ete
+# ecrites app par app, sans registre, et trois paires se sont retrouvees sur le
+# meme port. Ce defaut est INVISIBLE en CI — chaque app y tourne seule dans son
+# conteneur — et ne mord que sur un poste, ou lancer deux suites de front est le
+# geste normal. --check est le seul controle qui regarde les dix apps ensemble.
+refuse "deux apps sur le meme port de bout en bout sont refusees" "18091" <<'FIN'
+sed -i 's/:-18082}/:-18091}/' apps/cadran/e2e/lancer.sh
+FIN
+
+# Le pendant du cas ci-dessus, et il n'est pas theorique : estran declare TROIS
+# ports dans son lancer.sh (degrade, connu, stub). Un controle qui compterait
+# les repetitions sans regarder a quelle app elles appartiennent le refuserait
+# lui-meme, et le garde-fou mourrait de son premier faux positif.
+avertit "une app qui repete son propre port n'est pas une collision" "ports de bout en bout distincts" <<'FIN'
+printf 'PORT_BIS="${HELLO_WORLD_E2E_PORT_BIS:-18091}"\n' >> apps/hello-world/e2e/lancer.sh
+FIN
+
+# Le trou que le relecteur a trouve dans la PREMIERE version du garde-fou : il
+# ne lisait que les defauts litteraux. ramure declare un port et en CALCULE
+# trois autres ; ils etaient invisibles au registre, et deux d'entre eux
+# entraient en collision avec le correctif meme qui venait de deplacer
+# hello-world et marcq-handball. Le controle annoncait « ports distincts » sur
+# trois paires qui ne l'etaient pas.
+refuse "un port derive par calcul entre dans le registre" "18082" <<'FIN'
+printf 'AUTRE_PORT=$((PORT - 9))\n' >> apps/hello-world/e2e/lancer.sh
+FIN
+
+# Un port derive d'une base INCONNUE ne peut pas etre situe : le controle ne
+# doit pas hausser les epaules, il doit le dire. Sans ce cran, il suffirait de
+# renommer une variable pour sortir un port du registre sans bruit.
+refuse "un port derive d'une base inconnue est refuse" "port inconnu du registre" <<'FIN'
+printf 'AUTRE_PORT=$((BASE_MYSTERE + 1))\n' >> apps/hello-world/e2e/lancer.sh
+FIN
+
 section 'journal'
 
 # Huit entrees reelles portent deja un total sans detail ; la neuvieme prouve que
@@ -578,6 +614,78 @@ awk 'BEGIN{f=0} {print}
 FIN
 
 # Attendre TOUS les cas en vol, puis rejouer les fiches dans l'ordre : la sortie
+# --- yget, teste directement -----------------------------------------------------
+#
+# Les autres cas d'ici passent par ./init.sh --check, donc par les manifestes
+# REELS du depot. Ceux-la ne portent ni \r, ni cle prefixe d'une autre, ni
+# derniere ligne sans saut final : la comparaison octet a octet de --check, si
+# rassurante soit-elle, ne prouve rien sur ces chemins. yget est appelee 1104
+# fois par --check et lit aussi des valeurs saisies a la main ; elle merite ses
+# propres cas. Le premier ci-dessous est une regression reelle, introduite par
+# la reecriture sans processus, trouvee en relecture et corrigee.
+yget_corps() {  # yget_corps <nom> <cle> <attendu> <contenu, echappements %b>
+  local nom="$1" cle="$2" attendu="$3" contenu="$4" f obtenu
+  f=$(mktemp "$TEMP/yget.XXXXXX")
+  printf '%b' "$contenu" > "$f"
+  obtenu=$( . "$SOURCE/lib/socle.sh"; yget "$f" "$cle" "DEFAUT" )
+  if [ "$obtenu" = "$attendu" ]; then
+    reussi "$nom"
+  else
+    echec "$nom" "attendu << $attendu >>, obtenu << $obtenu >>"
+  fi
+}
+yget_cas() { detache yget_corps "$1" "$2" "$3" "$(cat)"; }
+
+section "yget, le lecteur de manifeste"
+
+yget_cas "un retour chariot AU MILIEU de la valeur est retire" port "8080" <<'FIN'
+port: 80\r80
+FIN
+
+yget_cas "un retour chariot de fin de ligne CRLF est retire" port "8080" <<'FIN'
+port: 8080\r
+FIN
+
+yget_cas "le commentaire de fin part, meme precede de plusieurs espaces" port "8080" <<'FIN'
+port: 8080   # le port d'ecoute
+FIN
+
+yget_cas "un # colle a la valeur n'est PAS un commentaire" couleur "#fff" <<'FIN'
+couleur: #fff
+FIN
+
+yget_cas "une cle prefixe d'une autre ne prend pas sa valeur" port "8080" <<'FIN'
+portail: ouvert
+port: 8080
+FIN
+
+yget_cas "la premiere occurrence gagne" port "8080" <<'FIN'
+port: 8080
+port: 9090
+FIN
+
+yget_cas "une cle absente rend le defaut" absente "DEFAUT" <<'FIN'
+port: 8080
+FIN
+
+yget_cas "une cle sans valeur rend le defaut" port "DEFAUT" <<'FIN'
+port:
+FIN
+
+yget_cas "une cle indentee n'est pas lue — yget ne lit que la colonne 0" port "DEFAUT" <<'FIN'
+services:
+  port: 8080
+FIN
+
+yget_cas "la derniere ligne sans saut final est lue quand meme" port "8080" <<'FIN'
+enabled: true
+port: 8080\c
+FIN
+
+yget_cas "une paire de guillemets est retiree" nom "ma valeur" <<'FIN'
+nom: "ma valeur"
+FIN
+
 # est celle d'avant, au caractere pres.
 wait || true
 for f in "$FICHES"/[0-9]*.out; do [ -e "$f" ] && cat "$f"; done

@@ -597,7 +597,7 @@ func main() {
 		log.Print("VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY ou VAPID_CONTACT absent(e) : notifications push desactivees")
 	}
 
-	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, defis, racine, clePubliqueVAPID)}
+	srv := &http.Server{Addr: ":" + env("PORT", "8080"), Handler: routes(dico, messages, defis, racine, clePubliqueVAPID), ReadHeaderTimeout: 10 * time.Second}
 
 	lancerPlanificateurNotifications(dico, messages, racine, notifieur)
 

@@ -39,8 +39,9 @@ func main() {
 	defer cache.Close()
 
 	srv := &http.Server{
-		Addr:    ":" + port(),
-		Handler: routes(base, cache),
+		Addr:              ":" + port(),
+		Handler:           routes(base, cache),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {

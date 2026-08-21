@@ -4,7 +4,7 @@ Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branc
 coûté, de lancer l'`analyste`, le `greffier` ou l'`artisan`, ou de conclure qu'une
 branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie, présence des trois agents et des deux commandes de mode ;
+fermés par anomalie, présence des cinq agents et des deux commandes de mode ;
 pret.sh — relevé de coût manquant ou
 périmé, et app fusionnée sur `main` dont l'image en ligne est plus ancienne, en
 avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
@@ -161,6 +161,7 @@ rencontre : trois chiffres de plus s'y ajoutent, sous « Ce qui coûte ».
 |---|---|
 | appels au modèle, dont ceux des **sous-agents** | savoir ce que coûte le geste « je lance un agent », qui n'avait pas de prix |
 | poids du **démarrage** — contrat, outillage, définitions d'outils — et sa part de la relecture | il est écrit une fois par session puis **relu à chaque appel** : mesuré entre la moitié et 80 % de toute la relecture, dont le contrat du dépôt ne fait que 7 %. C'est le seul poste qu'on réduise en élaguant l'outillage plutôt qu'en travaillant moins |
+| **tours courts** — ceux qui rendent moins de 300 jetons — et leur part de la facture | un tour paie **tout** le contexte relu, quelle que soit sa sortie : un appel d'outil nu coûte autant qu'une réponse longue. Mesurés à 67 % des tours et **51 % de la facture** sur la branche la plus lourde. La parade est une habitude, pas un réglage : **les appels indépendants partent dans le même tour**. Deux lectures qui ne dépendent pas l'une de l'autre, groupées, coûtent moitié moins que séparées |
 | **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons |
 
 Et le bloc porte `cout-detail` : **un appel par ligne** — rang, agent, modèle,
@@ -277,20 +278,54 @@ Rien ne vérifie automatiquement que l'agent a bien obéi, et c'est délibéré 
 journal et le diff le disent déjà, et un contrôle de l'autonomie devrait décider
 ce qu'est une question légitime — il ne saurait pas.
 
-## Les trois agents
+## Les cinq agents
 
 ```
-Agent(subagent_type: "analyste")   # lit le journal, rend un plan
-Agent(subagent_type: "greffier")   # branche, vérifie, committe et pousse
-Agent(subagent_type: "artisan")    # écrit le code d'UNE app, ne committe pas
+Agent(subagent_type: "analyste")    # lit le journal, rend un plan
+Agent(subagent_type: "greffier")    # branche, vérifie, committe et pousse
+Agent(subagent_type: "artisan")     # écrit le code d'UNE app, ne committe pas
+Agent(subagent_type: "relecteur")   # relit la branche avant la PR, n'écrit rien
+Agent(subagent_type: "esthete")     # critique les écrans d'UNE app, dans un vrai navigateur
 ```
+
+**Les deux derniers viennent en FIN de branche, une fois, avant la pull request** —
+jamais à chaque commit : c'est un arbitrage de coût pris avec l'utilisateur.
+
+Le `relecteur` cherche ce qu'aucun outil ne voit : justesse, simplicité, duplication
+de *raisonnement*, couverture du comportement **neuf**, conformité au PRD. Il ne
+rejoue pas les cinq axes de `revue.sh`, verts par construction dès qu'un commit
+existe. Il rend une liste ordonnée par gravité — `bloquant`, `à corriger`,
+`à discuter` — et **n'écrit aucun fichier**, donc se lance en tâche de fond sans
+risque. Sa trace est la section `## Revue` du corps de la pull request, que la CI
+refuse vide.
+
+L'`esthete` invoque la compétence `impeccable` et regarde l'app **réelle**, lancée
+par son `e2e/lancer.sh`, à 390 px et à 1440 px. Il ne rejoue pas l'accessibilité
+mesurée — `axe` l'a déjà tranchée et elle bloque. Son autorité est coupée en deux, et
+c'est la règle qui compte : **il corrige seul ce qui est objectif** (cible tactile,
+message d'erreur muet, état vide absent, libellé qui ment) et **il montre le reste**
+— deux ou trois variantes d'écran publiées en artefact, l'utilisateur tranche. Sa
+critique est datée dans `apps/<nom>/.impeccable/critique/`, et le garde-fou porte sur
+sa **fraîcheur** : des écrans ne bougent pas sans qu'une critique plus récente qu'eux
+existe. Avertissement dans `pret.sh`, KO en CI sur la pull request — le même
+dédoublement que pour le journal.
 
 **Aucun agent lançable en tâche de fond ne peut modifier le dépôt.** C'est la règle,
-et elle se lit dans les deux sens. L'`analyste` et le `greffier` sont restreints à
-`Bash`, `Read` et `Grep` : **l'absence d'outil d'édition n'est pas un détail de
-configuration**, c'est ce qui garantit qu'un agent lancé en fond ne touchera pas au
-dépôt pendant que tu travailles dessus. L'`artisan`, lui, écrit par définition — donc
-**il ne se lance jamais en tâche de fond**. Même règle, autre conséquence.
+et elle se lit dans les deux sens — mais elle se lit sur ce que l'agent *fait*, pas sur
+son champ `tools:`. **`Bash` suffit à écrire** : l'absence d'`Edit` ne prouve rien.
+
+Seul l'`analyste` est réellement sans effet : `Bash`, `Read`, `Grep`, et il rend son
+plan dans sa réponse. Le `greffier` a la même liste d'outils **et modifie le dépôt** —
+`git add -A` capture tout l'arbre, y compris ce qu'un autre agent est en train d'écrire.
+Son invariant n'est pas « il n'édite pas », c'est **« il n'édite pas de code »** : ça
+suffit contre une lecture concurrente, pas contre une écriture. L'`artisan` écrit par
+définition, et l'`esthète` aussi — il porte `Edit` et `Write`, et corrige seul ce qui
+est objectif. Tous deux **ne se lancent jamais en tâche de fond**, pour la même raison.
+
+Ce qui peut malgré tout tourner en même temps, et à quelle condition, est recensé dans
+`docs/parallelisme.md` — avec le rappel que `run_in_background: false` **n'est pas une
+garantie** : deux entrées de journal rapportent le harnais démarrant en fond un artisan
+lancé avec le drapeau explicite.
 
 L'`analyste` agrège les deux champs fermés, cherche les causes qui reviennent d'une
 branche à l'autre, et rend **dans sa réponse** un plan de trois à six actions

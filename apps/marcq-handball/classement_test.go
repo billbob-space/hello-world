@@ -674,8 +674,8 @@ func TestNormaliserPseudo(t *testing.T) {
 		{brut: "R", refuse: true},
 		{brut: "", refuse: true},
 		{brut: "dix-sept-caracteres", refuse: true},
-		{brut: "Renard‮", refuse: true}, // commande bidirectionnelle
-		{brut: "Re​nard", refuse: true}, // largeur nulle
+		{brut: "Renard\u202e", refuse: true}, // commande bidirectionnelle
+		{brut: "Re\u200bnard", refuse: true}, // largeur nulle
 		{brut: "Léa", refuse: true},    // marque combinante
 		{brut: "Renard!", refuse: true},
 		{brut: "<script>", refuse: true},

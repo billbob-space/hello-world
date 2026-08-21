@@ -41,7 +41,7 @@ func main() {
 	mandataire := httputil.NewSingleHostReverseProxy(cible)
 
 	log.Printf("mandataire sur http://%s -> %s (X-Forwarded-User: %s)", *ecoute, *amont, *user)
-	log.Fatal(http.ListenAndServe(*ecoute, usurpe(*user, *hote, mandataire)))
+	log.Fatal(http.ListenAndServe(*ecoute, usurpe(*user, *hote, mandataire))) // #nosec G114 -- outil de previsualisation local uniquement : le Dockerfile construit "go build ." (paquet racine seul) et ne COPY rien depuis devtools/, ce fichier n'entre jamais dans l'image deployee
 }
 
 // usurpe reproduit exactement ce que Traefik fait devant l'application avant

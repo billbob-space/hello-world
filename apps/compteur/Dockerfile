@@ -4,7 +4,7 @@
 # Le contexte de construction est apps/compteur, pas la racine du depot : c'est
 # ce qui empeche une edition dans une autre app d'invalider le cache de celle-ci.
 
-FROM golang:1.24-alpine AS build
+FROM golang:1.25-alpine AS build
 WORKDIR /src
 
 # Couche de dependances separee : elle n'est reconstruite que si go.mod ou

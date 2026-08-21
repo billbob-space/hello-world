@@ -61,6 +61,19 @@ go run .            # ecoute sur :8080
 
 Aucune donnée persistante : rien n'est écrit sur disque, pas de volume.
 
+### Bout en bout
+
+    ./e2e/lancer.sh
+
+Natif (pas de Docker), deux phases : l'une avec les quatre fournisseurs
+externes injoignables (port fermé), l'autre contre `e2e/stub-serveur.js`, un
+faux Open-Meteo/api-maree.fr/Météo-France local qui rend des données fixes.
+Jamais le réseau réel — le PRD de la fabrique l'interdit. Les URL de base de
+`meteo.go`, `maree.go` et `pluie.go` sont donc des variables, redirigeables
+par `ESTRAN_BASE_METEO_FORECAST` / `_METEO_MARINE` / `_MAREE` / `_PLUIE` /
+`_NOWCAST` : absentes en production, elles ne changent rien au comportement
+réel, seul `e2e/lancer.sh` les pose.
+
 ## Variables d'environnement
 
 | Nom | Obligatoire | Rôle |

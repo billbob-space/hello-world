@@ -527,7 +527,10 @@ func vuePluie(s SeriePluie, n *Nowcast, maintenant time.Time, frais bool, dateCi
 	}
 
 	if v.Jour == nil && v.Heure == nil {
-		v.Erreur = "pluie indisponible pour le moment"
+		// Meme gabarit de phrase que les trois autres sections (web/app.js,
+		// carteIndisponible) : « <Sujet> indisponible : <qui ne repond pas>.
+		// Nouvelle tentative automatique dans 5 minutes. »
+		v.Erreur = "Pluie indisponible : aucune des deux sources de pluie ne répond. Nouvelle tentative automatique dans 5 minutes."
 	}
 	return v
 }

@@ -98,7 +98,14 @@ export function vueJour(conteneur, { jour, onCommencer, onReglages, onPersonnel 
 	const nbBlocs = jour.seance.blocs.length;
 	carte.appendChild(Object.assign(document.createElement('h1'), { textContent: 'Séance du jour' }));
 	carte.appendChild(paragraphe(`${nbBlocs} étapes, guidées pas à pas`, 'sous-titre'));
+	// « Le programme en une ligne » (decision du 21 aout 2026, PRODUCT.md) : une
+	// rangee de pastilles plutot qu'une liste de blocs empiles, pour que le
+	// bouton « Commencer » reste dans l'ecran a 360px de large meme le jour ou
+	// la pique et le defi s'affichent au-dessus. La classe `programme` porte
+	// cette mise en page ; les <li> restent sans classe (regle de couleur
+	// generique `ul li`, verifiee par tests/style-ecran-jour.test.js).
 	const liste = document.createElement('ul');
+	liste.className = 'programme';
 	for (const bloc of jour.seance.blocs) {
 		const li = document.createElement('li');
 		li.textContent = NOM_ZONE[bloc.zone] || bloc.zone;

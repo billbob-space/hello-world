@@ -185,7 +185,20 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("previsions indisponibles : %v", err)
-		repondreJSON(w, http.StatusOK, map[string]string{"erreur": "previsions indisponibles pour le moment"})
+		// Message LU PAR L'UTILISATEUR, pas une trace : accents compris (il
+		// s'affichait « previsions » sans accent, seul de tous les messages
+		// visibles de l'app), et il dit ce qui se passe ensuite. Une section
+		// muette pendant qu'une autre fonctionne est un etat ordinaire ici
+		// (README, « Degradation ») : sans cette derniere phrase, l'utilisateur
+		// conclut que l'application est cassee et recharge pour rien.
+		//
+		// MEME GABARIT DE PHRASE que les trois autres sections (web/app.js,
+		// carteIndisponible) : « <Sujet> indisponible : <qui ne repond pas>.
+		// Nouvelle tentative automatique dans 5 minutes. » Plus de « le reste
+		// de la page est a jour » : une section ne sait rien des trois autres,
+		// et en panne totale cette phrase s'affichait trois fois alors qu'elle
+		// etait fausse les trois fois (mesure au navigateur, 21 aout 2026).
+		repondreJSON(w, http.StatusOK, map[string]string{"erreur": "Prévisions indisponibles : Open-Meteo ne répond pas. Nouvelle tentative automatique dans 5 minutes."})
 		return
 	}
 
@@ -225,7 +238,13 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("maree indisponible : %v", err)
-		repondreJSON(w, http.StatusOK, ReponseMaree{Configure: true, Erreur: "marée indisponible pour le moment"})
+		// La carte d'indisponibilite n'a plus de titre depuis l'unification du
+		// 20 aout 2026 (web/app.js, carteIndisponible) : ce message etait donc
+		// le seul des quatre a ne pas dire de QUOI il parle — il commencait par
+		// « api-maree.fr ». Il porte desormais le meme gabarit de phrase que
+		// les trois autres : « <Sujet> indisponible : <qui ne repond pas>.
+		// Nouvelle tentative automatique dans 5 minutes. »
+		repondreJSON(w, http.StatusOK, ReponseMaree{Configure: true, Erreur: "Marée indisponible : api-maree.fr ne répond pas. Nouvelle tentative automatique dans 5 minutes."})
 		return
 	}
 

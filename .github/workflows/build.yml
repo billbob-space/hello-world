@@ -37,8 +37,87 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # fetch-depth: 0 — l'historique complet, pour que l'etape « relecteurs »
+      # ci-dessous puisse comparer la branche a sa base. Un clone superficiel
+      # rendrait « origin/main...HEAD » vide, et le controle passerait au vert
+      # en n'ayant rien compare.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - run: ./init.sh --check
+
+      # LES DEUX RELECTEURS, verifies sur les pull requests SEULEMENT. Ils ne
+      # sont pas mecanisables — un agent lit du code et regarde des ecrans — mais
+      # leur TRACE l'est : le corps de la PR pour la relecture de code, un
+      # fichier date pour la critique UX. On ne verifie pas qu'ils ont eu raison,
+      # on verifie qu'ils ont eu lieu.
+      #
+      # Sur une pull request seulement, et c'est deliberé : la relecture vient en
+      # FIN de branche. L'exiger a chaque commit ferait echouer le premier de
+      # chaque branche, ce qui apprend a contourner.
+      - name: les deux relecteurs ont-ils eu lieu
+        if: github.event_name == 'pull_request'
+        env:
+          CORPS: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          echec=0
+
+          # 1. La relecture de code : une ligne remplie sous « ## Revue ».
+          #    Le gabarit sort avec « AAAA-MM-JJ » en clair ; le laisser tel quel
+          #    est le contournement evident, donc c'est celui qu'on ferme.
+          if ! printf '%s' "$CORPS" | grep -q '^## Revue'; then
+            echo "::error::le corps de la pull request n'a pas de section « ## Revue ». Le gabarit .github/pull_request_template.md la porte : remplis-la."
+            echec=1
+          elif printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\*.*AAAA-MM-JJ'; then
+            echo "::error::la ligne « Code » de la section « ## Revue » est restee au gabarit. Lance l agent relecteur sur la branche et ecris ce qu il a trouve."
+            echec=1
+          elif ! printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\* .*[0-9]{4}-[0-9]{2}-[0-9]{2}.*[A-Za-z]'; then
+            echo "::error::la ligne « Code » de la section « ## Revue » est vide ou sans date. Forme attendue : « - **Code** — relecteur, le 2026-08-20 : <ce qu il a trouve> »."
+            echec=1
+          else
+            echo "  ok    relecture de code consignee"
+          fi
+
+          # 2. La critique UX. La regle est une COINCIDENCE DE DIFF et non une
+          #    comparaison de dates : si la branche touche les ecrans d'une app,
+          #    elle doit AUSSI toucher la critique de cette app.
+          #
+          #    La premiere version comparait l'horodatage du nom de fichier a la
+          #    date du commit qui a touche les ecrans. Elle ne pouvait JAMAIS
+          #    passer : on ecrit la critique, puis on committe — le commit est
+          #    toujours posterieur. Constate au premier passage reel, sur la
+          #    pull request qui apportait le garde-fou. Deux horloges
+          #    differentes ne se comparent pas ; le diff, lui, ne ment pas et
+          #    n'a pas d'horloge.
+          #
+          #    Decision de l'utilisateur : seuls les ecrans qui bougent
+          #    desormais sont concernes. Les apps qui n'ont jamais eu de
+          #    critique ne sont pas rattrapees.
+          # La base de comparaison. Elle vivait dans le bloc precedent, supprime
+          # avec lui lors de la reecriture — d'ou un « base: unbound variable »
+          # decouvert en CI plutot qu'ici. Sous set -u, une variable absente
+          # arrete le script ; sans set -u, elle aurait valu la chaine vide et
+          # « git diff "" HEAD » aurait compare n'importe quoi EN SILENCE.
+          base=$(git merge-base "origin/${{ github.event.pull_request.base.ref }}" HEAD)
+          touches=$(git diff --name-only "$base" HEAD)
+          # Meme liste d'exclusion que scripts/pret.sh : « web/ » en entier
+          # attraperait aussi configurations, tests et documentation, et un
+          # garde-fou qui crie sur un fichier de doc apprend a etre ignore.
+          for app in $(printf '%s\n' "$touches" \
+                        | grep -vE '\.md$|(^|/)tests?/|\.config\.[jt]s$|(^|/)package(-lock)?\.json$|(^|/)tsconfig[^/]*\.json$' \
+                        | sed -nE 's#^apps/([^/]+)/(web/|page\.html|.*\.html|.*\.css).*#\1#p' \
+                        | sort -u); do
+            [ -f "apps/$app/app.yml" ] || continue
+            if printf '%s\n' "$touches" | grep -q "^apps/$app/\.impeccable/critique/"; then
+              echo "  ok    critique UX de $app rendue dans cette branche"
+            else
+              echo "::error::les ecrans de $app ont bouge et aucune critique UX n accompagne le changement. Lance l agent esthete sur cette app."
+              echec=1
+            fi
+          done
+
+          [ "$echec" = 0 ] || exit 1
 
   # Le verrou verifie le depot ; celui-ci verifie le VERROU. init.sh etait le
   # seul programme du depot que rien ne testait, alors qu'un « ok » errone de sa
@@ -92,7 +171,15 @@ jobs:
         #                  tours, parce qu'une entree de journal qui cite un
         #                  marqueur ouvrait le bloc que ce marqueur delimite. La
         #                  sortie restait plausible de bout en bout.
-        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh]
+        # test-revue.sh  : revue.sh est la seule piece de la fabrique qui puisse
+        #                  echouer EN OUVERT — rendre vert en n'ayant rien
+        #                  verifie. Un tel defaut ne se voit ni dans un diff ni
+        #                  dans la sortie, et rassure. Constate deux fois pendant
+        #                  son ecriture : jscpd ecarte en silence les formats
+        #                  qu'il ne connait pas, puis les fichiers de plus de
+        #                  mille lignes — deux fois un rapport bien forme sur un
+        #                  perimetre vide.
+        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh, test-revue.sh]
     steps:
       - uses: actions/checkout@v4
       - run: ./${{ matrix.script }}
@@ -133,7 +220,7 @@ jobs:
             exit 1
           fi
           case "$resultat" in
-            success) echo "  ok    outillage : les quatre scripts sont verts" ;;
+            success) echo "  ok    outillage : les cinq scripts sont verts" ;;
             skipped) echo "  ok    outillage : rien n'a bouge, matrice sautee" ;;
             *)       echo "  KO    outillage : $resultat" ; exit 1 ;;
           esac
@@ -297,6 +384,24 @@ jobs:
         app: ${{ fromJSON(needs.detect.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
+      # Ce job n'avait AUCUN cache jusqu'au 2026-08-21 : huit test.sh sur dix
+      # font « go vet ./... » puis « go test ./... », et ramure-v2 y ajoute un
+      # « npm ci ». Modules et compilation etaient donc repayes de zero dans les
+      # dix shards, a chaque execution.
+      #
+      # Cle DISTINCTE de celle du job « revue » (« test-… » et non « revue-… ») :
+      # deux jobs qui ecrivent la meme cle se la disputent, un seul gagne, et
+      # les autres echouent en « cache already exists ». Elle porte sur les
+      # go.sum et les verrous npm — elle change quand une dependance change, et
+      # seulement alors.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.npm
+          key: test-${{ runner.os }}-${{ hashFiles('**/go.sum', '**/package-lock.json') }}
+          restore-keys: test-${{ runner.os }}-
       # Chaque app dit comment elle se teste dans un executable, comme elle dit
       # comment elle se construit dans un Dockerfile : la fabrique n'a pas a
       # connaitre les langages. Le runner fournit Go, Node, Python et Java ;
@@ -304,8 +409,143 @@ jobs:
       - name: tests de ${{ matrix.app }}
         run: ./apps/${{ matrix.app }}/test.sh
 
+  # La revue outillee — qualite, securite, dependances vulnerables, couverture,
+  # duplication. Un job SEPARE de « test » et non une etape de plus : les deux
+  # repondent a des questions differentes, et voir laquelle est rouge sans
+  # ouvrir les journaux vaut la minute de runner que coute le second job. Ils
+  # tournent en parallele, la duree du lot ne change donc pas.
+  #
+  # Elle ne depend PAS de « test » : une app dont les tests tombent a quand meme
+  # des failles a montrer, et les deux verdicts se lisent mieux ensemble.
+  revue:
+    needs: [contrat, detect]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Les outils sont installes par « go install » dans .revue-outils/ : sans
+      # cache, chaque job les retelecharge et les recompile. La cle porte sur
+      # fabrique.yml, seul endroit ou leurs versions sont ecrites — elle change
+      # donc quand, et seulement quand, un outil change de version.
+      #
+      # « .revue-outils » est dans cette liste depuis le 2026-08-21, et son
+      # absence coutait cher en silence : revue.sh y depose staticcheck, gosec et
+      # govulncheck (le chemin exact porte $GOTOOLCHAIN en composante), le
+      # repertoire est a la RACINE DU DEPOT et non sous $HOME, et il est
+      # gitignore. Il echappait donc a la fois au depot et au cache : les trois
+      # « go install » etaient refaits dans CHACUN des dix shards, a chaque
+      # execution. Le cache de build Go ramenait la depense a une edition de
+      # liens plutot qu'a une compilation complete — ce qui est exactement ce qui
+      # rendait la perte invisible.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.npm/_npx
+            .revue-outils
+          key: revue-${{ runner.os }}-${{ hashFiles('fabrique.yml') }}
+          restore-keys: revue-${{ runner.os }}-
+      # L'app est NOMMEE. Sans argument, revue.sh deduirait le perimetre de
+      # « origin/main...HEAD » — introuvable sur le clone superficiel de la CI,
+      # ou il ne relirait rien en annoncant un succes.
+      - name: revue de ${{ matrix.app }}
+        run: ./scripts/revue.sh ${{ matrix.app }}
+
+  # Le bout en bout : un vrai navigateur, contre l'app reelle. C'est le seul job
+  # qui voie ce que l'utilisateur voit — un test Go verifie que le serveur REND
+  # du HTML, jamais ce que ce HTML devient dans un navigateur.
+  #
+  # Il inclut le passage d'accessibilite mesuree (@axe-core/playwright) : c'est
+  # LUI, et lui seul, qui rend le contraste, l'atteignabilite au clavier et les
+  # libelles de lecteur d'ecran bloquants. Le jugement UX qui ne se mesure pas
+  # appartient a l'agent « esthete », en fin de branche ; les deux ne se
+  # remplacent pas.
+  #
+  # Il ne depend PAS de « build » : les suites lancent l'app NATIVEMENT (go build
+  # puis le binaire) et n'ont pas besoin d'une image publiee. Seules les apps qui
+  # ont vraiment une annexe — ardoise et compteur, base et cache — montent leurs
+  # conteneurs, et le runner fournit Docker.
+  bout-en-bout:
+    needs: [contrat, detect]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Le navigateur pese ~150 Mo et ne change qu'avec la version de Playwright
+      # epinglee dans le package.json de la suite : la cle porte donc sur ce
+      # fichier, et non sur le commit.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles(format('apps/{0}/e2e/package.json', matrix.app)) }}
+          restore-keys: pw-${{ runner.os }}-
+      - name: navigateur pour ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          d="apps/${{ matrix.app }}/e2e"
+          [ -x "$d/lancer.sh" ] || { echo "pas de suite — rien a installer"; exit 0; }
+          # Une suite peut gerer ses dependances elle-meme : ramure-v2 rejoue
+          # celle qui vit sous web/. Sans ce garde, « npm install --prefix » sur
+          # un repertoire sans package.json echoue en ENOENT et casse le job
+          # AVANT le premier test — sur une app dont la suite est pourtant
+          # complete. Le navigateur, lui, s'installe dans tous les cas : c'est
+          # un cache partage, et lancer.sh n'a pas a s'en occuper.
+          if [ -f "$d/package.json" ]; then
+            npm install --prefix "$d" --no-audit --no-fund
+            ( cd "$d" && npx playwright install --with-deps chromium )
+          else
+            npx --yes playwright install --with-deps chromium
+          fi
+      # Tant que les dix suites n'existent pas, l'absence AVERTIT ; le jour ou la
+      # derniere est ecrite, E2E_OBLIGATOIRE passe a 1 dans init.sh et --check
+      # met KO — c'est --check qui porte le cran, pas ce job.
+      - name: bout en bout de ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          d="apps/${{ matrix.app }}/e2e"
+          if [ -x "$d/lancer.sh" ]; then
+            "$d/lancer.sh"
+          else
+            echo "::warning::${{ matrix.app }} n'a pas de suite bout en bout — rien ne la verifie dans un navigateur"
+          fi
+
   build:
-    needs: [contrat, detect, test]
+    # PAS de « test » dans needs, et c'est delibere. Rien ici ne consomme quoi
+    # que ce soit produit par « test » : le contexte de construction est
+    # apps/<app> seul, les tags viennent de detect, et les deux controles de
+    # l'etape « labels et taille » portent sur l'image. La dependance etait
+    # POLITIQUE — ne pas publier l'image d'une app dont les tests tombent — et
+    # « deploy » la porte deja, plus finement, en exigeant
+    # « needs.test.result == success || skipped » job par job. Une image publiee
+    # sans test vert n'atteint donc JAMAIS la production : deploy ne tourne pas,
+    # rien n'est epingle, versions.yml et compose.yaml ne bougent pas, dockhand
+    # ne voit rien. Le seul effet residuel serait un tag mutable « :main »
+    # deplace — et compose.yaml n'en reference plus aucun, les dix apps y sont
+    # epinglees par SHA ; une app qui n'y figure pas encore est au premier de
+    # ses deux commits, donc enabled: false, donc sans bloc dans le compose. Sur
+    # une pull request la question ne se pose meme pas : push vaut false.
+    #
+    # CE QUE CA REND : « build » etait la seule matrice du graphe a en attendre
+    # une autre. Elle demarre desormais EN MEME TEMPS que test, revue et
+    # bout-en-bout, et sort du chemin critique.
+    #
+    # CE QUE CA COUTE, et il faut le surveiller : la pointe de jobs simultanes
+    # monte d'une dizaine. Si le plafond de jobs concurrents du compte est
+    # atteint, l'attente se deplace du graphe vers la FILE, ou elle est
+    # invisible dans la duree des jobs et n'apparait que dans celle du run.
+    # Le detail, et le reste des gisements : docs/parallelisme.md.
+    needs: [contrat, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -415,7 +655,7 @@ jobs:
           fi
 
   deploy:
-    needs: [contrat, tests-de-l-outillage, detect, test, build]
+    needs: [contrat, tests-de-l-outillage, detect, test, revue, bout-en-bout, build]
     # « sauté » et « échoué » doivent se distinguer : un build saute (rien a
     # reconstruire, mais le compose a change) doit laisser passer, un build en
     # echec doit bloquer. Sinon un commit a moitie construit referencerait une
@@ -451,6 +691,8 @@ jobs:
       && needs.detect.result == 'success'
       && (needs['tests-de-l-outillage'].result == 'success' || needs['tests-de-l-outillage'].result == 'skipped')
       && (needs.test.result == 'success' || needs.test.result == 'skipped')
+      && (needs.revue.result == 'success' || needs.revue.result == 'skipped')
+      && (needs['bout-en-bout'].result == 'success' || needs['bout-en-bout'].result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20

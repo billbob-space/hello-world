@@ -3,6 +3,7 @@
 // de verifier A8 du PRD (le parcours navigateur) et §5 (la provenance affichee
 // change reellement entre deux lectures consecutives).
 const { test, expect } = require("@playwright/test");
+const AxeBuilder = require("@axe-core/playwright").default;
 
 test("parcours complet : ecrire une ligne, la voir, puis voir la provenance changer", async ({ page }) => {
   const texte = `ligne e2e ${Math.random().toString(36).slice(2)}`;
@@ -63,4 +64,26 @@ test("un texte avec des balises HTML s'affiche comme texte, jamais execute", asy
 
   // ...ni le <b> n'existe reellement comme element du DOM.
   await expect(ligne.locator("b")).toHaveCount(0);
+});
+
+// L'ACCESSIBILITE MESUREE. C'est ce passage, et lui seul, qui rend le contraste,
+// l'atteignabilite au clavier et les libelles de lecteur d'ecran BLOQUANTS dans
+// la chaine. Le jugement UX qui ne se mesure pas appartient a l'agent
+// « esthete », en fin de branche : les deux ne se remplacent pas.
+//
+// waitForLoadState avant analyze() : AxeBuilder injecte son script dans la page,
+// et une navigation en cours detruit son contexte d'execution — « Execution
+// context was destroyed ». Constate sur ramure, ou le test passait ou tombait
+// selon la vitesse de la machine. Une course qu'on gagne une fois sur deux est
+// pire qu'un test absent : elle apprend a ignorer le rouge.
+test("aucune violation d'accessibilite serieuse", { tag: "@a11y" }, async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const resultat = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const graves = resultat.violations.filter(
+    (v) => v.impact === "serious" || v.impact === "critical",
+  );
+  expect(graves.map((v) => `${v.id} (${v.impact}) : ${v.help}`)).toEqual([]);
 });

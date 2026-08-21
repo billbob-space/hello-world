@@ -348,7 +348,7 @@ func ecrireAtomique(chemin string, donnees []byte) error {
 		os.Remove(nom)
 		return err
 	}
-	d, err := os.Open(dossier)
+	d, err := os.Open(dossier) // #nosec G304 -- dossier = filepath.Dir(chemin) ou chemin = m.chemin(empreinte) ; empreinte est un hex.EncodeToString(sha256...) produit par empreintePseudo, donc sans "/" ni "..", si bien que dossier vaut toujours m.dossier, le repertoire fixe configure au demarrage, jamais une valeur venant d'une requete HTTP
 	if err != nil {
 		return err
 	}

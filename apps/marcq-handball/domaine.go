@@ -259,21 +259,6 @@ func (p *Programme) programmes(jour string) map[string]bool {
 	return ids
 }
 
-// seanceDe rend la seance portant cet identifiant d'exercice. Sert a la vue
-// coach, qui compte par seance.
-func (p *Programme) seanceDe(id string) *Seance {
-	for i := range p.Seances {
-		for _, b := range p.Seances[i].Blocs {
-			for _, ex := range b.Exercices {
-				if ex.ID == id {
-					return &p.Seances[i]
-				}
-			}
-		}
-	}
-	return nil
-}
-
 // arrondi3 arrondit une part a trois decimales. C'est le SEUL arrondi du
 // projet, et il est cote serveur : sans lui, le podium afficherait 90,9 % la ou
 // l'ecran perso afficherait 91 % pour le meme enfant.

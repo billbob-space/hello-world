@@ -21,7 +21,7 @@ COPY web/src ./src
 COPY web/manifest.webmanifest web/icone.svg ./
 RUN npm run build
 
-FROM golang:1.24-alpine AS serveur
+FROM golang:1.25-alpine AS serveur
 WORKDIR /src
 
 # Couche de dependances separee : elle n'est reconstruite que si go.mod bouge.

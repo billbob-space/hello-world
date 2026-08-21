@@ -37,6 +37,10 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 			const iframe = document.createElement('iframe');
 			iframe.src = video;
 			iframe.setAttribute('allow', 'autoplay');
+			// Nom accessible obligatoire pour un frame (WCAG 4.1.2, detecte par
+			// le bout en bout, e2e/tests/pilabelle.spec.js) : sans lui, un
+			// lecteur d'ecran annonce une iframe muette.
+			iframe.title = `Vidéo de démonstration : ${exercice.nom}`;
 			iframe.className = 'video';
 			carte.appendChild(iframe);
 		}
@@ -80,6 +84,19 @@ export function vueSeance(conteneur, { seance, onSeanceTerminee }) {
 			} else if (etat === 'pause') {
 				boutonPrincipal.textContent = 'Reprendre';
 			} else if (etat === 'termine') {
+				// Pendant le repit de 2s, l'ecran continuait d'afficher « 😮‍💨 Repos »,
+				// un decompte fige sur « 1 » (l'intervalle s'arrete avant de
+				// notifier zero) et un bouton « Pause » inerte : un tap ne
+				// declenchait rien, aucun etat du minuteur ne correspondant.
+				// L'ecran dit maintenant ce qui se passe, et le bouton le dit aussi.
+				labelPhase.textContent = '';
+				labelPhase.classList.remove('repos');
+				etatAffiche.textContent = '';
+				etatAffiche.classList.remove('repos');
+				boutonPrincipal.disabled = true;
+				boutonPrincipal.textContent = index + 1 >= exercices.length
+					? 'Séance terminée ✓'
+					: 'Exercice suivant…';
 				idsFaits.push(exercice.id);
 				index += 1;
 				setTimeout(() => {

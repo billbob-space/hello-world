@@ -18,13 +18,22 @@
     <p class="horloge" id="horloge" aria-live="off"></p>
   </header>
 
-  <nav class="nav-jour" aria-label="Navigation entre les jours">
-    <button type="button" class="nav-fleche" id="nav-precedent" aria-label="Jour précédent">‹</button>
-    <div class="nav-jour-centre">
-      <span class="nav-jour-libelle" id="nav-jour-libelle">Aujourd’hui</span>
-      <button type="button" class="nav-aujourdhui" id="nav-aujourdhui" hidden>revenir à aujourd’hui</button>
+  <!-- Bandeau de jours (PRODUCT.md, "Deux decisions d'ecran... 20 aout 2026") :
+       remplace la rangee centree qui atterrissait dans la gouttiere entre les
+       deux colonnes a 1440px. Il vit HORS de <main>, pleine largeur, avec son
+       propre fond : une place franche, qui n'appartient a aucune des deux
+       colonnes puisqu'il precede leur partage. Les pastilles (une par jour de
+       J-7 a J+15) sont construites UNE SEULE FOIS par app.js/construireBandeauJours
+       : changer de jour ne fait que basculer une classe et aria-current sur les
+       boutons existants, jamais reconstruire le DOM, pour que le focus clavier
+       reste en place d'un jour a l'autre. -->
+  <nav class="bandeau-jours" aria-label="Navigation entre les jours">
+    <div class="bandeau-jours-rangee">
+      <button type="button" class="bandeau-fleche" id="nav-precedent" aria-label="Jour précédent">‹</button>
+      <div class="bandeau-jours-piste" id="bandeau-jours-piste"></div>
+      <button type="button" class="bandeau-fleche" id="nav-suivant" aria-label="Jour suivant">›</button>
     </div>
-    <button type="button" class="nav-fleche" id="nav-suivant" aria-label="Jour suivant">›</button>
+    <button type="button" class="nav-aujourdhui" id="nav-aujourdhui" hidden>revenir à aujourd’hui</button>
   </nav>
 
   <main>
@@ -44,7 +53,18 @@
 
     <section class="previsions-section" aria-labelledby="titre-previsions">
       <h2 id="titre-previsions" class="titre-section">Les prochaines heures</h2>
-      <div class="heures-rangee" id="heures-rangee">
+      <!-- La bande defile horizontalement : tabindex="0" la rend atteignable
+           au clavier (sans quoi son contenu deborde sans moyen de l'atteindre).
+           Le NOM vient de aria-labelledby, jamais d'un aria-label fige : le
+           titre change avec le jour regarde ("vendredi 21 aout"), et un
+           aria-label en dur annoncait "Les prochaines heures" en contradiction
+           avec le titre visible juste au-dessus. Le mode d'emploi part dans
+           aria-describedby : un nom accessible nomme, il ne donne pas de
+           consigne. Et role="group" plutot que role="region" : la <section>
+           parente est deja une region du meme nom, deux reperes imbriques
+           homonymes n'aident personne. -->
+      <p id="previsions-aide" class="pour-lecteur">Bande défilante : les flèches gauche et droite font défiler les heures tant que le curseur est ici.</p>
+      <div class="heures-rangee" id="heures-rangee" tabindex="0" role="group" aria-labelledby="titre-previsions" aria-describedby="previsions-aide">
         <p class="etat-attente">chargement…</p>
       </div>
     </section>

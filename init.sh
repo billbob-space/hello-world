@@ -134,8 +134,11 @@ MEMORY_TENU='--check|CI|hook'
 
 # --- applications ---------------------------------------------------------------
 
+# Sans processus, comme yget et pour la meme raison : appelee 131 fois par
+# --check, elle forkait un printf et un grep a chaque nom verifie. La classe et
+# les bornes sont celles de l'expression reguliere d'avant, a la lettre.
 valid_svc_name() {  # label DNS : ni tiret en tete ni tiret en queue
-  printf '%s' "$1" | grep -qE '^[a-z0-9]([a-z0-9-]{0,29}[a-z0-9])?$'
+  [[ "$1" =~ ^[a-z0-9]([a-z0-9-]{0,29}[a-z0-9])?$ ]]
 }
 
 valid_name() {  # meme regle pour une app, mais elle dit pourquoi elle refuse
@@ -673,6 +676,74 @@ check_volume_noms() {
       vu[$n]="$a"
     done
   done
+}
+
+# Les ports par defaut du bout en bout, distincts d'une app a l'autre.
+#
+# Chaque e2e/lancer.sh binde un port en dur, sous la forme ${VAR:-NNNNN}. Les dix
+# suites ont ete ecrites app par app, sans registre : trois paires se sont
+# retrouvees sur le meme port (18081 compteur/hello-world, 18084 estran/
+# marcq-handball, 18085 estran/pilabelle).
+#
+# La CI ne peut PAS voir ce defaut : chaque app y tourne dans son propre
+# conteneur, seule, et le port est libre a tous les coups. Il ne se manifeste
+# que sur un poste de developpement, ou lancer deux suites en meme temps est le
+# geste normal — et il s'y manifeste mal : la seconde suite se connecte au
+# serveur de la PREMIERE, teste l'app du voisin et rend des echecs qui n'ont
+# aucun rapport avec ce qu'on vient d'ecrire. Ou pire, elle passe.
+#
+# Un vert silencieux de plus, et le seul de cette branche qu'aucune execution en
+# CI n'aurait jamais revele. D'ou un controle de --check, la seule chose qui
+# regarde les dix apps ENSEMBLE.
+check_e2e_ports() {
+  local a f ligne var base signe delta p col=0 total=0
+  declare -A vu=() origine=()
+  for a in "${APPS[@]}"; do
+    f="apps/$a/e2e/lancer.sh"
+    [ -f "$f" ] || continue
+    unset locales; declare -A locales=()
+    while IFS= read -r ligne; do
+      # 1. Un defaut litteral : PORT="${NOM_E2E_PORT:-18083}"
+      if [[ "$ligne" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=\"?\$\{[A-Za-z_][A-Za-z0-9_]*:-([0-9]{4,5})\}\"?[[:space:]]*$ ]]; then
+        locales[${BASH_REMATCH[1]}]="${BASH_REMATCH[2]}"
+      # 2. Un port DERIVE par calcul : PORT_PANNE=$((PORT + 2))
+      #
+      #    La premiere version de ce controle ne lisait que la forme 1, et
+      #    c'est le relecteur qui a vu le trou. ramure declare UN port litteral
+      #    et en calcule TROIS autres ; ils etaient invisibles au registre, et
+      #    deux d'entre eux etaient entres en collision avec le correctif meme
+      #    qui avait deplace hello-world et marcq-handball. Le garde-fou
+      #    annoncait « ports distincts » sur trois paires qui ne l'etaient pas :
+      #    un vert silencieux dans le controle ecrit CONTRE les verts
+      #    silencieux.
+      elif [[ "$ligne" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=\$\(\([[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([+-])[[:space:]]*([0-9]+)[[:space:]]*\)\) ]]; then
+        var="${BASH_REMATCH[1]}"; base="${BASH_REMATCH[2]}"
+        signe="${BASH_REMATCH[3]}"; delta="${BASH_REMATCH[4]}"
+        if [ -n "${locales[$base]+x}" ]; then
+          if [ "$signe" = "+" ]; then locales[$var]=$(( locales[$base] + delta ))
+          else                        locales[$var]=$(( locales[$base] - delta )); fi
+        else
+          bad "apps/$a/e2e/lancer.sh derive $var de $base, port inconnu du registre — le controle ne peut pas savoir sur quoi il tombe"
+          col=$((col+1))
+        fi
+      fi
+    done < "$f"
+    # Un port RESERVE ferme compte comme les autres : ramure s'en sert pour
+    # simuler une source injoignable (« personne n'ecoute ici »). Le jour ou un
+    # voisin y ecoute, la panne testee n'est plus une panne, et le test passe au
+    # vert en ayant verifie le contraire de ce qu'il annonce.
+    for var in "${!locales[@]}"; do
+      p="${locales[$var]}"
+      total=$((total+1))
+      if [ -n "${vu[$p]+x}" ] && [ "${vu[$p]}" != "$a" ]; then
+        bad "port $p : ${origine[$p]} ET apps/$a/e2e/lancer.sh ($var) — lancer les deux suites en meme temps fait tester une app par la suite de l'autre ; la CI ne le verra jamais, chaque app y tourne seule"
+        col=$((col+1))
+      else
+        vu[$p]="$a"; origine[$p]="apps/$a/e2e/lancer.sh ($var)"
+      fi
+    done
+  done
+  [ "$col" -eq 0 ] && ok "ports de bout en bout distincts entre apps ($total declare(s), litteraux et derives)"
 }
 
 mem_to_mb() {  # 128m -> 128, 1g -> 1024
@@ -1350,13 +1421,33 @@ YAML
 }
 
 emit_gowork() {
-  local a uses=""
+  local a uses="" v vmax="1.24.0"
   for a in "${APPS[@]}"; do
     [ -f "apps/$a/go.mod" ] || continue
     uses="$uses
 use ./apps/$a"
+    # La version de langage du workspace est le MAXIMUM de celles des apps, et
+    # non une constante. Une valeur figee tient jusqu'au jour ou une app monte —
+    # ce qui arrive sans qu'on le decide : les versions correctives designees par
+    # govulncheck portent leur propre directive go, et « go get » la propage.
+    # Constate le 2026-08-20 : trois apps passees en 1.25.0 pour fermer deux
+    # failles, un go.work regenere a 1.24.0, et PLUS AUCUNE app Go analysable —
+    # « module ../compteur requires go >= 1.25.0, but go.work lists go 1.24.0 ».
+    # Le generateur remettait la panne a chaque passage.
+    v=$(sed -nE 's/^go[[:space:]]+([0-9]+\.[0-9]+(\.[0-9]+)?)[[:space:]]*$/\1/p' "apps/$a/go.mod" | head -1)
+    [ -n "$v" ] || continue
+    # Comparaison numerique composant par composant : « 1.9 » est plus grand que
+    # « 1.10 » pour sort ordinaire, et le tri lexical se trompe des la 1.100.
+    # Un « if » et non « [ ... ] && ... » : sous set -e, un test faux en DERNIERE
+    # commande de la boucle ferait sortir la fonction en code 1, donc rendre un
+    # go.work vide — et l'appelant le prendrait pour « aucune app Go ».
+    if [ "$(printf '%s\n%s\n' "$vmax" "$v" | sort -V | tail -1)" = "$v" ]; then
+      vmax="$v"
+    fi
   done
   [ -n "$uses" ] || return 1
+  # Trois composants, toujours — voir le commentaire du gabarit ci-dessous.
+  case "$vmax" in *.*.*) ;; *) vmax="$vmax.0" ;; esac
   cat <<EOF
 // Genere par init.sh — les apps Go de la fabrique.
 // Sans ce fichier, gopls ouvert a la racine du depot ne voit aucun module :
@@ -1371,7 +1462,12 @@ use ./apps/$a"
 // workspace du toolchain compare comme inegales. Un go.work a trois
 // composants reste accepte par les app.mod a deux composants (verifie), donc
 // cette forme est la seule qui satisfasse les deux a la fois.
-go 1.24.0
+//
+// La VALEUR, elle, est le maximum des directives go: des apps et non une
+// constante : une app qui monte de version doit faire monter le workspace, sans
+// quoi plus aucune app Go n'est analysable. Une constante a tenu jusqu'au jour
+// ou fermer deux failles de dependance a fait passer trois apps en 1.25.
+go $vmax
 $uses
 EOF
 }
@@ -2117,6 +2213,23 @@ check_shared_services() {
   done
 }
 
+# E2E_OBLIGATOIRE — le cran d'arret de la montee en charge du bout en bout.
+#
+# Trois apps sur dix avaient une suite quand le contrat a ete pose, et aucune ne
+# tournait en integration continue. Exiger « e2e/lancer.sh » partout des le
+# premier jour aurait rendu --check rouge pour tout le monde sur une dette que
+# personne n'avait choisie ; ne rien exiger du tout aurait laisse la regle a
+# l'etat d'intention. D'ou un drapeau, ici et pas dans une tete de chapitre :
+# tant qu'il vaut 0, l'absence AVERTIT ; le jour ou la dixieme suite est ecrite,
+# il passe a 1 et l'absence devient KO. Le cran est dans le code, pas dans une
+# promesse.
+#
+# PASSE A 1 le 2026-08-20 : les dix suites existent. Ce qui etait un
+# avertissement est desormais un refus — une app neuve ne peut plus naitre sans
+# verification en navigateur reel, et une suite supprimee ne peut plus l'etre en
+# silence.
+E2E_OBLIGATOIRE=1
+
 check_app_files() {
   load_app "$1"
   local p="[$APP]" d="apps/$APP"
@@ -2209,6 +2322,39 @@ check_app_files() {
     || bad "$p $d/test.sh absent ou non executable — ses tests ne tourneront jamais"
   [ -f "$d/.dockerignore" ] && ok "$p .dockerignore" || warn "$p pas de .dockerignore : la doc casse le cache de build"
   [ -f "$d/PRODUCT.md" ]   && ok "$p PRODUCT.md"    || warn "$p pas de PRD"
+
+  # prepare.sh est FACULTATIF, mais un prepare.sh non executable est pire que
+  # pas de prepare.sh : test.sh et revue.sh l'appellent tous les deux, et
+  # echoueraient tous les deux sur un fichier que l'auteur croit branche.
+  if [ -f "$d/prepare.sh" ] && [ ! -x "$d/prepare.sh" ]; then
+    bad "$p $d/prepare.sh existe mais n'est pas executable — test.sh et la revue l'appellent"
+  fi
+
+  # Le bout en bout. Voir E2E_OBLIGATOIRE plus haut pour le pourquoi du cran.
+  if [ -x "$d/e2e/lancer.sh" ]; then
+    ok "$p e2e/lancer.sh executable"
+  elif [ -f "$d/e2e/lancer.sh" ]; then
+    bad "$p $d/e2e/lancer.sh existe mais n'est pas executable — la CI ne le lancera pas"
+  elif [ "$E2E_OBLIGATOIRE" = 1 ]; then
+    bad "$p $d/e2e/lancer.sh absent — aucune verification en navigateur reel"
+  else
+    warn "$p pas de e2e/lancer.sh : rien ne verifie cette app dans un navigateur reel"
+  fi
+
+  # Les seuils de revue. On verifie la FORME et jamais la valeur : mesurer une
+  # couverture demande de lancer les tests, ce que --check ne fait pas et ne doit
+  # pas faire. Un seuil mal forme est en revanche un piege silencieux — « 64 % »
+  # au lieu de « 64 » rend la comparaison de revue.sh fausse sans rien casser.
+  local k v
+  for k in revue_couverture revue_couverture_web revue_duplication; do
+    v=$(yget "$d/app.yml" "$k" "")
+    [ -n "$v" ] || continue
+    if printf '%s' "$v" | grep -qE '^[0-9]+$' && [ "$v" -le 100 ]; then
+      ok "$p $k : $v"
+    else
+      bad "$p $k vaut '$v' — attendu un entier de 0 a 100, sans signe pourcent"
+    fi
+  done
 }
 
 # --- les huit sections de --check -----------------------------------------------
@@ -2475,6 +2621,7 @@ check_applications() {
   check_hidden
   check_volume_noms
   ok "noms de volumes distincts entre apps"
+  check_e2e_ports
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.

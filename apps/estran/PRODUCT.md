@@ -370,3 +370,108 @@ inventée ni recopiée d'une source à l'autre. Le radar ne rend pas de
 millimètres et n'en rendra pas ; la courbe garde son cumul, calculé par le seul
 modèle. Les deux sections gardent leurs pannes séparées : sans bande de l'heure,
 il n'y a rien à trancher et la phrase se tait d'elle-même.
+
+### Deux décisions d'écran, tranchées sur maquettes — 20 août 2026
+
+Rendues par la première critique UX outillée de l'app, sur trois variantes
+chacune. L'utilisateur a tranché ; ce qui est écarté est écrit ici avec sa
+raison, sans quoi il reviendra tel quel dans deux mois.
+
+**Où vit le choix du jour — retenu : le bandeau de jours.** Une rangée de jours
+en haut de l'écran, sur laquelle on saute directement à celui qu'on veut.
+
+Ce qui l'a emporté n'est pas l'esthétique mais un défaut nommé : le choix du
+jour *flottait* entre les deux colonnes sans appartenir à aucune, et sur un jour
+autre qu'aujourd'hui la même date se lisait **trois fois en moins de 500 px**.
+Le bandeau lui donne une place et supprime les répétitions.
+
+*Écarté — le jour dans l'en-tête*, à côté de l'horloge. Plus discret, et rendu à
+sa place logique. Écarté parce que moins repérable : sur un écran qu'on ouvre
+pour savoir « et demain ? », le geste principal ne doit pas être le plus petit.
+
+*Écarté — aucun contrôle en haut*, la tendance à seize jours servant seule à
+changer de jour. C'est l'écran d'ouverture le plus calme des trois, et
+l'argument était sérieux. Écarté parce qu'il rend la navigation implicite : rien
+ne dit qu'on peut changer de jour, et ce qui ne se voit pas ne s'utilise pas.
+
+**Ce qu'on voit quand une source ne répond pas — retenu : le même gabarit
+partout.** Les quatre sections disent leur indisponibilité exactement de la même
+façon.
+
+Le défaut corrigé est là aussi précis : le même écran portait **quatre
+présentations différentes pour une seule situation**, dont une section sans
+carte du tout. Une panne partielle est un état *ordinaire* de cette app — le
+README le promet, « une section seule affiche son indisponibilité » — donc elle
+mérite une forme, pas quatre improvisations.
+
+*Écarté — un constat en tête d'écran*, une phrase disant ce qui ne répond pas et
+que l'app réessaie, les sections restant sobres en dessous. C'était la variante
+la plus informative, et elle répondait le mieux à « est-ce cassé ou partiel ? ».
+Écartée pour son coût de tenue : une bannière globale doit rester juste à mesure
+que les sources changent, et elle ment le jour où elle ne suit plus.
+
+*Écarté — la dernière valeur connue*, hachurée et datée, plutôt que du vide.
+Séduisant : on voit quelque chose. Écarté parce qu'un chiffre périmé sur un
+écran de marée et de météo est pire que pas de chiffre — c'est exactement le
+genre de donnée sur laquelle on décide d'aller à l'eau.
+
+**Ce que ces deux décisions engagent** : une seule forme d'indisponibilité dans
+toute l'app, et le choix du jour est un contrôle visible, jamais déduit d'un
+autre élément.
+
+### Deux décisions d'écran de plus, tranchées le 21 août 2026
+
+Rendues par la critique UX du résultat construit — celle du 20 août avait montré
+des variantes sans jamais voir ce qui en sortirait. Les deux portent sur ce que
+le bandeau de jours a laissé derrière lui.
+
+**Où s'écrit la date du jour regardé — retenu : une seule fois, dans le titre de
+la section horaire.** La carte de marée perd la sienne.
+
+Le bandeau devait supprimer la répétition de la date ; il en a supprimé **une
+sur trois**. Mesuré à 1440 px sur le dimanche 23 : « Dimanche 23 août » sur la
+carte de marée et « DIMANCHE 23 AOÛT » en titre de section, **au même y**. Elles
+ne sont plus l'une sous l'autre, elles sont côte à côte sur la même ligne des
+yeux — donc plus visibles qu'avant le bandeau, pas moins. Plus la pastille
+« DIM 23 » au-dessus, ce qui fait trois.
+
+Ce qui a fait le choix : celui qui ouvre l'app vient d'abord voir les heures.
+Laisser la date là où son regard se pose déjà lui évite un déplacement.
+
+*Écarté — une seule date sous le bandeau*, avec les deux titres de rubrique
+redevenus stables. Défendable, et plus régulier : un seul endroit où lire où
+l'on se trouve. Écarté parce qu'il éloigne la date de la section qu'on lit en
+premier, et qu'il ajoute une ligne au-dessus du contenu sur un écran de
+téléphone déjà court.
+
+*Écarté — les deux dates restent* (le témoin). Écarté : la répétition était le
+défaut nommé qui a motivé le bandeau, la garder viderait la décision du 20 août
+de son effet.
+
+**Ce qu'on voit quand le fournisseur ne couvre pas le jour demandé — retenu : le
+texte nu, tel quel.** « Aucune prévision pour ce jour » reste une phrase grise
+sans cadre.
+
+C'est le témoin, et c'est délibéré. La critique a raison de relever que c'est une
+**cinquième forme d'absence** sur un écran qui vient d'en unifier quatre. Mais
+l'absence de cadre porte ici une information juste : ce n'est pas une panne,
+c'est un vide légitime, et rien n'est cassé. Les quatre cartes disent « la source
+ne répond pas » ; cette phrase dit « il n'y a rien à montrer ». Les confondre
+sous un même gabarit ferait croire à une panne là où il n'y en a pas.
+
+*Écarté — la même carte que l'indisponibilité*, avec une phrase distinguant la
+cause. Le plus régulier des trois. Écarté parce qu'il fait porter à la forme une
+distinction que seule la phrase tiendrait : le jour où quelqu'un abrège le texte,
+un vide légitime devient une panne à l'œil.
+
+*Écarté — griser dans le bandeau les jours que le fournisseur ne couvre pas.*
+C'était la variante la plus riche : elle montrait d'avance où s'arrête la fenêtre
+des prévisions, une question restée ouverte depuis le 20 août — la navigation va
+plus loin qu'elle. Écarté ici parce qu'elle déplace le sujet du vide vers la
+navigation, et qu'elle demande au bandeau de connaître les limites de chaque
+source. **À reprendre séparément** : la question « jusqu'où vont les prévisions »
+reste entière, et elle ne se règle pas dans une carte vide.
+
+**Ce que ces décisions engagent** : une absence *légitime* et une *panne* ne se
+présentent pas de la même façon, et cette différence est portée par la forme,
+pas seulement par les mots.
