@@ -31,8 +31,10 @@ warn() { printf '  \033[33mattn\033[0m  %s\n' "$1"; WARNINGS+=("$1"); }
 # cette raison. pret.sh delegue a init.sh --check, cout.sh --rappel et revue.sh
 # comme a des processus SEPARES — frontiere deliberee, qui l'empeche de
 # dependre de leur interieur — donc leurs avertissements vivent et meurent chez
-# eux, ou chacun rappelle les siens. Sans ce nom, « 1 avertissement » sous deux
-# lignes « attn » se lirait comme un compte faux plutot que comme une portee.
+# eux. Seuls init.sh --check et pret.sh appellent ce rappel : les autres
+# scripts rendent une sortie assez courte pour qu'un « attn » s'y voie sans
+# aide. Sans ce nom, « 1 avertissement » sous deux lignes « attn » se lirait
+# comme un compte faux plutot que comme une portee.
 #
 # Le test de longueur precede l'expansion : sous « set -u », et sur bash < 4.4,
 # « ${WARNINGS[@]} » sur un tableau vide est une variable non liee et tuerait le
