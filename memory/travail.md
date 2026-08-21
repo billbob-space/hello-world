@@ -289,6 +289,46 @@ Agent(subagent_type: "relecteur")   # relit la branche avant la PR, n'écrit rie
 Agent(subagent_type: "esthete")     # critique les écrans d'UNE app, dans un vrai navigateur
 ```
 
+**Chaque agent déclare son moteur ET son plafond**, et `./init.sh --check` refuse une
+fiche à qui l'un des deux manque. La raison est qu'un agent sans `model:` ne tombe pas
+en panne : il prend le **plus cher**, en silence. C'est ce qu'ont fait l'analyste et
+l'esthète pendant des semaines, l'esthète à 17 $ la passe sans que ce soit la décision
+de qui que ce soit.
+
+| Agent | Moteur | Plafond | Repère mesuré |
+|---|---|---|---|
+| `greffier` | `haiku` | 30 000 jetons | 0,07 $ |
+| `analyste` | `opus` | 80 000 jetons | 0,89 $ |
+| `artisan` | `sonnet` | 100 000 jetons, **un seul PRP** | 0,96 $ |
+| `relecteur` | `opus` | 100 000 jetons | 1,08 $ |
+| `esthète` | `opus` | 100 000 jetons **et 150 gestes** | 17,06 $ |
+
+Ces choix viennent d'un banc, pas d'une impression : même mission, même entrée, trois
+moteurs, avec des réponses connues d'avance — six défauts semés dans du vrai code parmi
+trois changements anodins, une distribution de journal calculée d'avance, douze tests
+d'acceptation écrits avant et jamais montrés. Méthode, vérités de référence et dix
+relevés : `docs/banc/agents/releve.md`, onze relevés de banc. Le greffier fait
+exception : son 0,07 $ vient de ses passages réels sur la branche, aucun moteur ne
+lui a été opposé — c'est un repère, pas une comparaison. Quatre enseignements qui ne
+se devinent pas :
+
+- **le moteur cher n'est pas proportionnellement cher à l'usage.** Le tarif d'`opus`
+  vaut cinq fois celui de `haiku` ; sur le même travail le relevé ne coûte que trois
+  fois et demie, parce qu'il relit 524 000 jetons là où `haiku` en relit 1 403 000. Le
+  tâtonnement se paie en contexte relu ;
+- **le moins cher réussit le mécanique et rate le jugement.** Les trois moteurs comptent
+  juste la distribution du journal — c'est un travail d'`awk`. Seul le moins cher
+  fabrique ensuite des chiffres **faux** dans son plan : plausibles, non sourcés, et
+  rien ne signale qu'ils sont inventés ;
+- **passer les tests ne prouve rien sur le code.** Les trois artisans passent les mêmes
+  douze tests d'acceptation. Un seul rend du code sans champ mort, commenté en français,
+  et sans un défaut qu'aucun test n'attrape ;
+- **le moteur n'est pas le poste.** L'esthète coûte seize fois le relecteur **à moteur
+  égal**, parce qu'il fait 141 gestes de navigateur et que chaque capture se relit à
+  tous les gestes suivants. Pour lui la borne utile est un nombre de gestes, pas un
+  moteur — d'où le second plafond, et l'obligation de dire ce qu'il n'a pas regardé
+  plutôt que de s'arrêter en silence.
+
 **Les deux derniers viennent en FIN de branche, une fois, avant la pull request** —
 jamais à chaque commit : c'est un arbitrage de coût pris avec l'utilisateur.
 
@@ -325,8 +365,10 @@ est objectif. Tous deux **ne se lancent jamais en tâche de fond**, pour la mêm
 
 Ce qui peut malgré tout tourner en même temps, et à quelle condition, est recensé dans
 `docs/parallelisme.md` — avec le rappel que `run_in_background: false` **n'est pas une
-garantie** : deux entrées de journal rapportent le harnais démarrant en fond un artisan
-lancé avec le drapeau explicite.
+garantie** : trois entrées de journal rapportent le harnais démarrant en fond un artisan
+lancé avec le drapeau explicite. La règle « jamais en tâche de fond » n'a donc **aucun
+moyen d'exécution** ; ce qui protège réellement, c'est un arbre de travail dédié par
+agent écrivain, ou l'appelant qui n'en met jamais deux en vol.
 
 L'`analyste` agrège les deux champs fermés, cherche les causes qui reviennent d'une
 branche à l'autre, et rend **dans sa réponse** un plan de trois à six actions
@@ -423,7 +465,8 @@ mots, jamais les faits.
 ### Le rapport — agent → appelant
 
 Chaque agent porte son format dans sa consigne, sous `## Rendu`, et `--check`
-vérifie que les cinq le portent avec leurs champs : un agent réécrit sans son
+vérifie que les cinq le portent avec leurs champs — comme il vérifie leur `model:` et
+leur `## Plafond` : un agent réécrit sans son
 format redevient bavard sans que rien ne le signale.
 
 | Agent | Champs obligatoires |

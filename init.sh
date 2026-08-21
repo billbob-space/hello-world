@@ -3060,6 +3060,30 @@ check_outillage() {
   # cinq fichiers, que le registre des agents ne relit qu'au demarrage d'une
   # session — un agent absent ne se remarquait qu'a la session suivante.
   proto=0
+
+  # Moteur et plafond se controlent sur le GLOB, jamais sur la liste de noms
+  # ci-dessous : une sixieme fiche deposee dans .claude/agents/ echapperait a une
+  # liste en dur, et c'est exactement la panne que ce controle existe pour fermer.
+  #
+  # Un agent sans 'model:' ne tombe pas en panne : il prend le moteur le plus CHER
+  # par defaut, silencieusement. L'analyste et l'esthete ont tenu des semaines
+  # ainsi, et le banc du 2026-08-21 a chiffre l'esthete a 17,06 $ la passe sans que
+  # ce soit la decision de qui que ce soit. Le defaut coute : il doit etre ecrit.
+  #
+  # Et un moteur declare ne dit rien de ce que l'agent AVALE. Le meme banc a montre
+  # que le prix se fait la : a moteur egal, 141 gestes de navigateur coutent seize
+  # fois une relecture. Le plafond vit dans la consigne pour que l'AGENT la lise,
+  # pas seulement son appelant.
+  for f in .claude/agents/*.md; do
+    [ -f "$f" ] || continue
+    grep -qE '^model: (haiku|sonnet|opus|fable)$' "$f" \
+      || { bad "$f : pas de 'model:' declare — l'agent prendrait le moteur le plus cher par defaut"
+           proto=$((proto+1)); }
+    grep -q '^## Plafond' "$f" \
+      || { bad "$f : section '## Plafond' absente — rien ne borne ce que l'agent avale"
+           proto=$((proto+1)); }
+  done
+
   for spec in "analyste:distribution retrospectif recurrence plan arbitrage" \
               "artisan:fichiers tests bloque anomalie" \
               "esthete:ecrans corrige montre critique" \
@@ -3084,7 +3108,7 @@ check_outillage() {
         || { bad "$f : le champ '$champ' manque a son rendu"; proto=$((proto+1)); }
     done
   done
-  [ "$proto" -eq 0 ] && ok "cinq agents : section '## Rendu' et champs obligatoires"
+  [ "$proto" -eq 0 ] && ok "cinq agents : 'model:', '## Plafond', '## Rendu' et ses champs"
 
   # Les scripts generes le sont par substitution de fragments : une erreur du
   # generateur produit un fichier plausible mais inanalysable, qui echouerait

@@ -40,6 +40,20 @@ tarifs:
   - modele: claude-haiku-4-5
     entree: 1
     sortie: 5
+  # Le rapprochement se fait sur le nom EXACT rendu par l'API, qui porte la date
+  # de version. « claude-haiku-4-5 » seul ne matchait rien : 840 appels du
+  # greffier ont ete comptes en jetons et jamais en argent, donc invisibles dans
+  # la seule mesure qui sert a decider. Les deux formes vivent ici.
+  - modele: claude-haiku-4-5-20251001
+    entree: 1
+    sortie: 5
+  # Opus 4.7 porte 1 088 appels dans le journal et n'avait aucun tarif. Prix public
+  # verifie a la reference Anthropic le 2026-08-21 : 5 $ / 25 $ par million, meme
+  # palier qu'Opus 5. Un tarif recopie sans source se lirait comme une mesure ; ici
+  # il en est une, et sa date est ecrite comme celle du taux de change.
+  - modele: claude-opus-4-7
+    entree: 5
+    sortie: 25
 taux_usd_eur: 0.86843
 taux_date: 2026-08-04     # source : Frankfurter, reference BCE
 
