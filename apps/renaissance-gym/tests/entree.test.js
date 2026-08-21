@@ -268,6 +268,36 @@ test('« j’ai déjà un pseudo » mène à la reprise : pseudonyme, code, et r
   assert.equal(champs.length, 1 + 6, 'un champ pseudo, six cases de code — rien d’autre');
 });
 
+test('un mauvais format de pseudo ou de code affiche un message qui dit à quoi ils ressemblent, sans révéler lequel cloche', () => {
+  const message = 'Pseudo ou code invalide. Ton pseudo ressemble à « Galaxie-5 », et ton code est six chiffres.';
+
+  // pseudo invalide (caractère non autorisé), code valide.
+  const hotePseudo = creerHote();
+  vueEntree.monterReprise(hotePseudo, ctxDe());
+  hotePseudo.querySelector('input').value = '@@@';
+  saisirCode(hotePseudo.querySelectorAll('.saisie-code__case'), '482913');
+  hotePseudo.querySelector('.bouton').declencher('click');
+
+  const erreurPseudo = hotePseudo.querySelectorAll('.erreur-champ').find((p) => p.textContent !== '');
+  assert.ok(erreurPseudo, 'un pseudo au mauvais format doit afficher un message');
+  assert.equal(erreurPseudo.textContent, message);
+  assert.equal(globalThis.location.hash, '', 'un format invalide ne doit déclencher aucune navigation');
+
+  // pseudo valide, code invalide (cinq chiffres au lieu de six).
+  globalThis.location = { hash: '' };
+  const hoteCode = creerHote();
+  vueEntree.monterReprise(hoteCode, ctxDe());
+  hoteCode.querySelector('input').value = 'Comète-7';
+  saisirCode(hoteCode.querySelectorAll('.saisie-code__case'), '48291');
+  hoteCode.querySelector('.bouton').declencher('click');
+
+  const erreurCode = hoteCode.querySelectorAll('.erreur-champ').find((p) => p.textContent !== '');
+  assert.ok(erreurCode, 'un code au mauvais format doit afficher un message');
+  // Même règle que pour le refus serveur : le message ne doit jamais dire
+  // lequel des deux champs est en cause, qu'il s'agisse du pseudo ou du code.
+  assert.equal(erreurCode.textContent, erreurPseudo.textContent);
+});
+
 test('la reprise sans ctx.reprendreCompte reste inerte : aucun fetch, un message', () => {
   const hote = creerHote();
   vueEntree.monterReprise(hote, ctxDe());
