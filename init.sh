@@ -2643,11 +2643,10 @@ check_applications() {
 # sans colonne « Test » n'est donc pas juge ; c'est memory/produit.md qui
 # demande de l'ecrire, pas ce controle qui l'impose.
 check_traces_risques() {
-  local n f ligne cellule nom dans_table cites=0 manquants=0 tests
+  local n f ligne cellule nom motif dans_table cites=0 manquants=0
   for d in apps/*/; do
     [ -d "$d" ] || continue
     n=${d#apps/}; n=${n%/}
-    tests=$(ls "$d"*_test.go "$d"tests/*.test.js 2>/dev/null || true)
     for f in "$d"PRODUCT.md "$d"prp/*.md; do
       [ -f "$f" ] || continue
       dans_table=0
@@ -2668,7 +2667,24 @@ check_traces_risques() {
         case "$cellule" in '`'*'`') ;; *) continue ;; esac
         nom=${cellule#\`}; nom=${nom%\`}
         cites=$((cites+1))
-        if [ -z "$tests" ] || ! grep -qF -- "$nom" $tests 2>/dev/null; then
+        # Le nom devient un motif : une cellule contenant « . » ou « * » ferait
+        # sinon correspondre n'importe quoi, et un test absent passerait pour
+        # present — le sens ou l'erreur ne se voit pas.
+        motif=$(printf '%s' "$nom" | sed 's/[][\.^$*+?(){}|\\]/\\&/g')
+        # RECURSIF. La version d'origine listait « apps/NOM/*_test.go », donc la
+        # racine de l'app SEULEMENT : les tests d'une app Go vivent sous
+        # internal/, et les sept tests de ramure-v2 etaient declares introuvables
+        # alors que six existaient. Un garde-fou qui crie a tort apprend a etre
+        # ignore, et le septieme — reellement absent — se perdait dans le bruit.
+        #
+        # La forme compte autant que l'endroit : « grep -F » sur le nom nu
+        # trouvait aussi une mention en COMMENTAIRE, si bien qu'un test cite
+        # dans le PRD et seulement evoque dans le code passait pour ecrit. On
+        # exige donc une declaration Go, ou un nom de test entre guillemets
+        # pour les tests JavaScript.
+        if ! grep -rqE "^func $motif\(|['\"]$motif['\"]" "$d" \
+             --include='*_test.go' --include='*.test.js' \
+             --exclude-dir=node_modules 2>/dev/null; then
           warn "[$n] $f cite le test « $nom » — introuvable dans les tests de l'app"
           manquants=$((manquants+1))
         fi

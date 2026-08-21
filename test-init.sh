@@ -619,6 +619,39 @@ temoin_trace_corps() {  # temoin_trace_corps <nom>
 
 detache temoin_trace_corps "un test cite qui existe vraiment ne declenche rien"
 
+# Le meme temoin, mais le test vit DANS UN SOUS-REPERTOIRE. C'est le cas normal
+# d'une app Go — les tests sont sous internal/, a cote du paquet qu'ils
+# couvrent — et c'est celui que la premiere version ratait : elle listait
+# « apps/NOM/*_test.go », donc la racine seule. Sur ramure-v2, sept tests
+# etaient declares introuvables alors que six existaient, et le septieme,
+# reellement absent, se perdait dans le bruit des six autres.
+temoin_trace_sous_repertoire_corps() {  # <nom>
+  local nom="$1" d sortie
+  d=$(bac)
+  printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le cache ment | On l invalide | `TestCacheInvalideAuBonMoment` |\n' \
+    >> "$d/apps/renaissance-gym/PRODUCT.md"
+  mkdir -p "$d/apps/renaissance-gym/internal/cache"
+  printf 'package cache\n\nfunc TestCacheInvalideAuBonMoment(t *testing.T) {}\n' \
+    > "$d/apps/renaissance-gym/internal/cache/cache_test.go"
+  sortie=$(cd "$d" && ./init.sh --check 2>&1) || true
+  if grep -q "TestCacheInvalideAuBonMoment.*introuvable dans les tests" <<< "$sortie"; then
+    echec "$nom" "un test present sous internal/ a ete signale absent"
+  else
+    reussi "$nom"
+  fi
+}
+
+detache temoin_trace_sous_repertoire_corps "un test cite qui vit sous internal/ est trouve"
+
+# L'autre moitie du meme controle : ou l'on CHERCHE, et ce qu'on accepte comme
+# preuve. Un « grep » du nom nu trouvait aussi une mention en commentaire, si
+# bien qu'un test promis par le PRD et seulement EVOQUE dans le code passait
+# pour ecrit — le garde-fou validait alors exactement ce qu'il devait attraper.
+avertit "un test seulement mentionne en commentaire ne compte pas comme ecrit" "introuvable dans les tests" <<'FIN'
+printf '\n## Risques\n\n| Risque | Traitement | Test |\n|---|---|---|\n| Le quota explose | On le borne | `TestQuotaBorne` |\n' >> apps/renaissance-gym/PRODUCT.md
+printf '\n// TODO: ecrire TestQuotaBorne, il manque encore.\n' >> apps/renaissance-gym/api_test.go
+FIN
+
 # La priorite CSS de [hidden] : trois occurrences dans le depot, dont deux dans
 # le meme fichier a une semaine d'intervalle. ramure porte deja la regle globale
 # et doit rester silencieuse — c'est ce que ce cas verifie en la retirant.

@@ -117,6 +117,65 @@ reçoivent leur propre voie de concurrence, sans quoi retoucher la description p
 une vérification l'aurait **annulée** et remplacée par un run qui ne relit que le
 corps — le code serait passé au vert sans avoir été vérifié.
 
+## Seconde manche — les 13 avertissements que le rappel avait sortis de l'ombre
+
+La première manche a été fusionnée (PR #160). Le rappel des avertissements y faisait
+remonter 13 lignes que personne ne lisait plus. L'utilisateur a demandé de les traiter.
+Le tri est brutal : **6 des 13 étaient un garde-fou cassé**, 4 sont de vrais défauts,
+3 ne sont pas réparables et n'ont jamais prétendu l'être.
+
+### 5. Le contrôle des tests cités ne regardait que la racine de l'app, et criait à tort six fois sur sept
+
+**Symptome** — `--check` déclarait introuvables les sept tests que le `PRODUCT.md` de
+`ramure-v2` cite dans son tableau de risques. Six d'entre eux existent : vérifiés un par
+un, `TestCascadeBasculeSurErreur` est dans `internal/source/cascade_test.go`,
+`TestBudgetRespecteSurUnChargementComplet` dans `internal/arbre/centre_test.go`, et
+ainsi de suite. Seul `TestCadragePlusEtroitSurEcranEtroit` manque réellement.
+
+**Cause** — deux défauts dans le même contrôle, et ils se cachaient l'un l'autre.
+
+Le premier : `tests=$(ls "$d"*_test.go "$d"tests/*.test.js)` ne listait que la **racine**
+de l'app. Or les tests d'une app Go vivent à côté du paquet qu'ils couvrent, sous
+`internal/` — c'est la disposition normale, pas une exception. Toute app Go structurée
+en paquets voyait donc l'ensemble de ses tests cités déclarés absents.
+
+Le second, inverse et plus discret : `grep -F` sur le nom nu trouvait aussi une mention
+en **commentaire**. Un test promis par le PRD et seulement évoqué par un `// TODO:
+écrire TestX` passait pour écrit — le garde-fou validait exactement ce qu'il était censé
+attraper.
+
+Le premier défaut noyait le second : avec six faux positifs sur sept, plus personne ne
+lisait la ligne, et le seul test réellement absent s'y perdait. C'est le mode d'échec
+d'un garde-fou qui crie à tort — il n'est pas ignoré par négligence, il est ignoré
+**parce qu'il a tort**.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — recherche récursive (`grep -r` avec `--include`, en écartant
+`node_modules`), et forme exigée plutôt que mention : une déclaration `func <nom>(` pour
+Go, un nom entre guillemets pour JavaScript. Le nom cité est échappé avant de servir de
+motif, sans quoi une cellule contenant `.` ou `*` ferait correspondre n'importe quoi et
+un test absent passerait pour présent — le sens où l'erreur ne se voit pas. Deux tests
+le tiennent : un test sous `internal/` doit être trouvé, un test seulement mentionné en
+commentaire ne doit pas compter. Vérifiés en re-cassant le contrôle exprès.
+
+**Consequence** — 13 avertissements → 7.
+
+**Le reste des 13, et ce qu'il en advient.**
+
+**Trois ne sont pas des défauts et ne partiront jamais.** Deux apps en palier `public`
+(`marcq-handball`, `renaissance-gym`) : `memory/exposition.md` demande explicitement un
+avertissement sur *tout* palier public, c'est un rappel permanent et voulu. Et huit
+relevés de coût sans détail par tour : le commentaire d'`init.sh` le dit lui-même, le
+bloc de détail est arrivé après ces huit entrées et les conversations qui les ont
+produites ont disparu avec leurs conteneurs — « il n'y a rien à réparer, seulement à
+savoir ».
+
+**Quatre sont de vrais défauts d'application**, traités app par app dans la suite de
+cette entrée : la règle globale `[hidden]` manquante sur `marcq-handball`, `pilabelle`
+et `renaissance-gym`, et le test `TestCadragePlusEtroitSurEcranEtroit` que le PRD de
+`ramure-v2` promet sans qu'il existe.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
