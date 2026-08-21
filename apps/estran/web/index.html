@@ -13,10 +13,39 @@
   <header class="entete">
     <div class="entete-titre">
       <h1>estran</h1>
-      <p class="lieu">Le Touquet-Paris-Plage · Étaples</p>
+      <!-- Le nom du lieu est desormais un BOUTON (prp/05-ecran-de-choix.md,
+           section 2) : seul point d'entree de l'ecran de choix, jamais deduit
+           d'un autre element (contrat d'ecran du 20 aout 2026). Le texte reste
+           celui d'ouverture tant qu'aucun lieu n'a ete choisi ; app.js/
+           majEnteteLieu le remplace au changement, jamais avant. -->
+      <button type="button" class="lieu" id="bouton-lieu" aria-haspopup="dialog">
+        <span id="bouton-lieu-texte">Le Touquet-Paris-Plage · Étaples</span>
+      </button>
     </div>
     <p class="horloge" id="horloge" aria-live="off"></p>
   </header>
+
+  <!-- Ecran de choix du lieu (prp/05-ecran-de-choix.md) : <dialog> natif +
+       showModal(), au-dessus du contenu plutot qu'a cote (section 2). Echap et
+       clic hors du cadre ferment (app.js), le focus revient au bouton qui a
+       ouvert. aria-modal="true" est pose explicitement : les lecteurs d'ecran
+       les plus anciens ne deduisent pas tous la semantique modale du seul
+       <dialog>. -->
+  <dialog id="dialogue-lieu" class="dialogue-lieu" aria-labelledby="dialogue-lieu-titre" aria-modal="true">
+    <div class="dialogue-lieu-entete">
+      <h2 id="dialogue-lieu-titre">Où êtes-vous ?</h2>
+      <button type="button" class="dialogue-lieu-fermer" id="dialogue-lieu-fermer" aria-label="Fermer">✕</button>
+    </div>
+    <div class="dialogue-lieu-recherche">
+      <label class="pour-lecteur" for="lieu-recherche">Chercher une commune</label>
+      <input type="search" id="lieu-recherche" class="lieu-recherche" placeholder="Chercher une commune…" autocomplete="off">
+      <button type="button" class="lieu-geoloc" id="lieu-geoloc">Utiliser ma position</button>
+      <p class="lieu-geoloc-etat" id="lieu-geoloc-etat" role="status" aria-live="polite"></p>
+    </div>
+    <div class="dialogue-lieu-liste" id="dialogue-lieu-liste" aria-live="polite">
+      <p class="etat-attente">chargement…</p>
+    </div>
+  </dialog>
 
   <!-- Bandeau de jours (PRODUCT.md, "Deux decisions d'ecran... 20 aout 2026") :
        remplace la rangee centree qui atterrissait dans la gouttiere entre les

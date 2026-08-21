@@ -183,3 +183,39 @@ l'arrivee.
 bloquant ». Un constat de gravite basse qui survit a sa correction est un etat
 normal ; le poursuivre conduirait a poser un `#nosec` sur du code deja correct,
 donc a masquer le jour ou il cesserait de l'etre.
+
+### 10. Une regle d'auteur bat l'agent utilisateur : un `<dialog>` ferme restait visible
+
+**Symptome** — releve par l'artisan de l'ecran de choix. `dialogue.open` valait
+bien `false` apres `close()`, mais le cadre restait affiche a l'ecran.
+
+**Cause** — une regle `display: flex` posee sur `.dialogue-lieu` sans qualifier
+`[open]`. Le navigateur applique lui-meme `display: none` a un `<dialog>` ferme,
+mais par sa feuille d'agent utilisateur — et **toute** regle d'auteur la bat,
+quelle que soit la specificite. L'etat du DOM etait donc juste et l'ecran faux,
+ce qui rend le defaut invisible a toute verification qui interroge `open`.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — corrige en scopant la regle a `.dialogue-lieu[open]`, avec
+le mecanisme commente dans le CSS. Le piege est propre a `<dialog>` et a une
+poignee d'elements a comportement natif ; un garde-fou generique crierait sur
+tout le depot.
+
+### 11. Un jeton anti-concurrence incremente deux fois laissait gagner la reponse la plus lente
+
+**Symptome** — `rendreListeLieux` incrementait `jetonRequeteLieu` une seconde
+fois en interne, en plus de son appelant. Une reponse plus ANCIENNE — la liste
+par defaut, plus lente — pouvait donc gagner la course contre une recherche
+lancee apres elle, et s'afficher a sa place.
+
+**Cause** — le jeton est un compteur qui doit avoir **un seul** point
+d'incrementation par requete logique. En le posant a la fois chez l'appelant et
+chez l'appele, on invalide la requete en vol depuis l'interieur de son propre
+traitement.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — corrige en ne l'incrementant qu'a l'appelant, propage en
+parametre. Aucun test ne l'aurait vu : il faut deux requetes en vol dont la
+premiere est la plus lente, ce que le stub local ne produit pas.

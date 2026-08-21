@@ -18,6 +18,11 @@
      tailles de police trop petites sur le texte secondaire — c'est ce second
      levier qui a le plus compte, corrige partout ci-dessous. */
   --sable-300: #ddd0ae;
+  /* --sable-400 : plus sourd que --sable-300, reservee a la pastille
+     INTERIEUR de l'ecran de choix du lieu (prp/05-ecran-de-choix.md, section
+     3) — jamais l'ambre, qui appartient a la maree et a rien d'autre (voir
+     plus bas). */
+  --sable-400: #b8a97e;
   /* --eau-300 : reservee au texte teal sur le fond plus clair de la ligne
      active de la tendance (--encre-600) — --eau-400 y tombe a 4,26:1, sous
      le seuil AA de 4,5:1 (verifie avec @axe-core/playwright, 20 aout 2026,
@@ -396,10 +401,289 @@ main {
   letter-spacing: 0.01em;
 }
 
+/* Le nom du lieu est un <button> (prp/05-ecran-de-choix.md, section 2) : reset
+   complet de l'apparence par defaut pour garder EXACTEMENT le rendu du <p>
+   qu'il remplace, plus un discret repere de clic (chevron) pose en ::after
+   pour que le geste se devine sans rien ajouter au-dessus. */
 .lieu {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
   margin: var(--espace-1) 0 0;
+  padding: 2px 0;
   font-size: 1.15rem;
   color: var(--sable-200);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lieu::after {
+  content: "";
+  width: 0.55em;
+  height: 0.55em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.7;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.lieu:hover {
+  color: var(--sable-100);
+}
+
+/* ---------- ecran de choix du lieu (prp/05-ecran-de-choix.md) ---------- */
+
+body.lieu-dialogue-ouvert {
+  overflow: hidden;
+}
+
+.dialogue-lieu {
+  box-sizing: border-box;
+  width: min(100%, 560px);
+  max-height: 92dvh;
+  margin: 4dvh auto auto;
+  padding: 0;
+  border: 1px solid rgba(244, 236, 216, 0.1);
+  border-radius: var(--rayon);
+  background: linear-gradient(165deg, var(--encre-700), var(--encre-800));
+  color: var(--sable-100);
+  box-shadow: 0 24px 60px var(--ombre);
+  overflow: hidden;
+}
+
+/* [open] est ESSENTIEL ici : une regle d'auteur l'emporte TOUJOURS sur la
+   feuille par defaut du navigateur, quelle que soit la specificite — poser
+   `display: flex` sur `.dialogue-lieu` seul aurait donc EFFACE le `display:
+   none` que le navigateur applique lui-meme a un <dialog> ferme (sans
+   attribut `open`), et le cadre serait reste visible apres close(). Mesure au
+   navigateur le 21 aout 2026 : `dialogue.open` valait bien false apres
+   close(), et pourtant `expect(dialogue).toBeHidden()` echouait. */
+.dialogue-lieu[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialogue-lieu::backdrop {
+  background: rgba(3, 12, 18, 0.72);
+}
+
+.dialogue-lieu-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espace-3);
+  padding: var(--espace-4) var(--espace-4) var(--espace-3);
+  border-bottom: 1px solid rgba(244, 236, 216, 0.08);
+}
+
+.dialogue-lieu-entete h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.dialogue-lieu-fermer {
+  appearance: none;
+  border: 1px solid rgba(244, 236, 216, 0.14);
+  background: var(--encre-700);
+  color: var(--sable-100);
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.dialogue-lieu-fermer:hover {
+  background: var(--encre-600);
+}
+
+.dialogue-lieu-recherche {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  padding: var(--espace-3) var(--espace-4);
+  border-bottom: 1px solid rgba(244, 236, 216, 0.08);
+}
+
+.lieu-recherche {
+  appearance: none;
+  border: 1px solid rgba(244, 236, 216, 0.16);
+  border-radius: var(--rayon-petit);
+  background: var(--encre-900);
+  color: var(--sable-100);
+  font: inherit;
+  font-size: 1.05rem;
+  padding: var(--espace-2) var(--espace-3);
+}
+
+.lieu-recherche::placeholder {
+  color: var(--sable-300);
+}
+
+.lieu-geoloc {
+  appearance: none;
+  align-self: flex-start;
+  border: 1px solid rgba(79, 179, 169, 0.4);
+  background: transparent;
+  color: var(--eau-400);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.98rem;
+  padding: var(--espace-2) var(--espace-3);
+  border-radius: var(--rayon-petit);
+  cursor: pointer;
+}
+
+.lieu-geoloc:hover {
+  background: rgba(79, 179, 169, 0.12);
+}
+
+.lieu-geoloc-etat {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.92rem;
+  color: var(--sable-300);
+}
+
+.dialogue-lieu-liste {
+  overflow-y: auto;
+  padding: var(--espace-3) var(--espace-4) var(--espace-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+
+.dialogue-lieu-liste .etat-attente {
+  text-align: center;
+  padding: var(--espace-4) 0;
+}
+
+.fiche-lieu {
+  appearance: none;
+  width: 100%;
+  border: 1px solid rgba(244, 236, 216, 0.08);
+  border-radius: var(--rayon-petit);
+  background: var(--encre-800);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  padding: var(--espace-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+
+.fiche-lieu:hover {
+  background: var(--encre-600);
+}
+
+/* Le lieu deja regarde, dans la liste par defaut comme dans une recherche qui
+   le retrouve : un lisere eau, jamais l'ambre (reservee a la maree). */
+.fiche-lieu--actuelle {
+  border-color: var(--eau-400);
+}
+
+.fiche-lieu-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espace-2);
+}
+
+.fiche-lieu-nom {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Pastille littoral/interieur : les couleurs deja posees ailleurs dans cette
+   feuille (jamais l'ambre, reservee a la maree — en-tete de ce fichier). Pas
+   de pastille du tout quand littoral est inconnu (null) : afficher LITTORAL
+   ou INTERIEUR affirmerait un etat qu'on ne connait pas
+   (prp/05-ecran-de-choix.md, section 3). */
+.pastille-littoral {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.pastille-littoral--littoral {
+  color: var(--eau-300);
+  background: rgba(111, 202, 189, 0.14);
+  border: 1px solid rgba(111, 202, 189, 0.4);
+}
+
+.pastille-littoral--interieur {
+  color: var(--sable-400);
+  background: rgba(221, 208, 174, 0.12);
+  border: 1px solid rgba(221, 208, 174, 0.35);
+}
+
+.fiche-lieu-capacites {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.92rem;
+}
+
+.capacite {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--sable-200);
+}
+
+.capacite-puce {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translateY(-1px);
+}
+
+.capacite--presente .capacite-puce {
+  background: var(--eau-400);
+}
+
+.capacite--presente {
+  color: var(--sable-100);
+}
+
+.capacite--absente .capacite-puce {
+  background: transparent;
+  border: 1px solid rgba(244, 236, 216, 0.35);
+}
+
+.capacite--absente {
+  color: var(--sable-300);
+}
+
+/* Capacite INCONNUE (littoral non resolu, ou panne de catalogue) : ni presente
+   ni absente — un pointille, jamais le meme plein que .capacite--presente ni
+   le meme creux que .capacite--absente, pour qu'un troisieme etat se
+   distingue vraiment des deux autres (prp/05-ecran-de-choix.md, section 3 :
+   « une capacite inconnue ne s'affiche jamais comme absente »). */
+.capacite--inconnue .capacite-puce {
+  background: transparent;
+  border: 1px dashed var(--sable-300);
+}
+
+.capacite--inconnue {
+  color: var(--sable-300);
+  font-style: italic;
 }
 
 .horloge {
@@ -605,6 +889,35 @@ main {
   font-size: 0.88rem;
   color: var(--rouge-400);
   text-align: center;
+}
+
+/* ---------- absence legitime de maree (lieu de l'interieur) ---------- */
+/* prp/05-ecran-de-choix.md, section 7 / PRODUCT.md, "Le lieu se choisit... —
+   21 aout 2026" : sur un lieu sans site de maree a proximite, la carte de
+   jauge cede la place a un cadre POINTILLE — jamais le meme gabarit que
+   .indisponible-carte (reservee aux pannes de fournisseur, posee par
+   app.js/carteIndisponible). Confondre les deux ferait passer un vide
+   legitime pour une panne, exactement la distinction que la decision du 20
+   aout 2026 sur les absences avait posee pour le reste de l'ecran. Fond
+   transparent (pas de degrade encre-700→800) : c'est ce qui distingue ce
+   cadre au premier coup d'oeil de TOUTES les autres cartes de la page, pleines
+   ou en panne. */
+.jauge-carte.jauge-carte--absence {
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed rgba(244, 236, 216, 0.3);
+}
+
+.jauge-absence {
+  text-align: center;
+  padding: var(--espace-3) 0;
+}
+
+.jauge-absence p {
+  margin: 0;
+  color: var(--sable-200);
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 /* ---------- marees du jour (jour autre qu'aujourd'hui) ---------- */

@@ -14,32 +14,34 @@
 # que de construire une image rend ce bout en bout jouable partout et le fait
 # passer de deux minutes a quelques secondes.
 #
-# LE POINT DELICAT : estran interroge quatre fournisseurs externes
-# (Open-Meteo, Open-Meteo Marine, api-maree.fr, Meteo-France pour la pluie
-# immediate). Le PRD de la fabrique interdit de tester contre des sources
-# reelles : « ca produit des echecs intermittents qui finissent par etre
-# ignores, et masquent alors les vraies regressions ». meteo.go, maree.go et
-# pluie.go exposent donc chacun l'URL de base du fournisseur qu'ils
-# interrogent comme une variable, lue une seule fois au demarrage depuis
-# ESTRAN_BASE_METEO_FORECAST / _METEO_MARINE / _MAREE / _PLUIE / _NOWCAST —
-# inchangee en production, ou aucune de ces cinq variables n'est jamais posee.
+# LE POINT DELICAT : estran interroge six fournisseurs externes (Open-Meteo,
+# Open-Meteo Marine, api-maree.fr et son catalogue de sites, la Base Adresse
+# Nationale pour le lieu, Meteo-France pour la pluie immediate). Le PRD de la
+# fabrique interdit de tester contre des sources reelles : « ca produit des
+# echecs intermittents qui finissent par etre ignores, et masquent alors les
+# vraies regressions ». meteo.go, maree.go, pluie.go et lieu.go exposent donc
+# chacun l'URL de base du fournisseur qu'ils interrogent comme une variable,
+# lue une seule fois au demarrage depuis ESTRAN_BASE_METEO_FORECAST /
+# _METEO_MARINE / _MAREE / _MAREE_SITES / _PLUIE / _NOWCAST / _GEOCODE —
+# inchangee en production, ou aucune de ces sept variables n'est jamais posee.
 #
 # Ce fichier lance l'app DEUX FOIS, chacune avec ces variables pointees
 # ailleurs que sur le reseau reel :
 #
-#   1. PHASE « degrade » (tests/degrade.spec.js) — les cinq variables
+#   1. PHASE « degrade » (tests/degrade.spec.js) — les sept variables
 #      pointent vers 127.0.0.1:1, un port ferme (meme convention que
 #      main_test.go dans le code de l'app) : toute requete sortante echoue
 #      IMMEDIATEMENT (connexion refusee), sans jamais toucher un reseau
 #      quelconque. Verifie que l'app affiche son etat degrade, jamais un
 #      ecran vide, meme a froid.
 #
-#   2. PHASE « connue » (tests/connu.spec.js) — les cinq variables pointent
-#      vers stub-serveur.js, un serveur Node local (aucune dependance) qui
-#      rend des reponses FIXES imitant la forme des quatre fournisseurs.
-#      Verifie que l'app affiche CORRECTEMENT une donnee reelle : une
-#      temperature, une hauteur de maree, un cumul de pluie, tous connus a
-#      l'avance (stub-serveur.js).
+#   2. PHASE « connue » (tests/connu.spec.js, tests/lieu.spec.js) — les sept
+#      variables pointent vers stub-serveur.js, un serveur Node local (aucune
+#      dependance) qui rend des reponses FIXES imitant la forme des six
+#      fournisseurs. Verifie que l'app affiche CORRECTEMENT une donnee
+#      reelle : une temperature, une hauteur de maree, un cumul de pluie,
+#      trois lieux de test (littoral / interieur / capacite inconnue), tous
+#      connus a l'avance (stub-serveur.js).
 #
 # Aucun paquet ne sort donc jamais vers Internet, dans aucune des deux phases.
 set -euo pipefail
@@ -111,6 +113,8 @@ ESTRAN_BASE_METEO_MARINE="http://127.0.0.1:1" \
 ESTRAN_BASE_MAREE="http://127.0.0.1:1" \
 ESTRAN_BASE_PLUIE="http://127.0.0.1:1" \
 ESTRAN_BASE_NOWCAST="http://127.0.0.1:1" \
+ESTRAN_BASE_GEOCODE="http://127.0.0.1:1" \
+ESTRAN_BASE_MAREE_SITES="http://127.0.0.1:1" \
 PORT="$PORT_DEGRADE" \
 "$BIN" >"$LOG_A" 2>&1 &
 SRV_A=$!
@@ -143,10 +147,15 @@ ESTRAN_BASE_METEO_MARINE="http://127.0.0.1:$STUB_PORT/marine" \
 ESTRAN_BASE_MAREE="http://127.0.0.1:$STUB_PORT/maree" \
 ESTRAN_BASE_PLUIE="http://127.0.0.1:$STUB_PORT/forecast" \
 ESTRAN_BASE_NOWCAST="http://127.0.0.1:$STUB_PORT/nowcast" \
+ESTRAN_BASE_GEOCODE="http://127.0.0.1:$STUB_PORT/geocode" \
+ESTRAN_BASE_MAREE_SITES="http://127.0.0.1:$STUB_PORT/maree-sites" \
 API_MAREE_KEY="cle-locale-e2e-non-secrete" \
 PORT="$PORT_CONNU" \
 "$BIN" >"$LOG_B" 2>&1 &
 SRV_B=$!
 
 attendre_healthz "$PORT_CONNU" "$LOG_B" "$SRV_B"
-ESTRAN_E2E_URL="http://localhost:$PORT_CONNU" npx playwright test tests/connu.spec.js
+# lieu.spec.js (prp/05-ecran-de-choix.md) tourne dans la MEME phase : elle a
+# besoin du meme stub (routes BAN + catalogue, ajoutees ci-dessus) et de la
+# meme cle api-maree.fr que connu.spec.js.
+ESTRAN_E2E_URL="http://localhost:$PORT_CONNU" npx playwright test tests/connu.spec.js tests/lieu.spec.js
