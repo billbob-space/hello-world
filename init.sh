@@ -3174,6 +3174,8 @@ if [ "$CHECK" = 1 ]; then
     echo "  protege. Ne pousse pas."
     echo
   fi
+  rappel_attn
+  echo
   [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s)."; exit 1; }
   echo "Contrat respecte. Tu peux pousser sur main."
   exit 0

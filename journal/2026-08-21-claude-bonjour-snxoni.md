@@ -34,10 +34,21 @@ garde-fou devait rendre visible est redevenue invisible parce qu'il ne bloque pa
 
 **Detecte par** — `relecture`
 
-**Action** — `arbitrage` — passer ce `warn` en `bad` rendrait le contrat bloquant pour
-un dépassement d'une ligne, ce qui gêne au mauvais moment ; l'alternative est de faire
-remonter les avertissements en fin de sortie plutôt que dans le flot. Les deux se
-défendent, et c'est une décision qui appartient à l'utilisateur, pas un correctif.
+**Action** — `garde-fou` — arbitrage rendu par l'utilisateur : ne pas rendre le contrôle
+bloquant, mais faire remonter les avertissements. `warn()` les accumule désormais dans
+`lib/socle.sh`, et `rappel_attn()` les réimprime juste avant le verdict de `--check` et
+de `pret.sh`. Le verdict ne change pas — un avertissement ne bloque toujours pas — mais
+il n'y a plus de fin de sortie où la dérive puisse se cacher. Le premier passage a fait
+remonter **13** avertissements, dont trois que personne n'avait jamais mentionnés. Un
+test le tient : `rappelle()` dans `test-init.sh`, vérifié en cassant le rappel exprès.
+
+Une limite trouvée en le posant : le rappel ne couvre que **son** processus. `pret.sh`
+délègue à `init.sh --check`, `cout.sh --rappel` et `revue.sh` comme à des processus
+séparés — frontière délibérée, documentée en tête de `pret.sh` — donc leurs
+avertissements meurent chez eux. Le premier jet annonçait « 1 avertissement » sous deux
+lignes `attn`, ce qui se lisait comme un compte faux. L'en-tête nomme désormais le
+script dont il rend compte, plutôt que de franchir une frontière posée pour de bonnes
+raisons.
 
 ### 2. Le gain d'un compactage annoncé en lignes, mesuré en mots : l'annonce était fausse de 40 %
 
@@ -96,12 +107,15 @@ mécanique est le commit vide, que le dépôt interdit par ailleurs et à juste 
 
 **Detecte par** — `CI`
 
-**Action** — `arbitrage` — ajouter `edited` aux `types:` du déclencheur `pull_request`
-referme le piège, mais fait repartir le workflow entier à chaque retouche de
-description, y compris les corrections de coquille. Limiter le coût demanderait de
-sortir ce seul contrôle dans un job — ou un workflow — déclenché par `edited` et lui
-seul. Les deux se défendent, et l'arbitrage entre le confort et la facture appartient à
-l'utilisateur.
+**Action** — `garde-fou` — arbitrage rendu par l'utilisateur : les deux à la fois, sans
+le coût. `edited` entre dans les `types:` du déclencheur, et le job `detect` — qui
+commande toute la chaîne en aval — saute sur cet événement, si bien qu'une retouche de
+description ne relance que le job `contrat`, quelques secondes. Deux pièges refermés au
+passage : `tests-de-l-outillage` juge le résultat de `detect` et devait sauter avec lui,
+sans quoi il aurait refusé un « sauté » que personne n'a décidé ; et les runs `edited`
+reçoivent leur propre voie de concurrence, sans quoi retoucher la description pendant
+une vérification l'aurait **annulée** et remplacée par un run qui ne relit que le
+corps — le code serait passé au vert sans avoir été vérifié.
 
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
