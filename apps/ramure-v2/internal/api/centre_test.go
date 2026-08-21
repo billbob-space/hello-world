@@ -128,6 +128,47 @@ func TestLargeurInconnueRetombeSurLarge(t *testing.T) {
 	}
 }
 
+// TestCadragePlusEtroitSurEcranEtroit (PRODUCT.md, tableau des risques §11,
+// decision §17 n°1 "parite stricte") : le cadrage etroit doit rester
+// STRICTEMENT plus etroit que le cadrage large, en branches ET en
+// heritiers -- teste comme une propriete ("etroit < large"), jamais en
+// recopiant les valeurs actuelles en dur (selection.go), pour que le test
+// survive a un ajustement produit des paires (Branches, Heritiers) sans
+// rien avoir a changer ici.
+func TestCadragePlusEtroitSurEcranEtroit(t *testing.T) {
+	etroit := cadragePour("etroit")
+
+	t.Run("moins de branches que le cadrage large", func(t *testing.T) {
+		for _, largeur := range []string{"large", ""} {
+			large := cadragePour(largeur)
+			if etroit.Branches >= large.Branches {
+				t.Errorf("largeur=%q : branches etroit=%d, large=%d ; attendu etroit strictement < large", largeur, etroit.Branches, large.Branches)
+			}
+		}
+	})
+
+	t.Run("moins d'heritiers par branche que le cadrage large", func(t *testing.T) {
+		for _, largeur := range []string{"large", ""} {
+			large := cadragePour(largeur)
+			if etroit.Heritiers >= large.Heritiers {
+				t.Errorf("largeur=%q : heritiers etroit=%d, large=%d ; attendu etroit strictement < large", largeur, etroit.Heritiers, large.Heritiers)
+			}
+		}
+	})
+
+	// Repli documente par le commentaire de cadragePour : une largeur
+	// inconnue ne panique jamais et retombe sur le cadrage large -- un
+	// comportement promis, pas un simple detail d'implementation.
+	t.Run("une largeur inconnue retombe sur le cadrage large sans paniquer", func(t *testing.T) {
+		large := cadragePour("large")
+		for _, largeur := range []string{"", "xxl", "grand", "ETROIT", "moyen"} {
+			if got := cadragePour(largeur); got != large {
+				t.Errorf("cadragePour(%q) = %+v, attendu le cadrage large %+v", largeur, got, large)
+			}
+		}
+	})
+}
+
 func TestArtisteSansVoisinsRepond200(t *testing.T) {
 	d := construireStackDeTest(t, "Portishead", 0)
 	rec := httptest.NewRecorder()
