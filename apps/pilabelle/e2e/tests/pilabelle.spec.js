@@ -48,12 +48,18 @@ const JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dim
 // La coupure vaut donc pour toute la suite, et pas seulement pour le scan :
 // un bout en bout mesure NOTRE app, jamais le reseau. L'iframe reste dans le
 // DOM et garde son « title », qui est la seule chose dont nous repondions.
+// Rend l'hote qu'il a laisse passer : c'est la SEULE definition de « chez
+// nous » dans ce fichier. L'assertion de garde plus bas la reutilise au lieu
+// de la recalculer -- deux enonces de la meme regle finissent toujours par
+// diverger, et celui qui coupe et celui qui verifie la coupure cesseraient
+// alors de parler du meme hote sans que rien ne le dise.
 async function couperLeMondeExterieur(contexte) {
   const notre = new URL(process.env.PILABELLE_E2E_URL || "http://localhost:18085").host;
   await contexte.route("**/*", (route) => {
     const cible = new URL(route.request().url());
     return cible.host === notre ? route.continue() : route.abort();
   });
+  return notre;
 }
 
 // Couvre les tests qui prennent la page par defaut. Ceux qui fabriquent leur
@@ -95,7 +101,7 @@ test("aucune violation d'accessibilite serieuse sur les ecrans visites", async (
   const contexte = await browser.newContext({
     extraHTTPHeaders: { "X-Forwarded-User": "e2e-axe@pilabelle.invalid" },
   });
-  await couperLeMondeExterieur(contexte);
+  const notre = await couperLeMondeExterieur(contexte);
   const page = await contexte.newPage();
   const violationsGraves = [];
 
@@ -175,7 +181,6 @@ test("aucune violation d'accessibilite serieuse sur les ecrans visites", async (
   // du blocage, pas une origine etrangere. La premiere version de cette
   // assertion la comptait comme telle et rougissait donc sur le cas REUSSI ;
   // elle a ete rejouee avant d'etre crue, et c'est ce passage qui l'a dit.
-  const notre = new URL(process.env.PILABELLE_E2E_URL || "http://localhost:18085").host;
   const etrangeres = page.frames().flatMap((f) => {
     let u;
     try {
