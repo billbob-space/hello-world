@@ -86,10 +86,44 @@ un cas de test neuf porte precisement sur la collision de l'`esthete`, la ou le
 cas `artisan` ne pouvait pas la voir. Lecon transposable : un cas de test choisi
 sur l'agent le plus simple ne teste pas le controle, il teste le cas facile.
 
+
+---
+
+**Second lot, même branche : compacter le contrat.** Périmètre et mode inchangés.
+Les anomalies qui suivent continuent la numérotation ci-dessus.
+
+### 5. J'ai presente a l'utilisateur un depassement deja corrige
+
+**Symptome** — j'ai signale, dans deux reponses et dans le corps de la pull request
+#161, que `CLAUDE.md` depassait son plafond (271 lignes pour 250) et j'en ai fait
+un `arbitrage` a trancher par l'utilisateur. Au moment ou je l'ecrivais, `main`
+portait deja `f138a2f — contrat : compacter CLAUDE.md de 271 a 222 lignes`, et ce
+commit etait **entre dans ma propre branche** par le merge `fc8e604`. Le fichier
+que je decrivais a 273 lignes en faisait 224, sous le plafond, et `--check` etait
+vert sur ce point.
+
+**Cause** — j'ai relu l'avertissement de `pret.sh` releve **avant** que `main` ne
+soit fusionne dans la branche, sans le reverifier sur la tete courante. Le merge
+n'etait pas de moi — le harnais l'a fait — donc rien dans mon fil ne signalait que
+l'etat avait change. Une session parallele travaillait le meme sujet ; deux
+sessions sur le meme depot ne se voient pas.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — un avertissement releve a un instant T ne se
+transmet pas a l'utilisateur sans etre rejoue sur la tete courante, surtout apres
+un merge qu'on n'a pas fait soi-meme. Aucun artefact a changer : c'est un reflexe,
+pas un garde-fou.
+
+Aucune autre anomalie. Le compactage lui-meme n'a rien revele : chaque fait retire de `CLAUDE.md` a ete
+verifie present dans `memory/` avant retrait, et les deux seuls qui ne l'etaient
+pas — `./docs/banc/mesurer.sh` et la capture de secours quand l'artefact manque —
+ont ete remis dans le contrat plutot que deplaces.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-21 à 16:11 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-21 à 17:05 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -97,26 +131,26 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 313 | 0,00 $ |
-| Écriture de cache | 558 503 | 2,84 $ |
-| Lecture de cache | 11 429 230 | 5,18 $ |
-| Sortie | 65 055 | 1,46 $ |
-| **Total** | **12 053 101** | **9,49 $ — 8,25 €** |
+| Entrée | 430 | 0,00 $ |
+| Écriture de cache | 846 609 | 4,54 $ |
+| Lecture de cache | 19 864 221 | 9,37 $ |
+| Sortie | 91 541 | 2,13 $ |
+| **Total** | **20 802 801** | **16,03 $ — 13,92 €** |
 
 **Ce qui coûte**
 
-- **112 appel(s) au modèle** — un par réponse, outils compris —, dont 32 par des sous-agents — 923 934 jetons, 0,42 $.
+- **153 appel(s) au modèle** — un par réponse, outils compris —, dont 38 par des sous-agents — 1 013 982 jetons, 0,42 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 812 jetons, écrits une fois par session puis relus à chaque
-  échange : 5 436 148 jetons de relecture, 47 % de tout ce qui a été relu.
-- **Tours courts** — 39 des 112 tours (34 %) sortent
+  échange : 7 844 568 jetons de relecture, 39 % de tout ce qui a été relu.
+- **Tours courts** — 50 des 153 tours (32 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 3,81 $, soit 40 % de la facture.
+  une sortie de rien. Ils coûtent 5,17 $, soit 32 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 68 812 jetons relus au premier appel qui relise
-  quelque chose, 216 687 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 286 530 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 12053101 -->
+<!-- cout-total: 20802801 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68812 0 994
 2 principal claude-opus-5 16320 68812 1316
@@ -198,37 +232,78 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 78 principal claude-opus-5 771 209236 35
 79 principal claude-opus-5 6645 210042 599
 80 principal claude-opus-5 3865 216687 736
-81 agent claude-sonnet-5 17102 0 4
-82 agent claude-sonnet-5 1724 17102 2
-83 agent claude-sonnet-5 2581 18826 0
-84 agent claude-sonnet-5 2577 21407 6
-85 agent claude-sonnet-5 2002 23984 20
-86 agent claude-sonnet-5 6663 25986 3
-87 agent claude-sonnet-5 2996 32649 4
-88 agent claude-sonnet-5 3703 35645 2
-89 agent claude-sonnet-5 1798 39348 3
-90 agent claude-sonnet-5 2392 41146 10
-91 agent claude-sonnet-5 2660 43538 5
-92 agent claude-sonnet-5 3694 46198 3
-93 agent claude-sonnet-5 1525 49892 3
-94 agent claude-sonnet-5 249 51417 5
-95 agent claude-sonnet-5 2827 51666 2
-96 agent claude-sonnet-5 2605 54493 2
-97 agent claude-sonnet-5 5310 57098 2
-98 agent claude-haiku-4-5-20251001 12639 0 4
-99 agent claude-haiku-4-5-20251001 1676 12639 2
-100 agent claude-haiku-4-5-20251001 822 14315 2
-101 agent claude-haiku-4-5-20251001 1335 15137 2
-102 agent claude-haiku-4-5-20251001 875 16472 2
-103 agent claude-haiku-4-5-20251001 534 17347 4
-104 agent claude-haiku-4-5-20251001 337 17881 4
-105 agent claude-haiku-4-5-20251001 202 18218 2
-106 agent claude-haiku-4-5-20251001 12896 0 4
-107 agent claude-haiku-4-5-20251001 1562 12896 2
-108 agent claude-haiku-4-5-20251001 1038 14458 1
-109 agent claude-haiku-4-5-20251001 3131 15496 2
-110 agent claude-haiku-4-5-20251001 692 18627 4
-111 agent claude-haiku-4-5-20251001 343 19319 5
-112 agent claude-haiku-4-5-20251001 306 19662 2
+81 principal claude-opus-5 1192 220552 498
+82 principal claude-opus-5 695 221744 130
+83 principal claude-opus-5 1004 222439 268
+84 principal claude-opus-5 503 223443 39
+85 principal claude-opus-5 388 223946 30
+86 principal claude-opus-5 752 224334 343
+87 principal claude-opus-5 3032 225086 442
+88 principal claude-opus-5 386 228560 320
+89 principal claude-opus-5 870 228946 138
+90 principal claude-opus-5 796 229816 237
+91 principal claude-opus-5 1506 230612 219
+92 principal claude-opus-5 2144 232118 648
+93 principal claude-opus-5 995 234262 46
+94 principal claude-opus-5 388 235303 138
+95 principal claude-opus-5 638 235691 1300
+96 principal claude-opus-5 1383 236329 600
+97 principal claude-opus-5 1280 237712 712
+98 principal claude-opus-5 1555 238992 367
+99 principal claude-opus-5 504 240547 734
+100 principal claude-opus-5 1079 241051 506
+101 principal claude-opus-5 592 242130 202
+102 principal claude-opus-5 7239 242722 543
+103 principal claude-opus-5 732 249961 297
+104 principal claude-opus-5 1076 250693 542
+105 principal claude-opus-5 205165 48206 686
+106 principal claude-opus-5 4117 253371 815
+107 principal claude-opus-5 7068 257488 1510
+108 principal claude-opus-5 1911 264556 510
+109 principal claude-opus-5 1761 266467 7236
+110 principal claude-opus-5 7310 268228 639
+111 principal claude-opus-5 2677 275538 1967
+112 principal claude-opus-5 2289 278215 864
+113 principal claude-opus-5 5113 280504 664
+114 principal claude-opus-5 913 285617 1809
+115 principal claude-opus-5 2347 286530 474
+116 agent claude-sonnet-5 17102 0 4
+117 agent claude-sonnet-5 1724 17102 2
+118 agent claude-sonnet-5 2581 18826 0
+119 agent claude-sonnet-5 2577 21407 6
+120 agent claude-sonnet-5 2002 23984 20
+121 agent claude-sonnet-5 6663 25986 3
+122 agent claude-sonnet-5 2996 32649 4
+123 agent claude-sonnet-5 3703 35645 2
+124 agent claude-sonnet-5 1798 39348 3
+125 agent claude-sonnet-5 2392 41146 10
+126 agent claude-sonnet-5 2660 43538 5
+127 agent claude-sonnet-5 3694 46198 3
+128 agent claude-sonnet-5 1525 49892 3
+129 agent claude-sonnet-5 249 51417 5
+130 agent claude-sonnet-5 2827 51666 2
+131 agent claude-sonnet-5 2605 54493 2
+132 agent claude-sonnet-5 5310 57098 2
+133 agent claude-haiku-4-5-20251001 12639 0 4
+134 agent claude-haiku-4-5-20251001 1676 12639 2
+135 agent claude-haiku-4-5-20251001 822 14315 2
+136 agent claude-haiku-4-5-20251001 1335 15137 2
+137 agent claude-haiku-4-5-20251001 875 16472 2
+138 agent claude-haiku-4-5-20251001 534 17347 4
+139 agent claude-haiku-4-5-20251001 337 17881 4
+140 agent claude-haiku-4-5-20251001 202 18218 2
+141 agent claude-haiku-4-5-20251001 12700 0 4
+142 agent claude-haiku-4-5-20251001 1353 12700 2
+143 agent claude-haiku-4-5-20251001 484 14053 1
+144 agent claude-haiku-4-5-20251001 1038 14537 2
+145 agent claude-haiku-4-5-20251001 842 15575 2
+146 agent claude-haiku-4-5-20251001 289 16417 2
+147 agent claude-haiku-4-5-20251001 12896 0 4
+148 agent claude-haiku-4-5-20251001 1562 12896 2
+149 agent claude-haiku-4-5-20251001 1038 14458 1
+150 agent claude-haiku-4-5-20251001 3131 15496 2
+151 agent claude-haiku-4-5-20251001 692 18627 4
+152 agent claude-haiku-4-5-20251001 343 19319 5
+153 agent claude-haiku-4-5-20251001 306 19662 2
 -->
 <!-- /cout -->
