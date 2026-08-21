@@ -1,10 +1,11 @@
 # Comment on travaille — le détail
 
 Quand lire : avant de remplir une entrée de journal, de relever ce qu'une branche a
-coûté, de lancer l'`analyste`, le `greffier` ou l'`artisan`, ou de conclure qu'une
-branche peut être supprimée.
+coûté, d'écrire la mission d'un agent, de lancer l'`analyste`, le `greffier` ou
+l'`artisan`, ou de conclure qu'une branche peut être supprimée.
 Tenu par : --check — gabarit nu committé, en-tête `Périmètre`/`Mode`, deux champs
-fermés par anomalie, présence des cinq agents et des deux commandes de mode ;
+fermés par anomalie, présence des cinq agents et des deux commandes de mode,
+section `## Rendu` et champs obligatoires de chacun des cinq agents ;
 pret.sh — relevé de coût manquant ou
 périmé, et app fusionnée sur `main` dont l'image en ligne est plus ancienne, en
 avertissement ; hook — `garde-branche.sh` refuse d’éditer sur `main`,
@@ -361,3 +362,75 @@ a reçu un chantier borné tournent entre 14 000 et 79 000.
 **Le registre des agents est lu au démarrage de la session** : un agent ajouté en
 cours de session n'est invocable qu'à la suivante — même piège que les plugins.
 
+
+## Le protocole d'échange entre agents
+
+**Entre agents on écrit en télégraphique ; avec l'utilisateur, jamais.** Les deux
+lecteurs n'ont rien de commun : l'un décide et ne lit pas le code, l'autre exécute
+une consigne et paie chaque mot deux fois — une fois écrit, une fois relu à tous
+les tours suivants. Un rapport de 800 jetons laissé dans le contexte de l'appelant
+est relu à chacun des tours qu'il lui reste à vivre.
+
+Ce qui est mesuré au 2026-08-21, sur les vingt-deux branches : les sous-agents
+pèsent **42 % des tours** et **28 % de la relecture** du dépôt, à 138 752 jetons
+relus par tour de sous-agent. Ce n'est **pas** la consigne permanente de l'agent
+qui coûte — les cinq fichiers de `.claude/agents/` pèsent 6 510 jetons, soit
+**0,2 %** de la facture, et les abréger reviendrait à risquer les leçons qu'ils
+portent pour trois dollars sur mille cinq cents. Ce qui coûte est ce qui
+**circule** : la mission, qui décide de ce que l'agent va explorer, et le
+rapport, qui reste.
+
+### Les règles d'écriture
+
+- **Des champs, pas des phrases.** `clé` puis valeur, une par ligne. Groupes
+  nominaux.
+- **Aucun adjectif d'appréciation**, aucune politesse, aucune méta (« je vais
+  maintenant… »), aucune reformulation de la demande : l'appelant l'a écrite.
+- **Symboles plutôt que mots** : `→` conséquence, `/` alternative, `·`
+  séparateur, `—` glose, `+` et `-` ajout ou retrait, `@` largeur ou lieu.
+- **Chiffres, pas mots** : `12/12`, jamais « tous les tests passent ».
+- **Vocabulaire fermé partout où il y a un verdict** — `ok`/`ko`, `bloquant`/
+  `a corriger`/`a discuter`, `aucun`. C'est ce qui permet de compter, et c'est
+  ce qui distingue l'abrègement de l'à-peu-près.
+- **Un champ obligatoire ne s'omet jamais** : vide, il vaut `aucun`. Une rubrique
+  absente et une rubrique vide ne disent pas la même chose — c'est le garde-fou
+  qui empêche l'abrègement de perdre de l'information.
+
+### La mission — appelant → agent
+
+Six clés, dans cet ordre ; on omet celles qui ne s'appliquent pas.
+
+    app       <nom>  ·  ou « fabrique »
+    but       <une ligne, a l'infinitif>
+    entree    <documents d'autorite a lire — PRP, PRD, critique>  ·  « aucun »
+    acquis    <ce qui est DEJA etabli et ne se reverifie pas>
+    hors      <ce qu'il ne touche pas, au-dela de sa regle propre>
+    rendre    « standard » = les rubriques de sa consigne  ·  sinon, lesquelles
+
+`acquis` est la clé qui rapporte : un agent qui ignore ce que la session sait déjà
+le redécouvre en ouvrant des dizaines de fichiers, et c'est de là que viennent les
+138 752 jetons par tour. `entree` la double — nommer le document d'autorité évite
+la fouille.
+
+**La brièveté ne dispense pas de la précision.** Une mission sans `but` net ou
+sans `entree` envoie l'agent travailler à côté, et un agent qui travaille à côté
+coûte plus cher que la mission la plus bavarde. Abréger veut dire retirer les
+mots, jamais les faits.
+
+### Le rapport — agent → appelant
+
+Chaque agent porte son format dans sa consigne, sous `## Rendu`, et `--check`
+vérifie que les cinq le portent avec leurs champs : un agent réécrit sans son
+format redevient bavard sans que rien ne le signale.
+
+| Agent | Champs obligatoires |
+|---|---|
+| `artisan` | `fichiers` · `tests` · `bloque` · `anomalie` |
+| `greffier` | `branche` · `commit` · `fichiers` — ou `echec` seul |
+| `relecteur` | `constats`, puis par constat `ou` · `casse` · `propose` · `gravite` |
+| `analyste` | `distribution` · `retrospectif` · `recurrence` · `plan` · `arbitrage` |
+| `esthete` | `ecrans` · `corrige` · `montre` · `critique` |
+
+**Ce protocole ne franchit jamais la frontière de l'utilisateur.** Ce qu'il lit
+reste ce que dit `CLAUDE.md` : français, phrases, effet plutôt que mécanisme. Un
+rapport d'agent ne se recopie pas tel quel dans une réponse — il se traduit.

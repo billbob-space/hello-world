@@ -2985,12 +2985,44 @@ check_outillage() {
   for h in .claude/garde-branche.sh .claude/garde-commit.sh; do
     [ -x "$h" ] && ok "$h executable" || bad "$h absent ou non executable"
   done
-  for f in .claude/agents/analyste.md .claude/agents/greffier.md \
-           .claude/agents/artisan.md \
-           .claude/commands/livrer.md .claude/commands/pas-a-pas.md \
+  for f in .claude/commands/livrer.md .claude/commands/pas-a-pas.md \
            .github/pull_request_template.md; do
     [ -f "$f" ] && ok "$f present" || bad "$f absent"
   done
+
+  # Le protocole d'echange entre agents — memory/travail.md — ne tient qu'a une
+  # chose : que chaque agent porte SON format de rendu, avec ses champs
+  # obligatoires. Un agent reecrit sans lui redevient bavard, et personne ne le
+  # voit : le surcout n'apparait qu'au releve de cout de la branche d'apres, ou
+  # il est melange a tout le reste. Le meme parcours verifie la presence des
+  # cinq fichiers, que le registre des agents ne relit qu'au demarrage d'une
+  # session — un agent absent ne se remarquait qu'a la session suivante.
+  proto=0
+  for spec in "analyste:distribution retrospectif recurrence plan arbitrage" \
+              "artisan:fichiers tests bloque anomalie" \
+              "esthete:ecrans corrige montre critique" \
+              "greffier:branche commit fichiers echec" \
+              "relecteur:constats ou casse propose gravite"; do
+    f=.claude/agents/${spec%%:*}.md
+    if [ ! -f "$f" ]; then
+      bad "$f absent"; proto=$((proto+1)); continue
+    fi
+    if ! grep -q '^## Rendu' "$f"; then
+      bad "$f : section '## Rendu' absente — l'agent n'a plus de format de rendu"
+      proto=$((proto+1)); continue
+    fi
+    # La SECTION seule, jamais le fichier entier : « ecrans » et « montre »
+    # ouvrent aussi des lignes de prose ailleurs dans la consigne de l'esthete,
+    # et un grep sur tout le fichier declarait le champ present alors qu'il
+    # venait d'etre retire du rendu — le controle disait « ok » sur la panne
+    # meme qu'il existe pour voir.
+    rendu=$(awk '/^## Rendu/{f=1;next} /^## /{f=0} f' "$f")
+    for champ in ${spec#*:}; do
+      grep -qE "^ *\`?$champ\b" <<<"$rendu" \
+        || { bad "$f : le champ '$champ' manque a son rendu"; proto=$((proto+1)); }
+    done
+  done
+  [ "$proto" -eq 0 ] && ok "cinq agents : section '## Rendu' et champs obligatoires"
 
   # Les scripts generes le sont par substitution de fragments : une erreur du
   # generateur produit un fichier plausible mais inanalysable, qui echouerait

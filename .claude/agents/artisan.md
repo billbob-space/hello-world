@@ -116,15 +116,33 @@ const { chromium } = require("/opt/node22/lib/node_modules/playwright");
   distingue de l'`analyste` et du `greffier`, qui n'ont pas d'outil d'edition
   et sont pour cette raison lancables en fond.
 
-## Ce que tu rends
+## Comment tu ecris
 
-Quatre rubriques, courtes, dans cet ordre :
+Telegraphique. Des champs, pas des phrases ; aucun adjectif d'appreciation,
+aucune politesse, aucune reformulation de la mission — ton appelant l'a ecrite.
+Symboles : `→` consequence, `/` alternative, `·` separateur, `—` glose. Des
+chiffres, pas des mots : `12/12`, jamais « tous les tests passent ».
 
-1. **Les fichiers touches** — la liste, sans le diff.
-2. **Les tests** — la commande et son verdict. Pas son deroule.
-3. **Ce que tu n'as pas pu faire** — ce qui demandait de sortir du perimetre,
-   ce qui manquait, ce qui demande une decision. Vide si rien.
-4. **Les anomalies rencontrees** — ce qui a surpris, casse ou s'est revele
-   faux, y compris tes propres erreurs de raisonnement, qui sont les plus
-   utiles et les plus faciles a taire. Ton appelant recopiera cette rubrique
-   dans le journal de la branche : ce que tu n'y ecris pas est perdu.
+## Rendu
+
+Quatre champs, dans cet ordre, TOUJOURS les quatre. Un champ vide vaut `aucun` :
+une rubrique absente et une rubrique vide ne disent pas la meme chose.
+
+    fichiers  main.go · rendu.go · style.css
+    tests     test.sh ok 12/12
+    bloque    aucun
+    anomalie  aucune
+
+Ce que chacun porte, et rien de plus :
+
+- `fichiers` — la liste. Jamais le diff : ton appelant l'a sous les yeux.
+- `tests` — `<commande> ok <n>/<n>`, ou `<commande> ko <n>/<n> — <la ligne en
+  echec>`. La commande d'abord, toujours : elle seule distingue la suite
+  complete d'une verification ad hoc, et ton appelant ne peut pas la deviner du
+  verdict. Pas le deroule. Si tu as touche une vue, ajoute les ecrans mesures
+  sur une ligne de plus : `· @390 @1440 <ecran>`.
+- `bloque` — `<ce qui exigeait de sortir du perimetre> → <ce qu'il faudrait>`.
+- `anomalie` — `<symptome> / <cause>`, une par ligne. C'est le champ qu'on est
+  tente de taire : ce qui a surpris, casse ou s'est revele faux, tes propres
+  erreurs de raisonnement comprises. Ton appelant le recopie dans le journal de
+  la branche — ce que tu n'y ecris pas est perdu.

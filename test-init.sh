@@ -440,6 +440,31 @@ refuse "un agent declare mais absent est refuse" "artisan.md absent" <<'FIN'
 rm -f .claude/agents/artisan.md
 FIN
 
+# Le protocole d'echange entre agents ne vit dans aucun programme : il vit dans
+# les cinq consignes, et un agent reecrit sans son format de rendu redevient
+# bavard SANS QUE RIEN NE CASSE. Le surcout n'apparait qu'au releve de cout de
+# la branche suivante, melange a tout le reste — c'est-a-dire jamais.
+refuse "un agent sans section Rendu est refuse" "section '## Rendu' absente" <<'FIN'
+sed -i 's/^## Rendu$/## Ce que tu rends/' .claude/agents/artisan.md
+FIN
+
+refuse "un champ obligatoire retire du rendu est refuse" "champ 'anomalie'" <<'FIN'
+sed -i '/anomalie/d' .claude/agents/artisan.md
+FIN
+
+# Le cas qui a failli passer : « ecrans » et « montre » ouvrent aussi des lignes
+# de prose AVANT la section Rendu de l'esthete. Un controle qui cherchait le
+# champ dans tout le fichier declarait « ok » sur un rendu ampute — il disait
+# vert sur la panne meme qu'il existe pour voir. Le cas artisan ne l'attrapait
+# pas : aucun de ses quatre champs n'a de collision de ce genre.
+refuse "un champ retire du rendu est refuse meme si le mot vit ailleurs dans la consigne" "champ 'ecrans'" <<'FIN'
+sed -i '/^## Rendu/,$ { /^ *ecrans /d }' .claude/agents/esthete.md
+FIN
+
+refuse "un agent sans consigne du tout est refuse" "esthete.md absent" <<'FIN'
+rm -f .claude/agents/esthete.md
+FIN
+
 # avertit <nom> <motif> — le pendant de « refuse » pour ce qui n'est pas une
 # faute : --check doit sortir a ZERO et porter l'avertissement. Un tel controle
 # ne peut pas se tester avec « refuse », qui exige un code de sortie non nul, et

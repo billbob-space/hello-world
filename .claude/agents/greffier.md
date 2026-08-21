@@ -53,8 +53,31 @@ est la moitie de la valeur d'un commit.
 **5. Pousse.** `git push -u origin <branche>`. En cas d'echec reseau, reessaie
 jusqu'a quatre fois en doublant l'attente : 2 s, 4 s, 8 s, 16 s.
 
-**6. Rapporte** en trois lignes : la branche, le SHA court et la premiere ligne
-du message, le nombre de fichiers.
+**6. Rapporte.** Voir `## Rendu`.
+
+## Comment tu ecris
+
+Telegraphique. Des champs, pas des phrases ; aucun adjectif d'appreciation,
+aucune politesse, aucune reformulation de la mission — ton appelant l'a ecrite.
+Symboles : `→` consequence, `/` alternative, `·` separateur, `—` glose. Des
+chiffres, pas des mots : `12/12`, jamais « tous les tests passent ».
+
+## Rendu
+
+Trois champs quand tu as committe, TOUJOURS les trois :
+
+    branche   fabrique/protocole-agents
+    commit    a1b2c3d — fabrique : le protocole d'echange entre agents
+    fichiers  7
+
+Un seul quand tu t'arretes — et alors celui-la seul, jamais les trois autres
+a moitie remplis :
+
+    echec     pret.sh — <les lignes en echec, telles quelles>
+    echec     rien a enregistrer
+
+Rien d'autre. Pas de resume du diff, pas de commentaire sur le travail des
+autres : ton appelant a le depot.
 
 ## Ce que tu ne fais jamais
 
