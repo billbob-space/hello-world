@@ -311,11 +311,21 @@ existe. Avertissement dans `pret.sh`, KO en CI sur la pull request — le même
 dédoublement que pour le journal.
 
 **Aucun agent lançable en tâche de fond ne peut modifier le dépôt.** C'est la règle,
-et elle se lit dans les deux sens. L'`analyste` et le `greffier` sont restreints à
-`Bash`, `Read` et `Grep` : **l'absence d'outil d'édition n'est pas un détail de
-configuration**, c'est ce qui garantit qu'un agent lancé en fond ne touchera pas au
-dépôt pendant que tu travailles dessus. L'`artisan`, lui, écrit par définition — donc
-**il ne se lance jamais en tâche de fond**. Même règle, autre conséquence.
+et elle se lit dans les deux sens — mais elle se lit sur ce que l'agent *fait*, pas sur
+son champ `tools:`. **`Bash` suffit à écrire** : l'absence d'`Edit` ne prouve rien.
+
+Seul l'`analyste` est réellement sans effet : `Bash`, `Read`, `Grep`, et il rend son
+plan dans sa réponse. Le `greffier` a la même liste d'outils **et modifie le dépôt** —
+`git add -A` capture tout l'arbre, y compris ce qu'un autre agent est en train d'écrire.
+Son invariant n'est pas « il n'édite pas », c'est **« il n'édite pas de code »** : ça
+suffit contre une lecture concurrente, pas contre une écriture. L'`artisan` écrit par
+définition, et l'`esthète` aussi — il porte `Edit` et `Write`, et corrige seul ce qui
+est objectif. Tous deux **ne se lancent jamais en tâche de fond**, pour la même raison.
+
+Ce qui peut malgré tout tourner en même temps, et à quelle condition, est recensé dans
+`docs/parallelisme.md` — avec le rappel que `run_in_background: false` **n'est pas une
+garantie** : deux entrées de journal rapportent le harnais démarrant en fond un artisan
+lancé avec le drapeau explicite.
 
 L'`analyste` agrège les deux champs fermés, cherche les causes qui reviennent d'une
 branche à l'autre, et rend **dans sa réponse** un plan de trois à six actions
