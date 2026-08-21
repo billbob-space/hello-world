@@ -259,6 +259,7 @@ if [ -n "$retard" ]; then
   warn "livraison :$retard — fusionne sur $BASE, mais l'image en ligne est celle d'un commit anterieur. Relance le workflow build sur $BASE avec « toutes »"
 fi
 
+rappel_attn
 echo
 [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s) — ne committe pas en l'etat."; exit 1; }
 echo "Etape verifiee. Tu peux committer."

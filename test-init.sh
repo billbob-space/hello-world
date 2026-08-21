@@ -460,6 +460,37 @@ avertit_corps() {  # avertit_corps <nom> <motif attendu> <mutation>
 
 avertit() { detache avertit_corps "$1" "$2" "$(cat)"; }
 
+# rappelle <nom> <motif attendu> <<< <mutation> — le pendant de « avertit »
+# pour le RAPPEL de fin de sortie, et non pour l'avertissement dans le flot.
+#
+# Les deux ne se confondent pas. Le contrat a depasse son plafond de lignes
+# pendant plusieurs branches alors que « attn CLAUDE.md 271 lignes » sortait a
+# chaque --check : noye au milieu d'une centaine de lignes vertes, il se lisait
+# comme du decor. Le rappel ne change pas le verdict — un avertissement ne
+# bloque pas — il rend seulement la derive impossible a manquer. Ce qui se
+# teste est donc qu'un avertissement soit REPRIS apres le flot ; le chercher
+# dans la sortie entiere ne prouverait rien, puisqu'il y figure deja.
+rappelle_corps() {  # rappelle_corps <nom> <motif attendu> <mutation>
+  local nom="$1" motif="$2" mut="$3" d sortie code=0 apres
+  d=$(bac)
+  bash -c "cd '$d' && $mut" || { echec "$nom" "la mutation elle-meme a echoue"; return 0; }
+  sortie=$(cd "$d" && ./init.sh --check 2>&1) || code=$?
+  if [ "$code" != 0 ]; then
+    echec "$nom" "--check a refuse (sortie $code) la ou il devait seulement avertir"
+    return 0
+  fi
+  apres=$(sed -n '/avertissement(s) de /,$p' <<< "$sortie")
+  if [ -z "$apres" ]; then
+    echec "$nom" "aucun rappel des avertissements en fin de sortie"
+  elif ! grep -q -- "$motif" <<< "$apres"; then
+    echec "$nom" "« $motif » avertit dans le flot, mais le rappel de fin ne le reprend pas"
+  else
+    reussi "$nom"
+  fi
+}
+
+rappelle() { detache rappelle_corps "$1" "$2" "$(cat)"; }
+
 section 'bout en bout'
 
 # Les dix suites de bout en bout bindent chacune un port en dur. Elles ont ete
@@ -517,6 +548,29 @@ Aucune anomalie.
 <!-- /cout -->
 ENTREE
 git add -A
+FIN
+
+# Le meme avertissement que ci-dessus, verifie a l'autre bout de la sortie : ce
+# qui compte n'est plus qu'il soit emis, mais qu'on le retrouve apres la
+# centaine de lignes vertes qui le separent du verdict.
+rappelle "un avertissement est repris dans le rappel de fin" "releve(s) de cout sans detail" <<'FIN'
+cat > journal/2026-01-02-fabrique-rappel.md <<'ENTREE'
+# 2026-01-02 — fabrique/rappel
+
+Branche : `fabrique/rappel`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+
+<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
+## Coût
+
+<!-- cout-total: 123456 -->
+<!-- /cout -->
+ENTREE
 FIN
 
 section 'documents'

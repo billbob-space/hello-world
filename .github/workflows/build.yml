@@ -9,7 +9,16 @@ name: build
 on:
   push:
     branches: [main]
+  # « edited » n'est PAS dans le defaut, qui vaut [opened, synchronize,
+  # reopened]. Sans lui, l'etape « les deux relecteurs » etait invalidable :
+  # elle lit le corps de la PR dans la charge utile de l'evenement
+  # (github.event.pull_request.body), donc corriger la description ne
+  # declenchait rien, et relancer le job echoue rejouait l'ancien corps. Le seul
+  # recours etait de pousser un commit — ou un commit vide, que le depot
+  # interdit. Un controle qui porte sur un texte editable hors de git doit
+  # ecouter l'evenement qui modifie ce texte.
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
     inputs:
       toutes:
@@ -26,8 +35,14 @@ on:
 # commit pousse. Laisser tourner les precedents faisait payer plusieurs fois la
 # meme verification et retardait le verdict utile, puisque le groupe est
 # serialise — le second run attendait la fin du premier au lieu de le remplacer.
+#
+# Les runs « edited » ont leur PROPRE voie. Dans le groupe commun, retoucher la
+# description pendant que la CI verifie un commit annulerait cette verification
+# et la remplacerait par un run qui ne relit que le corps — le code passerait au
+# vert sans avoir ete verifie. Deux voies : les retouches de description
+# s'annulent entre elles, jamais le travail sur le code.
 concurrency:
-  group: fabrique-${{ github.ref }}
+  group: fabrique-${{ github.ref }}${{ github.event.action == 'edited' && '-corps' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -232,7 +247,10 @@ jobs:
   # ne veut dire « rien a faire » que si celui qui l'a decide a lui-meme abouti.
   tests-de-l-outillage:
     needs: [detect, outillage]
-    if: ${{ !cancelled() }}
+    # Le second terme pour la meme raison que sur detect. Sans lui, ce job
+    # tournerait sur un « edited » et jugerait un amont saute — or son role est
+    # precisement de refuser un « saute » que personne n'a decide.
+    if: ${{ !cancelled() && github.event.action != 'edited' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -250,7 +268,12 @@ jobs:
             *)       echo "  KO    outillage : $resultat" ; exit 1 ;;
           esac
 
+  # Sur « edited », seul le job contrat tourne : rien du code n'a bouge, et
+  # relancer la detection ferait repartir la matrice de build pour une coquille
+  # dans une description. detect commandant toute la chaine en aval
+  # (outillage, test, revue, bout-en-bout, build), le sauter ici les saute tous.
   detect:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
