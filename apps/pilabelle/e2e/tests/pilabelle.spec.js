@@ -66,9 +66,25 @@ test("aucune violation d'accessibilite serieuse sur les ecrans visites", async (
         // « aria-prohibited-attr sur l'ecran exercice » ne dit pas sur QUEL
         // element. Trois noeuds au plus, tronques : de quoi nommer le coupable
         // sans noyer le journal du job.
+        //
+        // failureSummary est indispensable, pas decoratif : pour les regles qui
+        // dependent du ROLE, ce role est le plus souvent IMPLICITE (un <button>,
+        // un <input type=checkbox>) et n'apparait donc dans aucun attribut du
+        // html capture. Seul failureSummary nomme le couple en clair
+        // (« aria-X cannot be used on role Y »). Il contient nativement des
+        // sauts de ligne (axe joint les groupes any/none par \n\n) : on les
+        // aplatit pour tenir sur une ligne de journal.
         const noeuds = (v.nodes || [])
           .slice(0, 3)
-          .map((n) => `${(n.target || []).join(" ")} :: ${String(n.html || "").slice(0, 200)}`)
+          .map((n) => {
+            const cible = (n.target || []).join(" ");
+            const html = String(n.html || "").slice(0, 200);
+            const raison = String(n.failureSummary || "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 200);
+            return `${cible} :: ${html} :: ${raison}`;
+          })
           .join(" | ");
         violationsGraves.push(
           `${nomEcran} : ${v.id} (${v.impact}) : ${v.help} -- ${noeuds}`,

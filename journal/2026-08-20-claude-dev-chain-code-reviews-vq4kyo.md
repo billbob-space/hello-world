@@ -3073,3 +3073,41 @@ C'est encore le mode d'echec de toute cette branche, deplace dans l'outillage :
 un intermediaire qui rend un resultat bien forme, plausible, et incomplet — sans
 que rien n'echoue. Huitieme de la serie, et le premier a ne pas venir de la
 fabrique elle-meme.
+
+### 42. Le garde-fou du jour a refuse la fusion de son propre auteur
+
+**Symptome** — la pull request de suivi (#159) ne porte que douze lignes : le
+message d'erreur du bout en bout de `pilabelle` apprend a nommer le noeud
+fautif. J'ai rempli sa section `## Revue` par « pas de passage de `relecteur`
+ici, c'est delibere : le diff ne touche aucune logique ». Le job `contrat` a
+refuse la pull request — « la ligne Code de la section Revue est vide ou sans
+date ».
+
+**Cause** — le controle ajoute par cette branche meme ne verifie pas que les
+relecteurs ont eu **raison**, il verifie qu'ils ont eu **lieu** : la ligne doit
+porter un nom et une date. Une bonne raison de sauter l'etape reste un saut de
+l'etape, et c'est exactement la forme que prend le vert silencieux quand c'est
+l'auteur qui se l'accorde — le motif est plausible, la verification n'a pas eu
+lieu, rien n'echoue.
+
+Le controle avait raison sur le fond, et pas seulement sur la forme. Lance pour
+de bon, `relecteur` a trouve un defaut reel dans ces douze lignes : le message
+capturait `target` et `html`, mais pas `failureSummary`. Or pour les regles ARIA
+qui dependent du role, ce role est le plus souvent **implicite** — un `<button>`,
+un `<input type=checkbox>` — et n'apparait donc dans **aucun attribut** du HTML
+capture. Le prochain run rouge aurait affiche l'element sans dire quel couple
+attribut/role est en cause : un passage de CI perdu, par le commit meme qui
+existait pour en eviter un.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — rien a corriger : le garde-fou a fonctionne comme prevu,
+sur le premier cas venu, contre celui qui l'a ecrit. Ce qui merite d'etre garde,
+c'est la mesure : **entre le moment ou j'ai juge la relecture inutile et le
+moment ou elle a trouve un defaut, il s'est ecoule deux minutes.** Mon estimation
+du risque etait fausse sur un diff de douze lignes que j'avais ecrit moi-meme et
+que je venais de relire. C'est le meilleur argument disponible contre l'idee
+qu'un controle puisse etre saute « quand on sait que c'est sans risque ».
+
+Neuvieme vert silencieux de la serie, et le seul que la branche ait attrape
+elle-meme.
