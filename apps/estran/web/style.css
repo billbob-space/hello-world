@@ -466,6 +466,27 @@ main {
   display: block;
 }
 
+/* « Identiques » se mesure, et au 21 aout 2026 les quatre cartes ne l'etaient
+   pas encore tout a fait — deux regles ecrites AILLEURS dans cette feuille
+   passaient devant `.indisponible-carte`, a specificite egale, du seul fait
+   de leur position :
+     — `.jours-rangee` (bien plus bas) pose `border: 1px rgba(…, 0.06)` : la
+       carte de la tendance avait donc un filet plus pale que les trois
+       autres (0,06 contre 0,08) ;
+     — `.jauge-carte` passe a `--espace-5` au-dela de 1024 px : la carte de la
+       maree en panne etait rembourree de 32 px quand les trois autres l'etaient
+       de 20 px (mesure a 1440 px).
+   Ces quatre selecteurs a deux classes reprennent la main partout. Sans eux,
+   le gabarit reste « presque » identique, ce qui est precisement ce que la
+   decision du 20 aout 2026 refusait. */
+.jauge-carte.indisponible-carte,
+.pluie-carte.indisponible-carte,
+.heures-rangee.indisponible-carte,
+.jours-rangee.indisponible-carte {
+  padding: var(--espace-4);
+  border: 1px solid rgba(244, 236, 216, 0.08);
+}
+
 /* ---------- jauge de maree ---------- */
 
 .jauge-carte {
@@ -1407,6 +1428,17 @@ main {
   white-space: nowrap;
 }
 
+/* min-width + flex-wrap : la piste du risque de pluie occupe la colonne
+   `minmax(0, 1fr)` de .jour-principale, celle qui absorbe ce qui reste apres
+   le nom, l'icone et les temperatures. En dessous de ~400 px il ne reste plus
+   assez : le groupe (goutte + « risque » + « 10 % ») mesure 100 px pour une
+   piste de 88,6 px a 390 px, de 58,6 px a 360 px, de 18,6 px a 320 px. Sans
+   ces deux proprietes, un `display: flex` ne retrecit pas et ne coupe pas : il
+   DEBORDE de sa colonne et vient s'ecrire par-dessus les temperatures —
+   mesure au navigateur le 21 aout 2026, chevauchement de 3 px a 390 px, 33 px
+   a 360 px, 73 px a 320 px, ou « 10 % » et « 21° » se superposent lettre sur
+   lettre. Avec elles, le groupe passe a la ligne au lieu de recouvrir : deux
+   informations lisibles plutot qu'une bouillie. */
 .jour-ligne .pluie {
   font-size: 1.05rem;
   font-weight: 600;
@@ -1415,6 +1447,8 @@ main {
   align-items: center;
   gap: 4px;
   justify-self: start;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 /* Sur le fond plus clair de la ligne active (--encre-600), --eau-400 tombe a

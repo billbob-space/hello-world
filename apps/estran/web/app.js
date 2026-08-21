@@ -133,9 +133,38 @@ function majNavigation() {
       else bouton.removeAttribute("aria-current");
       const prefixe = bouton.querySelector(".pastille-jour-prefixe");
       if (prefixe) prefixe.textContent = actif ? "Jour affiché : " : "Voir : ";
-      if (actif) bouton.scrollIntoView({ block: "nearest", inline: "nearest" });
+      if (actif) centrerPastille(piste, bouton);
     });
   }
+}
+
+// centrerPastille amene la pastille du jour affiche au MILIEU de sa piste, en
+// ne touchant QUE le defilement horizontal de la piste.
+//
+// `scrollIntoView` ne convient pas ici, pour deux raisons mesurees au
+// navigateur le 21 aout 2026 :
+//
+//  1. `inline: "nearest"` amene la pastille tout juste au bord de la piste,
+//     puis `scroll-snap-type: x proximity` (style.css) recale aussitot la
+//     piste sur le point d'accrochage voisin — deux pastilles en arriere. A
+//     390 px, la pastille du jour affiche ressortait donc COUPEE de 23 px sur
+//     54 (43 % de sa largeur, son chiffre tronque), au chargement comme apres
+//     chaque fleche : le seul element qui dit ou l'on se trouve etait celui
+//     qu'on ne pouvait pas lire entierement.
+//  2. `block: "nearest"` fait aussi defiler la PAGE verticalement des que le
+//     bandeau est sorti de l'ecran : cliquer une ligne de tendance depuis le
+//     bas de la page la remontait de 783 px a 172 px, sans que le geste ne
+//     l'ait demande.
+//
+// Centrer a la main est ce que `scroll-snap-align: center` declare deja sur
+// chaque pastille : le recalage d'accrochage retombe alors exactement sur la
+// valeur posee ici et ne deplace plus rien. Les rectangles plutot que
+// `offsetLeft` : la piste n'est pas positionnee, elle n'est donc pas
+// l'`offsetParent` de ses pastilles.
+function centrerPastille(piste, bouton) {
+  const p = piste.getBoundingClientRect();
+  const b = bouton.getBoundingClientRect();
+  piste.scrollLeft += b.left - p.left - (p.width - b.width) / 2;
 }
 
 // allerAuJour ignore silencieusement une cible hors fenêtre : les flèches
@@ -244,6 +273,21 @@ function horlogeLocale() {
 // chiffre). Le message affiche vient toujours du serveur (ou d'un texte fixe
 // pour la configuration manquante) : cette fonction ne fait que le poser
 // dans le meme cadre partout.
+//
+// LA PHRASE AUSSI est la meme partout, et pas seulement le cadre — c'est ce
+// que la decision engage (« exactement de la meme facon »), et ce n'etait pas
+// tenu au 21 aout 2026 : trois sections nommaient leur fournisseur muet, la
+// quatrieme disait « tendance indisponible » et rien d'autre, et les trois
+// messages de secours (les `catch` de tout()) etaient muets eux aussi. Un
+// seul gabarit de phrase, en trois temps :
+//
+//     <Sujet> indisponible : <qui ne repond pas>. Nouvelle tentative
+//     automatique dans 5 minutes.
+//
+// Ni « le reste de la page est a jour » : une section ne peut rien affirmer
+// des trois autres sans devenir la banniere globale ecartee — et en panne
+// TOTALE cette phrase s'affichait trois fois de suite alors qu'elle etait
+// fausse les trois fois (mesure au navigateur, 21 aout 2026).
 //
 // TOUJOURS le meme fond de carte (.indisponible-carte), y compris sur la
 // maree et la pluie qui en ont deja un en permanence (.jauge-carte,
@@ -786,7 +830,10 @@ function actualiserTendance() {
     // arrondis, mais aucun rembourrage), et venait se coller a son bord
     // haut. .indisponible-carte lui donne le meme fond et le meme
     // rembourrage que les autres sections en panne.
-    carteIndisponible(rangee, "tendance indisponible");
+    carteIndisponible(
+      rangee,
+      "Tendance indisponible : Open-Meteo ne rend aucun jour. Nouvelle tentative automatique dans 5 minutes."
+    );
     return;
   }
   retireCarteIndisponible(rangee);
@@ -994,19 +1041,28 @@ async function tout() {
   } catch (e) {
     const heures = document.getElementById("heures-rangee");
     heures.classList.remove("heures-rangee--defile");
-    carteIndisponible(heures, "prévisions indisponibles");
+    carteIndisponible(
+      heures,
+      "Prévisions indisponibles : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
+    );
     joursMeteoActuels = [];
     actualiserTendance();
   }
   try {
     rendreJauge(await chargerJSON(urlAvecJour("/api/maree")));
   } catch (e) {
-    carteIndisponible(document.getElementById("jauge-carte"), "marée indisponible");
+    carteIndisponible(
+      document.getElementById("jauge-carte"),
+      "Marée indisponible : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
+    );
   }
   try {
     rendrePluie(await chargerJSON(urlAvecJour("/api/pluie")));
   } catch (e) {
-    carteIndisponible(document.getElementById("pluie-carte"), "pluie indisponible");
+    carteIndisponible(
+      document.getElementById("pluie-carte"),
+      "Pluie indisponible : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
+    );
   }
 }
 
