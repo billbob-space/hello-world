@@ -199,8 +199,11 @@ export function monterReprise(hote, ctx) {
     if (!MOTIF_PSEUDO.test(pseudo) || !MOTIF_CODE.test(code)) {
       // Le message ne dit JAMAIS si c'est le pseudo ou le code qui cloche :
       // distinguer les deux offrirait un oracle d'existence de pseudonymes
-      // (PRP 03 chantier C).
-      erreur.textContent = 'Pseudo ou code invalide.';
+      // (PRP 03 chantier C). Il dit en revanche À QUOI ILS RESSEMBLENT — un
+      // constat d'échec sans geste de sortie laisse une enfant de treize ans
+      // devant un écran mort, et la forme attendue ne révèle l'existence
+      // d'aucun pseudonyme.
+      erreur.textContent = 'Pseudo ou code invalide. Ton pseudo ressemble à « Galaxie-5 », et ton code est six chiffres.';
       return;
     }
     if (typeof ctx.reprendreCompte !== 'function') {
@@ -213,7 +216,10 @@ export function monterReprise(hote, ctx) {
         if (typeof location !== 'undefined') location.hash = '#/jour';
       } else {
         limiteur.refuser();
-        erreur.textContent = 'Pseudo ou code incorrect.';
+        // Même règle que ci-dessus : aucun oracle, mais une issue. Sans la
+        // deuxième phrase, celle qui a perdu son pseudonyme n'a plus aucun
+        // chemin depuis cet écran — or « Retour » lui en ouvre un.
+        erreur.textContent = 'Pseudo ou code incorrect. Ton pseudo ressemble à « Galaxie-5 ». Si tu ne l’as plus, « Retour » te laisse créer un nouveau compte.';
       }
     }).catch(() => {
       erreur.textContent = 'Pas de réseau — réessaie plus tard.';

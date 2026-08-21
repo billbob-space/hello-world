@@ -18,7 +18,13 @@ on:
   # interdit. Un controle qui porte sur un texte editable hors de git doit
   # ecouter l'evenement qui modifie ce texte.
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    # « ready_for_review » : une PR ouverte en BROUILLON puis passee prete ne
+    # declenchait rien si aucun commit n'etait pousse entre les deux. Constate
+    # sur la PR #166 — dix commits pousses AVANT l'ouverture, donc aucun
+    # « synchronize », et aucun controle sur la tete de branche. Une PR prete a
+    # fusionner sans le moindre job vert est exactement ce que le verrou du
+    # contrat existe pour empecher.
+    types: [opened, synchronize, reopened, edited, ready_for_review]
   workflow_dispatch:
     inputs:
       toutes:

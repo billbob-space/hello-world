@@ -128,29 +128,83 @@ func TestLargeurInconnueRetombeSurLarge(t *testing.T) {
 	}
 }
 
-// Le cadrage etroit est ce qui tient le risque « le canevas exige de la place »
-// du PRD : sur un ecran etroit le serveur rend MOINS de branches, et c'est lui
-// qui en decide (cadragePour). TestLargeurInconnueRetombeSurLarge tenait deja le
-// repli ; sans ce test-ci, la moitie qui compte — la reduction reelle — n'etait
-// promise que par le PRD.
+// TestCadragePlusEtroitSurEcranEtroit tient le risque « le canevas exige de la
+// place » du PRD (tableau des risques, decision §17 « parite stricte ») : sur un
+// ecran etroit le serveur rend MOINS de branches et d'heritiers, et c'est LUI
+// qui en decide, jamais le client.
+//
+// Deux sessions ont ecrit ce test le meme jour, chacune a un niveau different :
+// l'une sur cadragePour, l'autre a travers la route HTTP. Les deux comptent et
+// ne prouvent pas la meme chose — la premiere que le cadrage est bien plus
+// etroit, la seconde que le parametre de largeur ATTEINT reellement la
+// selection. La resolution les garde toutes les deux.
+//
+// Aucun nombre en dur, dans aucune des deux : figer « 6 branches » casse au
+// premier ajustement produit sans avoir rien protege, alors que la propriete
+// « plus etroit sur ecran etroit » doit tenir pour toujours. Le niveau HTTP se
+// compare donc a cadragePour, et non a un litteral.
 func TestCadragePlusEtroitSurEcranEtroit(t *testing.T) {
-	d := construireStackDeTest(t, "Portishead", 20)
-	rec := httptest.NewRecorder()
-	Routes(d).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/centre?nom=Portishead&largeur=etroit", nil))
+	etroit := cadragePour("etroit")
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("code = %d, attendu 200, corps = %s", rec.Code, rec.Body.String())
-	}
-	var reponse reponseCentreDeTest
-	if err := json.Unmarshal(rec.Body.Bytes(), &reponse); err != nil {
-		t.Fatalf("decodage : %v (corps = %s)", err, rec.Body.String())
-	}
-	if len(reponse.Branches) != 6 {
-		t.Fatalf("branches = %d, attendu 6 (cadrage etroit)", len(reponse.Branches))
-	}
-	if len(reponse.Branches) >= 10 {
-		t.Fatalf("l'ecran etroit rend autant de branches que le large — le cadrage ne suit pas la largeur")
-	}
+	t.Run("moins de branches que le cadrage large", func(t *testing.T) {
+		for _, largeur := range []string{"large", ""} {
+			large := cadragePour(largeur)
+			if etroit.Branches >= large.Branches {
+				t.Errorf("largeur=%q : branches etroit=%d, large=%d ; attendu etroit strictement < large", largeur, etroit.Branches, large.Branches)
+			}
+		}
+	})
+
+	t.Run("moins d'heritiers par branche que le cadrage large", func(t *testing.T) {
+		for _, largeur := range []string{"large", ""} {
+			large := cadragePour(largeur)
+			if etroit.Heritiers >= large.Heritiers {
+				t.Errorf("largeur=%q : heritiers etroit=%d, large=%d ; attendu etroit strictement < large", largeur, etroit.Heritiers, large.Heritiers)
+			}
+		}
+	})
+
+	// Le niveau HTTP : le parametre de largeur atteint-il vraiment la selection ?
+	// Un cadrage juste que la route n'utiliserait pas laisserait les deux
+	// sous-tests ci-dessus au vert sur un produit casse.
+	t.Run("la route rend le nombre de branches du cadrage demande", func(t *testing.T) {
+		for _, cas := range []struct {
+			largeur string
+			attendu int
+		}{
+			{"etroit", etroit.Branches},
+			{"large", cadragePour("large").Branches},
+		} {
+			d := construireStackDeTest(t, "Portishead", 20)
+			rec := httptest.NewRecorder()
+			Routes(d).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/centre?nom=Portishead&largeur="+cas.largeur, nil))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("largeur=%q : code = %d, attendu 200, corps = %s", cas.largeur, rec.Code, rec.Body.String())
+			}
+			var reponse reponseCentreDeTest
+			if err := json.Unmarshal(rec.Body.Bytes(), &reponse); err != nil {
+				t.Fatalf("largeur=%q : decodage : %v (corps = %s)", cas.largeur, err, rec.Body.String())
+			}
+			if len(reponse.Branches) != cas.attendu {
+				t.Errorf("largeur=%q : branches rendues = %d, attendu %d (celui de cadragePour)", cas.largeur, len(reponse.Branches), cas.attendu)
+			}
+		}
+	})
+
+	// Repli documente par le commentaire de cadragePour : une largeur inconnue
+	// ne panique jamais et retombe sur le cadrage large -- un comportement
+	// promis, pas un detail d'implementation. TestLargeurInconnueRetombeSurLarge
+	// le tient deja a travers la route ; ici on couvre la CASSE, qu'il ne voit
+	// pas : « ETROIT » ne doit pas etre confondu avec « etroit ».
+	t.Run("une largeur inconnue retombe sur le cadrage large sans paniquer", func(t *testing.T) {
+		large := cadragePour("large")
+		for _, largeur := range []string{"", "xxl", "grand", "ETROIT", "moyen"} {
+			if got := cadragePour(largeur); got != large {
+				t.Errorf("cadragePour(%q) = %+v, attendu le cadrage large %+v", largeur, got, large)
+			}
+		}
+	})
 }
 
 func TestArtisteSansVoisinsRepond200(t *testing.T) {

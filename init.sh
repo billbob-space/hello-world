@@ -2645,17 +2645,10 @@ check_applications() {
 # sans colonne « Test » n'est donc pas juge ; c'est memory/produit.md qui
 # demande de l'ecrire, pas ce controle qui l'impose.
 check_traces_risques() {
-  local n f ligne cellule nom dans_table cites=0 manquants=0 tests
+  local n f ligne cellule nom motif dans_table cites=0 manquants=0
   for d in apps/*/; do
     [ -d "$d" ] || continue
     n=${d#apps/}; n=${n%/}
-    # Recursif, et non « a plat » : ramure-v2 range ses tests Go sous internal/
-    # et ses tests de vue sous web/tests/. Un motif fixe ne les voyait pas, et le
-    # controle annoncait alors « test introuvable » la ou il aurait du dire « je
-    # n'ai pas cherche la » — sept avertissements dont six faux, le 21 aout.
-    tests=$(find "$d" -name node_modules -prune -o \
-      \( -name '*_test.go' -o -name '*.test.js' -o -name '*.test.ts' \
-         -o -name '*.spec.js' -o -name '*.spec.ts' \) -print 2>/dev/null || true)
     for f in "$d"PRODUCT.md "$d"prp/*.md; do
       [ -f "$f" ] || continue
       dans_table=0
@@ -2676,7 +2669,44 @@ check_traces_risques() {
         case "$cellule" in '`'*'`') ;; *) continue ;; esac
         nom=${cellule#\`}; nom=${nom%\`}
         cites=$((cites+1))
-        if [ -z "$tests" ] || ! grep -qF -- "$nom" $tests 2>/dev/null; then
+        # Le nom devient un motif : une cellule contenant « . » ou « * » ferait
+        # sinon correspondre n'importe quoi, et un test absent passerait pour
+        # present — le sens ou l'erreur ne se voit pas.
+        motif=$(printf '%s' "$nom" | sed 's/[][\.^$*+?(){}|\\]/\\&/g')
+        # RECURSIF. La version d'origine listait « apps/NOM/*_test.go », donc la
+        # racine de l'app SEULEMENT : les tests d'une app Go vivent sous
+        # internal/, et les sept tests de ramure-v2 etaient declares introuvables
+        # alors que six existaient. Un garde-fou qui crie a tort apprend a etre
+        # ignore, et le septieme — reellement absent — se perdait dans le bruit.
+        #
+        # La forme compte autant que l'endroit : « grep -F » sur le nom nu
+        # trouvait aussi une mention en COMMENTAIRE, si bien qu'un test cite
+        # dans le PRD et seulement evoque dans le code passait pour ecrit.
+        #
+        # Exiger « un nom entre guillemets » ne suffit pas, et le relecteur l'a
+        # montre : c'est la forme meme sous laquelle un test s'ecrit, donc la
+        # forme sous laquelle il est COMMENTE quand on le desactive.
+        # « // test('X', ...) » repondait present. Un test mis de cote pendant
+        # que le PRD continue de le citer serait reste vert — exactement le
+        # defaut qu'on croyait fermer, rouvert par sa porte principale.
+        #
+        # Deux sessions ont corrige ce defaut en parallele le 21 aout. main a
+        # rendu la recherche recursive par « find » en couvrant cinq extensions ;
+        # cette branche l'a rendue recursive par « grep -r » ET a resserre la
+        # FORME acceptee. La resolution garde les cinq extensions de main et la
+        # forme d'ici : main cherchait encore par « grep -F », qui laisse passer
+        # un test commente.
+        #
+        # D'ou les deux exigences cumulees : un CONTEXTE D'APPEL avant le
+        # guillemet — nul ne commente « test( » par accident — et « ^[^/]* »,
+        # qui interdit tout « / » avant lui et ecarte donc les lignes
+        # commentees. Conservateur dans le bon sens : une ligne ecartee a tort
+        # produit un avertissement, jamais un silence.
+        if ! grep -rqE "^func $motif\(|^[^/]*(test|it|describe|t\.Run) *\( *['\"\`]$motif['\"\`]" "$d" \
+             --include='*_test.go' \
+             --include='*.test.js' --include='*.test.ts' \
+             --include='*.spec.js' --include='*.spec.ts' \
+             --exclude-dir=node_modules 2>/dev/null; then
           warn "[$n] $f cite le test « $nom » — introuvable dans les tests de l'app"
           manquants=$((manquants+1))
         fi

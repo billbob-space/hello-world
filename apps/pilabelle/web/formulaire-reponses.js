@@ -24,6 +24,19 @@ const JOURS = [
 	['dimanche', 'Dimanche'],
 ];
 
+// messageManque dit CE QUI manque, pas la regle entiere : un formulaire qui
+// repond « choisis un niveau et au moins un jour » a quelqu'un qui a deja
+// choisi son niveau lui demande de relire les trois sections pour trouver
+// laquelle est en faute. Retourne null quand rien ne manque.
+export function messageManque(reponses) {
+	const sansNiveau = !reponses.niveau_depart;
+	const sansJour = reponses.jours_actifs.length === 0;
+	if (sansNiveau && sansJour) return 'Choisis ton niveau de départ et au moins un jour de la semaine.';
+	if (sansNiveau) return 'Choisis ton niveau de départ.';
+	if (sansJour) return 'Choisis au moins un jour de la semaine.';
+	return null;
+}
+
 function creerCase(type, name, valeur, libelle, coche) {
 	const label = document.createElement('label');
 	const input = document.createElement('input');
@@ -72,6 +85,11 @@ export function construireFormulaireReponses(conteneur, { reponsesInitiales, onV
 
 	const erreur = document.createElement('p');
 	erreur.className = 'erreur';
+	// role="alert" : sans lui, le message apparait a l'ecran sans etre annonce
+	// — un lecteur d'ecran laisse l'utilisatrice devant un formulaire qui
+	// refuse sans dire pourquoi. L'element reste dans le DOM en permanence
+	// (hidden), condition pour qu'une region live signale son remplissage.
+	erreur.setAttribute('role', 'alert');
 	erreur.hidden = true;
 	form.appendChild(erreur);
 
@@ -83,8 +101,9 @@ export function construireFormulaireReponses(conteneur, { reponsesInitiales, onV
 			douleurs: donnees.getAll('douleur'),
 			jours_actifs: donnees.getAll('jour'),
 		};
-		if (!reponses.niveau_depart || reponses.jours_actifs.length === 0) {
-			erreur.textContent = 'Choisis un niveau et au moins un jour.';
+		const manque = messageManque(reponses);
+		if (manque) {
+			erreur.textContent = manque;
 			erreur.hidden = false;
 			return;
 		}

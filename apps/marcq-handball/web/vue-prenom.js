@@ -10,6 +10,9 @@ import { ecrirePrenom } from './etat.js';
 // credible plutot que suspecte ; un test verifie qu'elle n'a pas ete reformulee.
 export const PHRASE_RASSURANTE = 'Ton prénom reste sur ton téléphone.';
 
+// Le refus d'un champ vide, dans les MEMES mots qu'aux reglages (vue-reglages.js).
+export const PRENOM_MANQUANT = 'Il faut un prénom, même court.';
+
 export function monterPrenom(hote, ctx) {
   const section = document.createElement('section');
   section.className = 'ecran ecran-prenom';
@@ -38,7 +41,7 @@ export function monterPrenom(hote, ctx) {
   const formulaire = document.createElement('form');
   formulaire.className = 'formulaire-prenom';
   // La validation native afficherait une bulle en anglais sur certains
-  // navigateurs ; on prefere ne rien reprocher et remettre le curseur.
+  // navigateurs ; on l'ecarte, et on dit la meme chose dans la langue de l'app.
   formulaire.noValidate = true;
 
   const etiquette = document.createElement('label');
@@ -66,19 +69,37 @@ export function monterPrenom(hote, ctx) {
   bouton.type = 'submit';
   bouton.textContent = 'C’est parti';
 
-  formulaire.append(etiquette, champ, aide, bouton);
+  // LE SEUL BOUTON DE L'APPLICATION NE PEUT PAS NE RIEN FAIRE. Champ vide, il
+  // ne se passait rien du tout : le curseur revenait dans un champ ou il etait
+  // deja, sans un mot. Sur un telephone, ou le clavier cache le champ et ou le
+  // retour du focus ne se voit pas, l'enfant en conclut que l'app est cassee —
+  // au premier ecran, celui que le PRD §7.1 appelle le seul peage.
+  //
+  // La phrase n'est pas inventee ici : c'est MOT POUR MOT celle que l'ecran des
+  // reglages emploie deja pour la meme regle sur le meme champ. Deux
+  // vocabulaires pour un seul refus seraient le defaut, pas la correction.
+  // `role="status"` la fait annoncer sans voler le focus, qui reste au champ ;
+  // la hauteur reservee par `.retour` empeche le bouton de sauter quand elle
+  // parait.
+  const retour = document.createElement('p');
+  retour.className = 'retour';
+  retour.setAttribute('role', 'status');
+
+  formulaire.append(etiquette, champ, aide, bouton, retour);
   section.append(blason, titre, formulaire);
   hote.append(section);
   champ.focus();
 
   formulaire.addEventListener('submit', (evt) => {
     evt.preventDefault();
-    // `ecrirePrenom` rend null si l'entree est vide une fois nettoyee. On ne
-    // reproche rien : on remet simplement le curseur dans le champ.
+    // `ecrirePrenom` rend null si l'entree est vide une fois nettoyee. On le
+    // dit, et on remet le curseur dans le champ.
     if (ecrirePrenom(champ.value) === null) {
+      retour.textContent = PRENOM_MANQUANT;
       champ.focus();
       return;
     }
+    retour.textContent = '';
     ctx.rafraichir();
   });
 }

@@ -15,6 +15,7 @@
 import { retirer } from './classement.js';
 import { ecrirePrenom, ecrireSonnerie, lireClassement, lireFaits, lireSonnerie, toutEffacer } from './etat.js';
 import { creerSonneur, SONNERIE_PAR_DEFAUT, SONNERIES } from './sonnerie.js';
+import { PRENOM_MANQUANT } from './vue-prenom.js';
 import { monterSuppression, phraseDe } from './vue-rejoindre.js';
 
 // PRD §14, ligne « Perte du telephone ou vidage du navigateur » : le risque est
@@ -179,7 +180,7 @@ function blocPrenom(ctx) {
     evt.preventDefault();
     const enregistre = ecrirePrenom(champ.value);
     if (enregistre === null) {
-      retour.textContent = 'Il faut un prénom, même court.';
+      retour.textContent = PRENOM_MANQUANT;
       champ.focus();
       return;
     }
