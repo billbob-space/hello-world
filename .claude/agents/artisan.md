@@ -129,15 +129,18 @@ Quatre champs, dans cet ordre, TOUJOURS les quatre. Un champ vide vaut `aucun` :
 une rubrique absente et une rubrique vide ne disent pas la meme chose.
 
     fichiers  main.go · rendu.go · style.css
-    tests     ok 12/12
+    tests     test.sh ok 12/12
     bloque    aucun
     anomalie  aucune
 
 Ce que chacun porte, et rien de plus :
 
 - `fichiers` — la liste. Jamais le diff : ton appelant l'a sous les yeux.
-- `tests` — `ok <n>/<n>` ou `ko <n>/<n> — <la ligne en echec>`. Pas le deroule.
-  Si tu as touche une vue, ajoute les ecrans mesures : `· @390 @1440 <ecran>`.
+- `tests` — `<commande> ok <n>/<n>`, ou `<commande> ko <n>/<n> — <la ligne en
+  echec>`. La commande d'abord, toujours : elle seule distingue la suite
+  complete d'une verification ad hoc, et ton appelant ne peut pas la deviner du
+  verdict. Pas le deroule. Si tu as touche une vue, ajoute les ecrans mesures
+  sur une ligne de plus : `· @390 @1440 <ecran>`.
 - `bloque` — `<ce qui exigeait de sortir du perimetre> → <ce qu'il faudrait>`.
 - `anomalie` — `<symptome> / <cause>`, une par ligne. C'est le champ qu'on est
   tente de taire : ce qui a surpris, casse ou s'est revele faux, tes propres

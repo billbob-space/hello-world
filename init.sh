@@ -3011,8 +3011,14 @@ check_outillage() {
       bad "$f : section '## Rendu' absente — l'agent n'a plus de format de rendu"
       proto=$((proto+1)); continue
     fi
+    # La SECTION seule, jamais le fichier entier : « ecrans » et « montre »
+    # ouvrent aussi des lignes de prose ailleurs dans la consigne de l'esthete,
+    # et un grep sur tout le fichier declarait le champ present alors qu'il
+    # venait d'etre retire du rendu — le controle disait « ok » sur la panne
+    # meme qu'il existe pour voir.
+    rendu=$(awk '/^## Rendu/{f=1;next} /^## /{f=0} f' "$f")
     for champ in ${spec#*:}; do
-      grep -qE "^ *\`?$champ\b" "$f" \
+      grep -qE "^ *\`?$champ\b" <<<"$rendu" \
         || { bad "$f : le champ '$champ' manque a son rendu"; proto=$((proto+1)); }
     done
   done

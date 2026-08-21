@@ -452,6 +452,15 @@ refuse "un champ obligatoire retire du rendu est refuse" "champ 'anomalie'" <<'F
 sed -i '/anomalie/d' .claude/agents/artisan.md
 FIN
 
+# Le cas qui a failli passer : « ecrans » et « montre » ouvrent aussi des lignes
+# de prose AVANT la section Rendu de l'esthete. Un controle qui cherchait le
+# champ dans tout le fichier declarait « ok » sur un rendu ampute — il disait
+# vert sur la panne meme qu'il existe pour voir. Le cas artisan ne l'attrapait
+# pas : aucun de ses quatre champs n'a de collision de ce genre.
+refuse "un champ retire du rendu est refuse meme si le mot vit ailleurs dans la consigne" "champ 'ecrans'" <<'FIN'
+sed -i '/^## Rendu/,$ { /^ *ecrans /d }' .claude/agents/esthete.md
+FIN
+
 refuse "un agent sans consigne du tout est refuse" "esthete.md absent" <<'FIN'
 rm -f .claude/agents/esthete.md
 FIN
