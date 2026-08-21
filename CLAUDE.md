@@ -26,7 +26,9 @@ décide de ce qu'on construit, et ne lit pas le code.
 
 **Cette règle vaut pour ce que tu dis, pas pour ce que tu écris dans le dépôt.** Messages
 de commit, entrées de `journal/`, `README` et corps de PR gardent toute leur précision
-technique : leur lecteur est un développeur ou un agent.
+technique : leur lecteur est un développeur ou un agent. **Et entre agents, on écrit en
+télégraphique** — des champs, des symboles, un vocabulaire fermé, aucune phrase de
+politesse ; missions et rendus ont un format, dans `memory/travail.md`.
 
 ## Un choix qui revient à l'utilisateur se montre
 
