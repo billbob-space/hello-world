@@ -1029,16 +1029,33 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A-T-ON ETABLI qu'il y a bien quelque chose a deployer ? Cette
+          # variable est la reponse a un instant donne, et repli() l'emporte avec
+          # lui : elle decide du verdict quand dockhand repond « skipped » — voir
+          # l'etape « declencher le deploiement ». Elle ne passe a « oui » qu'une
+          # fois la PREUVE faite, et ne redescend jamais.
+          #
+          # Elle vaut « non » au depart parce qu'un repli qui abandonne avant
+          # d'avoir compare quoi que ce soit ne prouve rien. Mais « non » par
+          # defaut a un cout, et il faut le voir en face : il DESARME le
+          # garde-fou qui attrape un dockhand qui ne voit plus la poussee (panne
+          # de resolution du 6 aout 2026, plus bas). D'ou l'ordre des controles
+          # ci-dessous, qui n'est pas cosmetique : tout ce qui s'etablit avec le
+          # seul git — donc SANS le moindre secret — passe en PREMIER. Sinon un
+          # secret manquant sortirait du script avant la preuve, « etabli »
+          # resterait « non » pour toujours, et le garde-fou serait
+          # inatteignable en production sans que rien ne le dise. C'est
+          # exactement ce que faisait la premiere version de ce correctif, et ce
+          # que la relecture a rattrape.
+          ETABLI=non
+
           # Ce qui empeche la livraison unitaire ne doit jamais empecher la
-          # LIVRAISON : on repasse par le webhook, en disant pourquoi.
-          # Le second argument dit si ce repli a ETABLI qu'il y a bien quelque
-          # chose a deployer. Il decide du verdict quand dockhand repond
-          # « skipped » -- voir l'etape « declencher le deploiement ». Par
-          # defaut « non » : un repli qui ne s'est pas prononce ne prouve rien,
-          # et c'est le cas de tous ceux qui abandonnent AVANT de comparer.
+          # LIVRAISON : on repasse par le webhook, en disant pourquoi. Le second
+          # argument force « etabli » ; sans lui, repli() emporte ce qui a ete
+          # etabli jusque-la.
           repli() {
             echo "webhook=true" >> "$GITHUB_OUTPUT"
-            echo "etabli=${2:-non}" >> "$GITHUB_OUTPUT"
+            echo "etabli=${2:-$ETABLI}" >> "$GITHUB_OUTPUT"
             echo "::warning::livraison unitaire ecartee — $1"
             echo "le deploiement repasse par le webhook : TOUTE la stack sera recreee"
             exit 0
@@ -1053,14 +1070,6 @@ jobs:
             exit 0
           fi
 
-          [ -n "${DOCKHAND_URL:-}" ]   || repli "secret DOCKHAND_URL absent"
-          [ -n "${DOCKHAND_TOKEN:-}" ] || repli "secret DOCKHAND_TOKEN absent"
-
-          # L'identifiant de la pile se lit dans l'URL du webhook : un secret de
-          # moins a poser, et deux valeurs qui ne peuvent pas se contredire.
-          PILE_ID=$(printf '%s' "${WEBHOOK:-}" | sed -nE 's#^.*/api/git/stacks/([0-9]+)/webhook.*$#\1#p')
-          [ -n "$PILE_ID" ] || repli "l URL du webhook ne porte pas d identifiant de pile"
-
           # Le compose a-t-il bouge AILLEURS que sur des lignes image: depuis ce
           # que le serveur fait tourner ? « github.event.before » est le dernier
           # commit deploye des lors que chaque poussee sur main deploie.
@@ -1073,6 +1082,26 @@ jobs:
             printf '%s\n' "$bouge" | grep -vE '^[+-][[:space:]]*image:[[:space:]]' | head -20
             repli "changement de structure, que seul le deploiement complet sait poser" oui
           fi
+
+          # LA PREUVE EST FAITE : compose.yaml a bel et bien change depuis le
+          # commit que le serveur fait tourner, et seulement sur des lignes
+          # image:. Il y a donc quelque chose a deployer, et un « skipped » de
+          # dockhand devient anormal — quoi qu'il arrive en dessous.
+          ETABLI=oui
+
+          # LES SECRETS VIENNENT APRES, et c'est le coeur du correctif. Ils ne
+          # servent qu'a la livraison ciblee ; leur absence n'enleve rien a ce
+          # qui vient d'etre etabli avec le seul git. Les remonter au-dessus
+          # ferait sortir le script avant la preuve : sur ce depot, ou les deux
+          # secrets sont vides depuis toujours (voir le journal du jour), le
+          # garde-fou du « skipped » ne se declencherait alors JAMAIS.
+          [ -n "${DOCKHAND_URL:-}" ]   || repli "secret DOCKHAND_URL absent"
+          [ -n "${DOCKHAND_TOKEN:-}" ] || repli "secret DOCKHAND_TOKEN absent"
+
+          # L'identifiant de la pile se lit dans l'URL du webhook : un secret de
+          # moins a poser, et deux valeurs qui ne peuvent pas se contredire.
+          PILE_ID=$(printf '%s' "${WEBHOOK:-}" | sed -nE 's#^.*/api/git/stacks/([0-9]+)/webhook.*$#\1#p')
+          [ -n "$PILE_ID" ] || repli "l URL du webhook ne porte pas d identifiant de pile"
 
           # Un seul point de sortie vers dockhand. Il distingue les trois echecs
           # qui ne se reparent pas au meme endroit : la porte fermee (redirection

@@ -131,6 +131,55 @@ cas "500 : le webhook refuse l appel" \
 cas "refus ET saut : c est le refus qui parle" \
     200 non '{"success":false,"skipped":true,"error":"clone failed"}' ko "a refuse le deploiement"
 
+printf '\n-- l ordre des controles, qui n est pas cosmetique\n'
+
+# Ce que ces cas gardent : « etabli » ne peut passer a « oui » qu apres une
+# preuve, et cette preuve se fait avec le SEUL git. Si un controle qui depend
+# d un secret remonte au-dessus d elle, le script sort avant, « etabli » reste
+# « non » pour toujours, et le garde-fou qui attrape un dockhand aveugle devient
+# INATTEIGNABLE — vert a chaque fois, sans que rien ne le dise. C est ce que
+# faisait la premiere version de ce correctif ; la relecture l a rattrapee, pas
+# les onze cas ci-dessus, parce qu aucun d eux ne regarde comment « etabli » est
+# calcule. Ceux-la si.
+rang() { grep -n -- "$1" .github/workflows/build.yml | head -1 | cut -d: -f1; }
+
+avant_apres() { # avant_apres <nom> <motif qui doit venir AVANT> <motif qui doit venir APRES>
+  local nom="$1" a b
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  a=$(rang "$2"); b=$(rang "$3")
+  if [ -z "$a" ] || [ -z "$b" ]; then
+    echec "$nom" "motif introuvable dans build.yml : << $2 >> ligne ${a:-aucune}, << $3 >> ligne ${b:-aucune}"
+  elif [ "$a" -ge "$b" ]; then
+    echec "$nom" "<< $2 >> est ligne $a, apres << $3 >> ligne $b"
+  else
+    reussi "$nom"
+  fi
+}
+
+avant_apres "la preuve par git precede le secret DOCKHAND_URL" \
+            "ETABLI=oui" "secret DOCKHAND_URL absent"
+avant_apres "la preuve par git precede le secret DOCKHAND_TOKEN" \
+            "ETABLI=oui" "secret DOCKHAND_TOKEN absent"
+avant_apres "la preuve par git precede l identifiant de pile" \
+            "ETABLI=oui" "d identifiant de pile"
+avant_apres "on part de non, on ne monte a oui qu ensuite" \
+            "ETABLI=non" "ETABLI=oui"
+
+# Le defaut de repli() doit etre la VARIABLE, pas la chaine « non » : avec une
+# constante, la preuve faite plus haut serait perdue par tous les replis qui ne
+# passent pas d argument explicite — et ils sont la majorite.
+cas_defaut_repli() {
+  local nom="repli() emporte ce qui a ete etabli, pas une constante"
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  if grep -q 'etabli=\${2:-\$ETABLI}' .github/workflows/build.yml; then
+    reussi "$nom"
+  else
+    echec "$nom" "le defaut de repli() n est pas \$ETABLI — $(grep -n 'etabli=' .github/workflows/build.yml | head -2 | tr '\n' '|')"
+  fi
+}
+cas_defaut_repli
+
 printf '\n-- resultat\n'
+
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]
