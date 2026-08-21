@@ -2533,3 +2533,43 @@ ce qu'ils font. `Bash` suffit a ecrire ; l'absence d'`Edit` ne prouve rien.
 « il n'edite pas de fichier de code » : ca suffit contre une lecture concurrente,
 pas contre une ecriture concurrente. Corrige dans `memory/travail.md`, et
 l'`esthete` y est range du cote de l'artisan, ou la regle du depot le met.
+
+### 34. Un test ecrit POUR empecher un defaut serait passe au vert en le laissant revenir
+
+**Symptome** — aucun, et c'est tout l'interet : le cas a ete pris en flagrant
+delit, avant d'exister. L'artisan d'`estran` ecrivait le test qui empeche la
+date du jour de se reecrire deux fois. Sa premiere version comparait le texte
+du titre de section a celui de la carte de maree, tels quels. Le titre n'est
+pas capitalise cote serveur — c'est le CSS qui le met en majuscules — tandis
+que le code fautif appelait `capitaliser()` sur ce meme libelle avant de
+l'ecrire sur la carte.
+
+Les deux chaines n'auraient donc **jamais** ete egales, meme avec le defaut en
+place. Le test aurait passe au vert le jour de son ecriture, passe au vert
+apres le correctif, et passe au vert le jour ou quelqu'un aurait remis la date
+sur la carte.
+
+**Cause** — un test de non-repetition compare deux rendus d'une meme donnee. Si
+les deux rendus la transforment differemment — casse, espaces, accents,
+troncature —, la comparaison porte sur la transformation et plus sur la
+donnee. Le piege est d'autant plus solide ici que la transformation fautive
+etait DANS le code teste : c'est le defaut lui-meme qui rendait le test
+inoffensif.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — le test a ete corrige avant d'entrer (comparaison
+insensible a la casse), et surtout **prouve** : ancien code remis, rouge ;
+correctif remis, vert. C'est la contre-epreuve, et pas la relecture, qui a
+tranche — la premiere version se lisait tres bien.
+
+Ce qui merite d'etre garde n'est pas le correctif mais la regle qu'il illustre.
+Un test ecrit pour empecher un defaut precis doit etre **joue contre ce
+defaut**, une fois, avant d'etre considere comme ecrit. Sans cela, on n'a pas
+un garde-fou : on a une ligne verte de plus, qui occupe la place ou le
+garde-fou aurait du etre — et un test faux est pire qu'un test absent, parce
+qu'un test absent se voit.
+
+C'est le meme mode d'echec que les sept verts silencieux de cette branche,
+cette fois dans un test tout neuf ecrit pour en fermer un. Le defaut ne se
+lasse pas.
