@@ -10,9 +10,11 @@ persister se déclare dans `volumes:`, et **rien d'autre ne survit**. La forme e
 `<nom>:<chemin conteneur>[:ro]` — nom logique à gauche conforme à
 `^[a-z0-9][a-z0-9-]*$`, chemin absolu à droite, `:ro` seul suffixe admis.
 
-`donnees:/var/lib/ramure` déclaré par `ramure` devient le volume
-**`ramure-donnees`** : c'est le préfixe du propriétaire qui empêche deux apps de se
-marcher dessus, et deux propriétaires produisant le même nom réel sont refusés.
+`donnees:/var/lib/ramure` déclaré par `ramure-v2` devient le volume
+**`ramure-v2-donnees`** : c'est le préfixe du propriétaire qui empêche deux apps de se
+marcher dessus, et deux propriétaires produisant le même nom réel sont refusés. Le
+chemin à droite ne commande rien du nom — celui-ci est resté `/var/lib/ramure`
+après le renommage de l'app, et le volume s'appelle bien `ramure-v2-donnees`.
 
 **Un `/` à gauche est un bind mount, refusé à la génération.** Il faudrait créer le
 chemin d'hôte à la main avant le premier déploiement, et Docker créerait un
@@ -43,7 +45,7 @@ des `shared_services`.
 
 **`name:` — pourquoi le compose porte deux fois le même nom.** Compose préfixe par
 défaut les volumes de premier niveau par le nom du projet : le volume réel
-s'appellerait `<projet>_ramure-donnees`, et la commande de sauvegarde ci-dessous,
+s'appellerait `<projet>_ramure-v2-donnees`, et la commande de sauvegarde ci-dessous,
 montant le nom court, le ferait **créer vide** par Docker — `tar` archiverait un
 répertoire vide et **sortirait en 0**, l'illusion parfaite d'une sauvegarde.
 `init.sh` émet donc `name: <nom>` sous chaque entrée, et `--check` refuse un bloc où
@@ -54,8 +56,8 @@ d'app rend une collision avec une autre stack improbable, pas impossible.
 contenu passe par un conteneur jetable, lancé côté serveur.
 
 ```bash
-docker run --rm -v ramure-donnees:/d -v "$PWD":/sortie alpine \
-  tar czf /sortie/ramure-donnees.tgz -C /d .
+docker run --rm -v ramure-v2-donnees:/d -v "$PWD":/sortie alpine \
+  tar czf /sortie/ramure-v2-donnees.tgz -C /d .
 ```
 
 **Le disque du serveur est à 92 %**, et un volume n'a aucune borne : il grossit
