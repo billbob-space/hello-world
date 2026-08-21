@@ -594,6 +594,59 @@ question de mécanique de progression, pas de mise en page, et elle appartient a
 PRD principal.
 
 
+### Décision d'écran : le programme en une ligne, et la lavande ne fait plus deux métiers
+
+Tranché par l'utilisateur le 21 août 2026, sur quatre écrans mesurés côte à côte,
+rendus par la critique UX du résultat construit. Cette décision **succède** à
+celle du 20 août et la corrige sur un point : le programme se voit toujours,
+mais plus sous la forme d'une liste.
+
+**Ce qui l'a emporté est un défaut mesuré, pas un goût.** Sur un Android de
+360 px de large, au retour d'une absence — pique et défi affichés au-dessus de
+la carte — le bouton « Commencer » passait **sous le bas de l'écran**. C'est le
+jour où la reprise est la plus fragile, et c'était le seul où le geste n'était
+pas sous les yeux. Des trois variantes proposées, une seule remettait le bouton
+dans l'écran dans tous les cas.
+
+**Retenu — « le programme en une ligne ».** La séance se résume en une rangée de
+pastilles plutôt qu'en une liste de blocs empilés. Le bouton reste visible sur
+l'Android le plus étroit, quel que soit le nombre de notes affichées au-dessus.
+
+Le coût est accepté et il est réel : **quatre petites pastilles se lisent moins
+bien de loin qu'une liste**. Sur un téléphone posé au sol, le programme se
+devine plutôt qu'il ne se lit. On échange de la lisibilité de loin contre la
+certitude que le geste principal est atteignable — l'app ne sert à rien si le
+bouton est hors de l'écran.
+
+*Écarté — « la liste s'allège »*, plus aucun fond coloré sauf le bouton. Le plus
+calme des trois, et le plus fidèle à l'esprit du 20 août. Écarté parce qu'il ne
+résout pas le défaut : le bouton reste hors de l'écran au retour d'une absence.
+
+*Écarté — « le bouton reprend du poids »*, la hiérarchie plutôt que la couleur.
+Séduisant, et il rendait le geste évident. Écarté parce qu'il **rate le bas
+d'écran de 2 px** : corriger la hiérarchie sans corriger la hauteur, c'est
+traiter ce qui se voit et laisser ce qui bloque.
+
+**La lavande ne fait plus deux métiers.** Depuis le 20 août, elle habillait à la
+fois les étapes de la séance à faire et les boutons secondaires. Les deux ne se
+croisent jamais sur le même écran, donc personne ne risquait de taper sur une
+étape — mais c'est exactement le raisonnement qui avait laissé le vert dire deux
+choses pendant des semaines. **Les boutons secondaires cessent d'être lavande** ;
+la lavande ne veut plus dire qu'une chose, « à faire », comme le vert ne veut
+dire que « fait ».
+
+*Écarté — garder les deux usages*, au motif qu'ils ne se rencontrent pas.
+Écarté : « ça ne gêne personne aujourd'hui » est la phrase qui a produit
+l'incohérence précédente. Une couleur qui dit deux choses finit par les dire sur
+le même écran, et personne ne s'en aperçoit le jour où ça arrive.
+
+**Reste ouvert, et toujours volontairement** : le filet de la pique ressort à
+1,51 contre 1 sur le fond de la page — sur un téléphone posé au sol, on ne le
+voit presque pas. La palette n'a **aucune couleur capable de tracer une ligne
+visible** ; il lui manque un ton, comme il lui manquait un `--lavande-700` le
+mois dernier. Ce n'est pas une décision de mise en page mais un ajout à la
+palette, et il se tranchera avec elle.
+
 ### Dire quand le réseau tombe, et réessayer
 
 Ajouté le 20 août 2026, à la suite de la première critique UX outillée de

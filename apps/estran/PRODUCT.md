@@ -418,3 +418,60 @@ genre de donnée sur laquelle on décide d'aller à l'eau.
 **Ce que ces deux décisions engagent** : une seule forme d'indisponibilité dans
 toute l'app, et le choix du jour est un contrôle visible, jamais déduit d'un
 autre élément.
+
+### Deux décisions d'écran de plus, tranchées le 21 août 2026
+
+Rendues par la critique UX du résultat construit — celle du 20 août avait montré
+des variantes sans jamais voir ce qui en sortirait. Les deux portent sur ce que
+le bandeau de jours a laissé derrière lui.
+
+**Où s'écrit la date du jour regardé — retenu : une seule fois, dans le titre de
+la section horaire.** La carte de marée perd la sienne.
+
+Le bandeau devait supprimer la répétition de la date ; il en a supprimé **une
+sur trois**. Mesuré à 1440 px sur le dimanche 23 : « Dimanche 23 août » sur la
+carte de marée et « DIMANCHE 23 AOÛT » en titre de section, **au même y**. Elles
+ne sont plus l'une sous l'autre, elles sont côte à côte sur la même ligne des
+yeux — donc plus visibles qu'avant le bandeau, pas moins. Plus la pastille
+« DIM 23 » au-dessus, ce qui fait trois.
+
+Ce qui a fait le choix : celui qui ouvre l'app vient d'abord voir les heures.
+Laisser la date là où son regard se pose déjà lui évite un déplacement.
+
+*Écarté — une seule date sous le bandeau*, avec les deux titres de rubrique
+redevenus stables. Défendable, et plus régulier : un seul endroit où lire où
+l'on se trouve. Écarté parce qu'il éloigne la date de la section qu'on lit en
+premier, et qu'il ajoute une ligne au-dessus du contenu sur un écran de
+téléphone déjà court.
+
+*Écarté — les deux dates restent* (le témoin). Écarté : la répétition était le
+défaut nommé qui a motivé le bandeau, la garder viderait la décision du 20 août
+de son effet.
+
+**Ce qu'on voit quand le fournisseur ne couvre pas le jour demandé — retenu : le
+texte nu, tel quel.** « Aucune prévision pour ce jour » reste une phrase grise
+sans cadre.
+
+C'est le témoin, et c'est délibéré. La critique a raison de relever que c'est une
+**cinquième forme d'absence** sur un écran qui vient d'en unifier quatre. Mais
+l'absence de cadre porte ici une information juste : ce n'est pas une panne,
+c'est un vide légitime, et rien n'est cassé. Les quatre cartes disent « la source
+ne répond pas » ; cette phrase dit « il n'y a rien à montrer ». Les confondre
+sous un même gabarit ferait croire à une panne là où il n'y en a pas.
+
+*Écarté — la même carte que l'indisponibilité*, avec une phrase distinguant la
+cause. Le plus régulier des trois. Écarté parce qu'il fait porter à la forme une
+distinction que seule la phrase tiendrait : le jour où quelqu'un abrège le texte,
+un vide légitime devient une panne à l'œil.
+
+*Écarté — griser dans le bandeau les jours que le fournisseur ne couvre pas.*
+C'était la variante la plus riche : elle montrait d'avance où s'arrête la fenêtre
+des prévisions, une question restée ouverte depuis le 20 août — la navigation va
+plus loin qu'elle. Écarté ici parce qu'elle déplace le sujet du vide vers la
+navigation, et qu'elle demande au bandeau de connaître les limites de chaque
+source. **À reprendre séparément** : la question « jusqu'où vont les prévisions »
+reste entière, et elle ne se règle pas dans une carte vide.
+
+**Ce que ces décisions engagent** : une absence *légitime* et une *panne* ne se
+présentent pas de la même façon, et cette différence est portée par la forme,
+pas seulement par les mots.
