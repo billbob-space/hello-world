@@ -100,6 +100,13 @@
   --parure-violine:  #5B2A86;
 }
 
+/* L'attribut [hidden] n'a qu'une regle de priorite tres faible dans la
+   feuille du navigateur (display: none) : toute classe qui declare `display`
+   l'ecrase, et l'element reste visible malgre l'attribut. Une seule regle
+   globale, ici, plutot qu'un correctif par classe a chaque fois que l'effet
+   de bord se reproduit (deja vu 3 fois dans ce fichier). */
+[hidden] { display: none !important; }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
@@ -309,17 +316,6 @@ p { margin: 0; }
   font-size: var(--taille-texte);
   cursor: pointer;
   touch-action: manipulation;
-}
-
-/* Declarer `display` ci-dessus a un effet de bord qui ne se voit pas : une
-   regle d'auteur l'emporte toujours sur le `display: none` que le navigateur
-   applique a `[hidden]`, si bien que l'attribut cessait de cacher quoi que ce
-   soit. « Remettre a zero » restait donc affiche sur les exercices qui se
-   comptent, ou il n'a rien a faire. Toute classe qui pose `display` doit
-   rendre l'attribut : c'est le meme correctif que `.confirmation-case[hidden]`
-   plus bas, et la deuxieme fois qu'il se pose dans ce fichier. */
-.bouton--discret[hidden] {
-  display: none;
 }
 
 /* Capitales, interlettrage, taille de couture (plancher 17 px, voir la note
@@ -826,15 +822,6 @@ input[type='text']:focus,
   display: flex;
   flex-direction: column;
   gap: calc(var(--pas) * 1);
-}
-
-/* Un emplacement de confirmation vide (etat par defaut, ou referme) ne doit
-   ni occuper de place ni afficher de fond : sans cette regle, la regle
-   `display: flex` ci-dessus l'emporte sur le `display: none` que le
-   navigateur applique par defaut a `[hidden]`, et une barre grise vide traine
-   au bas de l'ecran. */
-.confirmation-case[hidden] {
-  display: none;
 }
 
 .confirmation-case__question {
