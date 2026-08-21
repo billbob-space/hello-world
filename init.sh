@@ -80,8 +80,8 @@
 # aucune image n'a encore ete publiee, et le seul ou la fabrique deploie a
 # l'aveugle.
 #
-# Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
-# TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
+# Les artefacts derives — compose.yaml, go.work, les notices apps/NOM/CLAUDE.md —
+# sont TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
 # il est la source de verite, edite a la main ou par --app. Il en va de meme des
 # entrees de journal/ : echafaudees une fois, ecrites a la main ensuite.
