@@ -48,6 +48,38 @@ Runners GitHub, caches d'actions, images préchauffées : une durée de CI ne se
 compare qu'à une autre durée de CI. Et, à l'intérieur même de cette série, un run
 sur `main` **avec** déploiement ne se compare pas à un run de pull request sans.
 
+### 2026-08-21 (2) — après la réécriture des lecteurs de manifeste
+
+```
+run 387 (32480595299) — pull_request, PR #158, head bb9dae1
+10 apps, 49 contrôles, conclusion success
+```
+
+| | run 383 | run 387 |
+|---|---:|---:|
+| **Durée du run** | 3 min 50 s | **3 min 05 s** |
+| `outillage (test-init.sh)` | **3 min 13 s** | **1 min 14 s** |
+| `./init.sh --check` dans le job `contrat` | — | **6 s** |
+| Nouveau chemin critique | — | `outillage (test-pret.sh)`, **2 min 44 s** |
+
+**Le harnais qui tenait le chemin critique est divisé par 2,6** — mieux qu'en
+local (×2,0), les runners ayant des processus plus coûteux que cette machine.
+C'est cohérent : ce qui a été retiré, ce sont des processus.
+
+**Le chemin critique a donc bougé, et c'est le résultat attendu.** Il est
+désormais `test-pret.sh`, 2 min 44 s — ce harnais lance `pret.sh`, qui lance
+lui-même contrat, tests et revue. Derrière lui vient une deuxième couche, les
+dix jobs `revue`, entre 84 s et 125 s.
+
+**Ce relevé sous-estime le gain de cache**, et il faut le dire : `.revue-outils`
+vient d'être ajouté aux chemins mis en cache, mais l'entrée restaurée sur ce run
+date d'avant et ne le contient pas. Les dix jobs `revue` ont donc encore
+réinstallé leurs outils. Le premier run à en profiter est le suivant — c'est là
+qu'il faudra reprendre la mesure, et **là seulement** que le chiffre des jobs
+`revue` voudra dire quelque chose.
+
+---
+
 ### 2026-08-21 — premier relevé du graphe élargi, après le retrait de `build ← test`
 
 ```
