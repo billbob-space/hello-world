@@ -95,6 +95,17 @@
   --marcq-sortie: cubic-bezier(.22, 1, .36, 1);
 }
 
+/* L'attribut hidden doit gagner contre TOUTE regle de classe.
+ *
+ * Sa declaration native est `[hidden] { display: none }`, d'une specificite de
+ * (0,1,0) : n'importe quelle classe posant un `display` la bat. La nav du bas
+ * et d'autres blocs de l'app se masquent par cet attribut et portent en meme
+ * temps `display: flex` — sans cette ligne ils resteraient visibles en
+ * permanence.
+ *
+ * Une seule ligne, et le seul !important du fichier. */
+[hidden] { display: none !important; }
+
 * { box-sizing: border-box; }
 
 body {
@@ -804,7 +815,6 @@ body {
   background: var(--marcq-nuit);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.nav-app[hidden] { display: none; }
 .lien-nav {
   display: inline-flex;
   flex: 1;
