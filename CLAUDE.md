@@ -176,6 +176,13 @@ facture** : un appel nu qui paie tout le contexte pour ne presque rien rendre. `
 compte ces tours courts à chaque relevé — c'est le poste le plus cher, et le seul qui ne
 tienne qu'à une habitude.
 
+**Ce qui peut tourner en même temps est recensé une fois pour toutes** dans
+`docs/parallelisme.md` : les gisements — session, chaîne locale, CI, agents —, le verrou
+que chacun demande, et leur mode d'échec commun, le vert silencieux. Un gain de temps ne
+se déclare pas, il se chiffre : `./docs/banc/mesurer.sh` rejoue six scénarios figés et
+`docs/banc/releves.md` garde la série. Sans mesure, on accélère la branche qui n'était
+pas la plus lente — c'est déjà arrivé ici.
+
 **Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
 entrée de journal. Non relevé avant la fusion, il est perdu.
 
