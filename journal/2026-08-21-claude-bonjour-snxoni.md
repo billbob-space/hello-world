@@ -120,7 +120,7 @@ corps — le code serait passé au vert sans avoir été vérifié.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-21 à 13:49 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-21 à 14:46 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -128,26 +128,26 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 160 | 0,00 $ |
-| Écriture de cache | 369 264 | 1,99 $ |
-| Lecture de cache | 7 648 593 | 3,56 $ |
-| Sortie | 57 100 | 1,40 $ |
-| **Total** | **8 075 117** | **6,95 $ — 6,04 €** |
+| Entrée | 259 | 0,00 $ |
+| Écriture de cache | 455 214 | 2,48 $ |
+| Lecture de cache | 17 969 712 | 8,69 $ |
+| Sortie | 89 272 | 2,20 $ |
+| **Total** | **18 514 457** | **13,37 $ — 11,61 €** |
 
 **Ce qui coûte**
 
-- **80 appel(s) au modèle** — un par réponse, outils compris —, dont 26 par des sous-agents — 1 116 439 jetons, 0,53 $.
+- **128 appel(s) au modèle** — un par réponse, outils compris —, dont 26 par des sous-agents — 1 116 439 jetons, 0,53 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 219 jetons, écrits une fois par session puis relus à chaque
-  échange : 3 615 607 jetons de relecture, 47 % de tout ce qui a été relu.
-- **Tours courts** — 44 des 80 tours (55 %) sortent
+  échange : 6 890 119 jetons de relecture, 38 % de tout ce qui a été relu.
+- **Tours courts** — 63 des 128 tours (49 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 3,08 $, soit 44 % de la facture.
+  une sortie de rien. Ils coûtent 5,43 $, soit 40 % de la facture.
   Grouper les appels indépendants dans un même tour divise ce poste.
 - **Croissance** — 68 219 jetons relus au premier appel qui relise
-  quelque chose, 176 200 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 36 867 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 8075117 -->
+<!-- cout-total: 18514457 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68219 0 183
 2 principal claude-opus-5 4024 68219 511
@@ -203,31 +203,79 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 52 principal claude-opus-5 857 174347 650
 53 principal claude-opus-5 996 175204 1795
 54 principal claude-opus-5 2112 176200 742
-55 agent claude-sonnet-5 15927 0 3
-56 agent claude-sonnet-5 1485 15927 2
-57 agent claude-sonnet-5 8123 17412 5
-58 agent claude-sonnet-5 4680 25535 2
-59 agent claude-sonnet-5 1639 30215 6
-60 agent claude-sonnet-5 2674 31854 3
-61 agent claude-sonnet-5 699 34528 2
-62 agent claude-sonnet-5 1269 35227 6
-63 agent claude-sonnet-5 3768 36496 6
-64 agent claude-sonnet-5 3805 40264 3
-65 agent claude-sonnet-5 807 44069 7
-66 agent claude-sonnet-5 595 44876 6
-67 agent claude-sonnet-5 442 45471 3
-68 agent claude-sonnet-5 585 45913 3
-69 agent claude-sonnet-5 1316 46498 2
-70 agent claude-sonnet-5 660 47814 7
-71 agent claude-sonnet-5 348 48474 20
-72 agent claude-sonnet-5 935 48822 5
-73 agent claude-sonnet-5 438 49757 20
-74 agent claude-sonnet-5 445 50195 7
-75 agent claude-sonnet-5 429 50640 3
-76 agent claude-sonnet-5 2462 51069 3
-77 agent claude-sonnet-5 1282 53531 2
-78 agent claude-sonnet-5 249 54813 2
-79 agent claude-sonnet-5 432 55062 2
-80 agent claude-sonnet-5 802 55494 5
+55 principal claude-opus-5 894 178312 275
+56 principal claude-opus-5 521 179206 263
+57 principal claude-opus-5 351 179727 439
+58 principal claude-opus-5 652 180078 451
+59 principal claude-opus-5 7747 181181 30
+60 principal claude-opus-5 860 188928 134
+61 principal claude-opus-5 222 189788 259
+62 principal claude-opus-5 1400 190010 210
+63 principal claude-opus-5 1824 191410 799
+64 principal claude-opus-5 7747 194033 30
+65 principal claude-opus-5 858 201780 207
+66 principal claude-opus-5 2561 202638 639
+67 principal claude-opus-5 850 205199 42
+68 principal claude-opus-5 6649 206091 271
+69 principal claude-opus-5 1885 212740 424
+70 principal claude-opus-5 31 215049 2109
+71 principal claude-opus-5 4596 215080 1602
+72 principal claude-opus-5 2106 219676 509
+73 principal claude-opus-5 797 221782 217
+74 principal claude-opus-5 2195 222579 1889
+75 principal claude-opus-5 3366 224774 1942
+76 principal claude-opus-5 2005 228140 682
+77 principal claude-opus-5 749 230145 108
+78 principal claude-opus-5 1171 230894 2007
+79 principal claude-opus-5 2057 232065 128
+80 principal claude-opus-5 1556 234122 619
+81 principal claude-opus-5 917 235678 341
+82 principal claude-opus-5 549 236595 266
+83 principal claude-opus-5 328 237144 544
+84 principal claude-opus-5 778 237472 178
+85 principal claude-opus-5 866 238250 686
+86 principal claude-opus-5 1684 239116 1164
+87 principal claude-opus-5 1666 240800 110
+88 principal claude-opus-5 352 242466 1454
+89 principal claude-opus-5 1509 242818 250
+90 principal claude-opus-5 336 244327 628
+91 principal claude-opus-5 790 244663 2250
+92 principal claude-opus-5 2779 245453 461
+93 principal claude-opus-5 497 248232 120
+94 principal claude-opus-5 354 248729 652
+95 principal claude-opus-5 1206 249083 964
+96 principal claude-opus-5 2086 250289 2192
+97 principal claude-opus-5 2335 252375 711
+98 principal claude-opus-5 798 254710 307
+99 principal claude-opus-5 409 255508 2142
+100 principal claude-opus-4-7 7667 29200 100
+101 principal claude-opus-5 2211 255917 272
+102 principal claude-opus-4-7 183 36867 95
+103 agent claude-sonnet-5 15927 0 3
+104 agent claude-sonnet-5 1485 15927 2
+105 agent claude-sonnet-5 8123 17412 5
+106 agent claude-sonnet-5 4680 25535 2
+107 agent claude-sonnet-5 1639 30215 6
+108 agent claude-sonnet-5 2674 31854 3
+109 agent claude-sonnet-5 699 34528 2
+110 agent claude-sonnet-5 1269 35227 6
+111 agent claude-sonnet-5 3768 36496 6
+112 agent claude-sonnet-5 3805 40264 3
+113 agent claude-sonnet-5 807 44069 7
+114 agent claude-sonnet-5 595 44876 6
+115 agent claude-sonnet-5 442 45471 3
+116 agent claude-sonnet-5 585 45913 3
+117 agent claude-sonnet-5 1316 46498 2
+118 agent claude-sonnet-5 660 47814 7
+119 agent claude-sonnet-5 348 48474 20
+120 agent claude-sonnet-5 935 48822 5
+121 agent claude-sonnet-5 438 49757 20
+122 agent claude-sonnet-5 445 50195 7
+123 agent claude-sonnet-5 429 50640 3
+124 agent claude-sonnet-5 2462 51069 3
+125 agent claude-sonnet-5 1282 53531 2
+126 agent claude-sonnet-5 249 54813 2
+127 agent claude-sonnet-5 432 55062 2
+128 agent claude-sonnet-5 802 55494 5
 -->
 <!-- /cout -->
