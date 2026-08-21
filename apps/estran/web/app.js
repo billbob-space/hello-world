@@ -978,6 +978,14 @@ function rendreJauge(m) {
 // heure + hauteur + coefficient quand le fournisseur le porte — jamais une
 // position "maintenant" sur un jour qui n'est pas aujourd'hui (PRODUCT.md,
 // "Ajouté après les PRP").
+//
+// Ne repete PLUS la date du jour ici (PRODUCT.md, "Deux decisions d'ecran de
+// plus... — 21 aout 2026") : mesuree a 1440 px sur un jour autre
+// qu'aujourd'hui, elle s'affichait ici ET dans le titre de la section
+// horaire (#titre-previsions), au meme y — deux lectures cote a cote de la
+// meme information, sans compter la pastille du bandeau. La date du jour
+// regarde ne s'ecrit plus qu'une fois, dans #titre-previsions ; cette carte
+// se contente de son role, la liste des marees du jour.
 function rendreExtremaJour(carte, m) {
   const extrema = m.extrema || [];
   const corps = extrema.length
@@ -995,7 +1003,6 @@ function rendreExtremaJour(carte, m) {
     : `<p class="etat-attente">aucune donnée de marée pour ce jour</p>`;
 
   carte.innerHTML = `
-    <p class="jauge-jour-titre">${esc(capitaliser(m.jour_affiche_libelle || ""))}</p>
     <div class="jour-extrema-liste">${corps}</div>
     ${m.frais === false ? '<p class="jauge-perimee">dernière donnée connue, fournisseur indisponible</p>' : ""}
   `;

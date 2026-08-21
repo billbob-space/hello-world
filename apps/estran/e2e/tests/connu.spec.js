@@ -42,6 +42,49 @@ test("la pluie du jour affiche un cumul connu", async ({ page }) => {
   await expect(page.locator("#pluie-carte")).toContainText("temps sec pour l’heure qui vient");
 });
 
+// La date du jour regarde ne s'ecrit plus qu'une fois (PRODUCT.md, "Deux
+// decisions d'ecran de plus... — 21 aout 2026") : sur un jour autre
+// qu'aujourd'hui, elle vivait avant a la fois sur la carte de maree
+// (.jauge-jour-titre) ET dans le titre de la section horaire, au meme y a
+// 1440 px. Cette regression est prouvee sur "demain" (decalage +1), le seul
+// autre jour que le stub couvre a la fois pour la meteo (previsions) et la
+// maree (extrema) — voir stub-serveur.js.
+test("sur un autre jour, la date n'apparait qu'une fois — la carte de marée ne la répète plus", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator("#nav-suivant").click();
+
+  const jauge = page.locator("#jauge-carte");
+  const titrePrevisions = page.locator("#titre-previsions");
+
+  // La carte de maree bascule sur les extrema du jour (stub : PM/BM a heures
+  // fixes) : on attend ce contenu avant de mesurer, pour ne pas lire un
+  // "chargement…" intermediaire.
+  await expect(jauge).toContainText(/Pleine mer|Basse mer/, { timeout: 10_000 });
+
+  // Le titre de la section horaire porte desormais la date en toutes
+  // lettres, jamais son libelle par defaut.
+  await expect(titrePrevisions).not.toHaveText("Les prochaines heures");
+  await expect(titrePrevisions).not.toHaveText("Ce jour");
+  const libelleJour = (await titrePrevisions.textContent()).trim();
+  expect(libelleJour.length).toBeGreaterThan(0);
+
+  // Regression directe : la carte de maree ne doit plus jamais porter
+  // l'element qui affichait la date, ni ce libelle en texte sous une autre
+  // classe — comparaison INSENSIBLE A LA CASSE : l'ancien code capitalisait
+  // ce meme libelle sur la carte ("Dimanche 23 août") alors que le titre de
+  // section le rend tel quel ("dimanche 23 août", mis en capitales par le
+  // CSS) ; une comparaison sensible a la casse aurait laisse revenir le
+  // defaut sans faire echouer ce test.
+  await expect(jauge.locator(".jauge-jour-titre")).toHaveCount(0);
+  const echappe = libelleJour.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(jauge).not.toContainText(new RegExp(echappe, "i"));
+
+  // Contre-epreuve documentee dans la tache : remettre l'ancien
+  // `<p class="jauge-jour-titre">${capitaliser(m.jour_affiche_libelle)}</p>`
+  // dans rendreExtremaJour fait echouer les deux assertions ci-dessus.
+});
+
 // L'ACCESSIBILITE MESUREE, sur la page dans son etat le plus complet (donnees
 // connues plutot que degradees) : c'est ce passage, et lui seul, qui rend
 // l'accessibilite bloquante dans la chaine.

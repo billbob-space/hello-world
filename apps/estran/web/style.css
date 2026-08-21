@@ -611,17 +611,10 @@ main {
 /* La jauge mesure un instant present : sur un autre jour, elle n'a pas de
    sens et est remplacee par la liste des pleines/basses mers de ce jour
    (prp/01-navigation-temporelle.md). Le teal reste celui des hauteurs
-   d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici. */
-/* Meme raison qu'a .nav-jour-libelle : `capitalize` sur une date entiere
-   produit « Vendredi 21 Août », et le mois prend en francais une minuscule.
-   La majuscule initiale vient de app.js/capitaliser(). */
-.jauge-jour-titre {
-  margin: 0 0 var(--espace-3);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--sable-100);
-  text-align: center;
-}
+   d'eau ; l'ambre, reserve a la position courante, n'apparait pas ici.
+   Pas de titre de date ici : la date du jour regarde ne s'ecrit qu'une fois,
+   dans le titre de la section horaire (PRODUCT.md, "Deux decisions d'ecran
+   de plus... — 21 aout 2026") — voir app.js/rendreExtremaJour. */
 
 .jour-extrema-liste {
   display: flex;
@@ -662,20 +655,12 @@ main {
 }
 
 @media (min-width: 640px) {
-  .jauge-jour-titre {
-    font-size: 1.2rem;
-  }
-
   .jour-extremum {
     font-size: 1.1rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .jauge-jour-titre {
-    font-size: 1.3rem;
-  }
-
   .jour-extremum {
     font-size: 1.15rem;
   }
