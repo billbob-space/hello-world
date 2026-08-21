@@ -18,7 +18,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PORT="${HELLO_WORLD_E2E_PORT:-18088}"
+PORT="${HELLO_WORLD_E2E_PORT:-18091}"
 BIN="$(mktemp -d)/hello-world"
 SRV=""
 

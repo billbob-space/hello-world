@@ -17,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PORT="${MARCQ_HANDBALL_E2E_PORT:-18089}"
+PORT="${MARCQ_HANDBALL_E2E_PORT:-18092}"
 BIN="$(mktemp -d)/marcq-handball"
 DONNEES="$(mktemp -d)"
 SRV=""

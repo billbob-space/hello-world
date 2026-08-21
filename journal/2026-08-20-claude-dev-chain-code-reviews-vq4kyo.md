@@ -2573,3 +2573,106 @@ qu'un test absent se voit.
 C'est le meme mode d'echec que les sept verts silencieux de cette branche,
 cette fois dans un test tout neuf ecrit pour en fermer un. Le defaut ne se
 lasse pas.
+
+### 35. Le garde-fou des ports ne voyait pas les ports CALCULES — et il en avait cree deux lui-meme
+
+**Symptome** — trouve par le `relecteur`, sur sa deuxieme mission. `--check`
+annoncait « ports de bout en bout distincts entre apps » pendant que TROIS
+paires se partageaient un port. Deux de ces trois collisions venaient d'etre
+creees par le correctif de l'anomalie 28 : `hello-world` deplace en 18088 et
+`marcq-handball` en 18089, precisement pour fuir une collision avec `estran`,
+et atterrissant tous deux sur des ports que `ramure` occupait deja.
+
+**Cause** — `check_e2e_ports` ne lisait que les defauts **litteraux**, de la
+forme `${VAR:-NNNNN}`. `apps/ramure/e2e/lancer.sh` declare un port litteral et
+en **calcule trois autres** :
+
+```
+PORT="${RAMURE_E2E_PORT:-18086}"
+FIXTURE_PORT=$((PORT + 1))
+PORT_PANNE=$((PORT + 2))
+PORT_FERME=$((PORT + 3))
+```
+
+Trois ports occupes, invisibles au registre. Le troisieme est le plus vicieux :
+`PORT_FERME` n'est pas un port qu'on ouvre, c'est un port qu'on garde **ferme**
+pour simuler une source injoignable — son commentaire le dit, « personne
+n'ecoute ici : toute connexion echoue ». Avec `marcq-handball` pose dessus, la
+panne testee par `ramure` n'est plus une panne : le test passe au vert en ayant
+verifie **l'exact contraire** de ce qu'il annonce.
+
+La collision `ramure`/`renaissance-gym` sur 18087, elle, existait **depuis le
+premier commit des dix suites** et personne ne l'avait vue — pas meme le
+garde-fou ecrit pour ca.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — le controle resout desormais les formes
+`$((BASE ± N))` quand la base est elle-meme au registre, et **refuse** une base
+inconnue plutot que de hausser les epaules : sans ce cran, renommer une variable
+suffirait a sortir un port du registre sans bruit. Quinze ports declares au lieu
+de onze. Blocs contigus : `ramure` garde 18086-18089, `renaissance-gym` passe a
+18090, `hello-world` a 18091, `marcq-handball` a 18092, `pilabelle` a 18093.
+`ramure-v2` reste sur 8080, epingle volontairement — son binaire ne lit aucune
+variable de port, et c'est documente dans son `lancer.sh`. Les cinq suites
+deplacees ont ete rejouees : vertes.
+
+Deux cas de plus dans `test-init.sh`, qui passe de 40 a 42 — un port derive qui
+collisionne, et un port derive d'une base inconnue. Les deux cas existants
+pointaient sur des ports qui ont bouge et ont ete rebranches : l'un serait
+devenu une vraie collision et aurait echoue pour la mauvaise raison.
+
+**Ce qu'il faut retenir n'est pas le trou, c'est ou il etait.** Un garde-fou
+ecrit CONTRE les verts silencieux en etait un. Il annoncait un perimetre — « les
+ports des dix apps » — et en couvrait une partie, sans jamais dire laquelle.
+C'est mot pour mot l'anomalie 3 de cette branche (`jscpd` annoncant 0 % sur du
+code qu'il n'avait pas lu), et la parade y etait deja ecrite : **un controle doit
+comparer ce qu'il a lu a ce qu'il devait lire**. Elle avait ete appliquee a
+`jscpd` et pas a celui-ci.
+
+### 36. Le premier correctif de la lavande inversait la hierarchie des boutons
+
+**Symptome** — la decision du 21 aout demandait que `button.secondaire` cesse
+d'etre lavande. L'artisan a pose un fond `--encre-douce` a texte blanc. Tests
+verts, contrastes mesures et excellents — 6,20:1 en base, 12,95:1 au survol —,
+`axe` vert, revue verte. **Et l'ecran etait faux.**
+
+Le bouton principal de `pilabelle` est un rose **pastel** (`--rose-300`). Un
+secondaire fonce et plein l'ecrase : capture faite a 390 px sur l'ecran de
+ressenti, les deux boutons secondaires attirent l'oeil avant le principal. Sur
+cet ecran-la, l'app se mettait a pousser « Correct » et « Difficile » ; ailleurs,
+« Plus tard » pesait plus lourd qu'« Activer ». L'engagement du PRD — « un seul
+element par ecran porte l'action principale » — etait rompu par le correctif
+cense servir la meme grammaire.
+
+**Cause** — tous les tests de couleur de l'app mesuraient la **lisibilite d'un
+bouton isole**, et aucun le **rapport** entre deux boutons. Un contraste de texte
+ne dit rien du poids visuel : `--encre-douce` gagne les deux mesures qu'on lui
+demandait et perd celle qu'on ne lui demandait pas.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — le secondaire passe en `--rose-100` avec un filet
+`--rose-300` : le rose reste la famille du tapable — regle du 20 aout —, et les
+deux poids de la famille disent les deux rangs. La lavande est bien partie, la
+hierarchie est dans le bon sens, `--encre` sur `--rose-100` rend 10,74:1.
+
+Le test qui manquait est ecrit : **le fond du secondaire doit avoir une
+luminance relative superieure a celle du principal**, les deux lues dans la
+feuille et resolues via `:root`. Contre-epreuve faite — fond fonce remis, le
+test rougit, seul de son fichier. Un second tient qu'un secondaire garde un
+**fond**, sans quoi il retomberait dans la forme des notes qui parlent.
+
+**Un engagement de PRD qui est un RAPPORT se teste comme un rapport.** « Un seul
+element par ecran porte l'action principale » ne se verifie pas en mesurant les
+elements un par un — c'est ce que faisaient les quatorze tests precedents, tous
+verts. Il a fallu une capture d'ecran pour voir ce qu'aucun chiffre ne disait, et
+le chiffre qui l'aurait dit n'existait pas encore.
+
+**Note honnete sur un effet de bord.** Ce correctif rend a « Facile » sa
+dominance sur l'ecran de ressenti — ce que la critique du 20 aout reprochait
+(« Facile est habille en bonne reponse »). Le fond fonce l'avait corrige **par
+accident**, en assombrissant tous les secondaires de l'app. Ce n'est pas une
+correction, c'est un effet de bord global d'un reglage local : le vrai
+traitement de « Facile » est propre a son ecran, et le PRD le reserve
+explicitement.

@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PORT="${RENAISSANCE_GYM_E2E_PORT:-18087}"
+PORT="${RENAISSANCE_GYM_E2E_PORT:-18090}"
 BIN="$(mktemp -d)/renaissance-gym"
 DONNEES="$(mktemp -d)"
 SRV=""

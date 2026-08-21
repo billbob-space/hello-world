@@ -467,8 +467,8 @@ section 'bout en bout'
 # meme port. Ce defaut est INVISIBLE en CI — chaque app y tourne seule dans son
 # conteneur — et ne mord que sur un poste, ou lancer deux suites de front est le
 # geste normal. --check est le seul controle qui regarde les dix apps ensemble.
-refuse "deux apps sur le meme port de bout en bout sont refusees" "18088" <<'FIN'
-sed -i 's/:-18082}/:-18088}/' apps/cadran/e2e/lancer.sh
+refuse "deux apps sur le meme port de bout en bout sont refusees" "18091" <<'FIN'
+sed -i 's/:-18082}/:-18091}/' apps/cadran/e2e/lancer.sh
 FIN
 
 # Le pendant du cas ci-dessus, et il n'est pas theorique : estran declare TROIS
@@ -476,7 +476,24 @@ FIN
 # les repetitions sans regarder a quelle app elles appartiennent le refuserait
 # lui-meme, et le garde-fou mourrait de son premier faux positif.
 avertit "une app qui repete son propre port n'est pas une collision" "ports de bout en bout distincts" <<'FIN'
-printf 'PORT_BIS="${HELLO_WORLD_E2E_PORT_BIS:-18088}"\n' >> apps/hello-world/e2e/lancer.sh
+printf 'PORT_BIS="${HELLO_WORLD_E2E_PORT_BIS:-18091}"\n' >> apps/hello-world/e2e/lancer.sh
+FIN
+
+# Le trou que le relecteur a trouve dans la PREMIERE version du garde-fou : il
+# ne lisait que les defauts litteraux. ramure declare un port et en CALCULE
+# trois autres ; ils etaient invisibles au registre, et deux d'entre eux
+# entraient en collision avec le correctif meme qui venait de deplacer
+# hello-world et marcq-handball. Le controle annoncait « ports distincts » sur
+# trois paires qui ne l'etaient pas.
+refuse "un port derive par calcul entre dans le registre" "18082" <<'FIN'
+printf 'AUTRE_PORT=$((PORT - 9))\n' >> apps/hello-world/e2e/lancer.sh
+FIN
+
+# Un port derive d'une base INCONNUE ne peut pas etre situe : le controle ne
+# doit pas hausser les epaules, il doit le dire. Sans ce cran, il suffirait de
+# renommer une variable pour sortir un port du registre sans bruit.
+refuse "un port derive d'une base inconnue est refuse" "port inconnu du registre" <<'FIN'
+printf 'AUTRE_PORT=$((BASE_MYSTERE + 1))\n' >> apps/hello-world/e2e/lancer.sh
 FIN
 
 section 'journal'
