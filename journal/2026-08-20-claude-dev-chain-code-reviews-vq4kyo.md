@@ -2449,8 +2449,30 @@ branche qui n'est pas la plus lente.
 
 **Action** — `outillage` — un banc de mesure est ecrit : `docs/banc/mesurer.sh`,
 six scenarios figes, protocole et pieges dans `docs/banc/README.md`, serie dans
-`docs/banc/releves.md`. Il couvre la chaine LOCALE ; la CI reste une serie
-separee, non encore relevee, et le relevé le dit plutot que de le taire.
+`docs/banc/releves.md`. Il couvre la chaine LOCALE ; la CI est une serie
+separee, relevee le jour meme — voir la suite.
+
+**Suite, le meme jour** — la serie CI est ouverte sur le run 383 (32476316321,
+pull request, 10 apps, 49 controles verts) : **3 min 50 s**. Et le chemin
+critique n'est AUCUNE des deux chaines soupconnees. Ni `test -> build`, ni
+`bout-en-bout` : c'est `outillage (test-init.sh)`, **3 min 13 s a lui seul**,
+puis `tests-de-l-outillage` et `deploy`. Les dix apps, leurs tests, leurs
+revues, leurs suites en navigateur et leurs dix images tiennent toutes A
+L'INTERIEUR de ces trois minutes ; le dernier job d'app finit 34 secondes avant
+la fin du chemin critique.
+
+Ce qui rend ce constat utile n'est pas le chiffre mais ce qu'il DEMENT : les
+deux gisements de CI restants — le cache d'outils de la revue, l'absence de
+cache du job `test` — sont reels et valent leur correction pour la facture de
+runners, mais **aucun des deux ne raccourcira l'attente** tant que
+`test-init.sh` tiendra le chemin. Sans la mesure, la journee suivante partait
+du bon cote du probleme. C'est l'accident du 18 aout, a l'identique, evite
+cette fois parce qu'un banc existait.
+
+Note de comparabilite, ecrite pour celui qui lira la deuxieme ligne de la
+serie : ce relevé ne se divise PAS par les 196 s du 18 aout. Ce chiffre valait
+pour neuf apps et deux matrices, avant les vingt shards de `revue` et
+`bout-en-bout`. Il n'y a rien a comparer ; cette ligne OUVRE la serie.
 
 ### 31. Le job `build` attend `test` sans que rien ne le lui demande
 

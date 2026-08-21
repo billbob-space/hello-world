@@ -7,6 +7,49 @@ trancher, dans [../parallelisme.md](../parallelisme.md).
 Chaque bloc porte l'en-tête imprimé par `mesurer.sh` : sans lui, deux relevés ne
 se comparent pas.
 
+## Série CI — à ne jamais comparer à la série locale
+
+Runners GitHub, caches d'actions, images préchauffées : une durée de CI ne se
+compare qu'à une autre durée de CI. Et, à l'intérieur même de cette série, un run
+sur `main` **avec** déploiement ne se compare pas à un run de pull request sans.
+
+### 2026-08-21 — premier relevé du graphe élargi, après le retrait de `build ← test`
+
+```
+run 383 (32476316321) — pull_request, PR #158, head 966f044
+10 apps, 49 contrôles, conclusion success
+```
+
+| | |
+|---|---:|
+| **Durée du run** | **3 min 50 s** (11:14:42 → 11:18:32) |
+| Chemin critique | `outillage (test-init.sh)` **3 min 13 s**, puis `tests-de-l-outillage` 4 s, puis `deploy` |
+| Deuxième plus long | `outillage (test-pret.sh)` 2 min 41 s |
+| Fin du dernier job d'app | `bout-en-bout (ramure)` à 11:17:58 — **34 s avant** la fin du chemin critique |
+| Fin de la matrice `build` | 11:17:10 au plus tard, largement hors du chemin critique |
+
+**Le chemin critique est désormais connu, et ce n'est aucune des deux chaînes
+qu'on soupçonnait.** Ni `test → build`, ni `bout-en-bout` : c'est la chaîne de
+l'outillage, `test-init.sh` en tête. Les dix apps, leurs tests, leurs revues,
+leurs suites en navigateur et leurs images tiennent toutes dans les trois
+minutes que ce seul script consomme. **C'est là qu'il faut chercher le prochain
+gain de CI**, et nulle part ailleurs.
+
+**Le retrait de `build ← test` a produit ce qu'on attendait**, et une ligne
+suffit à le montrer : `build (renaissance-gym)` finit à 11:15:41 alors que
+`test (renaissance-gym)` tourne encore jusqu'à 11:16:08. La construction ne
+patiente plus.
+
+**La file d'attente n'a pas saturé** : les démarrages s'échelonnent sur environ
+86 s pour une trentaine de jobs, ce qui est un allumage, pas un plafond. Le
+risque signalé au moment du changement ne s'est pas matérialisé sur ce run — il
+reste à surveiller sur un run `main`, qui porte `deploy` en plus.
+
+**Ce relevé ne se compare PAS aux 196 s du 2026-08-18** : ce chiffre valait pour
+neuf apps et deux matrices, avant que `revue` et `bout-en-bout` n'en ajoutent
+vingt shards. Il n'y a rien à diviser. Cette ligne-ci ouvre la série ; la
+suivante s'y comparera.
+
 ---
 
 ## 2026-08-21 (2) — la revue passe en parallèle
