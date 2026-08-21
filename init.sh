@@ -675,6 +675,43 @@ check_volume_noms() {
   done
 }
 
+# Les ports par defaut du bout en bout, distincts d'une app a l'autre.
+#
+# Chaque e2e/lancer.sh binde un port en dur, sous la forme ${VAR:-NNNNN}. Les dix
+# suites ont ete ecrites app par app, sans registre : trois paires se sont
+# retrouvees sur le meme port (18081 compteur/hello-world, 18084 estran/
+# marcq-handball, 18085 estran/pilabelle).
+#
+# La CI ne peut PAS voir ce defaut : chaque app y tourne dans son propre
+# conteneur, seule, et le port est libre a tous les coups. Il ne se manifeste
+# que sur un poste de developpement, ou lancer deux suites en meme temps est le
+# geste normal — et il s'y manifeste mal : la seconde suite se connecte au
+# serveur de la PREMIERE, teste l'app du voisin et rend des echecs qui n'ont
+# aucun rapport avec ce qu'on vient d'ecrire. Ou pire, elle passe.
+#
+# Un vert silencieux de plus, et le seul de cette branche qu'aucune execution en
+# CI n'aurait jamais revele. D'ou un controle de --check, la seule chose qui
+# regarde les dix apps ENSEMBLE.
+check_e2e_ports() {
+  local a f p col=0; declare -A vu=()
+  for a in "${APPS[@]}"; do
+    f="apps/$a/e2e/lancer.sh"
+    [ -f "$f" ] || continue
+    # Les defauts de la forme ${NOM:-18083}. On ne lit pas les ports passes par
+    # l'environnement : ceux-la sont le moyen de sortir d'une collision, pas de
+    # la creer.
+    for p in $(grep -hoE ':-1[0-9]{4}\}' "$f" | tr -dc '0-9\n'); do
+      if [ -n "${vu[$p]+x}" ] && [ "${vu[$p]}" != "$a" ]; then
+        bad "port $p par defaut dans apps/${vu[$p]}/e2e/lancer.sh ET apps/$a/e2e/lancer.sh — lancer les deux suites en meme temps fait tester une app par la suite de l'autre ; la CI ne le verra jamais, chaque app y tourne seule"
+        col=$((col+1))
+      else
+        vu[$p]="$a"
+      fi
+    done
+  done
+  [ "$col" -eq 0 ] && ok "ports de bout en bout distincts entre apps (${#vu[@]} port(s))"
+}
+
 mem_to_mb() {  # 128m -> 128, 1g -> 1024
   local v n; v=$(printf '%s' "$1" | tr 'A-Z' 'a-z'); n=${v%%[!0-9]*}
   [ -n "$n" ] || { echo 0; return; }
@@ -2550,6 +2587,7 @@ check_applications() {
   check_hidden
   check_volume_noms
   ok "noms de volumes distincts entre apps"
+  check_e2e_ports
 
   # 4. Memoire engagee. La stack est unique : tout demarre d'un coup, et un
   # depassement fait tuer un voisin par l'OOM killer.

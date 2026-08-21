@@ -17,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PORT="${PILABELLE_E2E_PORT:-18085}"
+PORT="${PILABELLE_E2E_PORT:-18090}"
 TMP="$(mktemp -d)"
 BIN="$TMP/pilabelle"
 DONNEES="$TMP/donnees"

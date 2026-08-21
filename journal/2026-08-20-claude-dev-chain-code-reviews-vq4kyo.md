@@ -1918,3 +1918,48 @@ etape de workflow un peu longue. Une etape de CI est du code que personne ne
 teste, dans un langage sans compilateur, executee dans un environnement qu'on
 n'a pas sous la main. Deux tours de CI pour deux fautes triviales coutent plus
 cher que dix minutes de mise sous bac a sable.
+
+### 28. Trois paires d'apps partageaient un port de bout en bout, et la CI ne pouvait pas le voir
+
+**Symptome** — au moment de lancer deux suites de bout en bout en meme temps
+depuis la meme session, collision. Releve sur les dix `e2e/lancer.sh` : trois
+paires se partagent un port par defaut — 18081 (`compteur` et `hello-world`),
+18084 (`estran` degrade et `marcq-handball`), 18085 (`estran` stub et
+`pilabelle`). Onze ports declares pour huit valeurs distinctes.
+
+**Cause** — les dix suites ont ete ecrites app par app, dans cette meme branche,
+chacune choisissant son port sans registre ni voisin a consulter. Le premier a
+pris 18080, et la numerotation a redemarre plusieurs fois.
+
+Ce qui rend le defaut interessant n'est pas la collision, c'est **son
+invisibilite structurelle** : en CI, chaque app tourne dans son propre conteneur
+de matrice, seule, et le port est libre a tous les coups. Les 49 jobs de la
+pull request sont verts, et le resteront. Le defaut ne se manifeste QUE sur un
+poste de developpement — c'est-a-dire a l'endroit ou la fabrique promet
+justement que le bout en bout natif est jouable, ce qui etait tout l'argument
+de ne PAS passer par Docker pour huit apps sur dix.
+
+Et il se manifeste mal. La seconde suite ne trouve pas un port occupe : elle
+attend `/healthz`, l'obtient — du serveur de la PREMIERE app — et joue ses
+tests contre l'app du voisin. Elle rend alors des echecs sans rapport avec ce
+qu'on vient d'ecrire, ou, sur des assertions assez generiques, elle **passe**.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — `check_e2e_ports` dans `--check`, le seul controle qui
+regarde les dix apps ENSEMBLE. Il lit les defauts de la forme `${VAR:-NNNNN}` et
+refuse deux apps sur la meme valeur ; les ports poses par l'environnement ne
+sont pas lus, ce sont eux qui permettent de sortir d'une collision, pas de la
+creer. `hello-world` passe a 18088, `marcq-handball` a 18089, `pilabelle` a
+18090 ; `estran` garde ses trois. Les deux suites deplacees ont ete rejouees
+sur leur nouveau port, vertes.
+
+Deux cas dans `test-init.sh`, qui passe de 38 a 40. Le second n'est pas du
+remplissage : `estran` declare TROIS ports, et un controle qui compterait les
+repetitions sans regarder a quelle app elles appartiennent le refuserait
+lui-meme. Contre-epreuve faite en retirant le garde de meme-app — le faux
+positif apparait, nomme `hello-world` deux fois.
+
+C'est le sixieme vert silencieux de la branche, et le seul qu'aucune execution
+en CI n'aurait jamais pu reveler : les cinq autres attendaient qu'on lise leur
+sortie, celui-ci attendait qu'on soit sur deux apps a la fois.
