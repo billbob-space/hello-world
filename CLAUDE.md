@@ -168,6 +168,14 @@ chaque tour qui suit. Toi, tu écris ce qui est partagé (`.claude/`, `scripts/`
 `fabrique.yml`, `init.sh`) et ce qui demande un dialogue déjà eu avec l'utilisateur (PRD,
 PRP) ; l'artisan ne fait ni l'un ni l'autre. Détail : `memory/travail.md`.
 
+**Les appels d'outils indépendants partent dans le MÊME tour.** Un tour paie tout le
+contexte relu, quelle que soit sa sortie — deux lectures qui ne dépendent pas l'une de
+l'autre coûtent donc moitié moins groupées que séparées. Sur la branche la plus lourde du
+dépôt, **67 % des tours rendaient moins de 300 jetons et pesaient la moitié de la
+facture** : un appel nu qui paie tout le contexte pour ne presque rien rendre. `cout.sh`
+compte ces tours courts à chaque relevé — c'est le poste le plus cher, et le seul qui ne
+tienne qu'à une habitude.
+
 **Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
 entrée de journal. Non relevé avant la fusion, il est perdu.
 
