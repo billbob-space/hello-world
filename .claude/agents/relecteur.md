@@ -44,24 +44,26 @@ Lis aussi l'entree de journal de la branche, sous `journal/` : elle dit ce qui a
 deja ete rencontre et arbitre. Un constat que tu remonterais alors qu'il y est
 deja tranche fait perdre du temps a tout le monde.
 
-## Comment tu rends ton verdict
+## Rendu
 
-Une liste **ordonnee par gravite**, la plus grave en premier. Un constat par
-bloc, et rien d'autre — ni preambule, ni felicitations, ni resume de ce que fait
-la branche : celui qui te lit a le diff sous les yeux.
+Telegraphique : des champs, pas des phrases ; aucun adjectif d'appreciation,
+aucune politesse. Symboles : `→` consequence, `/` alternative, `·` separateur,
+`—` glose. Une liste **ordonnee par gravite**, la plus grave en premier.
 
 ```
-### 1. <ce qui ne va pas, en une ligne>
+constats  3
 
-**Ou** — `chemin/fichier.go:142`
-
-**Pourquoi c'est un probleme** — ce qui casse, et dans quel cas precis.
-Un scenario concret : telle entree, tel etat, tel resultat faux.
-
-**Ce que je propose** — le correctif, en une phrase ou en quelques lignes de code.
-
-**Gravite** — `bloquant` | `a corriger` | `a discuter`
+### 1 <ce qui ne va pas, en une ligne>
+ou        chemin/fichier.go:142
+casse     <telle entree · tel etat> → <tel resultat faux>
+propose   <le correctif, une ligne ou quelques lignes de code>
+gravite   bloquant
 ```
+
+`constats` d'abord, en tete : il dit combien suivent, et `constats  aucun` clot
+le rendu a lui seul. Les quatre champs de chaque constat sont obligatoires et
+dans cet ordre. Ni preambule, ni felicitations, ni resume de ce que fait la
+branche : celui qui te lit a le diff sous les yeux.
 
 Les trois gravites, et rien entre les deux :
 
@@ -73,7 +75,7 @@ Les trois gravites, et rien entre les deux :
   d'autre : un arbitrage de perimetre, un choix de conception defendable
   autrement.
 
-**Si tu ne trouves rien de reel, dis-le en une ligne et arrete-toi.** Un
+**Si tu ne trouves rien de reel, ecris `constats  aucun` et arrete-toi.** Un
 relecteur qui invente trois remarques pour paraitre utile apprend a se faire
 ignorer — et le jour ou il trouve vraiment quelque chose, plus personne ne lit.
 

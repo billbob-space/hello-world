@@ -52,13 +52,13 @@ déclarer est une demande explicite, jamais un passage obligé.
 
 ```yaml
 volumes:
-  - donnees:/var/lib/ramure     # devient le volume nommé « ramure-donnees »
+  - donnees:/var/lib/ramure     # dans ramure-v2 : le volume « ramure-v2-donnees »
   - cache:/var/cache/ramure     # jetable, et son nom le dit
 env: [LASTFM_API_KEY]           # des NOMS de variables, jamais de valeurs
 needs: [redis]                  # un service de shared_services (fabrique.yml)
 services:                       # services annexes, privés de cette app
   - name: worker
-    image: ghcr.io/billbob-space/hello-world/ramure:main
+    image: ghcr.io/billbob-space/hello-world/ramure-v2:main
     memory: 64m
     command: --mode worker
     volumes:
@@ -98,7 +98,7 @@ en scalaire — découpée sur les espaces, guillemets respectés — ou en **li
 YAML, chaque élément étant alors un argument tel quel ; elle est lue et émise **en
 entier**, en forme exec. Une annexe devient le service `<app>-<name>`, et **ses
 volumes appartiennent à l'app, pas à elle** : `donnees:/var/lib/ramure` dans le
-worker monte le même `ramure-donnees` que l'app — c'est ainsi qu'un worker partage
+worker monte le même `ramure-v2-donnees` que l'app — c'est ainsi qu'un worker partage
 les données de son service principal, et c'est la raison d'être du préfixe.
 
 **Les secrets n'ont qu'une porte, et elle regarde le résultat**, jamais un champ :

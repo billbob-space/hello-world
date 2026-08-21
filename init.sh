@@ -10,11 +10,13 @@
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
 #
-# Cinq autres metiers vivent dans leur propre script, chacun son sujet :
+# Sept autres metiers vivent dans leur propre script, chacun son sujet :
 #
 #   ./scripts/branche.sh <app>/<sujet>   cree la branche de travail, et son entree de journal
 #   ./scripts/pret.sh                    l'etape en cours est-elle committable ?
+#   ./scripts/revue.sh [<app>…]          la revue outillee d'une app : les cinq axes et leurs seuils
 #   ./scripts/cout.sh                    releve les jetons consommes et leur cout, dans le journal
+#   ./scripts/jetons.sh                  ce que la fabrique entiere a consomme, lu dans journal/
 #   ./scripts/fusionnees.sh              quelles branches distantes peuvent partir
 #   ./scripts/prod.sh                    l'etat, les journaux et les fichiers de la production
 #
@@ -2688,13 +2690,22 @@ check_traces_risques() {
         # que le PRD continue de le citer serait reste vert — exactement le
         # defaut qu'on croyait fermer, rouvert par sa porte principale.
         #
+        # Deux sessions ont corrige ce defaut en parallele le 21 aout. main a
+        # rendu la recherche recursive par « find » en couvrant cinq extensions ;
+        # cette branche l'a rendue recursive par « grep -r » ET a resserre la
+        # FORME acceptee. La resolution garde les cinq extensions de main et la
+        # forme d'ici : main cherchait encore par « grep -F », qui laisse passer
+        # un test commente.
+        #
         # D'ou les deux exigences cumulees : un CONTEXTE D'APPEL avant le
         # guillemet — nul ne commente « test( » par accident — et « ^[^/]* »,
         # qui interdit tout « / » avant lui et ecarte donc les lignes
         # commentees. Conservateur dans le bon sens : une ligne ecartee a tort
         # produit un avertissement, jamais un silence.
         if ! grep -rqE "^func $motif\(|^[^/]*(test|it|describe|t\.Run) *\( *['\"\`]$motif['\"\`]" "$d" \
-             --include='*_test.go' --include='*.test.js' --include='*.test.ts' \
+             --include='*_test.go' \
+             --include='*.test.js' --include='*.test.ts' \
+             --include='*.spec.js' --include='*.spec.ts' \
              --exclude-dir=node_modules 2>/dev/null; then
           warn "[$n] $f cite le test « $nom » — introuvable dans les tests de l'app"
           manquants=$((manquants+1))
@@ -2794,6 +2805,30 @@ check_fabrique() {
     done
   done
   [ "$morts" -eq 0 ] && ok "aucun lien mort entre les documents"
+
+  # Le README racine annonce les applications de la fabrique, et c'est le
+  # premier document que lit un humain. Le 21 aout 2026 il en decrivait SIX sur
+  # dix : estran, pilabelle, ramure-v2 et renaissance-gym avaient ete livrees
+  # sans jamais y entrer, et ramure retiree sans en sortir. Aucun controle ne le
+  # voyait — les liens morts ne regardent que les cibles en .md, jamais un lien
+  # vers un repertoire. Avertissement et non KO : un README incomplet ne casse
+  # aucun deploiement, et bloquer la CI de tout le monde sur une ligne de
+  # tableau serait hors de proportion. La ligne manquante coute dix secondes.
+  abs=0; fant=0
+  if [ ! -f README.md ]; then
+    warn "README.md absent — la table des applications ne peut pas etre verifiee"
+  else
+    for d in apps/*/; do
+      [ -d "$d" ] || continue
+      n=${d#apps/}; n=${n%/}
+      grep -qF "(apps/$n/)" README.md || { warn "README.md ne cite pas l'app '$n' — sa table des applications a derive"; abs=$((abs+1)); }
+    done
+    for cible in $(grep -oE '\(apps/[a-z0-9-]+/\)' README.md | sed -E 's/^\((.*)\)$/\1/' | sort -u); do
+      [ -d "$cible" ] || { warn "README.md cite '$cible', qui n'existe plus sous apps/"; fant=$((fant+1)); }
+    done
+    [ "$abs" -eq 0 ] && [ "$fant" -eq 0 ] \
+      && ok "README.md cite exactement les ${#APPS[@]} app(s) de apps/"
+  fi
 
   # Deux sections de meme titre dans un meme document sont deux sources de
   # verite sur le meme sujet : le lecteur tombe sur l'une et ignore l'autre,
@@ -3012,12 +3047,44 @@ check_outillage() {
   for h in .claude/garde-branche.sh .claude/garde-commit.sh; do
     [ -x "$h" ] && ok "$h executable" || bad "$h absent ou non executable"
   done
-  for f in .claude/agents/analyste.md .claude/agents/greffier.md \
-           .claude/agents/artisan.md \
-           .claude/commands/livrer.md .claude/commands/pas-a-pas.md \
+  for f in .claude/commands/livrer.md .claude/commands/pas-a-pas.md \
            .github/pull_request_template.md; do
     [ -f "$f" ] && ok "$f present" || bad "$f absent"
   done
+
+  # Le protocole d'echange entre agents — memory/travail.md — ne tient qu'a une
+  # chose : que chaque agent porte SON format de rendu, avec ses champs
+  # obligatoires. Un agent reecrit sans lui redevient bavard, et personne ne le
+  # voit : le surcout n'apparait qu'au releve de cout de la branche d'apres, ou
+  # il est melange a tout le reste. Le meme parcours verifie la presence des
+  # cinq fichiers, que le registre des agents ne relit qu'au demarrage d'une
+  # session — un agent absent ne se remarquait qu'a la session suivante.
+  proto=0
+  for spec in "analyste:distribution retrospectif recurrence plan arbitrage" \
+              "artisan:fichiers tests bloque anomalie" \
+              "esthete:ecrans corrige montre critique" \
+              "greffier:branche commit fichiers echec" \
+              "relecteur:constats ou casse propose gravite"; do
+    f=.claude/agents/${spec%%:*}.md
+    if [ ! -f "$f" ]; then
+      bad "$f absent"; proto=$((proto+1)); continue
+    fi
+    if ! grep -q '^## Rendu' "$f"; then
+      bad "$f : section '## Rendu' absente — l'agent n'a plus de format de rendu"
+      proto=$((proto+1)); continue
+    fi
+    # La SECTION seule, jamais le fichier entier : « ecrans » et « montre »
+    # ouvrent aussi des lignes de prose ailleurs dans la consigne de l'esthete,
+    # et un grep sur tout le fichier declarait le champ present alors qu'il
+    # venait d'etre retire du rendu — le controle disait « ok » sur la panne
+    # meme qu'il existe pour voir.
+    rendu=$(awk '/^## Rendu/{f=1;next} /^## /{f=0} f' "$f")
+    for champ in ${spec#*:}; do
+      grep -qE "^ *\`?$champ\b" <<<"$rendu" \
+        || { bad "$f : le champ '$champ' manque a son rendu"; proto=$((proto+1)); }
+    done
+  done
+  [ "$proto" -eq 0 ] && ok "cinq agents : section '## Rendu' et champs obligatoires"
 
   # Les scripts generes le sont par substitution de fragments : une erreur du
   # generateur produit un fichier plausible mais inanalysable, qui echouerait
