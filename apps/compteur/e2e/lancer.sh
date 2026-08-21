@@ -4,8 +4,9 @@
 # n'est utilise QUE par compteur) sur un reseau dedie, attend /healthz, lance
 # les tests, demonte tout.
 #
-# N'est PAS lance par la CI ni par test.sh : voir apps/ardoise/e2e/lancer.sh,
-# meme geste, meme raison.
+# LANCE PAR LA CI, job « bout-en-bout (compteur) », et lancable a la main :
+# voir apps/ardoise/e2e/lancer.sh, meme geste, meme raison, et meme en-tete
+# devenu faux corrige en meme temps.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -68,6 +69,38 @@ curl -fsS "http://localhost:$PORT/healthz" >/dev/null || {
   docker logs compteur-e2e-app >&2 || true
   exit 1
 }
+
+# /healthz NE DIT RIEN DE LA BASE, et l'app l'affirme elle-meme : « ce que
+# /healthz affirme est le serveur ecoute, rien de plus » (api.go). Les routes
+# de donnees, elles, repondent 503 « la base n'est pas encore prete » tant que
+# postgres n'est pas joignable. Or ce script recree un volume VIDE a chaque
+# passage : postgres doit donc derouler son initdb -- plusieurs secondes --
+# pendant que le binaire Go ecoute, lui, en quelques centaines de millisecondes.
+#
+# Attendre /healthz seul revient donc a lancer les tests contre une app qui ne
+# peut pas encore servir la moindre donnee. Constate en integration continue le
+# 2026-08-21 sur ardoise : le seul test qui ecrit puis relit a echoue, les
+# quatre qui ne touchent pas la base sont passes, et le meme job etait vert
+# huit minutes plus tot sur un code quasi identique. C'est une course, pas un
+# aleatoire -- elle se gagne ou se perd selon la vitesse du runner.
+#
+# On attend donc la route de DONNEES, la seule a dire la verite sur l'etat
+# reel : « curl -f » echoue tant qu'elle repond 503. Et si elle ne repond
+# jamais, on s'arrete FORT -- une attente qui abandonne en silence rendrait la
+# main a Playwright contre une app inutilisable, ce qui est precisement le
+# defaut qu'on corrige ici.
+echo "==> attente de la base (au-dela de /healthz)"
+pret=0
+for _ in $(seq 1 60); do
+  if curl -fsS "http://localhost:$PORT/api/compteur" >/dev/null 2>&1; then pret=1; break; fi
+  sleep 1
+done
+if [ "$pret" != 1 ]; then
+  echo "la base n'est jamais devenue prete : /api/compteur ne repond toujours pas 2xx apres 60 s" >&2
+  docker logs compteur-e2e-base >&2 || true
+  docker logs compteur-e2e-app >&2 || true
+  exit 1
+fi
 
 echo "==> tests Playwright"
 if [ ! -d node_modules ]; then

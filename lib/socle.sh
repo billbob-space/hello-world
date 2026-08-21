@@ -11,10 +11,47 @@
 # donc restent propres a init.sh.
 
 ok()   { printf '  \033[32mok\033[0m    %s\n' "$1"; }
-warn() { printf '  \033[33mattn\033[0m  %s\n' "$1"; }
-# FAILED n'est fiable que si bad() n'est jamais appele dans un sous-shell : une
-# boucle « ... | while read » perdrait l'increment et --check sortirait en 0 en
-# ayant affiche des KO. Toutes les boucles de verification sont des `for`.
+
+# Un avertissement s'affiche a sa place, DANS le flot, et se rappelle a la fin.
+#
+# Le contrat a depasse son plafond de lignes pendant plusieurs branches : le
+# « attn » sortait a chaque --check, noye au milieu d'une centaine de lignes
+# vertes, ou il se lit comme du decor. Un avertissement qu'on ne voit pas ne
+# vaut pas mieux qu'un controle absent — mais le rendre bloquant serait faux,
+# puisqu'il ne signale pas un defaut de deploiement. D'ou le rappel : il ne
+# change rien au verdict, il rend seulement la derive impossible a manquer.
+WARNINGS=()
+warn() { printf '  \033[33mattn\033[0m  %s\n' "$1"; WARNINGS+=("$1"); }
+
+# rappel_attn — reimprime les avertissements accumules, juste avant le verdict.
+# Ne rend rien quand il n'y en a aucun : une section vide reapprendrait a sauter
+# la fin de la sortie, ce que ce rappel cherche justement a defaire.
+#
+# Le rappel NE COUVRE QUE le processus courant, et son en-tete le nomme pour
+# cette raison. pret.sh delegue a init.sh --check, cout.sh --rappel et revue.sh
+# comme a des processus SEPARES — frontiere deliberee, qui l'empeche de
+# dependre de leur interieur — donc leurs avertissements vivent et meurent chez
+# eux. Seuls init.sh --check et pret.sh appellent ce rappel : les autres
+# scripts rendent une sortie assez courte pour qu'un « attn » s'y voie sans
+# aide. Sans ce nom, « 1 avertissement » sous deux lignes « attn » se lirait
+# comme un compte faux plutot que comme une portee.
+#
+# Le test de longueur precede l'expansion : sous « set -u », et sur bash < 4.4,
+# « ${WARNINGS[@]} » sur un tableau vide est une variable non liee et tuerait le
+# script au moment meme ou il annonce que tout va bien.
+rappel_attn() {
+  [ "${#WARNINGS[@]}" -eq 0 ] && return 0
+  echo
+  printf '%d avertissement(s) de %s — ils ne bloquent pas, mais rien ne les rattrapera :\n' \
+    "${#WARNINGS[@]}" "${0##*/}"
+  local w
+  for w in "${WARNINGS[@]}"; do printf '  \033[33mattn\033[0m  %s\n' "$w"; done
+}
+
+# FAILED et WARNINGS ne sont fiables que si bad() et warn() ne sont jamais
+# appeles dans un sous-shell : une boucle « ... | while read » perdrait
+# l'increment, et --check sortirait en 0 en ayant affiche des KO. Toutes les
+# boucles de verification sont des `for`.
 FAILED=0
 bad()  { printf '  \033[31mKO\033[0m    %s\n' "$1"; FAILED=$((FAILED+1)); }
 

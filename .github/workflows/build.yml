@@ -9,7 +9,16 @@ name: build
 on:
   push:
     branches: [main]
+  # « edited » n'est PAS dans le defaut, qui vaut [opened, synchronize,
+  # reopened]. Sans lui, l'etape « les deux relecteurs » etait invalidable :
+  # elle lit le corps de la PR dans la charge utile de l'evenement
+  # (github.event.pull_request.body), donc corriger la description ne
+  # declenchait rien, et relancer le job echoue rejouait l'ancien corps. Le seul
+  # recours etait de pousser un commit — ou un commit vide, que le depot
+  # interdit. Un controle qui porte sur un texte editable hors de git doit
+  # ecouter l'evenement qui modifie ce texte.
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
     inputs:
       toutes:
@@ -26,8 +35,14 @@ on:
 # commit pousse. Laisser tourner les precedents faisait payer plusieurs fois la
 # meme verification et retardait le verdict utile, puisque le groupe est
 # serialise — le second run attendait la fin du premier au lieu de le remplacer.
+#
+# Les runs « edited » ont leur PROPRE voie. Dans le groupe commun, retoucher la
+# description pendant que la CI verifie un commit annulerait cette verification
+# et la remplacerait par un run qui ne relit que le corps — le code passerait au
+# vert sans avoir ete verifie. Deux voies : les retouches de description
+# s'annulent entre elles, jamais le travail sur le code.
 concurrency:
-  group: fabrique-${{ github.ref }}
+  group: fabrique-${{ github.ref }}${{ github.event.action == 'edited' && '-corps' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -55,6 +70,20 @@ jobs:
       # Sur une pull request seulement, et c'est deliberé : la relecture vient en
       # FIN de branche. L'exiger a chaque commit ferait echouer le premier de
       # chaque branche, ce qui apprend a contourner.
+      #
+      # PIEGE, constate au premier passage reel : le corps lu ici est celui que
+      # PORTAIT L'EVENEMENT, pas le corps actuel. « pull_request: » sans
+      # « types: » n'ecoute que opened / synchronize / reopened — une EDITION du
+      # corps ne declenche rien, et « Re-run » rejoue le payload d'origine, donc
+      # le corps perime. Corriger la section « ## Revue » ne reverdit ce job
+      # qu'apres un nouveau COMMIT POUSSE ; les messages d'erreur ci-dessous le
+      # disent, faute de quoi on tourne en rond en croyant la regle cassee.
+      #
+      # Pourquoi ne pas ajouter « edited » aux types : ce workflow construit les
+      # images et lance les tests bout en bout. Le declencher a chaque frappe
+      # dans le corps d'une pull request paierait une chaine complete pour une
+      # virgule, et le « cancel-in-progress » des pull requests annulerait au
+      # passage le run utile en cours. Un commit de plus coute moins cher.
       - name: les deux relecteurs ont-ils eu lieu
         if: github.event_name == 'pull_request'
         env:
@@ -70,10 +99,10 @@ jobs:
             echo "::error::le corps de la pull request n'a pas de section « ## Revue ». Le gabarit .github/pull_request_template.md la porte : remplis-la."
             echec=1
           elif printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\*.*AAAA-MM-JJ'; then
-            echo "::error::la ligne « Code » de la section « ## Revue » est restee au gabarit. Lance l agent relecteur sur la branche et ecris ce qu il a trouve."
+            echo "::error::la ligne « Code » de la section « ## Revue » est restee au gabarit. Lance l agent relecteur sur la branche et ecris ce qu il a trouve. ATTENTION : corriger le corps ne suffit pas a reverdir ce job — il faut POUSSER un commit ensuite (voir le commentaire ci-dessus)."
             echec=1
           elif ! printf '%s' "$CORPS" | grep -qE '^\- \*\*Code\*\* .*[0-9]{4}-[0-9]{2}-[0-9]{2}.*[A-Za-z]'; then
-            echo "::error::la ligne « Code » de la section « ## Revue » est vide ou sans date. Forme attendue : « - **Code** — relecteur, le 2026-08-20 : <ce qu il a trouve> »."
+            echo "::error::la ligne « Code » de la section « ## Revue » est vide ou sans date. Forme attendue : « - **Code** — relecteur, le 2026-08-20 : <ce qu il a trouve> ». ATTENTION : corriger le corps ne suffit pas a reverdir ce job — il faut POUSSER un commit ensuite (voir le commentaire ci-dessus)."
             echec=1
           else
             echo "  ok    relecture de code consignee"
@@ -144,9 +173,9 @@ jobs:
   #     et pour une raison precise : il valide init.sh --check, dont le job
   #     contrat n'est que l'execution. Mettre en ligne sur la foi d'un verrou
   #     dont on n'a pas verifie le mecanisme, c'est n'avoir aucun verrou ;
-  #   - ses quatre scripts tournent en parallele.
+  #   - ses six scripts tournent en parallele.
   #
-  # fail-fast: false — on veut les quatre verdicts, pas le premier. Une shard
+  # fail-fast: false — on veut les six verdicts, pas le premier. Une shard
   # annulee rendrait le job rouge et bloquerait deploy de toute facon, mais sans
   # dire ce qui va mal ailleurs.
   outillage:
@@ -157,7 +186,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # test-init.sh   : le plus long des quatre, et le seul que deploy attende
+        # test-init.sh   : le plus long des six, et le seul que deploy attende
         #                  legitimement — voir plus haut.
         # test-cout.sh   : cout.sh ne casse rien quand il se trompe, il ment.
         # test-pret.sh   : son garde-fou « le PRD suit-il ? » est le seul de la
@@ -179,13 +208,24 @@ jobs:
         #                  qu'il ne connait pas, puis les fichiers de plus de
         #                  mille lignes — deux fois un rapport bien forme sur un
         #                  perimetre vide.
-        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh, test-revue.sh]
+        # test-deploiement.sh : le verdict de mise en ligne est le DERNIER mot
+        #                  de la chaine, il vit en shell inline dans ce fichier,
+        #                  et ses trois entrees — code HTTP, corps rendu par
+        #                  dockhand, et ce que l'etape precedente a etabli — ne se
+        #                  combinent jamais toutes sur un run reel. Le 21 aout
+        #                  2026 il accusait le serveur d'etre mal configure alors
+        #                  qu'il venait de deployer : un quart d'heure de chasse a
+        #                  une panne inexistante, et rien dans le diff ne pouvait
+        #                  le montrer. Ses cas EXTRAIENT le bloc de ce fichier au
+        #                  lieu de le recopier — une recopie se desynchroniserait
+        #                  et continuerait a rendre vert.
+        script: [test-init.sh, test-cout.sh, test-pret.sh, test-jetons.sh, test-revue.sh, test-deploiement.sh]
     steps:
       - uses: actions/checkout@v4
       - run: ./${{ matrix.script }}
 
-  # Un seul nom de controle pour les quatre shards. La matrice ci-dessus publie
-  # « outillage (test-init.sh) » et trois freres, dont les noms changeraient a
+  # Un seul nom de controle pour les six shards. La matrice ci-dessus publie
+  # « outillage (test-init.sh) » et cinq freres, dont les noms changeraient a
   # chaque fois qu'on redecoupe ; la regle qui protege main, elle, exige des
   # controles de statut nommes. Ce job garde donc le nom historique, stable quoi
   # qu'il arrive a la matrice.
@@ -207,7 +247,10 @@ jobs:
   # ne veut dire « rien a faire » que si celui qui l'a decide a lui-meme abouti.
   tests-de-l-outillage:
     needs: [detect, outillage]
-    if: ${{ !cancelled() }}
+    # Le second terme pour la meme raison que sur detect. Sans lui, ce job
+    # tournerait sur un « edited » et jugerait un amont saute — or son role est
+    # precisement de refuser un « saute » que personne n'a decide.
+    if: ${{ !cancelled() && github.event.action != 'edited' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -220,12 +263,17 @@ jobs:
             exit 1
           fi
           case "$resultat" in
-            success) echo "  ok    outillage : les cinq scripts sont verts" ;;
+            success) echo "  ok    outillage : les six scripts sont verts" ;;
             skipped) echo "  ok    outillage : rien n'a bouge, matrice sautee" ;;
             *)       echo "  KO    outillage : $resultat" ; exit 1 ;;
           esac
 
+  # Sur « edited », seul le job contrat tourne : rien du code n'a bouge, et
+  # relancer la detection ferait repartir la matrice de build pour une coquille
+  # dans une description. detect commandant toute la chaine en aval
+  # (outillage, test, revue, bout-en-bout, build), le sauter ici les saute tous.
   detect:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -1004,10 +1052,33 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A-T-ON ETABLI qu'il y a bien quelque chose a deployer ? Cette
+          # variable est la reponse a un instant donne, et repli() l'emporte avec
+          # lui : elle decide du verdict quand dockhand repond « skipped » — voir
+          # l'etape « declencher le deploiement ». Elle ne passe a « oui » qu'une
+          # fois la PREUVE faite, et ne redescend jamais.
+          #
+          # Elle vaut « non » au depart parce qu'un repli qui abandonne avant
+          # d'avoir compare quoi que ce soit ne prouve rien. Mais « non » par
+          # defaut a un cout, et il faut le voir en face : il DESARME le
+          # garde-fou qui attrape un dockhand qui ne voit plus la poussee (panne
+          # de resolution du 6 aout 2026, plus bas). D'ou l'ordre des controles
+          # ci-dessous, qui n'est pas cosmetique : tout ce qui s'etablit avec le
+          # seul git — donc SANS le moindre secret — passe en PREMIER. Sinon un
+          # secret manquant sortirait du script avant la preuve, « etabli »
+          # resterait « non » pour toujours, et le garde-fou serait
+          # inatteignable en production sans que rien ne le dise. C'est
+          # exactement ce que faisait la premiere version de ce correctif, et ce
+          # que la relecture a rattrape.
+          ETABLI=non
+
           # Ce qui empeche la livraison unitaire ne doit jamais empecher la
-          # LIVRAISON : on repasse par le webhook, en disant pourquoi.
+          # LIVRAISON : on repasse par le webhook, en disant pourquoi. Le second
+          # argument force « etabli » ; sans lui, repli() emporte ce qui a ete
+          # etabli jusque-la.
           repli() {
             echo "webhook=true" >> "$GITHUB_OUTPUT"
+            echo "etabli=${2:-$ETABLI}" >> "$GITHUB_OUTPUT"
             echo "::warning::livraison unitaire ecartee — $1"
             echo "le deploiement repasse par le webhook : TOUTE la stack sera recreee"
             exit 0
@@ -1022,14 +1093,6 @@ jobs:
             exit 0
           fi
 
-          [ -n "${DOCKHAND_URL:-}" ]   || repli "secret DOCKHAND_URL absent"
-          [ -n "${DOCKHAND_TOKEN:-}" ] || repli "secret DOCKHAND_TOKEN absent"
-
-          # L'identifiant de la pile se lit dans l'URL du webhook : un secret de
-          # moins a poser, et deux valeurs qui ne peuvent pas se contredire.
-          PILE_ID=$(printf '%s' "${WEBHOOK:-}" | sed -nE 's#^.*/api/git/stacks/([0-9]+)/webhook.*$#\1#p')
-          [ -n "$PILE_ID" ] || repli "l URL du webhook ne porte pas d identifiant de pile"
-
           # Le compose a-t-il bouge AILLEURS que sur des lignes image: depuis ce
           # que le serveur fait tourner ? « github.event.before » est le dernier
           # commit deploye des lors que chaque poussee sur main deploie.
@@ -1040,8 +1103,28 @@ jobs:
           if printf '%s\n' "$bouge" | grep -qvE '^[+-][[:space:]]*image:[[:space:]]'; then
             echo "le compose change ailleurs que sur des lignes image: —"
             printf '%s\n' "$bouge" | grep -vE '^[+-][[:space:]]*image:[[:space:]]' | head -20
-            repli "changement de structure, que seul le deploiement complet sait poser"
+            repli "changement de structure, que seul le deploiement complet sait poser" oui
           fi
+
+          # LA PREUVE EST FAITE : compose.yaml a bel et bien change depuis le
+          # commit que le serveur fait tourner, et seulement sur des lignes
+          # image:. Il y a donc quelque chose a deployer, et un « skipped » de
+          # dockhand devient anormal — quoi qu'il arrive en dessous.
+          ETABLI=oui
+
+          # LES SECRETS VIENNENT APRES, et c'est le coeur du correctif. Ils ne
+          # servent qu'a la livraison ciblee ; leur absence n'enleve rien a ce
+          # qui vient d'etre etabli avec le seul git. Les remonter au-dessus
+          # ferait sortir le script avant la preuve : sur ce depot, ou les deux
+          # secrets sont vides depuis toujours (voir le journal du jour), le
+          # garde-fou du « skipped » ne se declencherait alors JAMAIS.
+          [ -n "${DOCKHAND_URL:-}" ]   || repli "secret DOCKHAND_URL absent"
+          [ -n "${DOCKHAND_TOKEN:-}" ] || repli "secret DOCKHAND_TOKEN absent"
+
+          # L'identifiant de la pile se lit dans l'URL du webhook : un secret de
+          # moins a poser, et deux valeurs qui ne peuvent pas se contredire.
+          PILE_ID=$(printf '%s' "${WEBHOOK:-}" | sed -nE 's#^.*/api/git/stacks/([0-9]+)/webhook.*$#\1#p')
+          [ -n "$PILE_ID" ] || repli "l URL du webhook ne porte pas d identifiant de pile"
 
           # Un seul point de sortie vers dockhand. Il distingue les trois echecs
           # qui ne se reparent pas au meme endroit : la porte fermee (redirection
@@ -1126,7 +1209,7 @@ jobs:
           PY
           )
           case "$a_livrer" in
-            MANQUE*) repli "conteneur(s) absent(s) de l hote : ${a_livrer#MANQUE }" ;;
+            MANQUE*) repli "conteneur(s) absent(s) de l hote : ${a_livrer#MANQUE }" oui ;;
           esac
           if [ -z "$a_livrer" ]; then
             echo "les images en ligne sont deja celles du compose — rien a recreer"
@@ -1191,6 +1274,9 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.DOCKHAND_DEPLOY_WEBHOOK }}
           WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
+          # « oui » seulement si l'etape precedente a ETABLI qu'il y a quelque
+          # chose a deployer. Seul ce cas rend un « skipped » anormal.
+          ETABLI: ${{ steps.unitaire.outputs.etabli }}
         run: |
           if [ -z "$WEBHOOK" ]; then
             echo "::warning::secret DOCKHAND_DEPLOY_WEBHOOK absent — images publiees, deploiement NON declenche"
@@ -1253,13 +1339,34 @@ jobs:
 
           # dockhand ne redeploie que s'il voit un commit nouveau, et repond 200
           # quand il saute : sans ce test, la CI serait verte et le serveur
-          # servirait toujours les images d'avant. On n'arrive ici qu'avec un
-          # compose.yaml qui a bel et bien change et ete pousse — un saut ne
-          # peut donc plus vouloir dire « rien a faire », il veut dire que
-          # dockhand n'a pas vu la poussee.
+          # servirait toujours les images d'avant.
+          #
+          # MAIS « skipped » ne veut pas dire la meme chose selon la facon dont
+          # on est arrive ici, et la version precedente confondait les deux. Elle
+          # affirmait « on n'arrive ici qu'avec un compose.yaml qui a bel et bien
+          # change », donc accusait dockhand de ne pas voir la poussee. C'etait
+          # faux : « webhook=true » n'est pose QUE par repli(), et la plupart des
+          # replis abandonnent AVANT d'avoir compare quoi que ce soit -- secret
+          # absent, declenchement manuel (github.event.before est vide), compose
+          # identique au commit precedent. Sur ces chemins-la, « skipped » est la
+          # bonne reponse de dockhand : la stack est deja sur ce commit.
+          #
+          # Constate le 21 aout 2026 : la fusion avait deploye pour de bon a
+          # 13:49, un declenchement manuel « toutes » quatre minutes plus tard a
+          # recu « No changes detected » -- exact -- et le job a affiche « verifie
+          # que le conteneur dockhand resout github.com ». Un quart d'heure de
+          # chasse a une panne inexistante, sur une infrastructure saine.
           if grep -q '"skipped":[[:space:]]*true' reponse.txt; then
-            echo "::error::dockhand a saute le deploiement alors que compose.yaml a change sur main."
-            echo "::error::Il n'a pas vu la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com)."
-            exit 1
+            if [ "${ETABLI:-non}" = oui ]; then
+              echo "::error::dockhand a saute le deploiement alors qu'il y a bel et bien quelque chose a deployer (voir l avertissement de l etape precedente)."
+              echo "::error::Il n'a pas vu la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com)."
+              exit 1
+            fi
+            # Pas d'echec : rien n'etablit qu'il y avait a faire. Pas de silence
+            # non plus -- si la stack N'EST pas sur ce commit, ce message est le
+            # seul endroit ou la piste existe.
+            echo "::warning::dockhand n'avait rien a deployer : il considere la stack deja sur ce commit. Normal apres un deploiement qui vient d'avoir lieu, ou sur un declenchement manuel qui ne change rien."
+            echo "::warning::Si les apps en ligne ne sont PAS a jour, alors dockhand ne voit pas la poussee : verifie que la stack suit bien la branche main de ce depot, et que son clone n'est pas bloque (le conteneur dockhand doit resoudre github.com). Etat reel : ./scripts/prod.sh"
+            exit 0
           fi
           echo "deploiement declenche"

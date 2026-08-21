@@ -80,8 +80,8 @@
 # aucune image n'a encore ete publiee, et le seul ou la fabrique deploie a
 # l'aveugle.
 #
-# Les artefacts derives — compose.yaml, le workflow, .claude/, go.work — sont
-# TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
+# Les artefacts derives — compose.yaml, go.work, les notices apps/NOM/CLAUDE.md —
+# sont TOUJOURS reecrits : c'est ce qui garantit qu'une app ajoutee ne peut pas etre
 # absente du deploiement. En revanche apps/NOM/app.yml n'est JAMAIS reecrit ;
 # il est la source de verite, edite a la main ou par --app. Il en va de meme des
 # entrees de journal/ : echafaudees une fois, ecrites a la main ensuite.
@@ -3206,6 +3206,8 @@ if [ "$CHECK" = 1 ]; then
     echo "  protege. Ne pousse pas."
     echo
   fi
+  rappel_attn
+  echo
   [ "$FAILED" -gt 0 ] && { echo "$FAILED point(s) bloquant(s)."; exit 1; }
   echo "Contrat respecte. Tu peux pousser sur main."
   exit 0
