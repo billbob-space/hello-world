@@ -301,13 +301,16 @@ de qui que ce soit.
 | `analyste` | `opus` | 80 000 jetons | 0,89 $ |
 | `artisan` | `sonnet` | 100 000 jetons, **un seul PRP** | 0,96 $ |
 | `relecteur` | `opus` | 100 000 jetons | 1,08 $ |
-| `esthète` | `opus` | 100 000 jetons **et 120 gestes** | 17,06 $ |
+| `esthète` | `opus` | 100 000 jetons **et 150 gestes** | 17,06 $ |
 
 Ces choix viennent d'un banc, pas d'une impression : même mission, même entrée, trois
 moteurs, avec des réponses connues d'avance — six défauts semés dans du vrai code parmi
 trois changements anodins, une distribution de journal calculée d'avance, douze tests
 d'acceptation écrits avant et jamais montrés. Méthode, vérités de référence et dix
-relevés : `docs/banc/agents/releve.md`. Quatre enseignements qui ne se devinent pas :
+relevés : `docs/banc/agents/releve.md`, onze relevés de banc. Le greffier fait
+exception : son 0,07 $ vient de ses passages réels sur la branche, aucun moteur ne
+lui a été opposé — c'est un repère, pas une comparaison. Quatre enseignements qui ne
+se devinent pas :
 
 - **le moteur cher n'est pas proportionnellement cher à l'usage.** Le tarif d'`opus`
   vaut cinq fois celui de `haiku` ; sur le même travail le relevé ne coûte que trois

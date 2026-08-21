@@ -47,7 +47,10 @@ tarifs:
   - modele: claude-haiku-4-5-20251001
     entree: 1
     sortie: 5
-  # Opus 4.7 porte 1 088 appels dans le journal et n'a jamais eu de tarif.
+  # Opus 4.7 porte 1 088 appels dans le journal et n'avait aucun tarif. Prix public
+  # verifie a la reference Anthropic le 2026-08-21 : 5 $ / 25 $ par million, meme
+  # palier qu'Opus 5. Un tarif recopie sans source se lirait comme une mesure ; ici
+  # il en est une, et sa date est ecrite comme celle du taux de change.
   - modele: claude-opus-4-7
     entree: 5
     sortie: 25

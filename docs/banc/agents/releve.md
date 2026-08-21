@@ -44,11 +44,24 @@ faux mais plausibles, le pire des rendus : rien ne signale qu'ils sont inventés
 
 ## Coût réel par relevé, en dollars d'API
 
+Onze relevés de banc — trois moteurs pour le relecteur, l'analyste et l'artisan,
+deux pour l'esthète, dont la passe dure trente-cinq minutes.
+
 | agent | haiku | sonnet | opus |
 |---|---|---|---|
 | relecteur | 0,314 | 0,722 | **1,078** |
 | analyste | 0,249 | 0,625 | **0,894** |
-| artisan | 0,395 | — | — |
+| artisan | 0,395 | 0,964 | 1,948 |
+| esthète | — | 6,185 | **17,06** |
+| greffier | **0,074** | — | — |
+
+**Le greffier n'a pas eu de banc à trois moteurs, et son chiffre ne doit pas se
+lire comme s'il en avait eu un.** 0,074 $ est la moyenne de ses passages RÉELS sur
+cette branche — il a enregistré quatre étapes, dont une qu'il a refusée. Aucun
+autre moteur ne lui a été opposé : son travail est mécanique, son verdict binaire,
+il est déjà au moteur le moins cher, et il n'y avait rien à gagner à mesurer un
+moteur plus cher sur un métier où le moins cher réussit déjà. C'est un repère de
+coût, pas une comparaison.
 
 L'écart n'est PAS celui des tarifs. Le tarif d'opus est 5x celui de haiku, mais
 son relevé ne coûte que 3,4x : il relit 524 000 jetons là où haiku en relit

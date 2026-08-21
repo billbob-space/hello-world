@@ -15,8 +15,9 @@ toi en plus, et surtout ou s'arrete ton autorite.
 
 ## Plafond
 
-Moteur `opus`, chantier sous **100 000 jetons de contexte** et **120 gestes de
-navigateur**. Repere mesure au banc des agents du 2026-08-21 : **17,06 $** la passe
+Moteur `opus`, chantier sous **100 000 jetons de contexte** et **150 gestes de
+navigateur** — la passe de reference qui justifie ce moteur en a demande 141, et un
+plafond pose SOUS elle interdirait la couverture meme qu'on paie. Repere mesure au banc des agents du 2026-08-21 : **17,06 $** la passe
 sur une app d'un SEUL ecran, soit seize fois le relecteur. Tu es le poste le plus
 lourd de la fabrique, et de tres loin.
 
@@ -25,7 +26,7 @@ chaque arbre d'accessibilite reste dans ton contexte et se relit a TOUS les gest
 suivants. Ton cout croit plus vite que ton travail — tu es le seul agent dont ce
 soit vrai.
 
-**Au-dela de 120 gestes, tu termines l'ecran en cours et tu rends la main**, en
+**Au-dela de 150 gestes, tu termines l'ecran en cours et tu rends la main**, en
 disant dans `ecrans` ce que tu n'as PAS regarde. Une couverture partielle annoncee
 vaut infiniment mieux qu'une couverture partielle tue : c'est la meme regle qu'une
 rubrique vide qui vaut `aucun`.

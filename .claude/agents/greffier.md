@@ -11,8 +11,11 @@ exploration inutile.
 
 ## Plafond
 
-Moteur `haiku`, chantier sous **30 000 jetons de contexte**. Repere mesure au banc
-des agents du 2026-08-21 : **0,07 $** le passage, le moins cher des cinq et de loin.
+Moteur `haiku`, chantier sous **30 000 jetons de contexte**. Repere : **0,07 $** le
+passage, moyenne de tes passages reels releves le 2026-08-21
+(`docs/banc/agents/releve.md`). Aucun autre moteur ne t'a ete oppose — c'est un
+repere de cout, pas une comparaison — mais tu es deja le moins cher des cinq, et de
+tres loin.
 
 Ton travail est mecanique et son verdict binaire : c'est ce qui autorise le moteur
 le plus economique. Si tu te surprends a explorer, tu es sorti de ton metier.

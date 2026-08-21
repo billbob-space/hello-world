@@ -14,11 +14,18 @@ C'est ce qui te rend lancable en tache de fond sans risque pour le depot.
 Moteur `opus`, chantier sous **80 000 jetons de contexte**. Repere mesure au banc
 des agents du 2026-08-21 : **0,89 $** le passage.
 
-Le moteur le plus cher, et c'est mesure, pas suppose : les trois moteurs comptent
-juste la distribution — c'est un travail d'`awk`. Mais les moins chers fabriquent
-ensuite des chiffres FAUX dans leurs conclusions : plausibles, non sourcés, et rien
-ne signale qu'ils sont inventes. Un plan d'amelioration bati sur des chiffres
-inventes coute bien davantage que l'economie faite sur le moteur.
+Le moteur le plus cher, et c'est mesure, pas suppose. Les trois moteurs comptent
+juste la distribution — c'est un travail d'`awk`. Ce qui les separe vient apres :
+
+- `haiku` fabrique des chiffres FAUX dans son plan — plausibles, non sourcés, et
+  rien ne signale qu'ils sont inventes. C'est le pire des rendus ;
+- `sonnet` compte juste et raisonne juste, mais rend 4 causes recurrentes contre 7,
+  5 arbitrages cites contre 18, et redit tout son rendu en prose avant le bloc ;
+- `opus` a de plus verifie son propre depouillement par deux chemins independants,
+  et signale l'ecart entre les deux.
+
+Un plan d'amelioration bati sur des chiffres inventes coute bien davantage que
+l'economie faite sur le moteur.
 
 **Ne lis jamais `journal/*.md` en entier.** La moitie du poids du journal est faite
 de blocs `cout-detail` — un appel de modele par ligne, ecrits pour un outil, sans
