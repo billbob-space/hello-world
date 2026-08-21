@@ -614,6 +614,78 @@ awk 'BEGIN{f=0} {print}
 FIN
 
 # Attendre TOUS les cas en vol, puis rejouer les fiches dans l'ordre : la sortie
+# --- yget, teste directement -----------------------------------------------------
+#
+# Les autres cas d'ici passent par ./init.sh --check, donc par les manifestes
+# REELS du depot. Ceux-la ne portent ni \r, ni cle prefixe d'une autre, ni
+# derniere ligne sans saut final : la comparaison octet a octet de --check, si
+# rassurante soit-elle, ne prouve rien sur ces chemins. yget est appelee 1104
+# fois par --check et lit aussi des valeurs saisies a la main ; elle merite ses
+# propres cas. Le premier ci-dessous est une regression reelle, introduite par
+# la reecriture sans processus, trouvee en relecture et corrigee.
+yget_corps() {  # yget_corps <nom> <cle> <attendu> <contenu, echappements %b>
+  local nom="$1" cle="$2" attendu="$3" contenu="$4" f obtenu
+  f=$(mktemp "$TEMP/yget.XXXXXX")
+  printf '%b' "$contenu" > "$f"
+  obtenu=$( . "$SOURCE/lib/socle.sh"; yget "$f" "$cle" "DEFAUT" )
+  if [ "$obtenu" = "$attendu" ]; then
+    reussi "$nom"
+  else
+    echec "$nom" "attendu << $attendu >>, obtenu << $obtenu >>"
+  fi
+}
+yget_cas() { detache yget_corps "$1" "$2" "$3" "$(cat)"; }
+
+section "yget, le lecteur de manifeste"
+
+yget_cas "un retour chariot AU MILIEU de la valeur est retire" port "8080" <<'FIN'
+port: 80\r80
+FIN
+
+yget_cas "un retour chariot de fin de ligne CRLF est retire" port "8080" <<'FIN'
+port: 8080\r
+FIN
+
+yget_cas "le commentaire de fin part, meme precede de plusieurs espaces" port "8080" <<'FIN'
+port: 8080   # le port d'ecoute
+FIN
+
+yget_cas "un # colle a la valeur n'est PAS un commentaire" couleur "#fff" <<'FIN'
+couleur: #fff
+FIN
+
+yget_cas "une cle prefixe d'une autre ne prend pas sa valeur" port "8080" <<'FIN'
+portail: ouvert
+port: 8080
+FIN
+
+yget_cas "la premiere occurrence gagne" port "8080" <<'FIN'
+port: 8080
+port: 9090
+FIN
+
+yget_cas "une cle absente rend le defaut" absente "DEFAUT" <<'FIN'
+port: 8080
+FIN
+
+yget_cas "une cle sans valeur rend le defaut" port "DEFAUT" <<'FIN'
+port:
+FIN
+
+yget_cas "une cle indentee n'est pas lue — yget ne lit que la colonne 0" port "DEFAUT" <<'FIN'
+services:
+  port: 8080
+FIN
+
+yget_cas "la derniere ligne sans saut final est lue quand meme" port "8080" <<'FIN'
+enabled: true
+port: 8080\c
+FIN
+
+yget_cas "une paire de guillemets est retiree" nom "ma valeur" <<'FIN'
+nom: "ma valeur"
+FIN
+
 # est celle d'avant, au caractere pres.
 wait || true
 for f in "$FICHES"/[0-9]*.out; do [ -e "$f" ] && cat "$f"; done

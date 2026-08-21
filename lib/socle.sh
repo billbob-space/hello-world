@@ -82,7 +82,15 @@ yget() {  # yget <fichier> <cle> <defaut>
     # « || [ -n "$ligne" ] » : une derniere ligne sans saut final serait
     # autrement perdue, ce que « tr < fichier » ne faisait pas.
     while IFS= read -r ligne || [ -n "$ligne" ]; do
-      ligne=${ligne%$'\r'}
+      # TOUS les \r, pas seulement celui de fin : l'ancienne version faisait
+      # « tr -d '\r' » sur le fichier entier, et un \r colle au milieu d'une
+      # valeur — copier-coller depuis un terminal Windows — disparaissait lui
+      # aussi. Retirer le seul suffixe le laissait traverser jusqu'a la sortie.
+      # C'est aussi ce que font gsub(/\r/,"") dans les deux lecteurs awk d'a
+      # cote : les trois lecteurs de manifeste nettoient pareil, ou l'un d'eux
+      # finira par mentir. Trouve en relecture, pas par les manifestes reels —
+      # aucun d'eux ne porte de \r, d'ou les cas de test ci-dessous.
+      ligne=${ligne//$'\r'/}
       case "$ligne" in
         "$k:"*) v=${ligne#"$k:"}; break ;;
       esac

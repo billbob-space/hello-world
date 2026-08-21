@@ -2813,3 +2813,50 @@ encore environ 2 100 forks. Le second demanderait de changer des centaines de
 sites d'appel dans un script de 150 Ko qui garde les dix apps d'un bloc. Le
 rapport gain/risque ne le justifie pas aujourd'hui ; il est ecrit pour celui qui
 reviendra avec une meilleure raison.
+
+### 39. « Identique octet a octet » ne prouvait rien sur les chemins que le depot n'emprunte pas
+
+**Symptome** — la reecriture de `yget` sans processus a ete validee en comparant
+la sortie complete de `./init.sh --check` avant et apres : identique, octet a
+octet. Le message de commit le dit ainsi, et c'est vrai. Le relecteur a trouve
+une divergence quand meme.
+
+L'ancienne version faisait `tr -d '\r' < fichier` : elle retirait les retours
+chariot **partout**. La nouvelle faisait `${ligne%$'\r'}` — un suffixe, donc le
+seul retour chariot de fin de ligne. Un `\r` colle au milieu d'une valeur,
+comme en produit un copier-coller depuis un terminal Windows, traversait
+desormais jusqu'a la sortie.
+
+**Cause** — la comparaison octet a octet ne portait que sur les manifestes
+REELS du depot, et aucun ne contient de retour chariot. Une preuve
+d'equivalence n'est valable que sur les entrees qu'on lui donne ; celle-ci en
+couvrait dix fichiers ecrits par la fabrique elle-meme, c'est-a-dire les plus
+propres qui soient. C'est une variante du vert silencieux : le controle a bien
+tourne, il a bien conclu, et son perimetre etait plus etroit que ce qu'on lui
+faisait dire.
+
+Aggravant, et c'est ce qui rendait la faute invisible a la relecture : les deux
+autres lecteurs reecrits dans le MEME commit, `ylist` et son voisin, avaient
+recu `gsub(/\r/, "")` — qui retire tout. Les trois lecteurs de manifeste de la
+fabrique ne nettoyaient donc plus pareil, et rien ne les tenait d'accord.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — corrige (`${ligne//$'\r'/}`), et surtout `yget` recoit
+**onze cas de test qui lui sont propres**, la ou elle n'en avait aucun : retour
+chariot au milieu et en fin, commentaire de fin precede de plusieurs espaces,
+`#` colle a la valeur, cle prefixe d'une autre, premiere occurrence, cle
+absente, cle sans valeur, cle indentee, derniere ligne sans saut final,
+guillemets.
+
+La contre-epreuve a ete faite, comme l'anomalie 34 l'exige : defaut remis, le
+cas rougit ; correctif remis, il verdit. Elle valait le detour — le message
+d'echec affiche « attendu << 8080 >>, obtenu << 8080 >> ». Les deux chaines ont
+l'air identiques parce que le caractere en trop **ne s'imprime pas**. C'est
+exactement pour cette raison que la comparaison de sortie de `--check` n'avait
+rien vu : un retour chariot ne se voit pas dans un diff qu'on lit.
+
+La lecon generale, et elle vaut au-dela de ce cas : **une reecriture ne se
+valide pas sur les entrees dont on dispose, mais sur celles qu'on redoute.**
+Les entrees du depot sont les plus favorables qui soient, puisque le depot les
+genere lui-meme.
