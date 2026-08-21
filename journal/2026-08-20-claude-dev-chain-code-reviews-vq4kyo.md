@@ -2698,3 +2698,68 @@ accident**, en assombrissant tous les secondaires de l'app. Ce n'est pas une
 correction, c'est un effet de bord global d'un reglage local : le vrai
 traitement de « Facile » est propre a son ecran, et le PRD le reserve
 explicitement.
+
+## Coût — la part de cette session, hors du bloc généré
+
+**Ce paragraphe est écrit à la main, et il le reste.** Le bloc `## Coût`
+ci-dessus est généré par `./scripts/cout.sh`, qui **remplace** son contenu à
+chaque passage et ne lit que les sessions **du conteneur où il tourne**. Il a été
+écrit le 2026-08-21 à 10:34 depuis un conteneur qui voyait trois sessions —
+251 104 719 jetons, 142,50 $. Cette session-ci tourne dans un **autre** conteneur
+et n'en voit qu'une : la relancer aurait remplacé 142,50 $ par 57,19 $ et perdu
+la différence en silence. Elle n'a donc pas été relancée.
+
+Relevé de cette session seule, le 2026-08-21 à 11:40 UTC (`--dry-run`) :
+
+| Poste | Jetons | Coût |
+|---|---:|---:|
+| Entrée | 8 918 | 0,01 $ |
+| Écriture de cache | 2 113 540 | 9,26 $ |
+| Lecture de cache | 107 290 788 | 44,34 $ |
+| Sortie | 186 088 | 3,59 $ |
+| **Total** | **109 599 334** | **57,19 $ — 49,67 €** |
+
+753 appels au modèle, dont **483 par des sous-agents** — deux artisans, trois
+esthètes, un relecteur, chacun sur un contexte réduit plutôt que sur le mien.
+
+**Et le poste le plus cher a EMPIRÉ : 547 tours sur 753 rendent moins de 300
+jetons — 72 %, contre 67 % au relevé précédent —, pour 36,69 $, soit 64 % de la
+facture de cette session.** Le contrat dit de grouper les appels indépendants
+dans un même tour, la règle a été écrite hier, et elle est moins bien tenue
+aujourd'hui qu'avant qu'on l'écrive. Écrire une règle ne la fait pas appliquer ;
+c'est exactement ce que cette branche a passé deux jours à démontrer sur les
+garde-fous, et le cas se reproduit sur celui qui ne tient qu'à une habitude.
+
+### 37. Le relevé de coût se perd quand une branche traverse deux conteneurs
+
+**Symptome** — au moment de relever le coût, `--dry-run` annonce 57,19 $ pour
+« 1 session lisible depuis ce conteneur », alors que le bloc déjà écrit dans le
+journal en porte 142,50 $ pour trois. Lancer `cout.sh` sans regarder aurait
+remplacé le second par le premier.
+
+**Cause** — `cout.sh` **remplace** le bloc, et ne lit que les sessions locales au
+conteneur. Les deux comportements sont justes pris séparément et faux ensemble :
+un relevé partiel écrase un relevé complet, sans avertissement, et le résultat
+reste parfaitement bien formé. Rien ne distingue « la branche a coûté 57 $ » de
+« la branche a coûté 57 $ dans ce conteneur-ci et on a perdu le reste ».
+
+Le script **dit** sa limite — « celles des conteneurs précédents sont perdues » —
+mais la dit dans le texte qu'il écrit, c'est-à-dire après avoir écrasé. Un
+avertissement postérieur à l'action qu'il concerne n'est pas un garde-fou.
+
+Cette branche est le premier cas : trois sessions, au moins deux conteneurs, et
+deux sessions qui travaillent en parallèle sur la même entrée de journal.
+
+**Detecte par** — `auteur`
+
+**Action** — `rien` — traité à la main ici, et délibérément : le correctif juste
+n'est pas évident. Faire cumuler `cout.sh` demanderait qu'il distingue « ce bloc
+contient déjà des sessions que je ne peux plus lire » de « ce bloc est périmé »,
+et un cumul faux serait pire qu'un remplacement franc — il gonflerait un chiffre
+que personne ne pourrait plus vérifier.
+
+La piste la moins mauvaise, si quelqu'un la reprend : que le bloc porte la
+**liste des identifiants de session** déjà comptés, et que `cout.sh` refuse
+d'écrire si le nouveau relevé en couvre strictement moins que le bloc en place —
+la même forme de cliquet que la couverture, et pour la même raison. Un total qui
+ne peut que monter, ou qui explique pourquoi il descend.
