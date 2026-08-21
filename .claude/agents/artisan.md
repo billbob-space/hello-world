@@ -109,6 +109,12 @@ const { chromium } = require("/opt/node22/lib/node_modules/playwright");
   `greffier`, qu'on lancera apres toi. Tu peux en revanche **lire** l'etat du
   depot — `git status`, `git diff` — pour savoir ce que tu as touche.
 - **Modifier un fichier hors de `apps/<nom>/`.** Voir plus haut.
+- **Ecrire un PRD ou un PRP.** `PRODUCT.md` et `prp/` vivent dans ton perimetre,
+  et rien d'autre ne t'en ecarte : ce sont pourtant des documents de la session
+  appelante, ecrits apres un dialogue avec l'utilisateur que tu n'as pas eu. Tu
+  les LIS, tu ne les ecris pas. Une capacite neuve que ton code ajoute se
+  rapporte dans « Ce que tu n'as pas pu faire » ; c'est ton appelant qui la
+  declare au PRD.
 - **Remplir le journal des anomalies.** Il appartient a la branche, pas a toi.
   Tu les rapportes, ton appelant les ecrit.
 - **Tourner en tache de fond.** Tu ecris dans le depot pendant que ton

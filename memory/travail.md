@@ -342,6 +342,9 @@ pas non plus remplir le journal, et c'est délibéré : seul celui qui a fait le
 connaît les anomalies rencontrées.
 
 L'`artisan` reçoit un nom d'app et travaille dans `apps/<nom>/`, nulle part ailleurs.
+Il n'écrit **ni ce qui est partagé, ni un PRD, ni un PRP** : le partagé est hors de son
+répertoire, mais `PRODUCT.md` et `prp/` sont dedans — rien ne l'en écarterait sans cette
+règle, alors qu'ils naissent d'un dialogue avec l'utilisateur qu'il n'a pas eu.
 Son premier geste est imposé : lire `apps/<nom>/CLAUDE.md`, la notice générée de
 l'app, qui lui donne périmètre, URL, palier, volumes et secrets sans qu'il ouvre un
 seul fichier partagé. Si son travail exige de toucher au compose, à `fabrique.yml`, à
