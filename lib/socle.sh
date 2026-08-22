@@ -397,27 +397,43 @@ discover_apps() {
   fi
 }
 
-# RESEAU_COUPE — le proxy mort sous lequel tournent les test.sh des apps. Le PRD
-# de la fabrique interdit qu'un test unitaire sorte sur le reseau, et rien ne le
-# verifiait : deux tests d'estran appelaient le vrai Open-Meteo et le vrai
-# Meteo-France a CHAQUE execution, CI comprise, sans que rien ne le signale.
-# Leurs clients repliaient sur les URL de PRODUCTION quand la variable de
-# redirection etait absente — le bon comportement en production, le mauvais en
-# test, et rien ne distingue les deux. Ils passaient, parce qu'un appel reseau
-# REUSSI ne se voit pas ; et un appel echoue se serait lu comme la panne de
-# fournisseur que ces tests couvrent justement. Invisible dans les deux sens.
+# RESEAU_COUPE — le proxy mort sous lequel tournent les test.sh des apps.
 #
-# Go n'applique JAMAIS le proxy a la boucle locale — le paquet httpproxy exclut
-# localhost d'office — donc les serveurs httptest sur lesquels reposent toutes
-# les suites du depot ne le voient pas passer, et un appel vers l'exterieur
-# echoue immediatement.
+# CE QU'IL COUVRE, ET CE QU'IL NE COUVRE PAS. Il coupe **Go**, verifie : un test
+# appelant api.open-meteo.com echoue immediatement, la suite d'estran reste
+# verte. Il ne coupe **pas Node** : undici, le client de `fetch`, ignore
+# HTTP_PROXY / HTTPS_PROXY — verifie le 22 aout 2026, `fetch` rend 200 sous ces
+# variables. Quatre apps du depot testent en Node et ne sont donc PAS gardees.
+# C'est ecrit ici plutot que tu : un garde-fou dont on croit qu'il couvre tout
+# est pire qu'un garde-fou absent, et ce depot a deja enterre trois controles
+# nes morts. Couvrir Node demande de remplacer `fetch` par un `--require`, ce
+# qui n'est pas fait.
 #
-# Un espace de noms reseau (« unshare -rn ») serait plus etanche, et a ete essaye
+# POURQUOI IL EXISTE. Deux tests d'estran appelaient le vrai Open-Meteo et le
+# vrai Meteo-France a CHAQUE execution, CI comprise, sans que rien ne le
+# signale : leurs clients repliaient sur les URL de PRODUCTION quand la variable
+# de redirection etait absente — le bon comportement en production, le mauvais
+# en test, et rien ne distingue les deux. Ils passaient, parce qu'un appel
+# reseau REUSSI ne se voit pas ; et un appel echoue se serait lu comme la panne
+# de fournisseur que ces tests couvrent justement. Invisible dans les deux sens.
+#
+# POURQUOI UN PROXY ET PAS UN ESPACE DE NOMS. Go n'applique jamais le proxy a la
+# boucle locale — le paquet httpproxy exclut localhost d'office — donc les
+# serveurs httptest sur lesquels reposent toutes les suites du depot ne le
+# voient pas passer. « unshare -rn » serait plus etanche et a ete essaye
 # d'abord : il laisse « lo » eteint, le rallumer demande iproute2, et « ip »
 # manque sur une machine depouillee. Un garde-fou qui ne demarre pas la ne garde
 # rien.
 #
+# POURQUOI UN SCHEMA DANS LA VALEUR. Sans « http:// », l'erreur remontee par npm
+# est « ERR_INVALID_URL », qui ne nomme ni le proxy ni le reseau et envoie
+# chercher la panne au mauvais endroit.
+#
+# CE QUI TOURNE EN DEHORS. Le `prepare.sh` d'une app — installation de
+# dependances — est lance AVANT, hors du piege : installer n'est pas tester, et
+# un cache froid rendait sinon le job rouge sur une cause etrangere au test.
+#
 # Defini ICI et nulle part ailleurs : DEUX endroits lancent les test.sh —
 # scripts/pret.sh et le job « test » de .github/workflows/build.yml — et une
 # valeur qui vit a deux endroits finit par vivre a deux valeurs.
-RESEAU_COUPE='HTTP_PROXY=127.0.0.1:1 HTTPS_PROXY=127.0.0.1:1'
+RESEAU_COUPE='HTTP_PROXY=http://127.0.0.1:1 HTTPS_PROXY=http://127.0.0.1:1'

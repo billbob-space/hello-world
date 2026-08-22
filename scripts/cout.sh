@@ -185,8 +185,9 @@ cout_releve() {
 
       rid = texte(queue, "requestId")
       if (rid == "") rid = texte(tete, "id")
-      if (rid != "" && (rid in vu_req)) next
-      if (rid != "") vu_req[rid] = 1
+      # Faute de requestId, la ligne est sa propre requete : sans cle, deux
+      # lignes distinctes se confondraient et l une des deux serait perdue.
+      if (rid == "") rid = "L" FILENAME ":" FNR
 
       br = texte(queue, "gitBranch")
       if (br != "" && br != BRANCHE && br != BASE) {
@@ -214,60 +215,95 @@ cout_releve() {
       v_e = val(u, "input_tokens");                  v_ce = val(u, "cache_creation_input_tokens")
       v_cl = val(u, "cache_read_input_tokens");      v_s  = val(u, "output_tokens")
 
-      vus[m] = 1
-      e[m] += v_e; ce[m] += v_ce; cl[m] += v_cl; s[m] += v_s
-      if (side) { se[m] += v_e; sce[m] += v_ce; scl[m] += v_cl; ss[m] += v_s; ech_side++ }
-
-      ech++
-      # Un tour qui ne rend qu un appel d outil paie tout le contexte relu pour
-      # une sortie de rien. Les grouper divise le poste — mais SEULEMENT chez la
-      # session principale, et c est la correction du 21 aout 2026 : chez un
-      # agent, un tour EST un appel d outil, et un test ne se groupe pas avec la
-      # correction qui en depend. Mesure de la branche qui l a trouve : 499 des
-      # 512 tours courts etaient des tours d agent. La regle du contrat visait
-      # donc un levier quasi inexistant la ou etait l argent, ce qui explique
-      # qu elle n ait rien deplace en vingt-deux branches. D ou le comptage
-      # separe : sans lui, un chiffre juste porte un conseil faux.
-      if (v_s < 300 && (m in prix_e)) {
-        courts++
-        courts_d += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
-                   + v_s * prix_s[m]) / 1000000
-        if (side_fichier) courts_side++
+      # Une reponse occupe PLUSIEURS lignes — une par bloc : la reflexion, le
+      # texte, chaque appel d outil — et l on ne garde qu une facture par
+      # requete. Ce script gardait la PREMIERE, sur la foi d un commentaire qui
+      # affirmait que toutes portaient la meme. C est vrai des sessions
+      # principales, et FAUX des fichiers de sous-agent, ou l usage s ACCUMULE
+      # d une ligne a l autre : mesure du 22 aout 2026 sur un fichier d agent
+      # reel, 37 requetes sur 46 en plusieurs lignes, output_tokens montant de
+      # 17 a 249 sur la meme requete — sortie des agents comptee 646 jetons pour
+      # 11 621 reels, un facteur dix-huit.
+      #
+      # Le MAX de chaque champ repond aux deux cas a la fois : identique quand
+      # les lignes se repetent, correct quand elles s accumulent. Il est aussi
+      # insensible a l ORDRE, ce que « garder la derniere » n aurait pas ete.
+      #
+      # Consequence de forme : plus rien ne s additionne ici, tout est mis de
+      # cote et compte en END, une fois par requete. La lecture de cache, elle,
+      # etait deja juste — elle ne varie pas d une ligne a l autre — donc les
+      # mesures de contexte et de longueur de session ne bougent pas ; ce sont
+      # la SORTIE, le total, et le classement « tour court » qui etaient faux.
+      if (!(rid in vu_req)) {
+        vu_req[rid] = 1
+        ordre[++nrid] = rid
+        r_m[rid] = m; r_side[rid] = side; r_sidef[rid] = side_fichier
+        r_file[rid] = FILENAME; r_nf[rid] = nf
       }
-      # Une session d agent se decoupe par FICHIER, jamais par une heuristique
-      # sur la retombee de la relecture : deux agents concurrents entrelacent
-      # leurs tours, et le fichier est le seul decoupage qui y survive. Ce que
-      # cette mesure sert a voir : le cout d une session d agent croit en CARRE
-      # de sa longueur — deux fois plus de tours, chacun relisant deux fois plus.
-      if (side_fichier) {
-        run_ech[FILENAME]++
-        run_cl[FILENAME] += v_cl
-        if (m in prix_e)
-          run_d[FILENAME] += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
-                            + v_s * prix_s[m]) / 1000000
-      }
-      det_side[ech] = side; det_m[ech] = m
-      det_ce[ech] = v_ce; det_cl[ech] = v_cl; det_s[ech] = v_s
-
-      # Le demarrage et la croissance decrivent la session PRINCIPALE : un
-      # sous-agent a son propre demarrage, dans son propre contexte, qui ne
-      # dit rien de celui de la session qui l a lance — l y melanger fausserait
-      # les deux mesures sans que rien ne le montre.
-      if (!side_fichier) {
-        # Le demarrage — contrat, outillage, definitions d outils — est ecrit en
-        # cache au PREMIER echange de la session, puis relu a chacun des suivants.
-        # Il se mesure donc une fois par session, et se facture autant de fois
-        # qu il y a d echanges apres lui.
-        if (!(nf in sess_ech)) sess_prelude[nf] = v_ce
-        sess_ech[nf]++
-        # La courbe part du premier echange qui RELIT quelque chose : au tout
-        # premier, il n y a rien a relire et le zero qu il rapporte ne dit rien de
-        # la pente. C est la pente qui interesse, pas l origine.
-        if (!premier_vu && v_cl > 0) { premier_cl = v_cl; premier_vu = 1 }
-        dernier_cl = v_cl
-      }
+      if (v_e  > r_e[rid])  r_e[rid]  = v_e
+      if (v_ce > r_ce[rid]) r_ce[rid] = v_ce
+      if (v_cl > r_cl[rid]) r_cl[rid] = v_cl
+      if (v_s  > r_s[rid])  r_s[rid]  = v_s
     }
     END {
+      # Une requete = un tour. Tout ce qui suit etait calcule ligne a ligne ;
+      # ca ne pouvait pas l etre, puisque la facture d une requete n est connue
+      # qu apres sa DERNIERE ligne (voir le bloc « MAX » plus haut).
+      for (k = 1; k <= nrid; k++) {
+        rid = ordre[k]
+        m = r_m[rid]; side = r_side[rid]; side_fichier = r_sidef[rid]
+        v_e = r_e[rid]; v_ce = r_ce[rid]; v_cl = r_cl[rid]; v_s = r_s[rid]
+
+        vus[m] = 1
+        e[m] += v_e; ce[m] += v_ce; cl[m] += v_cl; s[m] += v_s
+        if (side) { se[m] += v_e; sce[m] += v_ce; scl[m] += v_cl; ss[m] += v_s; ech_side++ }
+
+        ech++
+        # Un tour qui ne rend qu un appel d outil paie tout le contexte relu pour
+        # une sortie de rien. Les grouper divise le poste — mais SEULEMENT chez la
+        # session principale, et c est la correction du 21 aout 2026 : chez un
+        # agent, un tour EST un appel d outil, et un test ne se groupe pas avec la
+        # correction qui en depend. D ou le comptage separe : sans lui, un chiffre
+        # juste porte un conseil faux.
+        if (v_s < 300 && (m in prix_e)) {
+          courts++
+          courts_d += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
+                     + v_s * prix_s[m]) / 1000000
+          if (side_fichier) courts_side++
+        }
+        # Une session d agent se decoupe par FICHIER, jamais par une heuristique
+        # sur la retombee de la relecture : deux agents concurrents entrelacent
+        # leurs tours, et le fichier est le seul decoupage qui y survive. Ce que
+        # cette mesure sert a voir : le cout d une session d agent croit en CARRE
+        # de sa longueur — deux fois plus de tours, chacun relisant deux fois plus.
+        if (side_fichier) {
+          run_ech[r_file[rid]]++
+          run_cl[r_file[rid]] += v_cl
+          if (m in prix_e)
+            run_d[r_file[rid]] += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
+                                 + v_s * prix_s[m]) / 1000000
+        }
+        det_side[ech] = side; det_m[ech] = m
+        det_ce[ech] = v_ce; det_cl[ech] = v_cl; det_s[ech] = v_s
+
+        # Le demarrage et la croissance decrivent la session PRINCIPALE : un
+        # sous-agent a son propre demarrage, dans son propre contexte, qui ne
+        # dit rien de celui de la session qui l a lance.
+        if (!side_fichier) {
+          nf = r_nf[rid]
+          # Le demarrage — contrat, outillage, definitions d outils — est ecrit
+          # en cache au PREMIER echange de la session, puis relu a chacun des
+          # suivants.
+          if (!(nf in sess_ech)) sess_prelude[nf] = v_ce
+          sess_ech[nf]++
+          # La courbe part du premier echange qui RELIT quelque chose : au tout
+          # premier il n y a rien a relire, et le zero qu il rapporte ne dit rien
+          # de la pente.
+          if (!premier_vu && v_cl > 0) { premier_cl = v_cl; premier_vu = 1 }
+          dernier_cl = v_cl
+        }
+      }
+
       for (m in vus) {
         j_e += e[m]; j_ce += ce[m]; j_cl += cl[m]; j_s += s[m]
         if (!(m in prix_e)) { inconnus = inconnus sep_i m; sep_i = ", "; continue }

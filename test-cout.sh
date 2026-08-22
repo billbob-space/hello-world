@@ -421,6 +421,37 @@ $(requete l_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
 $(requete l_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
 FIN
 
+# --- une requete sur plusieurs lignes ---------------------------------------------
+#
+# Une reponse occupe plusieurs lignes — une par bloc — et l'on n'en garde qu'une
+# facture. Ce script gardait la PREMIERE, sur la foi d'un commentaire affirmant
+# que toutes portaient la meme. Vrai des sessions principales, FAUX des fichiers
+# de sous-agent, ou l'usage s'ACCUMULE : mesure du 22 aout 2026 sur un fichier
+# reel, output_tokens montant de 17 a 249 sur la meme requete, sortie des agents
+# comptee 646 jetons pour 11 621 reels.
+#
+# Les deux cas doivent tenir a la fois, d'ou deux tests : la repetition (ou le
+# MAX vaut la premiere) et l'accumulation (ou il ne la vaut pas).
+
+total "une requete repetee a l identique ne compte qu une fois" 1000 <<FIN
+$(requete rep_1 "$BRANCHE" 0 claude-opus-5 0 0 0 1000)
+$(requete rep_1 "$BRANCHE" 0 claude-opus-5 0 0 0 1000)
+FIN
+
+# Le cas qui ECHOUAIT : garder la premiere ligne rendait 5 au lieu de 500.
+total "une requete dont l usage s accumule compte son maximum" 500 <<FIN
+$(requete acc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 5)
+$(requete acc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 500)
+FIN
+
+# Et le classement « tour court » en depend : a 5 jetons de sortie le tour est
+# court, a 500 il ne l est pas. Un tour mal classe fausse le poste que cette
+# branche existe pour mesurer.
+porte "un tour dont la sortie s accumule au-dela de 300 n est plus un tour court" "- **Tours courts** — 0 des 1 tours" <<FIN
+$(requete cc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 5)
+$(requete cc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 500)
+FIN
+
 # --- les sessions d'agent --------------------------------------------------------
 #
 # Le poste que ce releve ne nommait pas, et qui pesait deux tiers de la facture
