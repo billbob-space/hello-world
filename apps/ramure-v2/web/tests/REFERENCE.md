@@ -12,11 +12,17 @@ Relevé le 19 août 2026, sur le commit qui introduit ce fichier.
 
 | Suite | Commande | Attendu au vert |
 |---|---|---|
-| Client TypeScript | `npm run --prefix web test` (vitest) | **165 tests**, 13 fichiers |
-| Go, tous paquets | `go test -race -count=1 ./...` | **161 fonctions de test**, 10 paquets (`.`, `internal/api`, `internal/arbre`, `internal/budget`, `internal/cache`, `internal/collection`, `internal/equite`, `internal/identite`, `internal/mesure`, `internal/source`) |
+| Client TypeScript | `npm run --prefix web test` (vitest) | **196 tests**, 14 fichiers |
+| Go, tous paquets | `go test -race -count=1 ./...` | **165 fonctions de test**, 10 paquets (`.`, `internal/api`, `internal/arbre`, `internal/budget`, `internal/cache`, `internal/collection`, `internal/equite`, `internal/identite`, `internal/mesure`, `internal/source`) |
 
 Le premier repère (PRP 02) était de 26 fonctions dans `internal/` ; la série
-en compte maintenant 161 sur l'ensemble du module.
+en compte maintenant 165 sur l'ensemble du module.
+
+`npm run --prefix web test` exécute `vitest run --coverage` : la couverture
+navigateur (`web/vitest.config.ts`, provider `v8`, lignes de `src/**`) est un
+**plancher bloquant** de cette commande, pas une mesure à part — en dessous du
+seuil, `test.sh` échoue. Relevé du jour : **57,7 % de lignes**, plancher
+**57 %**.
 
 ## Ce que joue `apps/ramure-v2/e2e/lancer.sh` (CI comprise)
 

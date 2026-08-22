@@ -602,3 +602,42 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 434 agent claude-haiku-4-5-20251001 358 23071 3
 -->
 <!-- /cout -->
+
+### 7. Un test nomme par un PRP peut ne jamais etre ecrit sans que rien ne le voie
+
+**Symptome** — la tache 3 du PRP 06 exige que « le service choisi soit relu du
+serveur au demarrage, pas du navigateur ». Le comportement est livre et
+fonctionne en production ; aucun test ne l'exerce, ni unitaire ni bout en bout.
+Meme famille, un cran plus bas : `textes.suggestionsLabel` etait defini dans le
+fichier des libelles et pose nulle part, si bien que la liste de suggestions —
+que la tache 2 du meme PRP voulait annoncee — n'avait pas de nom accessible.
+
+**Cause** — les PRP nomment leurs tests un par un, et rien ne verifie ensuite que
+le test nomme existe. Le seul controle proche est celui de `--check` sur les
+tests cites par `PRODUCT.md`, et il ne cherche pas sous `internal/` : il rend des
+`attn` sur des tests qui existent bel et bien, ce qui apprend a ne plus le lire.
+Un controle qui crie a tort sur ce qui va couvre ce qui ne va pas.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — un nom de test ecrit dans un PRP ou un PRD est une
+promesse verifiable mecaniquement : soit la fonction existe quelque part sous
+l'app, soit le document ment. Et le controle existant doit d'abord cesser de se
+tromper avant qu'on lui en demande plus.
+
+### 8. Une constante de libelle definie et jamais posee ne se voit dans aucun axe
+
+**Symptome** — `textes.suggestionsLabel` etait exporte, jamais reference.
+`staticcheck` ne le voit pas — c'est du TypeScript ; `tsc --noEmit` ne le voit
+pas non plus — un export non utilise est legitime dans un module ; et la
+couverture le comptait comme couvert, puisque le fichier de libelles est
+integralement evalue a l'import.
+
+**Cause** — une valeur morte dans un module de constantes est invisible aux cinq
+axes a la fois. Elle est pourtant le signe le plus fiable qu'une exigence a ete
+a moitie faite : quelqu'un a ecrit le libelle, puis n'a pas pose l'attribut.
+
+**Detecte par** — `relecture`
+
+**Action** — `outillage` — la chaine navigateur n'a aucun detecteur de code mort
+cote TypeScript. `tsc --noEmit` n'est pas un remplacant : ce n'est pas son role.

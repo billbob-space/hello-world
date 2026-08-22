@@ -17,9 +17,12 @@ qui le construit est dans
 
 ## État
 
-Socle déployable. Le serveur répond, l'image se construit et se publie, la
-stack tient debout. Le canevas, l'arbre et les sources de données arrivent aux
-étapes suivantes de la série.
+En ligne. La série des neuf PRP est livrée : planter un artiste construit son
+arbre (parents musicaux, héritiers), un clic promeut une branche au centre et
+ouvre sa fiche, la collection et le service d'écoute choisi survivent au
+redéploiement, l'accès est cloisonné par identité Google, un instantané de
+mesure part en continu, et l'application s'installe et fonctionne hors ligne
+pour sa coquille.
 
 ## Routes
 
@@ -112,6 +115,7 @@ reste du système de fichiers du conteneur est jeté à chaque déploiement.
 Depuis ce répertoire :
 
 ```bash
+./prepare.sh                   # construit web/dist (esbuild), requis par go:embed
 go test ./...
 go run .                       # ecoute sur :8080
 curl -i localhost:8080/healthz
@@ -126,10 +130,16 @@ docker build -t ramure-v2 apps/ramure-v2
 
 ## Technologie
 
-Go 1.24, bibliothèque standard uniquement à ce stade. La page d'accueil est
-embarquée dans le binaire par `go:embed` : l'image finale ne porte qu'un
-exécutable et le répertoire de données décrit ci-dessus, créé par le
-`Dockerfile`. Rien n'est à préparer sur l'hôte avant un déploiement.
+Go 1.25, avec `golang.org/x/text` comme seule dépendance externe. La page
+d'accueil et le bundle client sont embarqués dans le binaire par `go:embed` :
+l'image finale ne porte qu'un exécutable et le répertoire de données décrit
+ci-dessus, créé par le `Dockerfile`. Rien n'est à préparer sur l'hôte avant un
+déploiement.
+
+Le client (arbre, fiche, collection, service worker) est un module
+TypeScript, compilé par esbuild vers `web/dist`, testé par vitest (tests
+unitaires, DOM simulé) et par Playwright (bout en bout, navigateur réel) —
+voir `web/tests/REFERENCE.md`.
 
 Image finale sur `alpine` et non `scratch` : c'est busybox qui fournit le
 `wget` du `health_cmd` déclaré dans `app.yml`. Utilisateur `10001`, non root,
