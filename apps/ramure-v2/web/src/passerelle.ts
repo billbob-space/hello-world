@@ -85,13 +85,37 @@ export async function chargerSuggestions(q: string): Promise<SuggestionAPI[]> {
   }
 }
 
-export async function chargerCollectionServeur(session: string): Promise<EntreeAPI[]> {
+// chargerCollectionServeur (C17, critique 2026-08-22) : /api/collection EXIGE
+// une identite (internal/api/collection.go, exigerIdentite) — contrairement a
+// /api/centre, qui ne la verifie pas et laisse Traefik seul intercepter une
+// session expiree (F-41). Un compte authentifie l'a TOUJOURS : Traefik
+// injecte X-Forwarded-User avant que la requete n'atteigne le serveur
+// (exposure: google). Un 401 rendu par CETTE route ne peut donc signifier
+// qu'une chose — l'identite n'est pas parvenue au serveur, la session a
+// expire — jamais une collection vide, que le serveur rend en 200 avec un
+// tableau vide. `estReponseSessionExpiree` reste verifiee en plus, au cas ou
+// Traefik intercepte cette route par redirection plutot que par 401 (meme
+// signal que sur /api/centre). Meme erreur, meme affichage
+// (SessionExpireeError, afficherSessionExpiree dans main.ts) que les trois
+// autres chemins : seul le SIGNAL differe, jamais le traitement.
+export async function chargerCollectionServeur(
+  session: string,
+  origineDocument: string,
+): Promise<EntreeAPI[]> {
+  let reponse: Response;
   try {
-    const reponse = await fetch("/api/collection", { headers: { [EN_TETE_SESSION]: session } });
-    if (!reponse.ok) return [];
-    return (await reponse.json()) as EntreeAPI[];
+    reponse = await fetch("/api/collection", { headers: { [EN_TETE_SESSION]: session } });
   } catch {
     return []; // hors ligne (F-33) : le miroir local prend le relais dans vue()
+  }
+  if (reponse.status === 401 || estReponseSessionExpiree(reponse, origineDocument)) {
+    throw new SessionExpireeError();
+  }
+  if (!reponse.ok) return [];
+  try {
+    return (await reponse.json()) as EntreeAPI[];
+  } catch {
+    return [];
   }
 }
 

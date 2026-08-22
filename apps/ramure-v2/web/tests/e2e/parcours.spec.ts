@@ -135,7 +135,7 @@ for (const disposition of DISPOSITIONS) {
     // Precondition de F-14 : le bouton "remonter d'un cran" n'apparait
     // qu'apres une VRAIE promotion, jamais apres une simple plantation.
     await expect(page.locator("#remonter-lignee")).toBeVisible();
-    await expect(page.locator("#remonter-lignee")).toHaveAttribute("aria-label", "Revenir a l'artiste precedent");
+    await expect(page.locator("#remonter-lignee")).toHaveAttribute("aria-label", "Revenir à l'artiste précédent");
 
     // --- 5. F-14 : remonter d'un cran, sur un arbre REELLEMENT promu ---
     await page.locator("#remonter-lignee").click();
@@ -163,7 +163,7 @@ for (const disposition of DISPOSITIONS) {
     // --- 6. Garder (F-28) -----------------------------------------------
     await expect(boutonGarder).toHaveText("Garder cet artiste");
     await boutonGarder.click();
-    await expect(boutonGarder).toHaveText("Deja garde");
+    await expect(boutonGarder).toHaveText("Déjà gardé");
     await expect(boutonGarder).toHaveAttribute("aria-pressed", "true");
 
     // --- 7. Replanter depuis la collection (F-31) -----------------------
@@ -181,14 +181,14 @@ for (const disposition of DISPOSITIONS) {
     // "racine:"). Le prefixe technique a disparu ; la tentative "Portishread"
     // (avant sa correction) reste visible dans le chemin -- fidele a ce que
     // la session a REELLEMENT explore, jamais un identifiant.
-    await expect(itemCollection.locator(".collection-lignee")).toHaveText("Portishread -> Portishead");
+    await expect(itemCollection.locator(".collection-lignee")).toHaveText("Portishread → Portishead");
     await itemCollection.locator(".collection-replanter").click();
     await expect(page.locator("#collection")).toBeHidden(); // F-31 : ferme le panneau
     await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Portishead");
 
     // --- 8. Partager (F-34) ---------------------------------------------
     await page.locator("#partager").click();
-    await expect(page.locator("#etat")).toHaveText("Lien copie dans le presse-papiers.");
+    await expect(page.locator("#etat")).toHaveText("Lien copié dans le presse-papiers.");
     const lienCopie = await page.evaluate(() => navigator.clipboard.readText());
     expect(new URL(lienCopie).searchParams.get("graine")).toBe("Portishead");
   });

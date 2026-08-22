@@ -641,3 +641,96 @@ a moitie faite : quelqu'un a ecrit le libelle, puis n'a pas pose l'attribut.
 
 **Action** — `outillage` — la chaine navigateur n'a aucun detecteur de code mort
 cote TypeScript. `tsc --noEmit` n'est pas un remplacant : ce n'est pas son role.
+
+### 9. L'outil de navigation depose ses traces a la racine du depot
+
+**Symptome** — pendant la critique des ecrans, un repertoire `.playwright-mcp/`
+apparait a la **racine** du depot, avec journaux de console et instantanes de
+page. Il n'est ignore nulle part, donc `git status` le voit, donc le `git add -A`
+du greffier l'aurait committe — et il aurait atterri sur `main` avec la pull
+request.
+
+**Cause** — l'esthete a pour regle de ne rien ecrire hors du repertoire de son
+app ; l'outil de navigation qu'il pilote, lui, n'a pas cette regle et ecrit ou
+sa configuration lui dit. La regle porte sur l'agent, pas sur ses outils.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — soit le repertoire est ignore, soit l'outil est
+configure pour ecrire ailleurs. Un depot ou le passage d'un agent laisse des
+fichiers non suivis a la racine finit par les committer : il suffit d'un
+greffier lance sans regarder.
+
+### 10. Un agent bloque une heure sans que rien ne le signale
+
+**Symptome** — l'esthete lance a 09h56 n'a plus emis une seule ligne apres
+10h00, et n'a rendu aucun fichier. Une heure d'attente, un navigateur ouvert,
+l'app demarree, et rien. Aucune notification, aucun code d'erreur : du point de
+vue de la session appelante, un agent bloque et un agent qui reflechit
+longuement sont indiscernables.
+
+**Cause** — non etablie cote agent. Ce qui est etabli, c'est la facon de s'en
+apercevoir : la seule trace exploitable est l'horodatage du fichier de
+transcription du sous-agent, sous
+`~/.claude/projects/<depot>/<session>/subagents/`. Fige depuis 58 minutes, il
+tranche ce qu'aucun autre signal ne disait.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — un agent lance en fin de branche se surveille a la
+croissance de sa transcription, pas a l'espoir qu'il rende. Et une mission
+longue s'ecrit avec un **premier livrable impose tout de suite** : le second
+esthete a recu l'ordre de deposer sa critique squelettique avant de regarder
+quoi que ce soit, pour qu'une heure perdue laisse au moins un fichier.
+
+### 11. Une interface francophone sans un seul accent, en ligne depuis le premier jour
+
+**Symptome** — la critique des ecrans a trouve **zero diacritique** dans toute
+l'interface : « Gardes recemment », « Deja garde », « Ta session a expire ». Une
+app dont le PRD tranche « francophone », dont le vocabulaire est declare
+contractuel, affichait un francais sans accents a tous ses visiteurs depuis sa
+mise en ligne.
+
+**Cause** — les libelles ont ete ecrits sans accents par commodite de saisie, et
+rien ne les relit : `tsc` valide des chaines, la couverture les compte comme
+executees, `jscpd` ne les compare pas, et les tests de bout en bout les
+selectionnent par le texte **tel qu'il est ecrit** — donc ils passaient au vert
+en confirmant l'erreur. Cinq litteraux de test portaient les memes fautes.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — un test qui selectionne par un libelle errone valide
+le libelle errone. Rien dans la chaine ne regarde la langue de ce qui s'affiche,
+alors que la langue est une exigence ecrite du PRD.
+
+### 12. La barre de couverture posee le matin a attrape une regression l'apres-midi
+
+**Symptome** — `test.sh` a echoue : « Coverage for lines (56.45%) does not meet
+global threshold (57%) ». La critique des ecrans venait d'ajouter cent vingt-six
+lignes a `main.ts`, le fichier a 0 %, ce qui a dilue le ratio sous la barre.
+
+**Cause** — aucune. C'est le garde-fou qui fait exactement ce pour quoi il a ete
+pose ce matin, quelques heures apres l'avoir ete, sur du code ecrit par un autre
+agent que celui qui l'a installe. Notee ici parce qu'une mesure qui n'a jamais
+rien attrape ne prouve rien, et que celle-ci a desormais attrape quelque chose.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — le garde-fou a joue, le code neuf part se faire tester.
+
+### 13. La critique a pris pour un defaut un chargement volontairement differe
+
+**Symptome** — l'esthete signale comme le plus grave de ses constats que
+`/api/centre` rend « ok » avec dix branches et **zero heritier**, et que rien a
+l'ecran ne dit que la moitie de l'arbre manque. Verification faite : c'est le
+comportement voulu — `internal/arbre/centre.go:89` ecrit « les heritiers de
+chaque branche restent vides : F-39 les charge ensuite ».
+
+**Cause** — l'esthete regarde l'ecran et n'a pas a lire le serveur, qui est hors
+de son perimetre. Un chargement progressif ressemble, sur une capture, a un
+chargement incomplet. Ecarte, avec sa raison.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — le partage des perimetres a fonctionne : l'esthete a
+montre plutot que de decider, et la verification a tranche en deux minutes.

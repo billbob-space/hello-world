@@ -22,10 +22,10 @@ export const textes = {
   // Commandes de la camera (PRD §11 "Camera").
   cadrageInitial: "Revenir au cadrage initial",
   zoomerAvant: "Zoomer",
-  zoomerArriere: "Dezoomer",
+  zoomerArriere: "Dézoomer",
 
   // Lignee (PRD §05 "Lignee", F-14).
-  remonterLaLignee: "Revenir a l'artiste precedent",
+  remonterLaLignee: "Revenir à l'artiste précédent",
 
   // Repli d'illustration deterministe (F-38, F-39) : le motif remplace une
   // image absente, il n'a pas besoin d'un texte propre puisqu'il occupe la
@@ -34,9 +34,9 @@ export const textes = {
   // Accueil, mur de pochettes et tri (PRD §07 etat A, F-05, F-06, F-07).
   planterDepuisTuile: (nom: string): string => `Planter ${nom}`,
   triLabel: "Trier le mur",
-  triRecents: "Gardes recemment",
-  triAlphabetique: "Ordre alphabetique",
-  triAleatoire: "Aleatoire",
+  triRecents: "Gardés récemment",
+  triAlphabetique: "Ordre alphabétique",
+  triAleatoire: "Aléatoire",
   accueilPromesse: "Plante un nom, saute de branche en branche.",
   accueilVide: "Plante un premier artiste pour commencer l'exploration.",
   // Intitule accessible du panneau d'accueil (§12, "les panneaux et
@@ -44,7 +44,7 @@ export const textes = {
   // ne porte ce role dans la barre d'accueil, d'ou ce nom pose sur la
   // section elle-meme.
   accueilTitre: "Accueil",
-  retourAccueil: "Retour a l'accueil",
+  retourAccueil: "Retour à l'accueil",
 
   // Lignee : DEUX actions de retour distinctes (§12 "les actions de retour
   // sont distinguees") — "Retour a l'accueil" (ci-dessus) quitte
@@ -61,12 +61,23 @@ export const textes = {
 
   // Partage d'un arbre (F-34).
   partagerLien: "Copier le lien de cet arbre",
-  lienCopie: "Lien copie dans le presse-papiers.",
+  lienCopie: "Lien copié dans le presse-papiers.",
 
   // Fiche du centre, discographie, lecteur, service d'ecoute (F-19 a F-25,
   // F-40).
   ficheTitre: (nom: string): string => `Fiche de ${nom}`,
-  apercuBrancheTitre: (nom: string): string => `Apercu de ${nom}`,
+  // Critique 2026-08-22 C13 : le PRD §07 decrit la fiche large comme
+  // « repliable » ; aucune commande de repli n'existait, ni son libelle.
+  ficheReplier: "Replier la fiche",
+  apercuBrancheTitre: (nom: string): string => `Aperçu de ${nom}`,
+  // Critique 2026-08-22 C11 : F-19 exige presentation, genres ET audience.
+  // genres et auditeurs etaient TYPES dans fiche.ts et jamais rendus ; et
+  // quand la source du profil est indisponible, la fiche n'affichait rien du
+  // tout — un profil manquant se lisait comme un artiste sans profil. F-36
+  // (marque Critique) demande de distinguer « rien a montrer » de « panne ».
+  profilIndisponible: "Le profil de cet artiste n'a pas pu être chargé.",
+  auditeurs: (n: number): string => `${n.toLocaleString("fr-FR")} auditeurs`,
+  genresTitre: "Genres",
   discographieTitre: "Discographie",
   filtrerParType: "Filtrer par type de sortie",
   typeTous: "Tous",
@@ -78,7 +89,7 @@ export const textes = {
   lecteurPause: "Mettre en pause",
   lecteurSuivant: "Extrait suivant",
   lecteurAucunExtrait: "Aucun extrait disponible pour cet artiste.",
-  choisirService: "Service d'ecoute",
+  choisirService: "Service d'écoute",
   service: {
     deezer: "Deezer",
     spotify: "Spotify",
@@ -86,7 +97,7 @@ export const textes = {
     youtube: "YouTube Music",
     tidal: "Tidal",
   },
-  ecouterSur: (nom: string, service: string): string => `Ecouter ${nom} sur ${service}`,
+  ecouterSur: (nom: string, service: string): string => `Écouter ${nom} sur ${service}`,
 
   // Collection : garder, retirer, replanter, lignee (F-28 a F-33, PRP 07).
   // Le vocabulaire du PRD §05 — collection, replanter, lignee — est
@@ -94,19 +105,19 @@ export const textes = {
   collectionTitre: "Collection",
   collectionOuvrir: "Voir la collection",
   collectionFermer: "Fermer la collection",
-  collectionVide: "Aucun artiste garde pour l'instant.",
+  collectionVide: "Aucun artiste gardé pour l'instant.",
   garder: "Garder cet artiste",
-  garde: "Deja garde",
+  garde: "Déjà gardé",
   retirerDeLaCollection: (nom: string): string => `Retirer ${nom} de la collection`,
   replanterDepuisLaCollection: (nom: string): string => `Replanter ${nom}`,
-  ligneeDeDecouverte: (lignee: readonly string[]): string => lignee.join(" -> "),
-  gardeLe: (date: string): string => `Garde le ${date}`,
+  ligneeDeDecouverte: (lignee: readonly string[]): string => lignee.join(" → "),
+  gardeLe: (date: string): string => `Gardé le ${date}`,
 
   // Session expiree (F-41) : Traefik redirige une session expiree vers
   // Google, jamais un JSON — le defaut le plus deroutant serait de laisser
   // croire a une erreur de saisie. Le lien recharge la page courante, ce
   // qui relance l'authentification (§09).
-  sessionExpireeMessage: "Ta session a expire.",
+  sessionExpireeMessage: "Ta session a expiré.",
   sessionExpireeLien: "Se reconnecter",
 
   // Mise a jour signalee (F-42, N-12) : le service worker installe une
@@ -114,5 +125,5 @@ export const textes = {
   // une exploration en cours serait pire que de rester une minute de plus
   // sur l'ancienne version.
   miseAJourDisponible: "Une nouvelle version de RAMURE est disponible.",
-  miseAJourAppliquer: "Mettre a jour",
+  miseAJourAppliquer: "Mettre à jour",
 } as const;

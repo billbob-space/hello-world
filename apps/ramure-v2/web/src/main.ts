@@ -25,7 +25,16 @@ import {
   type NoeudDessine,
 } from "./canevas";
 import { placerBranches, placerHeritiers, type Anneau } from "./geometrie";
-import { aBouge, cadrageNeutre, deplacer, zoomer, type Vue } from "./camera";
+import {
+  aBouge,
+  cadrageNeutre,
+  deplacer,
+  viewportLibre as calculerViewportLibre,
+  zoomer,
+  type PanneauMesure,
+  type Rect,
+  type Vue,
+} from "./camera";
 import {
   GestionnaireLignee,
   annoncerNouveauCentre,
@@ -149,6 +158,58 @@ function mouvementReduit(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
+// viewportLibre (cablage) : la SEULE lecture DOM (getBoundingClientRect du
+// svg et des deux panneaux ancres) — le calcul lui-meme (C7/C12, critique
+// 2026-08-22) est une fonction pure de camera.ts, testee sans DOM comme le
+// reste de ce module (voir sa doc la-bas). cadrageNeutre() honore deja
+// viewport.x et viewport.y : il suffit de lui donner le bon rectangle, la
+// camera n'a pas a changer.
+function viewportLibre(): Rect {
+  const largeurSvg = svg?.clientWidth || 800;
+  const hauteurSvg = svg?.clientHeight || 600;
+  const plein: Rect = { x: 0, y: 0, largeur: largeurSvg, hauteur: hauteurSvg };
+  if (!svg) return plein;
+  const boiteSvg = svg.getBoundingClientRect();
+
+  const panneaux: PanneauMesure[] = [];
+  for (const panneau of [ficheEl, collectionEl]) {
+    if (!panneau || panneau.hidden) continue;
+    const b = panneau.getBoundingClientRect();
+    panneaux.push({
+      largeur: b.width,
+      hauteur: b.height,
+      gauche: b.left - boiteSvg.left,
+      haut: b.top - boiteSvg.top,
+    });
+  }
+  return calculerViewportLibre(plein, boiteSvg.width, boiteSvg.height, panneaux);
+}
+
+// poserBoutonFermeture ajoute au panneau une commande de sortie, une seule
+// fois, en tete.
+//
+// Critique 2026-08-22 C13 / C16 : le PRD §07 decrit la fiche large comme un
+// « panneau lateral flottant, REPLIABLE » et la collection large comme une
+// fenetre a fermer — mesure : la fiche ne portait que « Garder cet artiste »
+// et « Lire … », et le panneau collection portait ZERO bouton. textes.ts
+// definit deja collectionFermer (« Fermer la collection »), sans aucun usage
+// dans web/src. Une fois la collection ouverte, plus rien a l'ecran ne la
+// refermait.
+function poserBoutonFermeture(panneau: HTMLElement, libelle: string, action: () => void): void {
+  const existant = panneau.querySelector<HTMLButtonElement>(".panneau-fermer");
+  if (existant) {
+    existant.setAttribute("aria-label", libelle);
+    return;
+  }
+  const bouton = document.createElement("button");
+  bouton.type = "button";
+  bouton.className = "panneau-fermer";
+  bouton.setAttribute("aria-label", libelle);
+  bouton.textContent = "\u00d7";
+  bouton.addEventListener("click", action);
+  panneau.prepend(bouton);
+}
+
 function appliquerVue(): void {
   if (groupeRacine) {
     appliquerVueSurGroupe(groupeRacine, vue);
@@ -161,6 +222,22 @@ function appliquerVue(): void {
   }
   if (boutonCadrage) {
     boutonCadrage.hidden = !aBouge(vue, vueNeutre);
+  }
+}
+
+// recadrer recalcule le cadrage neutre apres qu'un panneau s'est ouvert ou
+// referme (PRD §07 : « le canevas se recale sur l'espace restant »). Il ne
+// touche PAS a la vue si l'utilisateur l'a deplacee ou zoomee lui-meme :
+// reprendre la main sur sa camera parce qu'un panneau bouge serait pire que
+// le defaut corrige.
+function recadrer(): void {
+  if (!svg || !groupeRacine) return;
+  const utilisateurAOrienteLaVue = aBouge(vue, vueNeutre);
+  const contenu = { x: -ANNEAU.rayonMax, y: -ANNEAU.rayonMax, largeur: 2 * ANNEAU.rayonMax, hauteur: 2 * ANNEAU.rayonMax };
+  vueNeutre = cadrageNeutre(contenu, viewportLibre());
+  if (!utilisateurAOrienteLaVue) {
+    vue = vueNeutre;
+    appliquerVue();
   }
 }
 
@@ -244,12 +321,30 @@ function afficherAccueil(): void {
   if (ficheEl) ficheEl.hidden = true;
   if (apercuEl) apercuEl.hidden = true;
   if (etat) etat.textContent = "";
+  commandesDArbre(false);
+}
+
+// commandesDArbre montre ou cache les commandes qui n'ont de sens QUE sur un
+// arbre plante.
+//
+// Critique 2026-08-22 C4 : sur l'accueil, « Zoomer », « Dezoomer » et
+// « Copier le lien de cet arbre » etaient visibles et actifs (mesure : 40x40
+// chacun) alors qu'aucun arbre n'existe — et le libelle du partage nomme un
+// objet absent. L'application SAIT deja retirer une commande hors contexte :
+// « Revenir au cadrage initial » et « Revenir a l'artiste precedent »
+// mesuraient bien 0x0 sur le meme ecran. Ces trois-la manquaient a l'appel.
+// La collection (♥) reste, elle : elle a du sens sans arbre.
+function commandesDArbre(visibles: boolean): void {
+  if (boutonZoomerAvant) boutonZoomerAvant.hidden = !visibles;
+  if (boutonZoomerArriere) boutonZoomerArriere.hidden = !visibles;
+  if (boutonPartager) boutonPartager.hidden = !visibles;
 }
 
 function masquerAccueil(): void {
   if (!accueilSection || !svg) return;
   accueilSection.hidden = true;
   svg.removeAttribute("hidden");
+  commandesDArbre(true);
 }
 
 // ---------------------------------------------------------------------
@@ -291,7 +386,12 @@ async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
     dejaGarde: estGarde(mbidCentreCourant),
     surBasculerGarde: () => void basculerGarde(nom, mbidCentreCourant),
   });
+  poserBoutonFermeture(ficheEl, textes.ficheReplier, () => {
+    ficheEl.hidden = true;
+    recadrer();
+  });
   ficheEl.hidden = false;
+  recadrer(); // C7 : la fiche vient d'occuper le bas (etroit) ou la droite (large)
 }
 
 // ---------------------------------------------------------------------
@@ -314,7 +414,18 @@ function estGarde(mbid: string | null): boolean {
 // (F-30 : lignee et date), sans jamais reconstruire le conteneur une fois
 // le panneau construit (idempotence, meme discipline que fiche.ts).
 async function actualiserCollection(): Promise<void> {
-  collectionServeur = await chargerCollectionServeur(session);
+  // C17 (critique 2026-08-22) : un 401 sur /api/collection dit "la session a
+  // expire", jamais "la collection est vide" (F-41) — meme distinction, meme
+  // affichage que sur les trois autres chemins de chargerCentre.
+  try {
+    collectionServeur = await chargerCollectionServeur(session, window.location.origin);
+  } catch (erreur) {
+    if (erreur instanceof SessionExpireeError) {
+      afficherSessionExpiree();
+      return;
+    }
+    throw erreur;
+  }
   const vue = miroir.vue(collectionServeur);
 
   if (collectionEl) {
@@ -326,6 +437,12 @@ async function actualiserCollection(): Promise<void> {
           void planter(e.nom, "collection"); // M-06 : AmorceCollection
         },
         surRetirer: (mbid) => void retirerDeLaCollection(mbid),
+      });
+      // Apres construireCollection, qui remplace tout le contenu du panneau.
+      poserBoutonFermeture(collectionEl, textes.collectionFermer, () => {
+        collectionEl.hidden = true;
+        if (ficheEl) ficheEl.hidden = nomCentreCourant === null;
+        recadrer();
       });
     } else {
       panneauCollection.actualiser(vue);
@@ -409,6 +526,7 @@ boutonCollection?.addEventListener("click", () => {
   const vaOuvrir = collectionEl.hidden;
   collectionEl.hidden = !vaOuvrir;
   if (ficheEl) ficheEl.hidden = vaOuvrir ? true : nomCentreCourant === null;
+  recadrer(); // C7/C12 : l'espace libre du canevas vient de changer
   if (vaOuvrir) void actualiserCollection();
 });
 
@@ -641,7 +759,7 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
     void afficherFiche(centreAPI);
   }
 
-  const viewport = { x: 0, y: 0, largeur: svg.clientWidth || 800, hauteur: svg.clientHeight || 600 };
+  const viewport = viewportLibre();
   const contenu = { x: -ANNEAU.rayonMax, y: -ANNEAU.rayonMax, largeur: 2 * ANNEAU.rayonMax, hauteur: 2 * ANNEAU.rayonMax };
   vue = cadrageNeutre(contenu, viewport);
   vueNeutre = vue;

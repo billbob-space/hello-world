@@ -29,16 +29,18 @@ const ORIGINE = window.location.origin;
  * session.test.ts). */
 function reponseJSON(
   corps: unknown,
-  options: { ok?: boolean; redirected?: boolean; url?: string; contentType?: string } = {},
+  options: { ok?: boolean; status?: number; redirected?: boolean; url?: string; contentType?: string } = {},
 ): Response {
   const {
     ok = true,
+    status = ok ? 200 : 500,
     redirected = false,
     url = `${ORIGINE}/api/quelque-chose`,
     contentType = "application/json",
   } = options;
   return {
     ok,
+    status,
     redirected,
     url,
     type: "basic",
@@ -119,28 +121,53 @@ describe("chargerSuggestions", () => {
   });
 });
 
-describe("chargerCollectionServeur", () => {
+describe("chargerCollectionServeur (C17, critique 2026-08-22 : session expiree != collection vide)", () => {
   it("cas nominal : rend la collection decodee", async () => {
     const entrees = [{ nom: "Portishead", mbid: "m1", lignee: [], ajoute: "2026-01-01T00:00:00Z" }];
     const f = vi.fn().mockResolvedValue(reponseJSON(entrees));
     vi.stubGlobal("fetch", f);
-    await expect(chargerCollectionServeur(SESSION)).resolves.toEqual(entrees);
+    await expect(chargerCollectionServeur(SESSION, ORIGINE)).resolves.toEqual(entrees);
     expect(f).toHaveBeenCalledWith("/api/collection", { headers: { [EN_TETE_SESSION]: SESSION } });
   });
 
   it("panne reseau (F-33, hors ligne) : rend un tableau vide, le miroir local prend le relais", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network")));
-    await expect(chargerCollectionServeur(SESSION)).resolves.toEqual([]);
+    await expect(chargerCollectionServeur(SESSION, ORIGINE)).resolves.toEqual([]);
   });
 
-  it("reponse non ok : rend un tableau vide", async () => {
+  it("reponse non ok (autre que 401) : rend un tableau vide", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponseJSON([], { ok: false })));
-    await expect(chargerCollectionServeur(SESSION)).resolves.toEqual([]);
+    await expect(chargerCollectionServeur(SESSION, ORIGINE)).resolves.toEqual([]);
   });
 
   it("reponse malformee : rend un tableau vide", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponseMalformee()));
-    await expect(chargerCollectionServeur(SESSION)).resolves.toEqual([]);
+    await expect(chargerCollectionServeur(SESSION, ORIGINE)).resolves.toEqual([]);
+  });
+
+  it("session expiree (401, exigerIdentite cote serveur) : rejette une SessionExpireeError, jamais une collection vide", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(reponseJSON({ erreur: "identite absente" }, { ok: false, status: 401 })),
+    );
+    await expect(chargerCollectionServeur(SESSION, ORIGINE)).rejects.toMatchObject({
+      name: "SessionExpireeError",
+    });
+  });
+
+  it("session expiree (redirection Traefik vers Google, meme signal que /api/centre) : rejette une SessionExpireeError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        reponseJSON(
+          {},
+          { redirected: true, url: "https://accounts.google.com/o/oauth2/auth", contentType: "text/html" },
+        ),
+      ),
+    );
+    await expect(chargerCollectionServeur(SESSION, ORIGINE)).rejects.toMatchObject({
+      name: "SessionExpireeError",
+    });
   });
 });
 

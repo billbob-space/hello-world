@@ -158,7 +158,7 @@ test("panne 5/5 -- session expiree (F-41, jamais confondue avec une panne reseau
 
   await planter(page, "N'importe Quel Artiste");
 
-  await expect(page.locator("#etat")).toContainText("Ta session a expire.");
+  await expect(page.locator("#etat")).toContainText("Ta session a expiré.");
   const lien = page.locator("#etat a");
   await expect(lien).toHaveText("Se reconnecter");
   // Jamais le message generique de panne reseau (§09) : le remede est

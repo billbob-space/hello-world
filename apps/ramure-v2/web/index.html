@@ -114,9 +114,20 @@
   .libelle { fill: #ece7dc; font-size: 13px; pointer-events: none; }
   .lien { stroke: #4a4a4a; stroke-width: 1.5; }
 
+  /* Critique 2026-08-22 C10 : #etat etait pose en absolu, fond transparent et
+     pointer-events par defaut, PAR-DESSUS la fiche. Deux textes superposes,
+     et une bande de 182x15 px qui interceptait le pointeur au-dessus d'une
+     liste d'albums defilante (verifie : elementFromPoint renvoyait #etat, et
+     .discographie-album une fois pointer-events neutralise). Le message garde
+     sa place, mais il ne mange plus les clics et il pose son propre fond. */
   #etat {
     position: absolute; left: var(--espace-3); bottom: var(--espace-3); max-width: 22rem;
     font-size: var(--texte-second); color: #8a867c;
+    pointer-events: none;
+  }
+  #etat:not(:empty) {
+    background: rgba(10, 10, 11, .92); border-radius: .3rem;
+    padding: var(--espace-1) var(--espace-2);
   }
   .visuellement-cache {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -170,8 +181,13 @@
     display: flex; align-items: center; justify-content: space-between; gap: var(--espace-3);
     padding: var(--espace-2) var(--espace-3); font-size: var(--texte-second); color: #8a867c;
   }
+  /* Critique 2026-08-22 C3 : `auto-fill` conserve les pistes vides. Avec 6
+     amorces et 9 pistes calculees a 1440, le mur s'arretait a x=955 et
+     laissait 485 px (34 % de la largeur) de noir — sur l'ecran d'entree,
+     collection vide, celui que voit un nouvel arrivant. `auto-fit` effondre
+     les pistes vides ; au-dela de 9 artistes rien ne change. */
   .mur {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
     grid-auto-rows: 1fr; gap: var(--espace-2); padding: var(--espace-2); overflow: hidden; height: 100%;
   }
   .mur-item { min-height: 0; }
@@ -201,9 +217,31 @@
     left: 0; right: 0; bottom: 0; max-height: 45vh;
   }
   .apercu-panneau { max-height: 8rem; }
+  /* Critique 2026-08-22 C13 / C16 : la sortie des panneaux ancres. Elle se
+     pose en haut a droite du panneau, hors du flux, pour ne pas decaler le
+     titre. 2.5rem = 40px, au-dessus du plancher WCAG 2.5.8 (24px). */
+  .panneau-fermer {
+    position: absolute; top: var(--espace-2); right: var(--espace-2);
+    min-width: 2.5rem; min-height: 2.5rem; padding: 0;
+    border: 1px solid #3a3a3a; border-radius: .4rem;
+    background: #1c1c1e; color: inherit; cursor: pointer;
+    font-size: 1.1rem; line-height: 1;
+  }
   .fiche-titre { margin: 0 0 var(--espace-1); font-size: var(--texte-titre); }
   .fiche-presentation, .apercu-nom { font-size: var(--texte-corps); margin: 0 0 var(--espace-2); }
-  .discographie-filtre { font-size: var(--texte-second); margin-bottom: var(--espace-2); }
+  /* Critique 2026-08-22 C5 / C9 : ces deux selects etaient les SEULS controles
+     sans regle CSS — ils retombaient sur le rendu natif, fond blanc dans une
+     interface noire, 19 px de haut (plancher WCAG 2.5.8 : 24 px), et le filtre
+     de discographie venait toucher le lien d'ecoute a 0 px d'ecart. Ils
+     reprennent le traitement deja pose sur .service, qui leur est voisin a
+     l'ecran. */
+  .discographie-filtre, .tri {
+    font-size: var(--texte-second);
+    padding: var(--espace-1) var(--espace-2); border-radius: .4rem;
+    border: 1px solid #3a3a3a; background: #1c1c1e; color: inherit;
+    min-height: 2.5rem;
+  }
+  .discographie-filtre { margin-bottom: var(--espace-2); margin-left: var(--espace-2); }
   .discographie-album {
     display: flex; gap: var(--espace-2); align-items: baseline; font-size: var(--texte-second);
     padding: var(--espace-1) 0; border-bottom: 1px solid #232323;
