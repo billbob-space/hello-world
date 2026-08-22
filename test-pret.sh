@@ -329,6 +329,29 @@ journal_cas "une entree deja fusionnee fait ouvrir la suivante" oui \
 journal_cas "une entree en cours de travail est reprise, jamais dupliquee" non \
   "journal/2026-01-01-claude-test-pret.md"
 
+# La PREMIERE entree d'un nom de branche — le cas frequent, et le seul qui
+# manquait. Il a ete casse un jour entier sans qu'aucun cas ne rougisse : le
+# suffixe « --2 » etait calcule dans l'affectation du chemin, qui heritait donc
+# du code de sortie du test « rang > 1 » ; faux au rang 1, il faisait sortir
+# l'affectation non nulle et `set -e` tuait branche.sh avant la creation du
+# fichier. D'ou le `set -e` ci-dessous : sans lui le cas passerait au vert sur
+# le code casse, puisque la fonction rendait bien le bon chemin.
+journal_neuf() {  # journal_neuf <nom>
+  local nom="$1" d sortie trouve
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  sortie=$( cd "$d" && bash -c 'set -e; . lib/socle.sh; . lib/journal.sh; journal_ouvre claude/test-pret main' 2>&1 ) \
+    || { echec "$nom" "journal_ouvre sort non nul : $(printf '%s' "$sortie" | tr -d '\033' | tr '\n' ' ')"; return 0; }
+  trouve=$( cd "$d" && ls journal/*-claude-test-pret.md 2>/dev/null | head -1 )
+  if [ -n "$trouve" ]; then
+    reussi "$nom"
+  else
+    echec "$nom" "aucune entree creee — obtenu : $(printf '%s' "$sortie" | tr -d '\033' | tr '\n' ' ')"
+  fi
+}
+
+journal_neuf "aucune entree : la premiere est creee, et sous set -e"
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

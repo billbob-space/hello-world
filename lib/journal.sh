@@ -104,7 +104,7 @@ journal_fini() {  # journal_fini <fichier> <base>
 }
 
 journal_ouvre() {  # journal_ouvre <branche> [base] — cree l'entree si besoin
-  local br="$1" base="${2:-main}" f slug rang
+  local br="$1" base="${2:-main}" f slug rang suffixe
   slug=$(journal_slug "$br")
   f=$(journal_entree "$br")
   if [ -n "$f" ] && ! journal_fini "$f" "$base"; then
@@ -117,7 +117,14 @@ journal_ouvre() {  # journal_ouvre <branche> [base] — cree l'entree si besoin
     rang=$(( $(journal_rang "$f" "$slug") + 1 ))
     warn "journal : $f decrit un travail deja fusionne — nouvelle entree pour ce nom de branche"
   fi
-  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$slug$([ "$rang" -gt 1 ] && printf -- '--%s' "$rang").md"
+  # Le suffixe se calcule AVANT l'affectation, et par un if. Ecrit en
+  # « $([ "$rang" -gt 1 ] && printf ... ) » dans l'affectation, il rendait a
+  # celle-ci le code de sortie du test : faux au rang 1 — donc a chaque premiere
+  # entree d'un nom de branche — l'affectation sortait non nulle et set -e tuait
+  # branche.sh juste avant de creer le fichier. Le cas frequent etait le seul casse.
+  suffixe=""
+  if [ "$rang" -gt 1 ]; then suffixe="--$rang"; fi
+  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$slug$suffixe.md"
   render __BRANCHE__ "$br" __DATE__ "$(date -u +%Y-%m-%d)" __MARQUEUR__ "$JOURNAL_MARQUEUR" \
          __PERIMETRE__ "$JOURNAL_PERIMETRE_VIDE" \
     > "$f" <<'MD'
