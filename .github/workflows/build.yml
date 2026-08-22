@@ -461,7 +461,26 @@ jobs:
       # connaitre les langages. Le runner fournit Go, Node, Python et Java ;
       # pour une autre chaine, testez dans un etage du Dockerfile.
       - name: tests de ${{ matrix.app }}
-        run: ./apps/${{ matrix.app }}/test.sh
+        # Sous RESEAU_COUPE : un test unitaire ne sort pas sur le reseau, et
+        # jusqu'au 2026-08-22 rien ne le verifiait — deux tests d'estran
+        # appelaient les vrais fournisseurs a chaque execution, ici comprise.
+        # Ce qu'il couvre (Go) et ce qu'il ne couvre PAS (Node) est ecrit dans
+        # lib/socle.sh, d'ou la valeur est LUE et jamais recopiee : les deux
+        # endroits qui lancent les test.sh — ce job et scripts/pret.sh — doivent
+        # rester d'accord.
+        #
+        # prepare.sh AVANT, hors du piege : installer des dependances n'est pas
+        # tester, et un cache npm froid rendait sinon ce job rouge sur une cause
+        # etrangere au test. Il est idempotent ; l'appel que test.sh refait
+        # derriere trouve tout en place.
+        run: |
+          . lib/socle.sh
+          app=${{ matrix.app }}
+          # « if », jamais « [ -x … ] && … » : le runner lance ce bloc sous
+          # « bash -e », ou un test faux en DERNIERE commande d'une ligne arrete
+          # l'etape. Les huit apps sans prepare.sh auraient echoue ici.
+          if [ -x "apps/$app/prepare.sh" ]; then ( cd "apps/$app" && ./prepare.sh ); fi
+          env $RESEAU_COUPE "./apps/$app/test.sh"
 
   # La revue outillee — qualite, securite, dependances vulnerables, couverture,
   # duplication. Un job SEPARE de « test » et non une etape de plus : les deux

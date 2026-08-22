@@ -85,4 +85,4 @@ else
 fi
 # L'entree s'ouvre avec la branche : c'est le seul moment ou le geste est
 # gratuit, et le seul qui permette d'ecrire les anomalies a chaud.
-journal_ouvre "$BRANCHE"
+journal_ouvre "$BRANCHE" "$BASE"

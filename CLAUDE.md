@@ -123,11 +123,15 @@ que sa critique datée.
 directement. Toi, tu écris ce qui est partagé (`.claude/`, `scripts/`, `fabrique.yml`,
 `init.sh`) et ce qui demande un dialogue déjà eu avec l'utilisateur (PRD, PRP).
 
-**Les appels d'outils indépendants partent dans le MÊME tour.** Un tour paie tout le
-contexte relu quelle que soit sa sortie : deux lectures indépendantes coûtent moitié moins
-groupées que séparées. C'est le poste le plus cher du dépôt. Ce qui peut tourner en même
-temps est recensé dans `docs/parallelisme.md` ; un gain ne se déclare pas, il se chiffre :
-`./docs/banc/mesurer.sh`.
+**Le premier poste de la facture est la LONGUEUR d'une session d'agent**, et son coût
+croît en **carré** : elle fait N tours, dont chacun repaie ce que les N-1 précédents ont
+lu. Un chantier tient **sous 60 tours** — `pret.sh` avertit au-delà. Couper veut dire deux
+sessions de moitié, la seconde repartant du PRP, jamais de l'exploration de la première.
+
+**Tes appels indépendants à toi partent dans le MÊME tour** — deux lectures groupées
+coûtent moitié moins que séparées. La règle s'arrête là : chez un agent, un tour *est* un
+appel d'outil et ne se groupe pas. Ce qui peut tourner en même temps est recensé dans
+`docs/parallelisme.md` ; un gain ne se déclare pas, il se chiffre : `./docs/banc/mesurer.sh`.
 
 **Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
 entrée de journal. Non relevé avant la fusion, il est perdu.

@@ -21,7 +21,14 @@ refusé, `LABEL traefik.*` dans le Dockerfile refusé ; CI — taille d’image 
   middleware du palier et `priority=100` y sont posés — cette priorité empêche un
   serveur catch-all de capter l'URL et de servir un 404 silencieux.
 - **Chaque app déclare ses tests dans `apps/<nom>/test.sh`**, exécutable. La CI ne
-  lance que ce fichier ; la fabrique n'a pas à connaître ton langage.
+  lance que ce fichier ; la fabrique n'a pas à connaître ton langage. **Il tourne
+  réseau coupé** — `RESEAU_COUPE`, dans `lib/socle.sh` — parce qu'un test qui
+  interroge un vrai fournisseur ment dans les deux sens : réussi, il ne se voit
+  pas ; échoué, il se lit comme la panne que le test couvrait justement. Deux
+  tests d'`estran` l'ont fait pendant des semaines. Ce qui doit être **installé**
+  va dans `prepare.sh`, lancé avant et hors du piège : installer n'est pas
+  tester. La coupure vaut aujourd'hui pour **Go seulement** ; `lib/socle.sh` dit
+  pourquoi Node y échappe, plutôt que de laisser croire qu'il est couvert.
 - **Aucun `LABEL traefik.*` dans l'image**, sans exception — ni écrit dans le
   `Dockerfile`, ni **hérité de l'image de base**. Un label de routage gravé dans
   l'image publie un routeur **supplémentaire**, que le compose ne peut pas écraser

@@ -24,6 +24,7 @@ cd "$(git rev-parse --show-toplevel)"
 . lib/socle.sh
 . lib/journal.sh
 
+
 BASE=$(fab base_branch main)
 
 # fichiers_touches, fichiers_ajoutes et apps_touchees vivent desormais dans
@@ -100,9 +101,17 @@ if [ -z "$touchees" ]; then
   ok "aucune app modifiee — pas de test a lancer"
 else
   for a in $touchees; do
+    # Les test.sh tournent sous RESEAU_COUPE (lib/socle.sh) : un test unitaire ne
+    # sort pas sur le reseau. Ce qu'il couvre, ce qu'il ne couvre PAS, et
+    # pourquoi il n'est pas un espace de noms : tout est dit la-bas.
     if [ ! -x "apps/$a/test.sh" ]; then
       bad "[$a] test.sh absent ou non executable"
-    elif "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
+    # prepare.sh HORS du piege, et avant : installer des dependances n'est pas
+    # tester, et un cache froid rendait le test rouge sur une cause etrangere.
+    # Il est idempotent, donc l'appel que test.sh refait derriere trouve tout en
+    # place. Son echec n'est pas juge ici — la revue outillee le fait deja.
+    elif { [ ! -x "apps/$a/prepare.sh" ] || ( cd "apps/$a" && ./prepare.sh ) >/dev/null 2>&1 || true; } &&
+         env $RESEAU_COUPE "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
       ok "[$a] tests verts"
     else
       bad "[$a] tests en echec :"

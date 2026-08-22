@@ -90,6 +90,18 @@ pose_agent() {
   cat > "$p/agent-1.jsonl"
 }
 
+# pose_agent_n <bac> <n> — un SECOND (troisieme...) fichier de sous-agent. Le
+# decoupage en sessions d'agent se fait par FICHIER, pas par une heuristique sur
+# la retombee de la relecture : deux agents concurrents entrelacent leurs tours,
+# et seul le fichier y survit. Il faut donc pouvoir en poser plusieurs pour
+# exercer ce decoupage — avec un seul, la mesure serait juste par accident.
+pose_agent_n() {
+  local d="$1" n="$2" p
+  p="$d/home/.claude/projects/$(printf '%s' "$d" | sed 's/[^A-Za-z0-9]/-/g')/session/subagents"
+  mkdir -p "$p"
+  cat > "$p/agent-$n.jsonl"
+}
+
 # --- le bac partage des cas en lecture seule -------------------------------------
 #
 # Dix-neuf des vingt cas ne touchent NI l'arbre suivi par git NI le journal :
@@ -408,6 +420,119 @@ code_rappel "sous le critique, --rappel rend 0 meme s il avertit" 0 <<FIN
 $(requete l_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
 $(requete l_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
 FIN
+
+# --- une requete sur plusieurs lignes ---------------------------------------------
+#
+# Une reponse occupe plusieurs lignes — une par bloc — et l'on n'en garde qu'une
+# facture. Ce script gardait la PREMIERE, sur la foi d'un commentaire affirmant
+# que toutes portaient la meme. Vrai des sessions principales, FAUX des fichiers
+# de sous-agent, ou l'usage s'ACCUMULE : mesure du 22 aout 2026 sur un fichier
+# reel, output_tokens montant de 17 a 249 sur la meme requete, sortie des agents
+# comptee 646 jetons pour 11 621 reels.
+#
+# Les deux cas doivent tenir a la fois, d'ou deux tests : la repetition (ou le
+# MAX vaut la premiere) et l'accumulation (ou il ne la vaut pas).
+
+total "une requete repetee a l identique ne compte qu une fois" 1000 <<FIN
+$(requete rep_1 "$BRANCHE" 0 claude-opus-5 0 0 0 1000)
+$(requete rep_1 "$BRANCHE" 0 claude-opus-5 0 0 0 1000)
+FIN
+
+# Le cas qui ECHOUAIT : garder la premiere ligne rendait 5 au lieu de 500.
+total "une requete dont l usage s accumule compte son maximum" 500 <<FIN
+$(requete acc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 5)
+$(requete acc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 500)
+FIN
+
+# Et le classement « tour court » en depend : a 5 jetons de sortie le tour est
+# court, a 500 il ne l est pas. Un tour mal classe fausse le poste que cette
+# branche existe pour mesurer.
+porte "un tour dont la sortie s accumule au-dela de 300 n est plus un tour court" "- **Tours courts** — 0 des 1 tours" <<FIN
+$(requete cc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 5)
+$(requete cc_1 "$BRANCHE" 0 claude-opus-5 0 0 0 500)
+FIN
+
+# --- les sessions d'agent --------------------------------------------------------
+#
+# Le poste que ce releve ne nommait pas, et qui pesait deux tiers de la facture
+# sur la branche du 21 aout 2026. Ce qui compte n'est pas le nombre d'agents mais
+# la LONGUEUR de la plus longue session : son cout croit en carre, puisqu'elle
+# fait N tours dont chacun relit ce que les N-1 precedents ont accumule.
+#
+# Les trois cas ci-dessous exercent le decoupage, son ABSENCE, et la correction
+# du conseil sur les tours courts. Le deuxieme est le cas negatif, et c'est celui
+# qui compte : un decoupage qui ne sait pas ne rien trouver trouverait n'importe
+# quoi.
+
+agents() {  # agents <nom> <motif> — deux sessions d'agent de longueurs differentes
+  local nom="$1" motif="$2" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac_partage)
+  pose "$d" <<<"$(requete ag_p "$BRANCHE" 0 claude-opus-5 10 1000 0 5000)"
+  # trois tours dans un fichier, un seul dans l'autre : la plus longue fait 3
+  pose_agent "$d" <<FIN
+$(requete ag_a1 "$BRANCHE" 1 claude-opus-5 0 100 30000 50)
+$(requete ag_a2 "$BRANCHE" 1 claude-opus-5 0 100 60000 50)
+$(requete ag_a3 "$BRANCHE" 1 claude-opus-5 0 100 90000 50)
+FIN
+  pose_agent_n "$d" 2 <<<"$(requete ag_b1 "$BRANCHE" 1 claude-opus-5 0 100 10000 50)"
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  if grep -qF -- "$motif" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "la sortie ne porte pas « $motif » — vu : $(grep -A1 "Sessions d'agent" <<< "$sortie" | tr '\n' ' ')"
+  fi
+}
+
+agents "deux fichiers d'agent font deux sessions, la plus longue est nommee" "- **Sessions d'agent** — 2, dont la plus longue fait 3 tours,"
+agents "la relecture moyenne de la plus longue est celle de SES tours" "relit 60 000 jetons par tour en moyenne"
+
+# Le cas NEGATIF, et il vaut les deux autres : sans agent, la rubrique doit etre
+# ABSENTE et non a zero. Une rubrique a zero se lit « on a mesure, il n'y en a
+# pas » ; une rubrique absente se lit « il n'y en a pas eu ». Sur un releve dont
+# le lecteur decide ou couper un chantier, la confusion coute une decision.
+sans_agent() {
+  local nom="$1" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac_partage)
+  pose "$d" <<FIN
+$(requete sa_1 "$BRANCHE" 0 claude-opus-5 10 1000 0 5000)
+$(requete sa_2 "$BRANCHE" 0 claude-opus-5 10 100 20000 5000)
+FIN
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  if grep -qF "Sessions d'agent" <<< "$sortie"; then
+    echec "$nom" "la rubrique est presente alors qu'aucun agent n'a tourne"
+  elif ! grep -qF "Grouper les appels" <<< "$sortie"; then
+    echec "$nom" "sans agent, le conseil de groupement doit rester celui d'origine"
+  else
+    reussi "$nom"
+  fi
+}
+sans_agent "sans agent, la rubrique est absente et le conseil de groupement tient"
+
+# « Grouper les appels independants » est vrai de la session principale et FAUX
+# d'un agent, dont chaque tour EST un appel d'outil. Le meme chiffre portait le
+# meme conseil pour les deux, ce qui a laisse le premier poste de la facture
+# intact pendant vingt-deux branches.
+courts_agent() {
+  local nom="$1" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac_partage)
+  pose "$d" <<<"$(requete ca_p "$BRANCHE" 0 claude-opus-5 10 1000 0 5000)"
+  pose_agent "$d" <<FIN
+$(requete ca_1 "$BRANCHE" 1 claude-opus-5 0 100 30000 50)
+$(requete ca_2 "$BRANCHE" 1 claude-opus-5 0 100 60000 50)
+FIN
+  sortie=$(releve "$d") || { echec "$nom" "cout.sh a echoue : $(printf '%s' "$sortie" | tail -2)"; return 0; }
+  if ! grep -qF "Dont 2 chez des agents" <<< "$sortie"; then
+    echec "$nom" "les tours courts d'agent ne sont pas comptes a part"
+  elif grep -qF "Grouper les appels" <<< "$sortie"; then
+    echec "$nom" "le conseil de groupement est servi alors que les tours courts sont ceux d'agents"
+  else
+    reussi "$nom"
+  fi
+}
+courts_agent "les tours courts d'un agent ne recoivent pas le conseil de groupement"
 
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
