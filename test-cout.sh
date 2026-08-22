@@ -398,16 +398,21 @@ FIN
 # sortie compte autant que le message : c'est lui que pret.sh transforme en
 # refus, et un 3 rendu par erreur bloquerait tout le monde. La paire verifie les
 # deux sens — 650 000 bloque, 350 000 avertit sans bloquer.
-code_rappel() {  # code_rappel <nom> <code attendu> — la conversation est lue sur l'entree standard
-  local nom="$1" attendu="$2" d code=0
+# Le <motif> optionnel sert au message du refus : `porte` ne l'atteint pas, parce
+# qu'au-dela du critique cout_alerte rend 3 et que --dry-run meurt dessus sous
+# set -e. Le refus est donc le seul mode ou ce message s'observe.
+code_rappel() {  # code_rappel <nom> <code attendu> [motif] — conversation sur l'entree standard
+  local nom="$1" attendu="$2" motif="${3:-}" d code=0 sortie
   case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
   d=$(bac_partage)
   pose "$d" < <(cat)
-  ( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel >/dev/null 2>&1 ) || code=$?
-  if [ "$code" = "$attendu" ]; then
-    reussi "$nom"
-  else
+  sortie=$( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel 2>&1 ) || code=$?
+  if [ "$code" != "$attendu" ]; then
     echec "$nom" "code $code, attendu $attendu"
+  elif [ -n "$motif" ] && ! grep -qF -- "$motif" <<< "$sortie"; then
+    echec "$nom" "« $motif » absent de la sortie"
+  else
+    reussi "$nom"
   fi
 }
 
@@ -419,6 +424,20 @@ FIN
 code_rappel "sous le critique, --rappel rend 0 meme s il avertit" 0 <<FIN
 $(requete l_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
 $(requete l_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
+FIN
+
+# Le rappel du prompt de reprise, dans les DEUX messages. Sans ces deux cas, une
+# reformulation le ferait disparaitre sans qu'aucun test ne rougisse — et la
+# regle retomberait a l'etat qu'elle corrige : ecrite, jamais rappelee au moment
+# ou elle s'applique.
+code_rappel "le refus rappelle le prompt de reprise" 3 "PROMPT DE REPRISE" <<FIN
+$(requete m_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete m_2 "$BRANCHE" 0 claude-opus-5 0 0 650000 500)
+FIN
+
+porte "l alerte de contexte rappelle le prompt de reprise" "PROMPT DE REPRISE" <<FIN
+$(requete n_1 "$BRANCHE" 0 claude-opus-5 0 1000 0 500)
+$(requete n_2 "$BRANCHE" 0 claude-opus-5 0 0 350000 500)
 FIN
 
 # --- une requete sur plusieurs lignes ---------------------------------------------

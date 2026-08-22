@@ -55,6 +55,30 @@ puisque la fonction rendait bien le bon chemin.
 un troisième cas dans `test-pret.sh` qui lance `journal_ouvre` sous `set -e` sur
 un dépôt sans entrée. Vérifié rouge sur le code d'avant, vert après.
 
+### 3. Deux comportements neufs sans assertion, trouvés par la relecture
+
+**Symptome** — le `relecteur` rend trois constats, tous fondés. Deux tiennent à la
+même chose : ce qui vient d'être ajouté n'était vérifié par aucun test. Le rappel
+du prompt de reprise dans les deux messages d'alerte de `cout.sh` — une
+reformulation l'aurait fait disparaître avec 27 cas au vert. Et les deux cas de
+journal préexistants lançaient toujours `journal_ouvre` **hors** `set -e` : la même
+classe de régression restait possible sur les chemins « rang 2 » et « entrée déjà
+présente », seul le troisième cas étant protégé.
+
+**Cause** — le réflexe s'est arrêté au bug corrigé au lieu de couvrir la classe.
+Un test écrit pour attraper un bug précis laisse debout tous ses frères ; et une
+règle de comportement — ici « le message rappelle le prompt de reprise » — n'est
+tenue que si quelque chose rougit quand elle disparaît, ce que le fichier disait
+déjà de la règle elle-même.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — `set -e` remonté dans `journal_cas`, qui vérifie
+désormais le code de sortie autant que le chemin rendu, et les trois cas passent
+par lui ; deux cas neufs dans `test-cout.sh` assertent le rappel dans les deux
+messages, vérifiés rouges en le retirant. Le troisième constat, une apostrophe
+manquante, est corrigé sans suite.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
