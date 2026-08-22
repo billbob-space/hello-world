@@ -60,6 +60,20 @@
 	--police: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
+/* L'attribut hidden doit gagner contre TOUTE regle de classe.
+ *
+ * Sa declaration native est `[hidden] { display: none }`, d'une specificite de
+ * (0,1,0) : n'importe quelle classe posant un `display` la bat. C'est ainsi
+ * que vue-reglages.js masque le message d'etat des notifications et que
+ * formulaire-reponses.js masque son message d'erreur (les deux en `.erreur`) —
+ * sans cette ligne, une regle de mise en page suffirait a les laisser
+ * visibles en permanence.
+ *
+ * Une seule ligne, et le seul !important du fichier. */
+[hidden] {
+	display: none !important;
+}
+
 * {
 	box-sizing: border-box;
 }

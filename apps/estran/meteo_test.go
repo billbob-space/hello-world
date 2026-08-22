@@ -70,11 +70,9 @@ func TestClientMeteo_Recuperer_FusionneVagues(t *testing.T) {
 		BaseForecast: forecast.URL,
 		BaseMarine:   marine.URL,
 		HTTP:         forecast.Client(),
-		Latitude:     50.517,
-		Longitude:    1.583,
 	}
 
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -110,7 +108,7 @@ func TestClientMeteo_Recuperer_MarineIndisponibleNeCassePasLaPrevision(t *testin
 		HTTP:         forecast.Client(),
 	}
 
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer ne doit pas echouer quand seule la Marine API est en panne : %v", err)
 	}
@@ -137,7 +135,7 @@ func TestClientMeteo_Recuperer_ForecastIndisponibleEstFatal(t *testing.T) {
 		HTTP:         forecastIndisponible.Client(),
 	}
 
-	if _, err := c.Recuperer(context.Background()); err == nil {
+	if _, err := c.Recuperer(context.Background(), 50.517, 1.583); err == nil {
 		t.Fatal("attendu une erreur : sans previsions, il n'y a rien a fusionner")
 	}
 }
@@ -168,7 +166,7 @@ func TestClientMeteo_Recuperer_VentJournalier(t *testing.T) {
 	marine := serveurTest(t, marineJSON)
 
 	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -204,7 +202,7 @@ func TestClientMeteo_Recuperer_AccordDefinitLaConfiance(t *testing.T) {
 	marine := serveurTest(t, marineJSON)
 
 	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -246,7 +244,7 @@ func TestClientMeteo_Recuperer_AccordIndisponibleNeCassePasLaPrevision(t *testin
 	marine := serveurTest(t, marineJSON)
 
 	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer ne doit jamais echouer a cause de l'accord entre modeles : %v", err)
 	}
@@ -293,8 +291,8 @@ func TestClientMeteo_Recuperer_DemandeLaFenetreDeNavigation(t *testing.T) {
 	}))
 	t.Cleanup(marine.Close)
 
-	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client(), Latitude: 50.517, Longitude: 1.583}
-	if _, err := c.Recuperer(context.Background()); err != nil {
+	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
+	if _, err := c.Recuperer(context.Background(), 50.517, 1.583); err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
 
@@ -358,11 +356,9 @@ func TestClientMeteo_Recuperer_AgregeCouchesJournalieresDepuisLesHeuresDeJour(t 
 		BaseForecast: forecast.URL,
 		BaseMarine:   marine.URL,
 		HTTP:         forecast.Client(),
-		Latitude:     50.517,
-		Longitude:    1.583,
 	}
 
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -422,7 +418,7 @@ func TestClientMeteo_Recuperer_HeureSansTemperatureResteNulle(t *testing.T) {
 	marine := serveurTest(t, marineJSON)
 
 	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -454,7 +450,7 @@ func TestClientMeteo_Recuperer_JourEntierementNulResteNul(t *testing.T) {
 	marine := serveurTest(t, marineJSON)
 
 	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -492,7 +488,7 @@ func TestClientMeteo_Recuperer_VagueNulleResteAbsente(t *testing.T) {
 	marine := serveurTest(t, marineBordJSON)
 
 	c := &ClientMeteo{BaseForecast: forecast.URL, BaseMarine: marine.URL, HTTP: forecast.Client()}
-	p, err := c.Recuperer(context.Background())
+	p, err := c.Recuperer(context.Background(), 50.517, 1.583)
 	if err != nil {
 		t.Fatalf("Recuperer : %v", err)
 	}
@@ -609,15 +605,71 @@ func TestSansRequete_RetireLaCle(t *testing.T) {
 
 func TestRecupererJSON_ErreurNeContientJamaisLaCle(t *testing.T) {
 	// Port improbable, injoignable : declenche une erreur *url.Error dont le
-	// message brut de Go embarque l'URL demandee, cle comprise.
-	cible := "http://127.0.0.1:1/tide-extrema?site=x&key=SECRET123"
+	// message brut de Go embarque l'URL demandee, cle comprise. base = meme
+	// hote que cible : c'est bien le dial qui echoue ici, pas cibleAutorisee.
+	base := "http://127.0.0.1:1"
+	cible := base + "/tide-extrema?site=x&key=SECRET123"
 	var dest any
-	err := recupererJSON(context.Background(), &http.Client{Timeout: time.Second}, cible, &dest)
+	err := recupererJSON(context.Background(), &http.Client{Timeout: time.Second}, base, cible, &dest)
 	if err == nil {
 		t.Fatal("attendu une erreur : port injoignable")
 	}
 	if strings.Contains(err.Error(), "SECRET123") {
 		t.Fatalf("l'erreur contient la cle API : %v", err)
+	}
+}
+
+// TestCibleAutorisee couvre le garde SSRF (G704) de recupererJSON : seule
+// une cible qui partage EXACTEMENT le scheme et l'hote de la base attendue
+// pour cet appel passe.
+func TestCibleAutorisee(t *testing.T) {
+	cas := []struct {
+		nom      string
+		base     string
+		cible    string
+		attendue bool
+	}{
+		{"meme scheme et hote, chemin et requete differents", "https://api.open-meteo.com/v1/forecast", "https://api.open-meteo.com/v1/forecast?latitude=50.518", true},
+		{"meme hote, chemin different", "https://api-maree.fr", "https://api-maree.fr/sites", true},
+		{"hote different (attaquant)", "https://api.open-meteo.com/v1/forecast", "https://attaquant.example/vole?key=SECRET", false},
+		{"scheme different, meme hote", "https://api.open-meteo.com/v1/forecast", "http://api.open-meteo.com/v1/forecast", false},
+		{"sous-domaine different", "https://api.open-meteo.com/v1/forecast", "https://evil.api.open-meteo.com/v1/forecast", false},
+		{"base illisible", "://", "https://api.open-meteo.com/v1/forecast", false},
+		{"cible illisible", "https://api.open-meteo.com/v1/forecast", "://", false},
+		{"base sans hote", "/relatif", "https://api.open-meteo.com/v1/forecast", false},
+	}
+	for _, c := range cas {
+		if got := cibleAutorisee(c.base, c.cible); got != c.attendue {
+			t.Errorf("%s : cibleAutorisee(%q, %q) = %v, attendu %v", c.nom, c.base, c.cible, got, c.attendue)
+		}
+	}
+}
+
+// TestRecupererJSON_RefuseCibleHorsBase est la preuve directe que le garde
+// empeche la requete de PARTIR : le serveur "attaquant" ne doit jamais
+// recevoir la connexion, alors meme qu'il est reellement joignable — seul un
+// blocage avant http.NewRequestWithContext peut l'expliquer.
+func TestRecupererJSON_RefuseCibleHorsBase(t *testing.T) {
+	appele := false
+	attaquant := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appele = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer attaquant.Close()
+
+	base := "https://fournisseur-legitime.example/v1/forecast"
+	cible := attaquant.URL + "/vole?key=SECRET123"
+
+	var dest any
+	err := recupererJSON(context.Background(), attaquant.Client(), base, cible, &dest)
+	if err == nil {
+		t.Fatal("attendu un refus : l'hote de cible differe de celui de base")
+	}
+	if appele {
+		t.Fatal("le garde n'a pas empeche la requete : le serveur cible l'a recue")
+	}
+	if strings.Contains(err.Error(), "SECRET123") {
+		t.Fatalf("l'erreur contient la cle : %v", err)
 	}
 }
 

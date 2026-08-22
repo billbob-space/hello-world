@@ -18,7 +18,8 @@ label DNS valide. Org, dépôt et domaine sont dans `fabrique.yml`.
   ce qui bloque.
 - **Dis l'effet, pas le mécanisme** — « le site répond à nouveau » plutôt que « le
   healthcheck repasse healthy ». Ni noms de fichiers, ni options, ni extraits de code,
-  sauf geste à faire ; alors la commande exacte, seule.
+  sauf geste à faire — une commande, ou le prompt de reprise d'une session trop longue ;
+  alors, seul et exact, ce qui se copie.
 
 **Cette règle vaut pour ce que tu dis, pas pour ce que tu écris dans le dépôt.** Messages
 de commit, entrées de `journal/`, `README` et corps de PR gardent toute leur précision
@@ -67,7 +68,7 @@ documents est une app dont le code n'est pas encore écrit. Les compétences `su
 ```bash
 ./init.sh          # régénère les artefacts dérivés depuis les manifestes
 ./init.sh --check  # vérifie les manifestes, puis le dépôt service par service
-./init.sh --help   # les autres options, et les cinq métiers de scripts/
+./init.sh --help   # les autres options, et les sept métiers de scripts/
 ```
 
 `apps/<nom>/app.yml` est la source de vérité, **jamais réécrit par `init.sh`** : tu l'édites
@@ -123,11 +124,20 @@ que sa critique datée.
 directement. Toi, tu écris ce qui est partagé (`.claude/`, `scripts/`, `fabrique.yml`,
 `init.sh`) et ce qui demande un dialogue déjà eu avec l'utilisateur (PRD, PRP).
 
-**Les appels d'outils indépendants partent dans le MÊME tour.** Un tour paie tout le
-contexte relu quelle que soit sa sortie : deux lectures indépendantes coûtent moitié moins
-groupées que séparées. C'est le poste le plus cher du dépôt. Ce qui peut tourner en même
-temps est recensé dans `docs/parallelisme.md` ; un gain ne se déclare pas, il se chiffre :
-`./docs/banc/mesurer.sh`.
+**Le premier poste de la facture est la LONGUEUR d'une session d'agent**, et son coût
+croît en **carré** : elle fait N tours, dont chacun repaie ce que les N-1 précédents ont
+lu. Un chantier tient **sous 60 tours** — `pret.sh` avertit au-delà. Couper veut dire deux
+sessions de moitié, la seconde repartant du PRP, jamais de l'exploration de la première.
+
+**Quand tu annonces que la session est trop longue, ton message se TERMINE par le prompt
+de reprise** — un bloc à copier tel quel dans une session neuve, rien après lui. Annoncer
+la coupe sans le fournir laisse la reconstitution du contexte à celle qui n'en a aucun.
+Gabarit : `memory/travail.md`.
+
+**Tes appels indépendants à toi partent dans le MÊME tour** — deux lectures groupées
+coûtent moitié moins que séparées. La règle s'arrête là : chez un agent, un tour *est* un
+appel d'outil et ne se groupe pas. Ce qui peut tourner en même temps est recensé dans
+`docs/parallelisme.md` ; un gain ne se déclare pas, il se chiffre : `./docs/banc/mesurer.sh`.
 
 **Ce que la branche a coûté se relève avec `./scripts/cout.sh`**, qui l'écrit dans son
 entrée de journal. Non relevé avant la fusion, il est perdu.

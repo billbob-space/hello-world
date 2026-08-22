@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -31,9 +34,10 @@ func TestHandleHealth(t *testing.T) {
 func TestHandleHealth_NeDependAucunFournisseur(t *testing.T) {
 	s := nouveauServeur(
 		&ClientMeteo{BaseForecast: "http://127.0.0.1:1", BaseMarine: "http://127.0.0.1:1", HTTP: http.DefaultClient},
-		&ClientMaree{BaseURL: "http://127.0.0.1:1", HTTP: http.DefaultClient, Site: "x", CleAPI: "x"},
+		&ClientMaree{BaseURL: "http://127.0.0.1:1", HTTP: http.DefaultClient, CleAPI: "x"},
 		&ClientPluie{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
 		&ClientNowcast{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		&CatalogueMaree{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
 	)
 	var web fs.FS = fstestVide{}
 	h := routes(s, web)
@@ -49,10 +53,11 @@ func TestHandleHealth_NeDependAucunFournisseur(t *testing.T) {
 
 func TestHandleMaree_SansCle(t *testing.T) {
 	s := nouveauServeur(
-		NouveauClientMeteo(50.517, 1.583),
-		NouveauClientMaree("berck-plage-fort-mahon", ""), // pas de cle
-		NouveauClientPluie(50.517, 1.583),
-		NouveauClientNowcast(50.517, 1.583),
+		NouveauClientMeteo(),
+		NouveauClientMaree(""), // pas de cle
+		NouveauClientPluie(),
+		NouveauClientNowcast(),
+		NouveauCatalogueMaree(),
 	)
 	req := httptest.NewRequest(http.MethodGet, "/api/maree", nil)
 	rec := httptest.NewRecorder()
@@ -206,13 +211,23 @@ func serveurMeteoDeTest(t *testing.T, maintenant time.Time) *ClientMeteo {
 		_, _ = w.Write(marineCorps)
 	}))
 	t.Cleanup(srvMarine.Close)
-	return &ClientMeteo{BaseForecast: srvForecast.URL, BaseMarine: srvMarine.URL, HTTP: srvForecast.Client(), Latitude: 50.517, Longitude: 1.583}
+	return &ClientMeteo{BaseForecast: srvForecast.URL, BaseMarine: srvMarine.URL, HTTP: srvForecast.Client()}
 }
 
 func serveurEtRequetePrevisions(t *testing.T, urlChemin string) *httptest.ResponseRecorder {
 	t.Helper()
 	maintenant := time.Now().In(parisTZ)
-	s := nouveauServeur(serveurMeteoDeTest(t, maintenant), NouveauClientMaree("berck-plage-fort-mahon", ""), NouveauClientPluie(50.517, 1.583), NouveauClientNowcast(50.517, 1.583))
+	// clientPluie/clientNowcast pointent vers une adresse locale injoignable,
+	// jamais vers le vrai fournisseur : le PRD de la fabrique interdit le
+	// reseau reel dans les tests, meme quand le champ teste (previsions)
+	// n'exerce ces clients qu'en parallele (handlePrevisions).
+	s := nouveauServeur(
+		serveurMeteoDeTest(t, maintenant),
+		NouveauClientMaree(""),
+		&ClientPluie{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		&ClientNowcast{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		NouveauCatalogueMaree(),
+	)
 	req := httptest.NewRequest(http.MethodGet, urlChemin, nil)
 	rec := httptest.NewRecorder()
 	s.handlePrevisions(rec, req)
@@ -388,13 +403,19 @@ func serveurMareeDeTest(t *testing.T, maintenant time.Time) *ClientMaree {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return &ClientMaree{BaseURL: srv.URL, HTTP: srv.Client(), Site: "berck-plage-fort-mahon", CleAPI: "test-key"}
+	return &ClientMaree{BaseURL: srv.URL, HTTP: srv.Client(), CleAPI: "test-key"}
 }
 
 func requeteMaree(t *testing.T, urlChemin string) *httptest.ResponseRecorder {
 	t.Helper()
 	maintenant := time.Now().In(parisTZ)
-	s := nouveauServeur(NouveauClientMeteo(50.517, 1.583), serveurMareeDeTest(t, maintenant), NouveauClientPluie(50.517, 1.583), NouveauClientNowcast(50.517, 1.583))
+	s := nouveauServeur(
+		&ClientMeteo{BaseForecast: "http://127.0.0.1:1", BaseMarine: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		serveurMareeDeTest(t, maintenant),
+		&ClientPluie{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		&ClientNowcast{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		NouveauCatalogueMaree(),
+	)
 	req := httptest.NewRequest(http.MethodGet, urlChemin, nil)
 	rec := httptest.NewRecorder()
 	s.handleMaree(rec, req)
@@ -459,5 +480,396 @@ func TestHandleMaree_DateHorsFenetre(t *testing.T) {
 	rec := requeteMaree(t, "/api/maree?date="+tropLoin)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("statut = %d, attendu %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// --- prp/04-le-lieu-devient-une-donnee.md -----------------------------------
+
+func TestParametreLatLon(t *testing.T) {
+	cas := []struct {
+		nom            string
+		query          string
+		presentAttendu bool
+		erreurAttendue bool
+	}{
+		{"absents", "", false, false},
+		{"un seul (lat)", "lat=50.5", false, true},
+		{"un seul (lon)", "lon=1.5", false, true},
+		{"illisibles", "lat=x&lon=y", false, true},
+		{"lat hors bornes", "lat=95&lon=1", false, true},
+		{"lon hors bornes", "lat=45&lon=200", false, true},
+		// strconv.ParseFloat("NaN", 64) reussit, et toute comparaison avec
+		// NaN est fausse : sans garde explicite le controle de bornes laisse
+		// passer NaN (+Inf/-Inf, eux, sont deja hors bornes).
+		{"lat NaN", "lat=NaN&lon=1", false, true},
+		{"lon NaN", "lat=45&lon=NaN", false, true},
+		{"lat et lon NaN", "lat=NaN&lon=NaN", false, true},
+		{"valides", "lat=50.5178&lon=1.5834", true, false},
+	}
+	for _, c := range cas {
+		req := httptest.NewRequest(http.MethodGet, "/x?"+c.query, nil)
+		_, _, present, err := parametreLatLon(req)
+		if present != c.presentAttendu {
+			t.Errorf("%s : present = %v, attendu %v", c.nom, present, c.presentAttendu)
+		}
+		if (err != nil) != c.erreurAttendue {
+			t.Errorf("%s : err = %v, attendu erreur=%v", c.nom, err, c.erreurAttendue)
+		}
+	}
+}
+
+func TestParametreLatLon_ArrondiA3Decimales(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/x?lat=50.51784&lon=1.58341", nil)
+	lat, lon, present, err := parametreLatLon(req)
+	if err != nil || !present {
+		t.Fatalf("parametreLatLon : lat=%v lon=%v present=%v err=%v", lat, lon, present, err)
+	}
+	if lat != 50.518 || lon != 1.583 {
+		t.Errorf("lat/lon = %v/%v, attendu 50.518/1.583 (arrondi a 3 decimales)", lat, lon)
+	}
+}
+
+func TestParametreLieuOuDefaut_Absent(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	lat, lon, err := parametreLieuOuDefaut(req)
+	if err != nil || lat != latitude || lon != longitude {
+		t.Errorf("lat/lon/err = %v/%v/%v, attendu le lieu par defaut", lat, lon, err)
+	}
+}
+
+func TestArrondi3(t *testing.T) {
+	if v := arrondi3(1.58341); v != 1.583 {
+		t.Errorf("arrondi3(1.58341) = %v, attendu 1.583", v)
+	}
+	if v := arrondi3(-1.5836); v != -1.584 {
+		t.Errorf("arrondi3(-1.5836) = %v, attendu -1.584", v)
+	}
+}
+
+// serveurClientsInjoignables rend un serveur dont les quatre clients de
+// donnees pointent vers une adresse locale injoignable : utile pour les
+// tests qui n'exercent que le catalogue ou le geocodage.
+func serveurClientsInjoignables(cat *CatalogueMaree) *serveur {
+	return nouveauServeur(
+		&ClientMeteo{BaseForecast: "http://127.0.0.1:1", BaseMarine: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		&ClientMaree{BaseURL: "http://127.0.0.1:1", HTTP: http.DefaultClient, CleAPI: "test-key"},
+		&ClientPluie{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		&ClientNowcast{Base: "http://127.0.0.1:1", HTTP: http.DefaultClient},
+		cat,
+	)
+}
+
+// TestHandleMaree_LatLon_SiteProche verifie qu'un lieu present resout son
+// site de maree par le catalogue (pas le site par defaut) et sert la jauge
+// normalement (prp/04, section 3).
+func TestHandleMaree_LatLon_SiteProche(t *testing.T) {
+	maintenant := time.Now().In(parisTZ)
+	cat := catalogueDeTest(t, []siteBrut{
+		{ID: "berck-plage-fort-mahon", Nom: "Berck Plage – Fort Mahon", Lat: 50.335, Lon: 1.567},
+	})
+	s := serveurClientsInjoignables(cat)
+	s.clientMaree = serveurMareeDeTest(t, maintenant)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/maree?lat=50.517&lon=1.583", nil)
+	rec := httptest.NewRecorder()
+	s.handleMaree(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut = %d, attendu 200, corps %s", rec.Code, rec.Body.String())
+	}
+	var reponse ReponseMaree
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if !reponse.Configure {
+		t.Fatal("Configure doit etre true")
+	}
+	if reponse.SiteReference != "berck-plage-fort-mahon" {
+		t.Errorf("SiteReference = %q, attendu berck-plage-fort-mahon", reponse.SiteReference)
+	}
+}
+
+// TestHandleMaree_LatLon_CoteEloignee : Arras est a ~89,7 km de Berck (§1.1),
+// au-dela de seuilSiteKm (30) mais en-deca de seuilFacadeKm (200).
+func TestHandleMaree_LatLon_CoteEloignee(t *testing.T) {
+	cat := catalogueDeTest(t, []siteBrut{
+		{ID: "berck-plage-fort-mahon", Nom: "Berck Plage – Fort Mahon", Lat: 50.335, Lon: 1.567},
+	})
+	s := serveurClientsInjoignables(cat)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/maree?lat=50.2926&lon=2.7793", nil)
+	rec := httptest.NewRecorder()
+	s.handleMaree(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut = %d, attendu 200, corps %s", rec.Code, rec.Body.String())
+	}
+	var reponse ReponseSansMaree
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if !reponse.Configure || !reponse.SansMaree || reponse.Raison != raisonCoteEloignee {
+		t.Errorf("reponse = %+v, attendu configure/sansMaree/cote-eloignee", reponse)
+	}
+	if reponse.DistanceKm == nil || *reponse.DistanceKm < 70 || *reponse.DistanceKm > 110 {
+		t.Errorf("distanceKm = %v, attendu ~89,7", reponse.DistanceKm)
+	}
+	if reponse.SiteLePlusProche != "Berck Plage – Fort Mahon" {
+		t.Errorf("siteLePlusProche = %q", reponse.SiteLePlusProche)
+	}
+}
+
+// TestHandleMaree_LatLon_FacadeNonCouverte : Nice, dont le site le plus
+// proche du catalogue est Bordeaux a 643,8 km (§1.1), au-dela de
+// seuilFacadeKm (200).
+func TestHandleMaree_LatLon_FacadeNonCouverte(t *testing.T) {
+	cat := catalogueDeTest(t, []siteBrut{
+		{ID: "bordeaux", Nom: "Bordeaux", Lat: 44.8378, Lon: -0.5792},
+	})
+	s := serveurClientsInjoignables(cat)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/maree?lat=43.7102&lon=7.262", nil)
+	rec := httptest.NewRecorder()
+	s.handleMaree(rec, req)
+
+	var reponse ReponseSansMaree
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if reponse.Raison != raisonFacadeNonCouverte {
+		t.Errorf("raison = %q, attendu %q", reponse.Raison, raisonFacadeNonCouverte)
+	}
+}
+
+// TestHandleMaree_LatLon_CatalogueIndisponible verifie la troisieme valeur du
+// vocabulaire ferme (§4) : un catalogue jamais charge avec succes, jamais un
+// site invente.
+func TestHandleMaree_LatLon_CatalogueIndisponible(t *testing.T) {
+	cat := &CatalogueMaree{Base: "http://127.0.0.1:1", HTTP: &http.Client{Timeout: time.Second}}
+	s := serveurClientsInjoignables(cat)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/maree?lat=50.517&lon=1.583", nil)
+	rec := httptest.NewRecorder()
+	s.handleMaree(rec, req)
+
+	var reponse ReponseSansMaree
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if reponse.Raison != raisonCatalogueIndisponible {
+		t.Errorf("raison = %q, attendu %q", reponse.Raison, raisonCatalogueIndisponible)
+	}
+}
+
+func TestHandleMaree_LatLonInvalide(t *testing.T) {
+	s := serveurClientsInjoignables(NouveauCatalogueMaree())
+	req := httptest.NewRequest(http.MethodGet, "/api/maree?lat=200&lon=1", nil)
+	rec := httptest.NewRecorder()
+	s.handleMaree(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("statut = %d, attendu %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// --- /api/lieux, /api/lieu ---------------------------------------------------
+
+func TestHandleLieux_Recherche(t *testing.T) {
+	ban := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"features":[{"properties":{"name":"Le Touquet-Paris-Plage","context":"62, Pas-de-Calais, Hauts-de-France"},"geometry":{"coordinates":[1.583,50.517]}}]}`))
+	}))
+	t.Cleanup(ban.Close)
+	marine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"hourly":{"time":["2026-08-21T12:00"],"wave_height":[0.4]}}`))
+	}))
+	t.Cleanup(marine.Close)
+	ancienGeocode, ancienMarine := baseGeocode, baseMeteoMarine
+	baseGeocode, baseMeteoMarine = ban.URL, marine.URL
+	t.Cleanup(func() { baseGeocode, baseMeteoMarine = ancienGeocode, ancienMarine })
+
+	cat := catalogueDeTest(t, []siteBrut{
+		{ID: "berck-plage-fort-mahon", Nom: "Berck Plage – Fort Mahon", Lat: 50.335, Lon: 1.567},
+	})
+	s := serveurClientsInjoignables(cat)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lieux?q=Touquet", nil)
+	rec := httptest.NewRecorder()
+	s.handleLieux(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut = %d, attendu 200, corps %s", rec.Code, rec.Body.String())
+	}
+	var reponse ReponseLieux
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if len(reponse.Lieux) != 1 {
+		t.Fatalf("lieux = %d, attendu 1", len(reponse.Lieux))
+	}
+	l := reponse.Lieux[0]
+	if l.Nom != "Le Touquet-Paris-Plage" {
+		t.Errorf("nom = %q", l.Nom)
+	}
+	if l.Latitude != 50.517 || l.Longitude != 1.583 {
+		t.Errorf("lat/lon = %v/%v, attendu 50.517/1.583", l.Latitude, l.Longitude)
+	}
+	if l.Littoral == nil || !*l.Littoral {
+		t.Errorf("littoral = %v, attendu true", l.Littoral)
+	}
+	if l.Maree == nil || l.Maree.ID != "berck-plage-fort-mahon" {
+		t.Errorf("maree = %+v, attendu berck-plage-fort-mahon", l.Maree)
+	}
+}
+
+func TestHandleLieux_QueteVide(t *testing.T) {
+	s := serveurClientsInjoignables(NouveauCatalogueMaree())
+	req := httptest.NewRequest(http.MethodGet, "/api/lieux", nil)
+	rec := httptest.NewRecorder()
+	s.handleLieux(rec, req)
+
+	var reponse ReponseLieux
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if len(reponse.Lieux) != 0 {
+		t.Errorf("lieux = %+v, attendu vide sans q", reponse.Lieux)
+	}
+}
+
+func TestHandleLieux_BANIndisponible(t *testing.T) {
+	ancien := baseGeocode
+	baseGeocode = "http://127.0.0.1:1"
+	t.Cleanup(func() { baseGeocode = ancien })
+
+	s := serveurClientsInjoignables(NouveauCatalogueMaree())
+	req := httptest.NewRequest(http.MethodGet, "/api/lieux?q=x", nil)
+	rec := httptest.NewRecorder()
+	s.handleLieux(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut = %d, attendu 200 (degradation, pas une erreur HTTP)", rec.Code)
+	}
+	var reponse ReponseLieux
+	if err := json.NewDecoder(rec.Body).Decode(&reponse); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if reponse.Erreur == "" {
+		t.Error("attendu un champ erreur explicite")
+	}
+	if len(reponse.Lieux) != 0 {
+		t.Errorf("lieux = %+v, attendu vide", reponse.Lieux)
+	}
+}
+
+func TestHandleLieu_SurTerre(t *testing.T) {
+	ban := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"features":[{"properties":{"city":"Wimereux","context":"62, Pas-de-Calais, Hauts-de-France"},"geometry":{"coordinates":[1.611,50.767]}}]}`))
+	}))
+	t.Cleanup(ban.Close)
+	marine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"hourly":{"time":["2026-08-21T12:00"],"wave_height":[0.6]}}`))
+	}))
+	t.Cleanup(marine.Close)
+	ancienGeocode, ancienMarine := baseGeocode, baseMeteoMarine
+	baseGeocode, baseMeteoMarine = ban.URL, marine.URL
+	t.Cleanup(func() { baseGeocode, baseMeteoMarine = ancienGeocode, ancienMarine })
+
+	s := serveurClientsInjoignables(NouveauCatalogueMaree())
+	req := httptest.NewRequest(http.MethodGet, "/api/lieu?lat=50.767&lon=1.611", nil)
+	rec := httptest.NewRecorder()
+	s.handleLieu(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("statut = %d, attendu 200, corps %s", rec.Code, rec.Body.String())
+	}
+	var l Lieu
+	if err := json.NewDecoder(rec.Body).Decode(&l); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if l.Nom != "Wimereux" {
+		t.Errorf("nom = %q, attendu Wimereux", l.Nom)
+	}
+	if l.Littoral == nil || !*l.Littoral {
+		t.Errorf("littoral = %v, attendu true", l.Littoral)
+	}
+}
+
+// TestHandleLieu_EnMer verifie §3/§4 : la BAN rend Features vide en mer, et
+// le Lieu sort SANS NOM, jamais un nom invente.
+func TestHandleLieu_EnMer(t *testing.T) {
+	ban := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"features":[]}`))
+	}))
+	t.Cleanup(ban.Close)
+	marine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"hourly":{"time":["2026-08-21T12:00"],"wave_height":[0.9]}}`))
+	}))
+	t.Cleanup(marine.Close)
+	ancienGeocode, ancienMarine := baseGeocode, baseMeteoMarine
+	baseGeocode, baseMeteoMarine = ban.URL, marine.URL
+	t.Cleanup(func() { baseGeocode, baseMeteoMarine = ancienGeocode, ancienMarine })
+
+	s := serveurClientsInjoignables(NouveauCatalogueMaree())
+	req := httptest.NewRequest(http.MethodGet, "/api/lieu?lat=50.7&lon=1.0", nil)
+	rec := httptest.NewRecorder()
+	s.handleLieu(rec, req)
+
+	var l Lieu
+	if err := json.NewDecoder(rec.Body).Decode(&l); err != nil {
+		t.Fatalf("decodage : %v", err)
+	}
+	if l.Nom != "" {
+		t.Errorf("nom = %q, attendu vide (en mer, aucun nom invente)", l.Nom)
+	}
+	if l.Littoral == nil || !*l.Littoral {
+		t.Errorf("littoral = %v, attendu true (grille marine positive)", l.Littoral)
+	}
+}
+
+func TestHandleLieu_ParametresManquants(t *testing.T) {
+	s := serveurClientsInjoignables(NouveauCatalogueMaree())
+	req := httptest.NewRequest(http.MethodGet, "/api/lieu", nil)
+	rec := httptest.NewRecorder()
+	s.handleLieu(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("statut = %d, attendu %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// TestLogging_CheminEchappeContreInjection couvre G706 : r.URL.Path est le
+// chemin DECODE d'une requete HTTP, donc un %0a dans l'URL y arrive en vrai
+// saut de ligne. Sans echappement, il forgerait une seconde ligne de journal
+// a partir d'une seule requete.
+func TestLogging_CheminEchappeContreInjection(t *testing.T) {
+	var buf bytes.Buffer
+	ancienneSortie := log.Writer()
+	ancienFlags := log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(ancienneSortie)
+		log.SetFlags(ancienFlags)
+	})
+
+	h := logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/x%0afausse-ligne-forgee", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	sortie := buf.String()
+	lignes := strings.Count(sortie, "\n")
+	if lignes != 1 {
+		t.Fatalf("le chemin injecte a produit %d ligne(s) de journal, attendu 1 : %q", lignes, sortie)
+	}
+	if !strings.Contains(sortie, `"/x\nfausse-ligne-forgee"`) {
+		t.Fatalf("le chemin doit apparaitre echappe (%%q) dans le journal : %q", sortie)
 	}
 }

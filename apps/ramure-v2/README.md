@@ -8,8 +8,10 @@ l'arbre.
 
 URL : <https://ramure-v2.apps.billbob.ovh> — authentification : `google`,
 c'est-à-dire **n'importe quel compte Google authentifié**. Traefik authentifie
-avant que la requête n'atteigne l'application ; il n'y a pas de palier public
-dans cette fabrique, et il n'y a pas de système de comptes à coder ici.
+avant que la requête n'atteigne l'application : il n'y a pas de système de
+comptes à coder ici. La fabrique offre bien un palier `public`, écarté ici parce
+que la collection et les réglages sont cloisonnés par utilisateur — sans
+identité, il n'y a rien à cloisonner.
 
 Le produit complet est décrit par [PRODUCT.md](PRODUCT.md) ; la série de plans
 qui le construit est dans
@@ -17,12 +19,17 @@ qui le construit est dans
 
 ## État
 
-En ligne. La série des neuf PRP est livrée : planter un artiste construit son
-arbre (parents musicaux, héritiers), un clic promeut une branche au centre et
-ouvre sa fiche, la collection et le service d'écoute choisi survivent au
-redéploiement, l'accès est cloisonné par identité Google, un instantané de
-mesure part en continu, et l'application s'installe et fonctionne hors ligne
-pour sa coquille.
+En ligne et complète. Planter un artiste construit son arbre — parents
+musicaux, héritiers —, un clic promeut une branche au centre et ouvre sa fiche,
+la collection et le service d'écoute choisi survivent au redéploiement, l'accès
+est cloisonné par identité Google, un instantané de mesure part en continu, et
+l'application s'installe et fonctionne hors ligne pour sa coquille. C'est ce que
+décrivent les sections suivantes. `ramure-v2` a remplacé la première version
+`ramure` le 20 août 2026, qui porte depuis `enabled: false`.
+
+Une seule dépendance manque encore côté serveur, et elle est visible à l'usage :
+sans `LASTFM_API_KEY`, la fiche de l'artiste reste vide. Détail au bas de ce
+fichier.
 
 ## Routes
 

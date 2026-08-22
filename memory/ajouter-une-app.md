@@ -23,7 +23,7 @@ git add apps/ma-nouvelle-app/app.yml compose.yaml && git commit   # commit 2
 Le chemin en un seul commit fonctionne aussi. La séquence en deux fait arriver
 l'échec « l'image ne se construit pas » sur un commit qui **ne peut pas** casser
 les autres apps — c'est tout ce qu'elle achète, et c'est cher payé une fois
-qu'on a cassé le déploiement de sept applications pour une huitième.
+qu'on a cassé le déploiement des neuf applications en ligne pour une dixième.
 
 ## Ce que le commit 1 doit emporter
 

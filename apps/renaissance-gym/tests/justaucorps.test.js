@@ -113,6 +113,24 @@ test('l’écran monte le dessin, atteignable depuis « Aujourd’hui »', () =>
   assert.ok(retour, 'un lien doit ramener à l’écran du jour');
 });
 
+test('le premier jour, une phrase dit ce qu’est ce justaucorps — et elle disparaît dès la première parure', () => {
+  // ÉTAT VIDE. Sans elle, l'écran du premier jour ne porte qu'un titre, une
+  // silhouette nue et six couleurs : rien n'y dit pourquoi ce dessin
+  // changerait. La phrase ne compte rien (PRD A13 : « un catalogue de ce qui
+  // manque est un décompte de ce qu'on n'a pas fait »).
+  etat.ecrireEtat({ prenom: 'Léa', faits: [], parures: [] });
+  const hote = creerHote();
+  monterJustaucorps(hote, { etat: etat.lireEtat(), programme: prog });
+  const mot = hote.querySelector('.justaucorps__mot');
+  assert.ok(mot, 'l’écran vide doit porter sa phrase');
+  assert.doesNotMatch(mot.textContent, /\d/, 'elle ne décompte jamais ce qui manque');
+
+  etat.ecrireEtat({ prenom: 'Léa', faits: [], parures: ['parure-1'] });
+  const hote2 = creerHote();
+  monterJustaucorps(hote2, { etat: etat.lireEtat(), programme: prog });
+  assert.equal(hote2.querySelector('.justaucorps__mot'), null, 'dès la première parure, le dessin parle seul');
+});
+
 test('le dessin lit les parures PERSISTÉES, pas un recalcul depuis les faits : un programme recommencé à zéro garde son justaucorps', () => {
   // Exactement le scénario de « Recommencer à zéro » (vue-grille.js) : les
   // faits sont vidés, mais les parures déjà acquises, elles, ne le sont pas.

@@ -151,6 +151,26 @@ export function monterJustaucorps(hote, ctx) {
   corps.append(figure);
   figure.innerHTML = construireSvgJustaucorps(etatCourant.parures);
 
+  // ÉTAT VIDE. Le premier jour, cet écran ne portait qu'un titre, une
+  // silhouette nue et six couleurs : rien n'y disait ce qu'est ce
+  // justaucorps ni pourquoi il changerait. Une seule phrase le dit, et
+  // SEULEMENT tant qu'aucune parure n'est acquise — dès la première, le
+  // dessin parle tout seul.
+  //
+  // Elle ne compte rien et n'annonce rien : ni « plus que deux semaines »,
+  // ni « 3 sur 8 ». Le PRD (A13) interdit le décompte de ce qui manque —
+  // « un catalogue de ce qui manque est un décompte de ce qu'on n'a pas
+  // fait » — et A20 rend de toute façon faux tout nombre fixe : celle qui
+  // démarre en semaine 6 gagne plusieurs parures d'un coup. « Se pare à
+  // chaque semaine bouclée » reste vrai dans tous les cas.
+  if ((etatCourant.parures ?? []).length === 0) {
+    corps.append(el(
+      'p',
+      'justaucorps__mot',
+      'Ton justaucorps se pare d’or à chaque semaine bouclée.',
+    ));
+  }
+
   // A14 : les couleurs, dès le premier jour.
   const blocCouleurs = el('div', 'justaucorps__couleurs');
   blocCouleurs.append(el('span', 'etiquette', 'Ses couleurs'));

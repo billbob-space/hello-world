@@ -80,6 +80,28 @@ neutralise, en nommant la fonction. Un correctif de traversée de chemin ou
 d'injection s'accompagne d'un **test** qui prouve qu'une entrée hostile est
 refusée — sans test, il se défait au refactoring suivant.
 
+**Sur un point de passage PARTAGÉ, la raison doit être appliquée par du code.**
+Un `#nosec` posé sur la fonction par laquelle transitent tous les appels — un
+client HTTP unique, un ouvreur de fichiers unique — couvre d'avance **tout
+appelant futur**, y compris un appelant teinté : c'est-à-dire précisément le
+risque que la règle veut empêcher. Une raison vraie au moment où on l'écrit peut
+cesser de l'être sans que la ligne bouge. Constaté le 21 août 2026 sur un G704
+visant le point de sortie réseau unique d'une app : la teinte y était bien
+neutralisée, mais **chez les appelants** — formats numériques et échappement
+d'URL. La mise à l'écart n'est devenue légitime qu'une fois un garde posé *à cet
+endroit-là*, comparant l'hôte appelé à celui que l'appelant a déclaré vouloir
+joindre. Deuxième leçon du même constat : un constat de teinte n'a pas **un**
+emplacement mais une chaîne, et l'outil rapporte chaque maillon séparément —
+annoter le premier fait réapparaître le second. Vérifie en relançant l'outil qui
+a produit le constat, jamais l'agrégat.
+
+**Un constat de gravité basse qui survit à sa correction est un état normal.**
+L'analyse de teinte ne modélise pas qu'un verbe de format neutralise une source :
+un chemin journalisé passé de `%s` à `%q` reste remonté, correction et test à
+l'appui. On vise **aucun point bloquant**, jamais « aucun résidu » — poursuivre
+le résidu conduit à poser un `#nosec` sur du code déjà correct, donc à masquer le
+jour où il cesserait de l'être.
+
 **Les mises à l'écart sont comptées et affichées** à chaque passage de la revue :
 « aucun constat sur 12 fichiers, 3 écarté(s) par #nosec ». Sans ce comptage,
 `#nosec` serait le moyen le plus simple de rendre un axe vert sans rien corriger,

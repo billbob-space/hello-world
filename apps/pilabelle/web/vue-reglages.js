@@ -10,10 +10,14 @@ import { notificationsSupportees, demanderActivationNotifications } from './noti
 // messageEchecActivation traduit le motif d'echec de
 // demanderActivationNotifications en un texte pour messageEtat, sans jamais
 // un ton pressant (PRODUIT).
-function messageEchecActivation(motif) {
+export function messageEchecActivation(motif) {
 	switch (motif) {
 		case 'refuse':
-			return 'Permission refusée : aucune notification ne sera envoyée.';
+			// Une permission refusee ne se rouvre PAS depuis la page : le bouton
+			// ci-dessous redonnera le meme message a chaque tap tant que le
+			// navigateur n'a pas ete rouvert sur ce point. Le message doit donc
+			// dire ou aller, sinon il installe un cul-de-sac.
+			return 'Permission refusée. Autorise les notifications pour ce site dans les réglages de ton navigateur, puis reviens ici.';
 		case 'indisponible':
 			return 'Notifications indisponibles pour le moment.';
 		default:
@@ -57,6 +61,9 @@ function construireCarteNotifications(conteneur, profil) {
 
 	const messageEtat = document.createElement('p');
 	messageEtat.className = 'erreur';
+	// role="alert" : meme raison que le message du formulaire de reponses —
+	// un echec qui n'apparait qu'a l'ecran est muet pour un lecteur d'ecran.
+	messageEtat.setAttribute('role', 'alert');
 	messageEtat.hidden = true;
 	carte.appendChild(messageEtat);
 

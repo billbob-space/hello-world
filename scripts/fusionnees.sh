@@ -46,11 +46,18 @@ for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); 
   [ "$b" = "$courante" ] && { ignoree="$b"; continue; }
   # git cherry n'imprime que les commits absents de la base : « + » pour un
   # patch inedit, « - » pour un patch deja present sous un autre sha.
-  inedits=$(git cherry "origin/$BASE" "$ref" 2>/dev/null | grep -c '^+' || true)
+  cherry=$(git cherry "origin/$BASE" "$ref" 2>/dev/null || true)
+  inedits=$(printf '%s\n' "$cherry" | grep -c '^+' || true)
   if [ "$inedits" -eq 0 ]; then
     fusionnees+=("$b")
   else
-    vivantes+=("$b:$inedits")
+    # L'age du dernier patch inedit departage plus vite que son contenu : une
+    # branche dont le dernier commit propre a douze jours a vu la base bouger
+    # sous elle, et son patch est souvent inedit parce que le fichier qu'il
+    # modifiait a ete reecrit depuis — pas parce que le travail manque.
+    dernier=$(printf '%s\n' "$cherry" | grep '^+' | tail -1 | awk '{print $2}')
+    jours=$(( ( $(date +%s) - $(git log -1 --format=%ct "$dernier") ) / 86400 ))
+    vivantes+=("$b:$inedits:$(git log -1 --format=%cs "$dernier"):$jours")
   fi
 done
 
@@ -67,7 +74,10 @@ echo "-- a regarder — patchs absents de $BASE"
 if [ ${#vivantes[@]} -eq 0 ]; then
   echo "  (aucune)"
 else
-  for v in "${vivantes[@]}"; do warn "${v%:*} — ${v##*:} patch(s) inedit(s)"; done
+  for v in "${vivantes[@]}"; do
+    IFS=: read -r vb vn vd vj <<<"$v"
+    warn "$vb — $vn patch(s) inedit(s), le dernier le $vd (il y a $vj j)"
+  done
   echo
   # Le titre de cette section dit « a regarder » et non « non fusionnees »,
   # parce que l'equivalence de patch ne sait pas voir un contenu REECRIT. Un
@@ -78,6 +88,11 @@ else
   echo "  Un patch inedit ne veut pas dire un travail perdu : un contenu repris"
   echo "  a un autre chemin, ou refait a la main, produit un patch different."
   echo "  Compare avant de conclure :  git log --oneline origin/$BASE..origin/<branche>"
+  echo
+  echo "  L'age ci-dessus est le premier tri, l'etat de la pull request le second :"
+  echo "  une PR close sans fusion dit un abandon, une PR fusionnee avec des commits"
+  echo "  ecrits apres dit du travail reste en rade. Ni l'un ni l'autre ne se lit"
+  echo "  dans git — il faut GitHub."
 fi
 
 if [ ${#fusionnees[@]} -gt 0 ]; then

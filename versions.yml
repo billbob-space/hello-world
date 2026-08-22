@@ -10,13 +10,13 @@
 #
 # Revenir en arriere, c'est remettre ici le commit precedent puis lancer
 # ./init.sh : l'image est deja dans le registre, rien n'est reconstruit.
-ardoise: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-cadran: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-compteur: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-hello-world: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-marcq-handball: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-ramure: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-pilabelle: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-estran: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-renaissance-gym: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
-ramure-v2: 630cd4326d7ff6dc6941e51c0eea09760d30bb51
+ardoise: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+cadran: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+compteur: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+hello-world: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+marcq-handball: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+ramure: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+pilabelle: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+estran: c77d75f2a006981637621b1c1c39c19c039b12e5
+renaissance-gym: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+ramure-v2: 9eef03e0fe02bc5184862fefe26cc2067ab8ce96

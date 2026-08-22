@@ -19,7 +19,10 @@ regarde le contexte.** C'est ici, et nulle part ailleurs, que le choix
 continuer-ou-couper se prend : neuf branches sur vingt-deux ont franchi le seuil
 d'alerte sans que personne coupe. Au-dela, **propose** en une phrase d'ouvrir une
 session neuve sur la meme branche — une proposition tiree d'un chiffre que tu
-viens de lire, pas une question qui bloque : ce mode ne redemande rien.
+viens de lire, pas une question qui bloque : ce mode ne redemande rien. Et
+**termine ce message par le prompt de reprise**, le bloc a copier tel quel dans
+la session neuve : sans lui, la proposition demande a l'utilisateur un travail
+que lui seul ne peut pas faire. Gabarit : `memory/travail.md`.
 
 Lis le chiffre du script, pas le bloc de cout de l'entree de journal : ce
 dernier est toujours en retard, et `cout.sh` te le dit lui-meme. Limite a

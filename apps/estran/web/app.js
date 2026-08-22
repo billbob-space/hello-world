@@ -178,8 +178,465 @@ function allerAuJour(decalage) {
   tout();
 }
 
+// ---------- lieu regarde (prp/05-ecran-de-choix.md) ---------------------
+//
+// lieuActuel vit dans l'URL (?lat=&lon=), jamais dans localStorage — meme
+// regle que decalageJour pour le jour, et pour la meme raison : ce qui est
+// dans l'adresse se partage et se relit, ce qui est cache surprend (section
+// 5). null veut dire « le lieu par defaut du serveur » (Le Touquet) : dans ce
+// cas aucun parametre lat/lon n'est jamais ajoute a une requete, pour que le
+// comportement reste identique a l'octet pres a avant ce document.
+const LIEU_DEFAUT = { lat: 50.517, lon: 1.583 };
+let lieuActuel = null;
+let lieuActuelNom = null;
+// lieuActuelAUnNom distingue un vrai nom de commune du titre de secours
+// « Votre position (50.900, 1.100) » (§4). Les deux s'affichent tels quels en
+// TITRE — bouton d'en-tete, <title>, fiche —, mais un seul des deux s'insere
+// dans une PHRASE : voir ouEstCe().
+let lieuActuelAUnNom = false;
+
+function lireLieuDepuisURL() {
+  const params = new URLSearchParams(window.location.search);
+  const lat = Number(params.get("lat"));
+  const lon = Number(params.get("lon"));
+  if (params.has("lat") && params.has("lon") && Number.isFinite(lat) && Number.isFinite(lon)) {
+    return { lat, lon };
+  }
+  return null;
+}
+
+// majURLLieu recopie lieuActuel dans l'adresse (replaceState : changer de
+// lieu n'empile pas une entree d'historique, comme le jour ne le fait pas non
+// plus). Absent (lieu par defaut), les deux parametres sont retires.
+function majURLLieu() {
+  const url = new URL(window.location.href);
+  if (lieuActuel) {
+    url.searchParams.set("lat", lieuActuel.lat);
+    url.searchParams.set("lon", lieuActuel.lon);
+  } else {
+    url.searchParams.delete("lat");
+    url.searchParams.delete("lon");
+  }
+  window.history.replaceState(null, "", url);
+}
+
+// nomAffichableLieu applique §4 : un lieu geolocalise que la BAN ne sait pas
+// nommer (en mer, hors de France) ne recoit jamais un nom invente — la fiche
+// s'intitule "Votre position" et porte les coordonnees a 3 decimales.
+function nomAffichableLieu(lieu) {
+  if (lieu && lieu.nom) return lieu.nom;
+  if (lieu && Number.isFinite(lieu.latitude) && Number.isFinite(lieu.longitude)) {
+    return `Votre position (${lieu.latitude.toFixed(3)}, ${lieu.longitude.toFixed(3)})`;
+  }
+  return "ce lieu";
+}
+
+// majEnteteLieu met a jour le bouton d'en-tete et <title> (prp/05, section
+// 7) : "Le titre de la page et le nom sous l'en-tete suivent le lieu."
+function majEnteteLieu() {
+  const texte = document.getElementById("bouton-lieu-texte");
+  if (texte && lieuActuelNom) texte.textContent = lieuActuelNom;
+  if (lieuActuelNom) document.title = `estran — ${lieuActuelNom}`;
+}
+
+// appliquerLieu devient le lieu regarde : URL, en-tete, puis un nouveau
+// chargement des trois sections (tout()) avec les nouvelles coordonnees.
+function appliquerLieu(lieu) {
+  lieuActuel = { lat: lieu.latitude, lon: lieu.longitude };
+  lieuActuelNom = nomAffichableLieu(lieu);
+  lieuActuelAUnNom = Boolean(lieu && lieu.nom);
+  majEnteteLieu();
+  majURLLieu();
+  tout();
+}
+
+// --- Les lieux vus, dans localStorage (prp/05, section 5) ------------------
+//
+// Cle estran.lieux, 8 au maximum, le plus recemment choisi en tete, Le
+// Touquet-Paris-Plage TOUJOURS en dernier et jamais supprimable. Toute lecture
+// et toute ecriture sous try/catch : navigation privee, stockage bloque, quota
+// plein ne doivent jamais empecher la page de s'afficher normalement.
+const CLE_LIEUX_VUS = "estran.lieux";
+const MAX_LIEUX_VUS = 8;
+const LIEU_TOUQUET_DEFAUT = { nom: "Le Touquet-Paris-Plage", contexte: "", lat: LIEU_DEFAUT.lat, lon: LIEU_DEFAUT.lon };
+
+function memeLieu(a, b) {
+  return Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.001;
+}
+
+function lireLieuxVus() {
+  try {
+    const brut = localStorage.getItem(CLE_LIEUX_VUS);
+    const liste = brut ? JSON.parse(brut) : [];
+    return Array.isArray(liste) ? liste : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function enregistrerLieuVu(lieu) {
+  const entree = { nom: nomAffichableLieu(lieu), contexte: lieu.contexte || "", lat: lieu.latitude, lon: lieu.longitude };
+  try {
+    let liste = lireLieuxVus().filter((l) => !memeLieu(l, entree) && !memeLieu(l, LIEU_TOUQUET_DEFAUT));
+    liste.unshift(entree);
+    liste = liste.slice(0, MAX_LIEUX_VUS - 1);
+    liste.push(LIEU_TOUQUET_DEFAUT);
+    localStorage.setItem(CLE_LIEUX_VUS, JSON.stringify(liste));
+  } catch (e) {
+    // stockage indisponible (navigation privee, quota plein…) : la selection
+    // du lieu reste normale, elle ne survit simplement pas au rechargement.
+  }
+}
+
+function listeLieuxDefaut() {
+  const liste = lireLieuxVus();
+  return liste.length ? liste : [LIEU_TOUQUET_DEFAUT];
+}
+
+function estLieuActuel(lieu) {
+  const cible = lieuActuel || LIEU_DEFAUT;
+  return Math.abs(lieu.latitude - cible.lat) < 0.001 && Math.abs(lieu.longitude - cible.lon) < 0.001;
+}
+
+// --- Les trois lignes de capacite (prp/05, section 3) -----------------------
+//
+// Regle qu'il ne faut PAS assouplir : une capacite inconnue s'affiche « on
+// verra sur place », jamais comme absente. littoral:null la declenche pour
+// les DEUX premieres lignes (marée et etat de la mer) — l'appel marine n'a
+// pas abouti pour ce lieu, rien de fiable a affirmer dans un sens ou l'autre.
+function formatKm(v) {
+  if (v == null) return "";
+  return String(v).replace(".", ",");
+}
+
+// resoudreSansMaree n'est appele que lorsque lieu.maree est absent : il
+// interroge /api/maree?lat=&lon=, qui rend {configure,sansMaree,raison,
+// distanceKm,siteLePlusProche} sans jamais toucher le fournisseur payant tant
+// qu'aucun site n'est proche (lieu.go/siteMareeDuLieu, main.go/handleMaree).
+async function resoudreSansMaree(lat, lon) {
+  try {
+    return await chargerJSON(`/api/maree?lat=${lat}&lon=${lon}`);
+  } catch (e) {
+    return null;
+  }
+}
+
+// capaciteMaree — correction de fond (critique du 21 aout 2026, constat 1) :
+// la maree et le caractere littoral viennent de DEUX SOURCES distinctes — le
+// catalogue api-maree.fr d'un cote (lieu.go/CatalogueMaree), l'appel marin
+// d'Open-Meteo de l'autre (lieu.go/littoralPour) — cette fonction n'ecourte
+// donc plus JAMAIS sur `lieu.littoral === null` : elle interroge toujours le
+// catalogue tant que `lieu.maree` n'est pas deja connu, meme quand le marin
+// est muet. Avant ce correctif, un marin muet rendait "on verra sur place"
+// pour la maree alors que le catalogue, interroge separement, savait deja
+// repondre : l'ecran qui existe pour annoncer d'avance ce qu'on va perdre se
+// taisait, et l'ecran principal repondait du tac au tac une fois le lieu
+// choisi (mesure au navigateur, lieu de test "Zone-Test", 622 km de tout site
+// du catalogue).
+//
+// texte suit toujours la grammaire "<Sujet> — <etat>" (correctif P1 du 21
+// aout 2026, a ne pas rouvrir : le sujet reste visible, jamais reserve au
+// lecteur d'ecran). raison porte, quand elle existe, le detail variable
+// (site, distance) DEMOTE dans une sous-ligne plus discrete — mais toujours
+// a l'interieur du MEME jeton que son sujet (critique du 21 aout 2026, soir,
+// "trois jetons plutot que trois phrases") : jamais une ligne partagee entre
+// plusieurs sujets, ce qui romprait a nouveau l'attribution que P1 avait
+// corrigee.
+async function capaciteMaree(lieu) {
+  if (lieu.maree) {
+    return {
+      classe: "presente",
+      texte: "Marée — disponible",
+      raison: `${lieu.maree.nom}, à ${formatKm(lieu.maree.distance_km)} km`,
+    };
+  }
+  const info = await resoudreSansMaree(lieu.latitude, lieu.longitude);
+  if (!info || info.configure === false || !info.sansMaree) {
+    // Cle api-maree.fr non posee, ou appel reseau en echec : on ne SAIT pas
+    // s'il y a un site proche, ce n'est donc ni un oui ni un non.
+    return { classe: "inconnue", texte: "Marée — on verra sur place", raison: null };
+  }
+  if (info.raison === "catalogue-indisponible") {
+    return { classe: "inconnue", texte: "Marée — on ne sait pas pour l’instant", raison: null };
+  }
+  if (info.raison === "facade-non-couverte") {
+    return { classe: "absente", texte: "Pas de marée — la Méditerranée n’est pas couverte", raison: null };
+  }
+  // « côte » etait FAUX ici (critique du 21 aout 2026, constat 1 / "Ce qu'axe
+  // ne peut pas voir") : ce qui est a distanceKm, c'est le point de mesure de
+  // maree le plus proche du catalogue, pas la mer elle-meme — "côte à 54 km"
+  // sur une plage mediterraneenne affirmait que la mer etait loin, ce qui est
+  // faux.
+  return {
+    classe: "absente",
+    texte: "Pas de marée",
+    raison: `point de mesure le plus proche à ${formatKm(info.distanceKm)} km`,
+  };
+}
+
+function capaciteEtatMer(lieu) {
+  if (lieu.littoral === null) return { classe: "inconnue", texte: "État de la mer — on verra sur place", raison: null };
+  if (lieu.littoral) return { classe: "presente", texte: "État de la mer — houle et vagues", raison: null };
+  return { classe: "absente", texte: "Pas d’état de la mer", raison: null };
+}
+
+// La pluie a la minute n'a, dans les donnees dont dispose cet ecran, aucun
+// signal d'absence par lieu (prp/05, section 7 : « inchangees, partout ») :
+// toujours presente sur la fiche.
+function capacitePluie() {
+  return { classe: "presente", texte: "Pluie à la minute — l’heure qui vient", raison: null };
+}
+
+async function construireVueCapacites(lieu) {
+  return {
+    maree: await capaciteMaree(lieu),
+    etatMer: capaciteEtatMer(lieu),
+    pluie: capacitePluie(),
+  };
+}
+
+// jetonCapacite rend UN jeton compact (critique du 21 aout 2026, soir,
+// "trois jetons plutot que trois phrases" : la fiche passe de 5 lignes a 3,
+// 4 lieux visibles sans defiler au lieu de 2). Le sujet reste TOUJOURS
+// visible dans cap.texte (correctif P1 du meme jour, a ne pas rouvrir) ;
+// cap.raison, quand elle existe, porte le detail variable (site, distance)
+// dans une sous-ligne plus discrete — mais reste toujours DANS le meme
+// jeton que son sujet, jamais dans une ligne partagee entre plusieurs
+// sujets.
+function jetonCapacite(cap) {
+  const raison = cap.raison ? `<span class="capacite-raison">${esc(cap.raison)}</span>` : "";
+  return `<li class="capacite capacite--${cap.classe}">
+    <span class="capacite-puce" aria-hidden="true"></span>
+    <span class="capacite-corps">
+      <span class="capacite-etat">${esc(cap.texte)}</span>
+      ${raison}
+    </span>
+  </li>`;
+}
+
+// pastilleLittoral porte desormais un TROISIEME repere (critique du 21 aout
+// 2026, heuristique 1 : « un lieu dont la capacite est INCONNUE ne porte
+// aucune pastille, alors que ses deux voisins en portent une — l'absence de
+// repere est le seul signal, et elle ne se lit pas ») : littoral inconnu
+// (marin muet, lieu.go/resoudreLittoral) affiche « À VÉRIFIER » en
+// pointille, distinct de LITTORAL et INTERIEUR — jamais une pastille vide,
+// qui masquerait l'absence de signal, ni LITTORAL/INTERIEUR, qui
+// affirmerait un etat qu'on ne connait pas.
+function pastilleLittoral(lieu) {
+  if (lieu.littoral === true) return `<span class="pastille-littoral pastille-littoral--littoral">LITTORAL</span>`;
+  if (lieu.littoral === false) return `<span class="pastille-littoral pastille-littoral--interieur">INTÉRIEUR</span>`;
+  return `<span class="pastille-littoral pastille-littoral--inconnu">À VÉRIFIER</span>`;
+}
+
+function ficheLieuHTML(lieu, capacites, index, actif) {
+  return `
+    <button type="button" class="fiche-lieu${actif ? " fiche-lieu--actuelle" : ""}" data-index="${index}"${actif ? ' aria-current="true"' : ""}>
+      <div class="fiche-lieu-entete">
+        <span class="fiche-lieu-nom">${esc(nomAffichableLieu(lieu))}</span>
+        ${pastilleLittoral(lieu)}
+      </div>
+      <ul class="fiche-lieu-capacites">
+        ${jetonCapacite(capacites.maree)}
+        ${jetonCapacite(capacites.etatMer)}
+        ${jetonCapacite(capacites.pluie)}
+      </ul>
+    </button>`;
+}
+
+// --- L'ecran de choix : ouverture, fermeture, recherche, geolocalisation ---
+
+let dernierResultatsLieux = [];
+let jetonRequeteLieu = 0;
+let debounceRechercheLieu = null;
+
+// jetonRequeteLieu protege contre les reponses qui arrivent dans le desordre
+// (la liste par defaut, plus lente — plusieurs /api/lieu — peut repondre
+// APRES une recherche lancee ensuite) : UN SEUL increment par cycle, dans
+// l'appelant (afficherListeParDefaut / rechercherLieux), jamais dans
+// rendreListeLieux — un second increment ici invaliderait le jeton que
+// l'appelant vient de capturer et ferait perdre la course a la bonne reponse
+// aussi souvent qu'a la mauvaise (constate au navigateur le 21 aout 2026).
+async function rendreListeLieux(lieux, jeton) {
+  const conteneur = document.getElementById("dialogue-lieu-liste");
+  if (!conteneur) return;
+  if (!lieux.length) {
+    if (jeton !== jetonRequeteLieu) return;
+    conteneur.innerHTML = `<p class="etat-attente">Aucune commune trouvée.</p>`;
+    dernierResultatsLieux = [];
+    return;
+  }
+  const capacites = await Promise.all(lieux.map((l) => construireVueCapacites(l)));
+  if (jeton !== jetonRequeteLieu) return; // une recherche plus recente a pris le relais
+  dernierResultatsLieux = lieux;
+  conteneur.innerHTML = lieux
+    .map((lieu, i) => ficheLieuHTML(lieu, capacites[i], i, estLieuActuel(lieu)))
+    .join("");
+}
+
+async function afficherListeParDefaut() {
+  const conteneur = document.getElementById("dialogue-lieu-liste");
+  if (!conteneur) return;
+  conteneur.innerHTML = `<p class="etat-attente">chargement…</p>`;
+  const jeton = ++jetonRequeteLieu;
+  const vus = listeLieuxDefaut();
+  const lieux = await Promise.all(
+    vus.map(async (lv) => {
+      try {
+        const lieu = await chargerJSON(`/api/lieu?lat=${lv.lat}&lon=${lv.lon}`);
+        if (!lieu.nom) lieu.nom = lv.nom;
+        return lieu;
+      } catch (e) {
+        return { nom: lv.nom, contexte: lv.contexte || "", latitude: lv.lat, longitude: lv.lon, littoral: null, maree: null };
+      }
+    })
+  );
+  if (jeton !== jetonRequeteLieu) return;
+  await rendreListeLieux(lieux, jeton);
+}
+
+async function rechercherLieux(q) {
+  const conteneur = document.getElementById("dialogue-lieu-liste");
+  if (!conteneur) return;
+  conteneur.innerHTML = `<p class="etat-attente">recherche…</p>`;
+  const jeton = ++jetonRequeteLieu;
+  let reponse;
+  try {
+    reponse = await chargerJSON(`/api/lieux?q=${encodeURIComponent(q)}`);
+  } catch (e) {
+    if (jeton !== jetonRequeteLieu) return;
+    conteneur.innerHTML = `<p class="etat-attente">Recherche indisponible. Réessayez.</p>`;
+    return;
+  }
+  if (jeton !== jetonRequeteLieu) return;
+  if (reponse.erreur) {
+    conteneur.innerHTML = `<p class="etat-attente">${esc(reponse.erreur)}</p>`;
+    return;
+  }
+  await rendreListeLieux(reponse.lieux || [], jeton);
+}
+
+function choisirLieu(lieu) {
+  enregistrerLieuVu(lieu);
+  appliquerLieu(lieu);
+  fermerDialogueLieu();
+}
+
+function ouvrirDialogueLieu() {
+  const dialogue = document.getElementById("dialogue-lieu");
+  if (!dialogue || dialogue.open) return;
+  document.body.classList.add("lieu-dialogue-ouvert");
+  dialogue.showModal();
+  const champ = document.getElementById("lieu-recherche");
+  const etat = document.getElementById("lieu-geoloc-etat");
+  if (champ) {
+    champ.value = "";
+    champ.focus();
+  }
+  if (etat) etat.textContent = "";
+  afficherListeParDefaut();
+}
+
+function fermerDialogueLieu() {
+  const dialogue = document.getElementById("dialogue-lieu");
+  if (dialogue && dialogue.open) dialogue.close();
+}
+
+// MESSAGE_POSITION_REFUSEE couvre a la fois "refuse" et "indisponible" (§4) :
+// deux causes, la meme phrase, la meme issue — insister ne sert qu'a faire
+// croire a une panne alors que le navigateur ne redemandera jamais.
+const MESSAGE_POSITION_REFUSEE = "Position refusée. Cherchez la commune ci-dessus.";
+
+// demanderPosition n'est appele QUE par le clic sur "Utiliser ma position" —
+// jamais a l'ouverture de la page (prp/05, section 4).
+function demanderPosition() {
+  const etat = document.getElementById("lieu-geoloc-etat");
+  if (etat) etat.textContent = "";
+  if (!("geolocation" in navigator)) {
+    if (etat) etat.textContent = MESSAGE_POSITION_REFUSEE;
+    return;
+  }
+  if (etat) etat.textContent = "Recherche de votre position…";
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const lieu = await chargerJSON(`/api/lieu?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+        if (etat) etat.textContent = "";
+        // "abouti" (§4) : la position devient directement le lieu regarde —
+        // demander un second geste apres avoir deja demande la position
+        // serait une friction que ce bouton existe justement pour eviter.
+        choisirLieu(lieu);
+      } catch (e) {
+        if (etat) etat.textContent = MESSAGE_POSITION_REFUSEE;
+      }
+    },
+    () => {
+      if (etat) etat.textContent = MESSAGE_POSITION_REFUSEE;
+    },
+    { timeout: 10000 }
+  );
+}
+
+function initDialogueLieu() {
+  const bouton = document.getElementById("bouton-lieu");
+  const dialogue = document.getElementById("dialogue-lieu");
+  const fermer = document.getElementById("dialogue-lieu-fermer");
+  const champ = document.getElementById("lieu-recherche");
+  const geoloc = document.getElementById("lieu-geoloc");
+  const liste = document.getElementById("dialogue-lieu-liste");
+  if (!bouton || !dialogue) return;
+
+  bouton.addEventListener("click", ouvrirDialogueLieu);
+  if (fermer) fermer.addEventListener("click", fermerDialogueLieu);
+  if (geoloc) geoloc.addEventListener("click", demanderPosition);
+
+  // Clic hors du cadre : sur un <dialog> ouvert par showModal(), un clic sur
+  // le fond (::backdrop) remonte jusqu'a l'element <dialog> lui-meme — un
+  // clic a l'INTERIEUR du cadre remonte, lui, jusqu'a un descendant, jamais
+  // jusqu'a e.target === dialogue.
+  dialogue.addEventListener("click", (e) => {
+    if (e.target === dialogue) fermerDialogueLieu();
+  });
+
+  // 'close' se declenche quel que soit le moyen de fermeture (Echap — geree
+  // nativement par <dialog> —, clic hors cadre, bouton Fermer, ou selection
+  // d'un lieu) : un seul endroit pour rendre le focus au bouton qui a ouvert
+  // (prp/05, section 2).
+  dialogue.addEventListener("close", () => {
+    document.body.classList.remove("lieu-dialogue-ouvert");
+    bouton.focus();
+  });
+
+  if (champ) {
+    champ.addEventListener("input", () => {
+      clearTimeout(debounceRechercheLieu);
+      const q = champ.value.trim();
+      if (!q) {
+        afficherListeParDefaut();
+        return;
+      }
+      debounceRechercheLieu = setTimeout(() => rechercherLieux(q), 300);
+    });
+  }
+
+  if (liste) {
+    liste.addEventListener("click", (e) => {
+      const fiche = e.target.closest(".fiche-lieu");
+      if (!fiche) return;
+      const lieu = dernierResultatsLieux[Number(fiche.dataset.index)];
+      if (lieu) choisirLieu(lieu);
+    });
+  }
+}
+
 function urlAvecJour(base) {
-  return decalageJour === 0 ? base : `${base}?date=${dateISO(decalageJour)}`;
+  const params = new URLSearchParams();
+  if (decalageJour !== 0) params.set("date", dateISO(decalageJour));
+  if (lieuActuel) {
+    params.set("lat", lieuActuel.lat);
+    params.set("lon", lieuActuel.lon);
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 const ICONES = {
@@ -240,17 +697,20 @@ function roseDesVents(deg) {
   return ROSE_DES_VENTS[index];
 }
 
+// horlogeLocale ne porte plus que l'HEURE (critique du 21 aout 2026, constat
+// 2 : « en-tete 158 px, 37 % de la hauteur visible avant la maree ») — la
+// date complete quitte l'en-tete, prix accepte par l'utilisateur le 21 aout
+// 2026 : la date du jour regarde reste ecrite une seule fois, dans le titre
+// de la section horaire (rendrePrevisions/#titre-previsions), la ou la
+// decision du 21 aout matin l'avait deja mise. aria-label porte la phrase
+// complete pour qui n'a pas de contexte visuel autour des seuls chiffres.
 function horlogeLocale() {
   const el = document.getElementById("horloge");
   function tick() {
     const maintenant = new Date();
-    el.textContent = maintenant.toLocaleString("fr-FR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const heure = maintenant.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    el.textContent = heure;
+    el.setAttribute("aria-label", `Heure actuelle : ${heure}`);
   }
   tick();
   setInterval(tick, 30 * 1000);
@@ -903,10 +1363,65 @@ function actualiserTendance() {
 let prochaineBasculeISO = null;
 let prochaineBasculeType = null;
 
+// absenceMareeTexte met en mots ReponseSansMaree (lieu.go/main.go, raisons
+// cote-eloignee et facade-non-couverte) : une absence LEGITIME, jamais une
+// panne — catalogue-indisponible, la vraie panne, prend carteIndisponible
+// plus bas et ne passe jamais par cette fonction.
+// ouEstCe rend le complement de lieu tel qu'il s'insere dans une PHRASE.
+// « Votre position (50.900, 1.100) » est un TITRE de fiche (§4) et n'en est
+// pas un : injecte dans le gabarit d'absence, il donnait la phrase mesuree au
+// navigateur le 21 aout 2026 « Pas de marée à Votre position (50.900, 1.100)
+// — la côte la plus proche… », majuscule en plein milieu et coordonnees entre
+// parentheses au beau milieu d'un texte. Un lieu que la BAN ne sait pas
+// nommer se dit « ici » — le seul mot juste quand on vient justement de
+// donner sa position.
+function ouEstCe() {
+  return lieuActuelAUnNom && lieuActuelNom ? `à ${lieuActuelNom}` : "ici";
+}
+
+// « côte » etait FAUX ici (critique du 21 aout 2026, constat 1 / "Ce qu'axe
+// ne peut pas voir") : ce que distanceKm mesure, c'est l'ecart au point de
+// mesure de maree le plus proche du catalogue, pas a la mer elle-meme — sur
+// une plage mediterraneenne, "la côte est loin" est une phrase fausse.
+function absenceMareeTexte(m) {
+  if (m.raison === "facade-non-couverte") {
+    return `Pas de marée ${ouEstCe()} — le point de mesure le plus proche du catalogue (${m.siteLePlusProche || "?"}, à ${formatKm(m.distanceKm)} km) n’est pas couvert par ce fournisseur.`;
+  }
+  return `Pas de marée ${ouEstCe()} — le point de mesure de marée le plus proche est à ${formatKm(m.distanceKm)} km.`;
+}
+
+// afficherSectionMaree bascule la section MAREE entiere (titre + carte), pas
+// seulement son contenu (prp/05-ecran-de-choix.md, section 7 ; critique du
+// 21 aout 2026, "Montre, pas tranche" § 3) : sur un lieu SANS maree, elle
+// disparait de la tete d'ecran plutot que d'y garder sa place — 280 px
+// mesures du titre a la fin du cadre pointille pour une absence, sur un
+// ecran de telephone deja court. afficherAbsenceEntete porte alors le meme
+// message a sa place, sous le nom du lieu dans l'en-tete : l'absence reste
+// dite, jamais muette, elle change seulement d'endroit.
+function afficherSectionMaree(visible) {
+  const section = document.getElementById("jauge-section");
+  if (section) section.hidden = !visible;
+}
+
+function afficherAbsenceEntete(texte) {
+  const ligne = document.getElementById("entete-absence-maree");
+  if (!ligne) return;
+  if (texte) {
+    ligne.textContent = texte;
+    ligne.hidden = false;
+  } else {
+    ligne.textContent = "";
+    ligne.hidden = true;
+  }
+}
+
 function rendreJauge(m) {
   const carte = document.getElementById("jauge-carte");
+  carte.classList.remove("jauge-carte--absence");
 
   if (!m.configure) {
+    afficherSectionMaree(true);
+    afficherAbsenceEntete(null);
     carteIndisponible(
       carte,
       "Configuration requise : la clé api-maree.fr (variable API_MAREE_KEY) n'est pas encore posée côté serveur. La jauge de marée s'activera dès qu'elle le sera."
@@ -917,7 +1432,37 @@ function rendreJauge(m) {
     return;
   }
 
+  // prp/05-ecran-de-choix.md, section 7 : sur un lieu sans site de maree a
+  // proximite, l'absence est LEGITIME (cote-eloignee, facade-non-couverte) —
+  // la section quitte la tete d'ecran, jamais le gabarit de panne.
+  // catalogue-indisponible EST une panne (le catalogue lui-meme n'a pas pu
+  // etre charge) : la section reste visible, avec le gabarit d'indisponibilite
+  // habituel — « absence legitime et panne de source ne se confondent
+  // jamais » (contrainte de cet ecran).
+  if (m.sansMaree) {
+    prochaineBasculeISO = null;
+    joursMareeActuels = null;
+    actualiserTendance();
+    if (m.raison === "catalogue-indisponible") {
+      afficherSectionMaree(true);
+      afficherAbsenceEntete(null);
+      carteIndisponible(
+        carte,
+        "Marée indisponible : le catalogue des sites api-maree.fr n’a pas pu être chargé. Nouvelle tentative automatique dans 5 minutes."
+      );
+    } else {
+      afficherSectionMaree(false);
+      afficherAbsenceEntete(absenceMareeTexte(m));
+      retireCarteIndisponible(carte);
+      carte.classList.remove("jauge-carte--absence");
+      carte.innerHTML = "";
+    }
+    return;
+  }
+
   if (m.erreur) {
+    afficherSectionMaree(true);
+    afficherAbsenceEntete(null);
     carteIndisponible(carte, m.erreur);
     prochaineBasculeISO = null;
     joursMareeActuels = null;
@@ -925,6 +1470,8 @@ function rendreJauge(m) {
     return;
   }
 
+  afficherSectionMaree(true);
+  afficherAbsenceEntete(null);
   joursMareeActuels = m.jours || null;
   actualiserTendance();
   retireCarteIndisponible(carte);
@@ -1058,6 +1605,10 @@ async function tout() {
   try {
     rendreJauge(await chargerJSON(urlAvecJour("/api/maree")));
   } catch (e) {
+    // Panne de estran lui-meme (jamais une absence legitime) : la section
+    // reste visible, avec le gabarit d'indisponibilite habituel.
+    afficherSectionMaree(true);
+    afficherAbsenceEntete(null);
     carteIndisponible(
       document.getElementById("jauge-carte"),
       "Marée indisponible : estran n’a pas répondu. Nouvelle tentative automatique dans 5 minutes."
@@ -1118,8 +1669,28 @@ function initNavigation() {
   majNavigation();
 }
 
+// Lieu regarde lu depuis l'URL au chargement (prp/05, section 5) : absent, le
+// bouton d'en-tete garde son texte d'ouverture ("Le Touquet-Paris-Plage ·
+// Étaples", index.html) jusqu'a ce qu'un lieu soit choisi — jamais un nom
+// resolu en arriere-plan qui remplacerait ce contenu avant que l'utilisateur
+// n'ait rien demande.
+lieuActuel = lireLieuDepuisURL();
+if (lieuActuel) {
+  chargerJSON(`/api/lieu?lat=${lieuActuel.lat}&lon=${lieuActuel.lon}`)
+    .then((lieu) => {
+      lieuActuelNom = nomAffichableLieu(lieu);
+      lieuActuelAUnNom = Boolean(lieu && lieu.nom);
+      majEnteteLieu();
+    })
+    .catch(() => {
+      // Le nom reste inconnu ; les trois sections fonctionnent deja avec les
+      // seules coordonnees (tout(), plus bas), qui ne dependent pas du nom.
+    });
+}
+
 horlogeLocale();
 initNavigation();
+initDialogueLieu();
 tout();
 setInterval(tout, RAFRAICHISSEMENT_MS);
 setInterval(majCompteARebours, 30 * 1000);

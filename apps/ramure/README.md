@@ -10,8 +10,13 @@ Le produit est spécifié par [`PRODUCT.md`](PRODUCT.md). Les exigences y sont
 numérotées `F-xx` et `N-xx`, et le code les cite par ces numéros là où il les
 applique. Ce fichier-ci décrit la réalisation.
 
-> **Cette version sera retirée de la stack à la mise en ligne de `ramure-v2`** —
-> décision du commanditaire du 19 août 2026, écrite au §19 du PRD de la v2
+> **Cette version est retirée de la stack depuis le 20 août 2026**, à la mise en
+> ligne de [`ramure-v2`](../ramure-v2/README.md). Elle porte `enabled: false` :
+> son code et ses documents restent dans le dépôt, elle n'entre plus dans
+> `compose.yaml` et n'a plus d'URL. Ce qui suit décrit ce qu'elle **était**, et
+> se lit comme l'étalon de la v2, pas comme une application en service.
+>
+> Décision du commanditaire du 19 août 2026, écrite au §19 du PRD de la v2
 > ([`../ramure-v2/PRODUCT.md`](../ramure-v2/PRODUCT.md)), et exécutée par la
 > troisième tâche du PRP 09 de la série v2. Deux raisons : les deux applications
 > portaient le même document produit **mot pour mot**, ce qui fait mentir l'un
@@ -27,7 +32,7 @@ applique. Ce fichier-ci décrit la réalisation.
 
 | | |
 |---|---|
-| URL | `ramure.apps.billbob.ovh` |
+| URL | aucune — retirée de la stack le 20 août 2026 ; elle servait sur `ramure.apps.billbob.ovh` |
 | Authentification | `private` — liste blanche du serveur |
 | Lots couverts | MVP + V1, plus le palmarès (F-27) et la reprise de lignée (F-18) du lot V2 |
 | Technologie | Go 1.24, sans aucune dépendance externe · SVG et JavaScript sans étape de construction |

@@ -10,11 +10,13 @@
 #   ./init.sh --list          etat des applications de la fabrique
 #   ./init.sh --dry-run       n'ecrit rien, affiche le diff de chaque artefact
 #
-# Cinq autres metiers vivent dans leur propre script, chacun son sujet :
+# Sept autres metiers vivent dans leur propre script, chacun son sujet :
 #
 #   ./scripts/branche.sh <app>/<sujet>   cree la branche de travail, et son entree de journal
 #   ./scripts/pret.sh                    l'etape en cours est-elle committable ?
+#   ./scripts/revue.sh [<app>…]          la revue outillee d'une app : les cinq axes et leurs seuils
 #   ./scripts/cout.sh                    releve les jetons consommes et leur cout, dans le journal
+#   ./scripts/jetons.sh                  ce que la fabrique entiere a consomme, lu dans journal/
 #   ./scripts/fusionnees.sh              quelles branches distantes peuvent partir
 #   ./scripts/prod.sh                    l'etat, les journaux et les fichiers de la production
 #
@@ -2643,11 +2645,10 @@ check_applications() {
 # sans colonne « Test » n'est donc pas juge ; c'est memory/produit.md qui
 # demande de l'ecrire, pas ce controle qui l'impose.
 check_traces_risques() {
-  local n f ligne cellule nom dans_table cites=0 manquants=0 tests
+  local n f ligne cellule nom motif dans_table cites=0 manquants=0
   for d in apps/*/; do
     [ -d "$d" ] || continue
     n=${d#apps/}; n=${n%/}
-    tests=$(ls "$d"*_test.go "$d"tests/*.test.js 2>/dev/null || true)
     for f in "$d"PRODUCT.md "$d"prp/*.md; do
       [ -f "$f" ] || continue
       dans_table=0
@@ -2668,7 +2669,44 @@ check_traces_risques() {
         case "$cellule" in '`'*'`') ;; *) continue ;; esac
         nom=${cellule#\`}; nom=${nom%\`}
         cites=$((cites+1))
-        if [ -z "$tests" ] || ! grep -qF -- "$nom" $tests 2>/dev/null; then
+        # Le nom devient un motif : une cellule contenant « . » ou « * » ferait
+        # sinon correspondre n'importe quoi, et un test absent passerait pour
+        # present — le sens ou l'erreur ne se voit pas.
+        motif=$(printf '%s' "$nom" | sed 's/[][\.^$*+?(){}|\\]/\\&/g')
+        # RECURSIF. La version d'origine listait « apps/NOM/*_test.go », donc la
+        # racine de l'app SEULEMENT : les tests d'une app Go vivent sous
+        # internal/, et les sept tests de ramure-v2 etaient declares introuvables
+        # alors que six existaient. Un garde-fou qui crie a tort apprend a etre
+        # ignore, et le septieme — reellement absent — se perdait dans le bruit.
+        #
+        # La forme compte autant que l'endroit : « grep -F » sur le nom nu
+        # trouvait aussi une mention en COMMENTAIRE, si bien qu'un test cite
+        # dans le PRD et seulement evoque dans le code passait pour ecrit.
+        #
+        # Exiger « un nom entre guillemets » ne suffit pas, et le relecteur l'a
+        # montre : c'est la forme meme sous laquelle un test s'ecrit, donc la
+        # forme sous laquelle il est COMMENTE quand on le desactive.
+        # « // test('X', ...) » repondait present. Un test mis de cote pendant
+        # que le PRD continue de le citer serait reste vert — exactement le
+        # defaut qu'on croyait fermer, rouvert par sa porte principale.
+        #
+        # Deux sessions ont corrige ce defaut en parallele le 21 aout. main a
+        # rendu la recherche recursive par « find » en couvrant cinq extensions ;
+        # cette branche l'a rendue recursive par « grep -r » ET a resserre la
+        # FORME acceptee. La resolution garde les cinq extensions de main et la
+        # forme d'ici : main cherchait encore par « grep -F », qui laisse passer
+        # un test commente.
+        #
+        # D'ou les deux exigences cumulees : un CONTEXTE D'APPEL avant le
+        # guillemet — nul ne commente « test( » par accident — et « ^[^/]* »,
+        # qui interdit tout « / » avant lui et ecarte donc les lignes
+        # commentees. Conservateur dans le bon sens : une ligne ecartee a tort
+        # produit un avertissement, jamais un silence.
+        if ! grep -rqE "^func $motif\(|^[^/]*(test|it|describe|t\.Run) *\( *['\"\`]$motif['\"\`]" "$d" \
+             --include='*_test.go' \
+             --include='*.test.js' --include='*.test.ts' \
+             --include='*.spec.js' --include='*.spec.ts' \
+             --exclude-dir=node_modules 2>/dev/null; then
           warn "[$n] $f cite le test « $nom » — introuvable dans les tests de l'app"
           manquants=$((manquants+1))
         fi
@@ -2767,6 +2805,30 @@ check_fabrique() {
     done
   done
   [ "$morts" -eq 0 ] && ok "aucun lien mort entre les documents"
+
+  # Le README racine annonce les applications de la fabrique, et c'est le
+  # premier document que lit un humain. Le 21 aout 2026 il en decrivait SIX sur
+  # dix : estran, pilabelle, ramure-v2 et renaissance-gym avaient ete livrees
+  # sans jamais y entrer, et ramure retiree sans en sortir. Aucun controle ne le
+  # voyait — les liens morts ne regardent que les cibles en .md, jamais un lien
+  # vers un repertoire. Avertissement et non KO : un README incomplet ne casse
+  # aucun deploiement, et bloquer la CI de tout le monde sur une ligne de
+  # tableau serait hors de proportion. La ligne manquante coute dix secondes.
+  abs=0; fant=0
+  if [ ! -f README.md ]; then
+    warn "README.md absent — la table des applications ne peut pas etre verifiee"
+  else
+    for d in apps/*/; do
+      [ -d "$d" ] || continue
+      n=${d#apps/}; n=${n%/}
+      grep -qF "(apps/$n/)" README.md || { warn "README.md ne cite pas l'app '$n' — sa table des applications a derive"; abs=$((abs+1)); }
+    done
+    for cible in $(grep -oE '\(apps/[a-z0-9-]+/\)' README.md | sed -E 's/^\((.*)\)$/\1/' | sort -u); do
+      [ -d "$cible" ] || { warn "README.md cite '$cible', qui n'existe plus sous apps/"; fant=$((fant+1)); }
+    done
+    [ "$abs" -eq 0 ] && [ "$fant" -eq 0 ] \
+      && ok "README.md cite exactement les ${#APPS[@]} app(s) de apps/"
+  fi
 
   # Deux sections de meme titre dans un meme document sont deux sources de
   # verite sur le meme sujet : le lecteur tombe sur l'une et ignore l'autre,
@@ -2998,6 +3060,30 @@ check_outillage() {
   # cinq fichiers, que le registre des agents ne relit qu'au demarrage d'une
   # session — un agent absent ne se remarquait qu'a la session suivante.
   proto=0
+
+  # Moteur et plafond se controlent sur le GLOB, jamais sur la liste de noms
+  # ci-dessous : une sixieme fiche deposee dans .claude/agents/ echapperait a une
+  # liste en dur, et c'est exactement la panne que ce controle existe pour fermer.
+  #
+  # Un agent sans 'model:' ne tombe pas en panne : il prend le moteur le plus CHER
+  # par defaut, silencieusement. L'analyste et l'esthete ont tenu des semaines
+  # ainsi, et le banc du 2026-08-21 a chiffre l'esthete a 17,06 $ la passe sans que
+  # ce soit la decision de qui que ce soit. Le defaut coute : il doit etre ecrit.
+  #
+  # Et un moteur declare ne dit rien de ce que l'agent AVALE. Le meme banc a montre
+  # que le prix se fait la : a moteur egal, 141 gestes de navigateur coutent seize
+  # fois une relecture. Le plafond vit dans la consigne pour que l'AGENT la lise,
+  # pas seulement son appelant.
+  for f in .claude/agents/*.md; do
+    [ -f "$f" ] || continue
+    grep -qE '^model: (haiku|sonnet|opus|fable)$' "$f" \
+      || { bad "$f : pas de 'model:' declare — l'agent prendrait le moteur le plus cher par defaut"
+           proto=$((proto+1)); }
+    grep -q '^## Plafond' "$f" \
+      || { bad "$f : section '## Plafond' absente — rien ne borne ce que l'agent avale"
+           proto=$((proto+1)); }
+  done
+
   for spec in "analyste:distribution retrospectif recurrence plan arbitrage" \
               "artisan:fichiers tests bloque anomalie" \
               "esthete:ecrans corrige montre critique" \
@@ -3022,7 +3108,7 @@ check_outillage() {
         || { bad "$f : le champ '$champ' manque a son rendu"; proto=$((proto+1)); }
     done
   done
-  [ "$proto" -eq 0 ] && ok "cinq agents : section '## Rendu' et champs obligatoires"
+  [ "$proto" -eq 0 ] && ok "cinq agents : 'model:', '## Plafond', '## Rendu' et ses champs"
 
   # Les scripts generes le sont par substitution de fragments : une erreur du
   # generateur produit un fichier plausible mais inanalysable, qui echouerait

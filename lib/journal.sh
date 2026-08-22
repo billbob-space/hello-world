@@ -60,19 +60,71 @@ JOURNAL_PERIMETRE_VIDE='<apps touchees, ou fabrique>'   # le gabarit, tel quel
 
 journal_slug() { printf '%s' "${1//\//-}"; }
 
-journal_entree() {  # journal_entree <branche> — le chemin de l'entree, ou vide
-  local m
-  m=$(ls "$JOURNAL_DIR"/*-"$(journal_slug "$1")".md 2>/dev/null | head -1)
-  printf '%s' "$m"
+# Un nom de branche peut porter PLUSIEURS travaux successifs, et c'est le
+# harnais cloud qui l'impose : il reassigne le meme nom `claude/<sujet>` au sujet
+# suivant des que la pull request precedente est fusionnee. L'entree etant
+# indexee par le nom, le second travail heritait de l'entree du premier —
+# `journal_ouvre` la declarait « existante », `pret.sh` la trouvait remplie,
+# et le second travail n'avait aucune entree, silencieusement, sous le perimetre
+# du premier. Trouve le 21 aout 2026, sur la branche qui suivait la PR #168.
+#
+# D'ou un RANG : `<date>-<slug>.md` est le rang 1, `<date>-<slug>--2.md` le
+# rang 2, et ainsi de suite. Le suffixe est un DOUBLE tiret parce qu'un slug se
+# termine parfois par un chiffre — `...-v2` — et qu'un simple tiret rendrait le
+# decoupage ambigu.
+journal_rang() {  # journal_rang <fichier> <slug> — 1 sans suffixe, n avec
+  local n="${1##*-"$2"}"
+  n="${n#--}"; n="${n%.md}"
+  case "$n" in ''|*[!0-9]*) printf 1 ;; *) printf '%s' "$n" ;; esac
 }
 
-journal_ouvre() {  # journal_ouvre <branche> — cree l'entree si elle n'existe pas
-  local br="$1" f
+journal_entree() {  # journal_entree <branche> — l'entree la PLUS RECENTE, ou vide
+  local slug m r dernier="" rang=0
+  slug=$(journal_slug "$1")
+  # Le tri lexicographique ne repond pas : « --2.md » se classe AVANT « .md »
+  # (le tiret precede le point), donc un `sort | tail -1` rendrait le rang 1.
+  # Le rang se compare donc en nombre, jamais en texte.
+  for m in "$JOURNAL_DIR"/*-"$slug".md "$JOURNAL_DIR"/*-"$slug"--[0-9]*.md; do
+    [ -e "$m" ] || continue
+    r=$(journal_rang "$m" "$slug")
+    [ "$r" -gt "$rang" ] && { rang=$r; dernier=$m; }
+  done
+  printf '%s' "$dernier"
+}
+
+# journal_fini <fichier> <base> — l'entree appartient-elle a un travail DEJA
+# FUSIONNE ? Le critere est sa presence dans l'historique de la base : une entree
+# qui vit sur `main` decrit une branche terminee, quel que soit le nom que le
+# harnais reattribue ensuite. Sans reference distante joignable on repond « non »
+# — reutiliser une entree est un moindre mal que d'en ouvrir une a chaque appel.
+journal_fini() {  # journal_fini <fichier> <base>
+  local f="$1" base="${2:-main}"
+  git rev-parse --verify --quiet "origin/$base" >/dev/null 2>&1 || return 1
+  git cat-file -e "origin/$base:$f" 2>/dev/null
+}
+
+journal_ouvre() {  # journal_ouvre <branche> [base] — cree l'entree si besoin
+  local br="$1" base="${2:-main}" f slug rang suffixe
+  slug=$(journal_slug "$br")
   f=$(journal_entree "$br")
-  [ -n "$f" ] && { ok "journal : entree existante ($f)"; return 0; }
+  if [ -n "$f" ] && ! journal_fini "$f" "$base"; then
+    ok "journal : entree existante ($f)"; return 0
+  fi
 
   mkdir -p "$JOURNAL_DIR"
-  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$(journal_slug "$br").md"
+  rang=1
+  if [ -n "$f" ]; then
+    rang=$(( $(journal_rang "$f" "$slug") + 1 ))
+    warn "journal : $f decrit un travail deja fusionne — nouvelle entree pour ce nom de branche"
+  fi
+  # Le suffixe se calcule AVANT l'affectation, et par un if. Ecrit en
+  # « $([ "$rang" -gt 1 ] && printf ... ) » dans l'affectation, il rendait a
+  # celle-ci le code de sortie du test : faux au rang 1 — donc a chaque premiere
+  # entree d'un nom de branche — l'affectation sortait non nulle et set -e tuait
+  # branche.sh juste avant de creer le fichier. Le cas frequent etait le seul casse.
+  suffixe=""
+  if [ "$rang" -gt 1 ]; then suffixe="--$rang"; fi
+  f="$JOURNAL_DIR/$(date -u +%Y-%m-%d)-$slug$suffixe.md"
   render __BRANCHE__ "$br" __DATE__ "$(date -u +%Y-%m-%d)" __MARQUEUR__ "$JOURNAL_MARQUEUR" \
          __PERIMETRE__ "$JOURNAL_PERIMETRE_VIDE" \
     > "$f" <<'MD'

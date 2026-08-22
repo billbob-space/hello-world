@@ -269,6 +269,85 @@ verdict() {  # verdict <nom> <doublure : vert|rouge> <motif attendu>
 verdict "contrat vert : pret.sh l'annonce" vert "contrat respecte"
 verdict "contrat rouge : pret.sh le dit et cite le KO" rouge "doublure"
 
+# --- l'entree de journal d'un nom de branche reutilise ----------------------------
+#
+# Le harnais cloud reassigne le meme nom `claude/<sujet>` au travail suivant des
+# que la pull request precedente est fusionnee. L'entree etant indexee par le NOM
+# de la branche, le second travail heritait de celle du premier : `journal_ouvre`
+# la declarait « existante », `pret.sh` la trouvait remplie — et le second
+# travail n'avait aucune entree, silencieusement, sous le perimetre du premier.
+#
+# La distinction se fait sur l'HISTORIQUE : une entree presente sur la base
+# decrit une branche terminee. Le bac de ce fichier pose deja
+# `refs/remotes/origin/main`, ce qui rend le cas exercable ici.
+printf '\n-- le journal d un nom de branche reutilise\n'
+
+# <motif attendu> est un GLOB, pas un chemin : l'entree neuve porte la date du
+# JOUR — c'est un travail neuf — et figer cette date rendrait le cas rouge a
+# minuit sans qu'aucun code n'ait bouge.
+# <fusionnee> vaut « aucune » quand le bac ne porte PAS d'entree : c'est la
+# premiere entree d'un nom de branche, le cas frequent — et le seul qui manquait.
+journal_cas() {  # journal_cas <nom> <fusionnee: oui|non|aucune> <glob attendu>
+  local nom="$1" fusionnee="$2" attendu="$3" d f sortie trouve code=0
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  f="journal/2026-01-01-claude-test-pret.md"
+  [ "$fusionnee" = aucune ] || ( cd "$d" && mkdir -p journal && cat > "$f" <<'ENTREE'
+# 2026-01-01 — claude/test-pret
+
+Branche : `claude/test-pret`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+ENTREE
+  )
+  # « fusionnee » veut dire : l'entree vit sur la base. On la committe sur main
+  # puis on revient sur la branche de travail — c'est exactement l'etat que
+  # laisse une pull request fusionnee dont le harnais reassigne le nom.
+  if [ "$fusionnee" = oui ]; then
+    git -C "$d" checkout -q main
+    git -C "$d" add -A
+    git -C "$d" -c user.email=test@local -c user.name=test commit -qm journal
+    git -C "$d" update-ref refs/remotes/origin/main main
+    git -C "$d" checkout -q "$BRANCHE"
+    ( cd "$d" && git checkout -q main -- "$f" )
+  fi
+  # SOUS set -e, et le code de sortie compte autant que le chemin rendu : une
+  # fonction qui rend le bon chemin puis meurt laisserait les trois cas verts.
+  # C'est exactement l'angle mort qui a laisse vivre un jour entier un
+  # journal_ouvre tue par set -e avant de creer le fichier. Le guard « || » est
+  # obligatoire — ce fichier tourne en set -euo pipefail, et une affectation nue
+  # emporterait la suite au lieu de rapporter l'echec.
+  sortie=$( cd "$d" && bash -c 'set -e; . lib/socle.sh; . lib/journal.sh; journal_ouvre claude/test-pret main' 2>&1 ) || code=$?
+  trouve=$( cd "$d" && ls $attendu 2>/dev/null | head -1 )
+  if [ "$code" != 0 ]; then
+    echec "$nom" "journal_ouvre sort en $code : $(printf '%s' "$sortie" | tr -d '\033' | tr '\n' ' ')"
+  elif [ -n "$trouve" ] && grep -qF "$trouve" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "attendu $attendu — obtenu : $(printf '%s' "$sortie" | tr -d '\033' | tr '\n' ' ')"
+  fi
+}
+
+journal_cas "une entree deja fusionnee fait ouvrir la suivante" oui \
+  "journal/*-claude-test-pret--2.md"
+# Le cas NEGATIF, et c'est lui qui compte : sans lui, un journal_ouvre qui
+# ouvrirait une entree neuve A CHAQUE APPEL passerait le cas ci-dessus au vert.
+journal_cas "une entree en cours de travail est reprise, jamais dupliquee" non \
+  "journal/2026-01-01-claude-test-pret.md"
+
+# La PREMIERE entree d'un nom de branche — le cas frequent, et le seul qui
+# manquait. Il a ete casse un jour entier sans qu'aucun cas ne rougisse : le
+# suffixe « --2 » etait calcule dans l'affectation du chemin, qui heritait donc
+# du code de sortie du test « rang > 1 » ; faux au rang 1, il faisait sortir
+# l'affectation non nulle et set -e tuait branche.sh avant la creation du
+# fichier. Le glob porte la date du JOUR, comme le cas « --2 ».
+journal_cas "aucune entree : la premiere est creee, et sous set -e" aucune \
+  "journal/*-claude-test-pret.md"
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

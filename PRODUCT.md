@@ -40,9 +40,13 @@ passer une application sans authentification.
 - Une seule stack `dockhand`, donc un seul `docker compose up`, atomique pour
   l'ensemble. Le rayon de souffle est commun — c'est la contrainte qui explique
   la plupart des décisions.
-- Le déploiement part de chaque fusion sur `main` : seules les applications
-  modifiées sont reconstruites, puis un unique appel de webhook fait récupérer
-  la stack entière. Deux à trois minutes.
+- Le déploiement part de chaque fusion sur `main`, et il est **sauté** tant
+  qu'aucune image d'app ni `compose.yaml` n'a changé : un commit de
+  documentation ne réveille rien. Seules les applications modifiées sont
+  reconstruites ; la livraison ordinaire recrée ensuite **les seuls conteneurs
+  dont l'image a bougé**. Un changement de structure — un service, un volume,
+  une limite — retombe sur le webhook, qui recrée toute la stack. Deux à trois
+  minutes.
 - Traefik applique l'authentification Google avant que la requête n'atteigne un
   conteneur, et pose `X-Forwarded-User`. Trois paliers, choisis par application,
   du privé sur liste blanche au public anonyme — ce dernier sans en-tête

@@ -95,6 +95,17 @@
   --marcq-sortie: cubic-bezier(.22, 1, .36, 1);
 }
 
+/* L'attribut hidden doit gagner contre TOUTE regle de classe.
+ *
+ * Sa declaration native est `[hidden] { display: none }`, d'une specificite de
+ * (0,1,0) : n'importe quelle classe posant un `display` la bat. La nav du bas
+ * et d'autres blocs de l'app se masquent par cet attribut et portent en meme
+ * temps `display: flex` — sans cette ligne ils resteraient visibles en
+ * permanence.
+ *
+ * Une seule ligne, et le seul !important du fichier. */
+[hidden] { display: none !important; }
+
 * { box-sizing: border-box; }
 
 body {
@@ -452,7 +463,14 @@ body {
    ligne : de loin, on voit ou on en est sans lire un mot. */
 .exercice.fait { box-shadow: inset .3rem 0 0 var(--marcq-fait); }
 
-.actions-exercice { display: flex; align-items: center; gap: .1rem; flex: 0 0 auto; }
+/* L'ECART ENTRE DEUX GESTES QUI N'ONT RIEN A VOIR. La colonne d'actions porte
+   deux cibles cote a cote dont les consequences n'ont aucun rapport : le lien
+   video QUITTE l'application pour un autre onglet, le minuteur lance un compte
+   a rebours. A 1,6 px l'une de l'autre — l'ancien `gap: .1rem` —, le pouce en
+   mouvement d'un enfant qui vient de courir tranche entre les deux par hasard.
+   Mesure prise a 390 px sur les sept seances : passer a .35rem ne fait revenir
+   AUCUN libelle a la ligne. L'ecart est donc gratuit, et il ne l'etait pas. */
+.actions-exercice { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; }
 .chrono-groupe { display: flex; align-items: center; gap: .15rem; }
 
 /* Le lien vers la demonstration. Un symbole et non un mot : la place a droite
@@ -804,7 +822,6 @@ body {
   background: var(--marcq-nuit);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.nav-app[hidden] { display: none; }
 .lien-nav {
   display: inline-flex;
   flex: 1;

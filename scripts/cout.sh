@@ -43,6 +43,18 @@ COUT_TAUX_JOURS=90         # au-dela, le taux de change est signale comme vieux
 # fait. Le seuil n'est pas une limite technique : c'est le point ou couper la
 # session, ou confier la suite a l'artisan, rapporte plus que ca ne coute.
 COUT_CONTEXTE_ALERTE=300000
+# Longueur d'une session d'agent au-dela de laquelle pret.sh avertit. Le cout
+# d'une session croit en CARRE de sa longueur : elle fait N tours, et chacun
+# relit ce que les N-1 precedents ont accumule. Mesure du 21 aout 2026, sur une
+# branche a 501 tours d'agent : trois sessions de 88 a 109 tours relisaient 178 k
+# a 238 k jetons par tour, contre 11 k a 37 k pour six sessions de 4 a 19 tours.
+# Couper une session de cent tours en deux, chacune repartant du document de
+# conception plutot que de l'exploration de l'autre, valait la moitie du poste.
+#
+# 60 n'est pas un rond : c'est la longueur au-dela de laquelle, sur cette
+# branche, la relecture moyenne d'une session a depasse 150 000 jetons — soit le
+# moment ou un tour coute plus cher que tout ce qu'il rend.
+COUT_AGENT_TOURS_ALERTE=60
 
 # Le double du seuil d'alerte, et le seul chiffre du depot qui REFUSE un commit.
 # L'alerte ci-dessus a ete ignoree neuf fois sur vingt-deux branches, jusqu'a
@@ -173,8 +185,9 @@ cout_releve() {
 
       rid = texte(queue, "requestId")
       if (rid == "") rid = texte(tete, "id")
-      if (rid != "" && (rid in vu_req)) next
-      if (rid != "") vu_req[rid] = 1
+      # Faute de requestId, la ligne est sa propre requete : sans cle, deux
+      # lignes distinctes se confondraient et l une des deux serait perdue.
+      if (rid == "") rid = "L" FILENAME ":" FNR
 
       br = texte(queue, "gitBranch")
       if (br != "" && br != BRANCHE && br != BASE) {
@@ -202,42 +215,95 @@ cout_releve() {
       v_e = val(u, "input_tokens");                  v_ce = val(u, "cache_creation_input_tokens")
       v_cl = val(u, "cache_read_input_tokens");      v_s  = val(u, "output_tokens")
 
-      vus[m] = 1
-      e[m] += v_e; ce[m] += v_ce; cl[m] += v_cl; s[m] += v_s
-      if (side) { se[m] += v_e; sce[m] += v_ce; scl[m] += v_cl; ss[m] += v_s; ech_side++ }
-
-      ech++
-      # Un tour qui ne rend qu un appel d outil paie tout le contexte relu pour
-      # une sortie de rien. Les grouper est le seul gain sans contrepartie : deux
-      # appels independants dans le meme tour coutent une relecture au lieu de
-      # deux, et ne changent rien a ce qui est lu.
-      if (v_s < 300 && (m in prix_e)) {
-        courts++
-        courts_d += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
-                   + v_s * prix_s[m]) / 1000000
+      # Une reponse occupe PLUSIEURS lignes — une par bloc : la reflexion, le
+      # texte, chaque appel d outil — et l on ne garde qu une facture par
+      # requete. Ce script gardait la PREMIERE, sur la foi d un commentaire qui
+      # affirmait que toutes portaient la meme. C est vrai des sessions
+      # principales, et FAUX des fichiers de sous-agent, ou l usage s ACCUMULE
+      # d une ligne a l autre : mesure du 22 aout 2026 sur un fichier d agent
+      # reel, 37 requetes sur 46 en plusieurs lignes, output_tokens montant de
+      # 17 a 249 sur la meme requete — sortie des agents comptee 646 jetons pour
+      # 11 621 reels, un facteur dix-huit.
+      #
+      # Le MAX de chaque champ repond aux deux cas a la fois : identique quand
+      # les lignes se repetent, correct quand elles s accumulent. Il est aussi
+      # insensible a l ORDRE, ce que « garder la derniere » n aurait pas ete.
+      #
+      # Consequence de forme : plus rien ne s additionne ici, tout est mis de
+      # cote et compte en END, une fois par requete. La lecture de cache, elle,
+      # etait deja juste — elle ne varie pas d une ligne a l autre — donc les
+      # mesures de contexte et de longueur de session ne bougent pas ; ce sont
+      # la SORTIE, le total, et le classement « tour court » qui etaient faux.
+      if (!(rid in vu_req)) {
+        vu_req[rid] = 1
+        ordre[++nrid] = rid
+        r_m[rid] = m; r_side[rid] = side; r_sidef[rid] = side_fichier
+        r_file[rid] = FILENAME; r_nf[rid] = nf
       }
-      det_side[ech] = side; det_m[ech] = m
-      det_ce[ech] = v_ce; det_cl[ech] = v_cl; det_s[ech] = v_s
-
-      # Le demarrage et la croissance decrivent la session PRINCIPALE : un
-      # sous-agent a son propre demarrage, dans son propre contexte, qui ne
-      # dit rien de celui de la session qui l a lance — l y melanger fausserait
-      # les deux mesures sans que rien ne le montre.
-      if (!side_fichier) {
-        # Le demarrage — contrat, outillage, definitions d outils — est ecrit en
-        # cache au PREMIER echange de la session, puis relu a chacun des suivants.
-        # Il se mesure donc une fois par session, et se facture autant de fois
-        # qu il y a d echanges apres lui.
-        if (!(nf in sess_ech)) sess_prelude[nf] = v_ce
-        sess_ech[nf]++
-        # La courbe part du premier echange qui RELIT quelque chose : au tout
-        # premier, il n y a rien a relire et le zero qu il rapporte ne dit rien de
-        # la pente. C est la pente qui interesse, pas l origine.
-        if (!premier_vu && v_cl > 0) { premier_cl = v_cl; premier_vu = 1 }
-        dernier_cl = v_cl
-      }
+      if (v_e  > r_e[rid])  r_e[rid]  = v_e
+      if (v_ce > r_ce[rid]) r_ce[rid] = v_ce
+      if (v_cl > r_cl[rid]) r_cl[rid] = v_cl
+      if (v_s  > r_s[rid])  r_s[rid]  = v_s
     }
     END {
+      # Une requete = un tour. Tout ce qui suit etait calcule ligne a ligne ;
+      # ca ne pouvait pas l etre, puisque la facture d une requete n est connue
+      # qu apres sa DERNIERE ligne (voir le bloc « MAX » plus haut).
+      for (k = 1; k <= nrid; k++) {
+        rid = ordre[k]
+        m = r_m[rid]; side = r_side[rid]; side_fichier = r_sidef[rid]
+        v_e = r_e[rid]; v_ce = r_ce[rid]; v_cl = r_cl[rid]; v_s = r_s[rid]
+
+        vus[m] = 1
+        e[m] += v_e; ce[m] += v_ce; cl[m] += v_cl; s[m] += v_s
+        if (side) { se[m] += v_e; sce[m] += v_ce; scl[m] += v_cl; ss[m] += v_s; ech_side++ }
+
+        ech++
+        # Un tour qui ne rend qu un appel d outil paie tout le contexte relu pour
+        # une sortie de rien. Les grouper divise le poste — mais SEULEMENT chez la
+        # session principale, et c est la correction du 21 aout 2026 : chez un
+        # agent, un tour EST un appel d outil, et un test ne se groupe pas avec la
+        # correction qui en depend. D ou le comptage separe : sans lui, un chiffre
+        # juste porte un conseil faux.
+        if (v_s < 300 && (m in prix_e)) {
+          courts++
+          courts_d += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
+                     + v_s * prix_s[m]) / 1000000
+          if (side_fichier) courts_side++
+        }
+        # Une session d agent se decoupe par FICHIER, jamais par une heuristique
+        # sur la retombee de la relecture : deux agents concurrents entrelacent
+        # leurs tours, et le fichier est le seul decoupage qui y survive. Ce que
+        # cette mesure sert a voir : le cout d une session d agent croit en CARRE
+        # de sa longueur — deux fois plus de tours, chacun relisant deux fois plus.
+        if (side_fichier) {
+          run_ech[r_file[rid]]++
+          run_cl[r_file[rid]] += v_cl
+          if (m in prix_e)
+            run_d[r_file[rid]] += (v_ce * prix_e[m] * MULT_E + v_cl * prix_e[m] * MULT_L \
+                                 + v_s * prix_s[m]) / 1000000
+        }
+        det_side[ech] = side; det_m[ech] = m
+        det_ce[ech] = v_ce; det_cl[ech] = v_cl; det_s[ech] = v_s
+
+        # Le demarrage et la croissance decrivent la session PRINCIPALE : un
+        # sous-agent a son propre demarrage, dans son propre contexte, qui ne
+        # dit rien de celui de la session qui l a lance.
+        if (!side_fichier) {
+          nf = r_nf[rid]
+          # Le demarrage — contrat, outillage, definitions d outils — est ecrit
+          # en cache au PREMIER echange de la session, puis relu a chacun des
+          # suivants.
+          if (!(nf in sess_ech)) sess_prelude[nf] = v_ce
+          sess_ech[nf]++
+          # La courbe part du premier echange qui RELIT quelque chose : au tout
+          # premier il n y a rien a relire, et le zero qu il rapporte ne dit rien
+          # de la pente.
+          if (!premier_vu && v_cl > 0) { premier_cl = v_cl; premier_vu = 1 }
+          dernier_cl = v_cl
+        }
+      }
+
       for (m in vus) {
         j_e += e[m]; j_ce += ce[m]; j_cl += cl[m]; j_s += s[m]
         if (!(m in prix_e)) { inconnus = inconnus sep_i m; sep_i = ", "; continue }
@@ -252,6 +318,12 @@ cout_releve() {
       for (m in vus) j_side += se[m] + sce[m] + scl[m] + ss[m]
       for (i in sess_prelude) { prelude += sess_prelude[i]; relu += sess_prelude[i] * (sess_ech[i] - 1) }
       for (b in autres) n_autres++
+      for (r in run_ech) {
+        n_runs++
+        if (run_ech[r] > max_ech) {
+          max_ech = run_ech[r]; max_cl = run_cl[r]; max_d = run_d[r]
+        }
+      }
 
       printf "SESSIONS %d\n", sessions
       printf "ECHANGES %d %d\n", ech, ech_side
@@ -261,7 +333,9 @@ cout_releve() {
       printf "PRELUDE %d %d\n", prelude, relu
       printf "COURBE %d %d\n", premier_cl, dernier_cl
       printf "SIDE %d %.6f\n", j_side, d_side
-      printf "COURTS %d %.6f\n", courts, courts_d
+      printf "COURTS %d %.6f %d\n", courts, courts_d, courts_side
+      printf "AGENTS %d %d %d %.6f\n", n_runs, max_ech, \
+        (max_ech > 0 ? int(max_cl / max_ech) : 0), max_d
       printf "POSTE entree %d %.6f\n", j_e, d_e
       printf "POSTE ecriture %d %.6f\n", j_ce, d_ce
       printf "POSTE lecture %d %.6f\n", j_cl, d_cl
@@ -310,6 +384,11 @@ cout_ecrit() {  # cout_ecrit <entree> <bloc> — remplace le bloc existant, ou l
 # la session — et a la fin du releve normal, ce qui la rend observable par
 # test-cout.sh, dont le harnais lance --dry-run. « champ » n'existe pas encore
 # ici, d'ou la lecture directe du releve par awk.
+# Les deux messages rappellent le prompt de reprise, et pas seulement la coupe :
+# annoncer « cette session est trop longue » sans le bloc a copier laisse la
+# reconstitution du contexte a la session qui n'en a aucun — soit precisement le
+# cout qu'on coupait pour eviter. La regle vit dans CLAUDE.md ; elle est rappelee
+# ICI parce que c'est le seul moment ou elle s'applique.
 # Rend 3 quand le seuil CRITIQUE est franchi, 0 sinon : c'est ce code que
 # pret.sh transforme en refus. Un code dedie plutot qu'une sortie non nulle
 # ordinaire, pour qu'une panne du script — qui sortirait en 1 ou 2 — ne se lise
@@ -319,10 +398,10 @@ cout_alerte() {  # cout_alerte <releve>
   dernier=$(printf '%s\n' "$1" | awk '$1 == "COURBE" { print $3 }')
   [ -n "$dernier" ] && [ "$dernier" -gt "$COUT_CONTEXTE_ALERTE" ] 2>/dev/null || return 0
   if [ "$dernier" -gt "$COUT_CONTEXTE_CRITIQUE" ] 2>/dev/null; then
-    bad "contexte de $(jetons_nb "$dernier") jetons — au-dela du critique ; termine cette session et rouvre-en une sur la MEME branche, qui reprend par le depot"
+    bad "contexte de $(jetons_nb "$dernier") jetons — au-dela du critique ; termine cette session et rouvre-en une sur la MEME branche, qui reprend par le depot. Termine ton message a l'utilisateur par le PROMPT DE REPRISE, gabarit dans memory/travail.md"
     return 3
   fi
-  warn "contexte de $(jetons_nb "$dernier") jetons — chaque tour le paie en entier ; coupe la session, ou confie la suite a l'artisan"
+  warn "contexte de $(jetons_nb "$dernier") jetons — chaque tour le paie en entier ; coupe la session, ou confie la suite a l'artisan. Si tu annonces la coupe, termine ton message par le PROMPT DE REPRISE, gabarit dans memory/travail.md"
 }
 
 # Prend le releve en argument plutot que de le refaire : l'alerte de contexte,
@@ -339,6 +418,28 @@ cout_rappel() {
   elif [ "$((ecrit * 10))" -lt "$((actuel * 9))" ]; then
     warn "cout : releve a $(jetons_nb "$ecrit") jetons, la conversation en compte $(jetons_nb "$actuel") — relance ./scripts/cout.sh"
   fi
+  cout_rappel_agents "$releve"
+}
+
+# cout_rappel_agents <releve> — l'avertissement sur la LONGUEUR d'une session
+# d'agent. Il vit ici, a cote du rappel de cout, parce qu'il repond a la meme
+# question — « ou part l'argent » — et qu'il doit sortir au meme moment : avant
+# un commit, seul instant ou l'on peut encore decouper le chantier suivant.
+#
+# Il AVERTIT sans bloquer, comme le rappel de cout : une session deja longue est
+# du passe, la refuser ne la raccourcit pas. Ce qu'il change est le chantier
+# SUIVANT, et pour ca il suffit qu'il se voie.
+#
+# La regle qu'il rend visible existait depuis des semaines dans memory/travail.md
+# — « un chantier se dimensionne pour tenir sous 100 000 jetons » — sans qu'aucun
+# chiffre ne la mette devant les yeux de personne. C'est la lecon de la branche
+# qui l'a ajoute : une regle ecrite que rien ne mesure ne deplace rien.
+cout_rappel_agents() {  # cout_rappel_agents <releve>
+  local tours moyen
+  tours=$(printf '%s\n' "$1" | awk '$1 == "AGENTS" { print $3 }')
+  moyen=$(printf '%s\n' "$1" | awk '$1 == "AGENTS" { print $4 }')
+  [ -n "$tours" ] && [ "$tours" -gt "$COUT_AGENT_TOURS_ALERTE" ] 2>/dev/null || return 0
+  warn "agents : la plus longue session fait $tours tours a $(jetons_nb "$moyen") jetons relus chacun — son cout croit en carre de sa longueur ; decoupe le chantier suivant en deux"
 }
 
 courante=$(branche_courante)
@@ -376,6 +477,9 @@ prelude=$(champ PRELUDE 1);      prelude_relu=$(champ PRELUDE 2)
 cl_premier=$(champ COURBE 1);    cl_dernier=$(champ COURBE 2)
 side_j=$(champ SIDE 1);          side_d=$(champ SIDE 2)
 courts=$(champ COURTS 1);        courts_d=$(champ COURTS 2)
+courts_side=$(champ COURTS 3)
+n_runs=$(champ AGENTS 1);        run_max_ech=$(champ AGENTS 2)
+run_max_cl=$(champ AGENTS 3);    run_max_d=$(champ AGENTS 4)
 taux=$(fab taux_usd_eur "")
 taux_date=$(fab taux_date "")
 
@@ -435,6 +539,36 @@ autres_txt=""
 - **Écarté** — $n_autres autre(s) branche(s) travaillée(s) dans ce conteneur,
   $(jetons_nb "$autres_j") jetons, qui ne sont pas ceux de celle-ci."
 
+# Le conseil qui suit le chiffre des tours courts. Il CHANGE selon qui les fait,
+# et c'est tout l'objet de la correction du 21 aout 2026 : « grouper les appels
+# independants » est vrai de la session principale et faux d'un agent, dont
+# chaque tour EST un appel d'outil. Le meme chiffre portait le meme conseil pour
+# les deux, ce qui a laisse le premier poste de la facture intact pendant
+# vingt-deux branches.
+if [ "${courts_side:-0}" -gt 0 ] 2>/dev/null; then
+  courts_txt="Dont $(jetons_nb "$courts_side") chez des agents, où un tour EST un appel d'outil :
+  ceux-là ne se groupent pas — c'est la LONGUEUR de la session qu'il faut réduire,
+  ligne suivante. Le reste vient de la session principale, et se groupe."
+else
+  courts_txt="Grouper les appels indépendants dans un même tour divise ce poste."
+fi
+
+# La ligne qui manquait, et qui nomme le premier poste reel quand des agents
+# travaillent. Elle ne s'ecrit pas s'il n'y en a pas eu : une rubrique absente et
+# une rubrique a zero ne disent pas la meme chose.
+agents_txt=""
+if [ "${n_runs:-0}" -gt 0 ] 2>/dev/null; then
+  agents_txt="
+- **Sessions d'agent** — $n_runs, dont la plus longue fait $(jetons_nb "$run_max_ech") tours,
+  relit $(jetons_nb "$run_max_cl") jetons par tour en moyenne et coûte $(cout_montant "$run_max_d" "").
+  Son coût croît en **carré** de sa longueur : deux fois plus de tours, chacun
+  relisant deux fois plus. Deux sessions de moitié, la seconde repartant du
+  document de conception et non de l'exploration de la première, coûtent environ
+  la moitié."
+  [ "${run_max_ech:-0}" -gt "$COUT_AGENT_TOURS_ALERTE" ] 2>/dev/null && agents_txt="$agents_txt
+  **Au-delà de $COUT_AGENT_TOURS_ALERTE tours, découpe le chantier.**"
+fi
+
 # Le detail survit a la branche, et c'est tout son interet : le fichier de
 # conversation meurt avec le conteneur, et sans lui plus rien n'est refaisable —
 # ni un recalcul aux tarifs du jour, ni une lecture sous un autre angle. Il est
@@ -465,11 +599,12 @@ $lignes| **Total** | **$(jetons_nb "$tot_j")** | **$(cout_montant "$tot_d" "$tau
 - **Tours courts** — $(jetons_nb "$courts") des $(jetons_nb "$echanges") tours ($(part "$courts" "$echanges")) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
   une sortie de rien. Ils coûtent $(cout_montant "$courts_d" ""), soit $(part_d "$courts_d" "$tot_d") de la facture.
-  Grouper les appels indépendants dans un même tour divise ce poste.
+  $courts_txt$agents_txt
 - **Croissance** — $(jetons_nb "$cl_premier") jetons relus au premier appel qui relise
   quelque chose, $(jetons_nb "$cl_dernier") au dernier : une session longue se paie à chaque tour.$autres_txt
 
 <!-- cout-total: $tot_j -->
+<!-- cout-agent-max: ${run_max_ech:-0} -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 $detail
 -->

@@ -11,9 +11,13 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,14 +34,19 @@ var webFS embed.FS
 var version = "dev"
 
 // latitude, longitude : Le Touquet-Paris-Plage, coordonnees du port de
-// reference du bulletin marine consulte pour construire ce produit. Fixes,
-// non configurables — PRODUCT.md exclut explicitement plusieurs lieux.
+// reference du bulletin marine consulte pour construire ce produit. Ne sont
+// plus les SEULES coordonnees possibles (prp/04-le-lieu-devient-une-donnee.md
+// en fait un parametre de requete, lat/lon) mais restent le lieu par DEFAUT :
+// sans lat/lon dans la requete, le comportement reste celui d'avant ce
+// document, a l'octet pres.
 const (
 	latitude  = 50.517
 	longitude = 1.583
-	// siteMaree est le point le plus proche disponible chez api-maree.fr,
-	// faute d'entree pour Etaples/Le Touquet — approximation assumee et
-	// documentee, cf. prp/00-ossature.md.
+	// siteMaree est le site de maree par defaut, associe au lieu par defaut
+	// ci-dessus — le point le plus proche disponible chez api-maree.fr, faute
+	// d'entree pour Etaples/Le Touquet (approximation assumee et documentee,
+	// cf. prp/00-ossature.md). Pour tout autre lieu, le site se resout
+	// desormais par le catalogue (lieu.go).
 	siteMaree = "berck-plage-fort-mahon"
 )
 
@@ -53,10 +62,11 @@ func main() {
 	log.SetFlags(0) // l'infra horodate les logs ; on ecrit sur la sortie standard
 
 	srv := nouveauServeur(
-		NouveauClientMeteo(latitude, longitude),
-		NouveauClientMaree(siteMaree, env("API_MAREE_KEY", "")),
-		NouveauClientPluie(latitude, longitude),
-		NouveauClientNowcast(latitude, longitude),
+		NouveauClientMeteo(),
+		NouveauClientMaree(env("API_MAREE_KEY", "")),
+		NouveauClientPluie(),
+		NouveauClientNowcast(),
+		NouveauCatalogueMaree(),
 	)
 
 	web, err := fs.Sub(webFS, "web")
@@ -93,35 +103,50 @@ func main() {
 	}
 }
 
-// serveur porte les clients de donnees et le dernier connu de chacun. Un
-// champ par fournisseur : la meteo et la maree se degradent independamment
-// l'une de l'autre.
+// serveur porte les clients de donnees et le dernier connu de chacun, PAR
+// LIEU depuis prp/04-le-lieu-devient-une-donnee.md (section 4) : un champ par
+// fournisseur, chacun degrade independamment des autres, et desormais aussi
+// independamment d'un lieu a l'autre — la meteo du Touquet ne doit jamais
+// resservir sous le nom d'Arras.
 type serveur struct {
 	clientMeteo *ClientMeteo
-	meteoCache  *dernierConnu[Previsions]
+	meteoCache  *parLieu[Previsions]
 	clientMaree *ClientMaree
-	mareeCache  *dernierConnu[Maree]
+	mareeCache  *parLieu[Maree]
 	// La courbe de pluie et la bande de l'heure ont chacune leur dernier
 	// connu, distinct de celui de la meteo : la bande peut etre resservie
 	// depuis le cache pendant que la courbe est fraiche, et l'echec de l'une
 	// ne doit pas retirer l'autre de l'ecran
 	// (prp/03-graphe-de-pluie.md, section 4).
 	clientPluie   *ClientPluie
-	pluieCache    *dernierConnu[SeriePluie]
+	pluieCache    *parLieu[SeriePluie]
 	clientNowcast *ClientNowcast
-	nowcastCache  *dernierConnu[Nowcast]
+	nowcastCache  *parLieu[Nowcast]
+
+	// catalogue et httpLieu servent la resolution d'un lieu (lieu.go) :
+	// recherche/geolocalisation (BAN) et site de maree le plus proche.
+	// littoralCache retient le dernier caractere littoral connu, par lieu
+	// (§2.1) : un HTTP propre plutot que celui, deja timeouté a 10s, des
+	// autres clients — les appels de littoral sont bornes bien plus court
+	// (delaiLittoral).
+	catalogue     *CatalogueMaree
+	httpLieu      *http.Client
+	littoralCache *parLieu[bool]
 }
 
-func nouveauServeur(cm *ClientMeteo, cma *ClientMaree, cp *ClientPluie, cn *ClientNowcast) *serveur {
+func nouveauServeur(cm *ClientMeteo, cma *ClientMaree, cp *ClientPluie, cn *ClientNowcast, cat *CatalogueMaree) *serveur {
 	return &serveur{
 		clientMeteo:   cm,
-		meteoCache:    &dernierConnu[Previsions]{},
+		meteoCache:    nouveauParLieu[Previsions](),
 		clientMaree:   cma,
-		mareeCache:    &dernierConnu[Maree]{},
+		mareeCache:    nouveauParLieu[Maree](),
 		clientPluie:   cp,
-		pluieCache:    &dernierConnu[SeriePluie]{},
+		pluieCache:    nouveauParLieu[SeriePluie](),
 		clientNowcast: cn,
-		nowcastCache:  &dernierConnu[Nowcast]{},
+		nowcastCache:  nouveauParLieu[Nowcast](),
+		catalogue:     cat,
+		httpLieu:      &http.Client{Timeout: 10 * time.Second},
+		littoralCache: nouveauParLieu[bool](),
 	}
 }
 
@@ -131,6 +156,8 @@ func routes(s *serveur, web fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/previsions", s.handlePrevisions)
 	mux.HandleFunc("GET /api/maree", s.handleMaree)
 	mux.HandleFunc("GET /api/pluie", s.handlePluie)
+	mux.HandleFunc("GET /api/lieux", s.handleLieux)
+	mux.HandleFunc("GET /api/lieu", s.handleLieu)
 	mux.Handle("GET /", http.FileServer(http.FS(web)))
 	return mux
 }
@@ -151,6 +178,12 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 		repondreErreur(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	lat, lon, err := parametreLieuOuDefaut(r)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	cle := cleLieu(lat, lon)
 
 	// 12s : le fournisseur meteo fait jusqu'a trois appels sortants
 	// sequentiels (previsions+marine, plus l'accord entre modeles borne a
@@ -171,8 +204,8 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ctxPluie, annulerPluie := context.WithTimeout(ctx, delaiPluieVignettes)
 		defer annulerPluie()
-		v, _, _, err := s.pluieCache.rafraichir(func() (SeriePluie, error) {
-			return s.clientPluie.Recuperer(ctxPluie)
+		v, _, _, err := s.pluieCache.pour(cle).rafraichir(func() (SeriePluie, error) {
+			return s.clientPluie.Recuperer(ctxPluie, lat, lon)
 		})
 		if err != nil {
 			log.Printf("lame d'eau des vignettes indisponible : %v", err)
@@ -180,8 +213,8 @@ func (s *serveur) handlePrevisions(w http.ResponseWriter, r *http.Request) {
 		serie <- v
 	}()
 
-	valeur, _, frais, err := s.meteoCache.rafraichir(func() (Previsions, error) {
-		return s.clientMeteo.Recuperer(ctx)
+	valeur, _, frais, err := s.meteoCache.pour(cle).rafraichir(func() (Previsions, error) {
+		return s.clientMeteo.Recuperer(ctx, lat, lon)
 	})
 	if err != nil {
 		log.Printf("previsions indisponibles : %v", err)
@@ -226,6 +259,11 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 		repondreErreur(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	lat, lon, present, err := parametreLatLon(r)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	// 12s : chaque fournisseur fait deux appels sortants sequentiels
 	// (previsions+marine, ou extrema+niveaux) ; 8s s'est revele tangent en
@@ -233,8 +271,33 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	ctx, annuler := context.WithTimeout(r.Context(), 12*time.Second)
 	defer annuler()
 
-	valeur, _, frais, err := s.mareeCache.rafraichir(func() (Maree, error) {
-		return s.clientMaree.Recuperer(ctx)
+	// Sans lat/lon, le lieu et le site restent ceux d'avant ce document, a
+	// l'octet pres (prp/04-le-lieu-devient-une-donnee.md, section 3) : le
+	// catalogue n'est meme pas interroge.
+	site := siteMaree
+	if present {
+		siteProche, distanceKm, ok := s.catalogue.plusProche(ctx, lat, lon)
+		switch {
+		case !ok:
+			repondreJSON(w, http.StatusOK, ReponseSansMaree{Configure: true, SansMaree: true, Raison: raisonCatalogueIndisponible})
+			return
+		case distanceKm > seuilFacadeKm:
+			d := arrondi1(distanceKm)
+			repondreJSON(w, http.StatusOK, ReponseSansMaree{Configure: true, SansMaree: true, Raison: raisonFacadeNonCouverte, DistanceKm: &d, SiteLePlusProche: siteProche.Nom})
+			return
+		case distanceKm > seuilSiteKm:
+			d := arrondi1(distanceKm)
+			repondreJSON(w, http.StatusOK, ReponseSansMaree{Configure: true, SansMaree: true, Raison: raisonCoteEloignee, DistanceKm: &d, SiteLePlusProche: siteProche.Nom})
+			return
+		default:
+			site = siteProche.ID
+		}
+	} else {
+		lat, lon = latitude, longitude
+	}
+
+	valeur, _, frais, err := s.mareeCache.pour(cleLieuMaree(lat, lon, site)).rafraichir(func() (Maree, error) {
+		return s.clientMaree.Recuperer(ctx, site)
 	})
 	if err != nil {
 		log.Printf("maree indisponible : %v", err)
@@ -249,10 +312,10 @@ func (s *serveur) handleMaree(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dateCible == nil {
-		repondreJSON(w, http.StatusOK, vueMaree(valeur, frais, siteMaree))
+		repondreJSON(w, http.StatusOK, vueMaree(valeur, frais, site))
 		return
 	}
-	repondreJSON(w, http.StatusOK, vueMareeJour(valeur, frais, siteMaree, *dateCible))
+	repondreJSON(w, http.StatusOK, vueMareeJour(valeur, frais, site, *dateCible))
 }
 
 // handlePluie sert la section Pluie, sur une route distincte de
@@ -267,14 +330,20 @@ func (s *serveur) handlePluie(w http.ResponseWriter, r *http.Request) {
 		repondreErreur(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	lat, lon, err := parametreLieuOuDefaut(r)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	cle := cleLieu(lat, lon)
 
 	// 12s : le fournisseur de la courbe fait deux appels sortants sequentiels
 	// (horaire puis quart d'heure), comme les deux autres routes.
 	ctx, annuler := context.WithTimeout(r.Context(), 12*time.Second)
 	defer annuler()
 
-	serie, _, frais, err := s.pluieCache.rafraichir(func() (SeriePluie, error) {
-		return s.clientPluie.Recuperer(ctx)
+	serie, _, frais, err := s.pluieCache.pour(cle).rafraichir(func() (SeriePluie, error) {
+		return s.clientPluie.Recuperer(ctx, lat, lon)
 	})
 	if err != nil {
 		log.Printf("pluie indisponible : %v", err)
@@ -288,8 +357,8 @@ func (s *serveur) handlePluie(w http.ResponseWriter, r *http.Request) {
 	if dateCible == nil || debutDuJour(*dateCible).Equal(debutDuJour(maintenant)) {
 		ctxBande, annulerBande := context.WithTimeout(ctx, delaiNowcast)
 		defer annulerBande()
-		if n, _, _, err := s.nowcastCache.rafraichir(func() (Nowcast, error) {
-			return s.clientNowcast.Recuperer(ctxBande)
+		if n, _, _, err := s.nowcastCache.pour(cle).rafraichir(func() (Nowcast, error) {
+			return s.clientNowcast.Recuperer(ctxBande, lat, lon)
 		}); err != nil {
 			log.Printf("prevision immediate indisponible : %v", err)
 		} else {
@@ -298,6 +367,92 @@ func (s *serveur) handlePluie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	repondreJSON(w, http.StatusOK, vuePluie(serie, bande, maintenant, frais, dateCible))
+}
+
+// delaiRechercheLieu borne l'appel de geocodage (BAN) lui-meme, distinct de
+// delaiLittoral ci-dessous qui borne les appels marine paralleles declenches
+// par ses resultats.
+const delaiRechercheLieu = 8 * time.Second
+
+// delaiLittoral borne A 4S AU TOTAL les appels marine paralleles d'une
+// recherche (prp/04-le-lieu-devient-une-donnee.md, section 3) : jusqu'a 8
+// resultats, chacun un lieu dont l'appel n'a pas abouti sort avec
+// littoral: null plutot que de retarder toute la reponse.
+const delaiLittoral = 4 * time.Second
+
+// handleLieux sert /api/lieux?q= : la recherche de lieux (§1.3, §3). Rend
+// pour chaque resultat le Lieu complet (caractere littoral, site de maree)
+// — c'est ce qui permet a l'ecran d'annoncer ce qu'on va trouver avant de
+// changer de lieu.
+func (s *serveur) handleLieux(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if q == "" {
+		repondreJSON(w, http.StatusOK, ReponseLieux{Lieux: []Lieu{}})
+		return
+	}
+
+	ctx, annuler := context.WithTimeout(r.Context(), delaiRechercheLieu)
+	defer annuler()
+
+	rep, err := rechercherCommunes(ctx, s.httpLieu, q)
+	if err != nil {
+		log.Printf("recherche de lieux indisponible : %v", err)
+		repondreJSON(w, http.StatusOK, ReponseLieux{Lieux: []Lieu{}, Erreur: "Recherche indisponible : la base adresse nationale ne répond pas."})
+		return
+	}
+
+	lieux := make([]Lieu, len(rep.Features))
+	ctxMarine, annulerMarine := context.WithTimeout(ctx, delaiLittoral)
+	defer annulerMarine()
+	var attente sync.WaitGroup
+	for i, f := range rep.Features {
+		lat, lon := arrondi3(f.Geometry.Coordinates[1]), arrondi3(f.Geometry.Coordinates[0]) // GeoJSON : [lon, lat]
+		lieux[i] = Lieu{Nom: f.Properties.Name, Contexte: f.Properties.Context, Latitude: lat, Longitude: lon}
+		lieux[i].Maree = siteMareeDuLieu(s.catalogue, ctx, lat, lon)
+
+		attente.Add(1)
+		go func(i int, lat, lon float64) {
+			defer attente.Done()
+			lieux[i].Littoral = resoudreLittoral(s.littoralCache.pour(cleLieu(lat, lon)), ctxMarine, s.httpLieu, lat, lon)
+		}(i, lat, lon)
+	}
+	attente.Wait()
+
+	repondreJSON(w, http.StatusOK, ReponseLieux{Lieux: lieux})
+}
+
+// handleLieu sert /api/lieu?lat=&lon= : resout un point en Lieu (nom par
+// geolocalisation inverse BAN, caractere littoral, site de maree). En mer ou
+// hors de France, la BAN rend Features vide : le Lieu sort SANS NOM, jamais
+// un nom invente — c'est a l'ecran de choisir quoi ecrire (§3, prp/05).
+func (s *serveur) handleLieu(w http.ResponseWriter, r *http.Request) {
+	lat, lon, present, err := parametreLatLon(r)
+	if err != nil {
+		repondreErreur(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !present {
+		repondreErreur(w, http.StatusBadRequest, "les paramètres lat et lon sont requis")
+		return
+	}
+
+	ctx, annuler := context.WithTimeout(r.Context(), delaiRechercheLieu)
+	defer annuler()
+
+	l := Lieu{Latitude: lat, Longitude: lon}
+	if rep, err := inverserPoint(ctx, s.httpLieu, lat, lon); err != nil {
+		log.Printf("résolution de lieu indisponible : %v", err)
+	} else if len(rep.Features) > 0 {
+		l.Nom = rep.Features[0].Properties.City
+		l.Contexte = rep.Features[0].Properties.Context
+	}
+	l.Maree = siteMareeDuLieu(s.catalogue, ctx, lat, lon)
+
+	ctxMarine, annulerMarine := context.WithTimeout(ctx, delaiLittoral)
+	defer annulerMarine()
+	l.Littoral = resoudreLittoral(s.littoralCache.pour(cleLieu(lat, lon)), ctxMarine, s.httpLieu, lat, lon)
+
+	repondreJSON(w, http.StatusOK, l)
 }
 
 // delaiNowcast borne la bande de l'heure, en sous-contexte du contexte de la
@@ -329,6 +484,64 @@ func parametreDate(r *http.Request, maintenant time.Time) (*time.Time, error) {
 		return nil, fmt.Errorf("date hors de la fenêtre couverte (%s a %s)", min.Format("2006-01-02"), max.Format("2006-01-02"))
 	}
 	return &d, nil
+}
+
+// parametreLatLon lit les parametres optionnels `lat`/`lon`
+// (prp/04-le-lieu-devient-une-donnee.md, section 3). Absents tous les deux,
+// present=false et err=nil : c'est alors a l'appelant de retomber sur le lieu
+// par defaut, EXACTEMENT le comportement d'avant ce document — la meme regle
+// que parametreDate s'etait deja donnee pour `date`. Un seul des deux, une
+// valeur illisible, ou hors de [-90,90]/[-180,180], est une erreur. Arrondis
+// a 3 decimales avant tout usage (~110 m, sous la maille de tous les
+// fournisseurs) : ce qui borne les cles de cache et evite qu'un GPS qui
+// derive de quelques metres ne cree une entree neuve a chaque
+// rafraichissement.
+func parametreLatLon(r *http.Request) (lat, lon float64, present bool, err error) {
+	brutLat := r.URL.Query().Get("lat")
+	brutLon := r.URL.Query().Get("lon")
+	if brutLat == "" && brutLon == "" {
+		return 0, 0, false, nil
+	}
+	if brutLat == "" || brutLon == "" {
+		return 0, 0, false, fmt.Errorf("les paramètres lat et lon doivent être fournis ensemble")
+	}
+	lat, errLat := strconv.ParseFloat(brutLat, 64)
+	lon, errLon := strconv.ParseFloat(brutLon, 64)
+	if errLat != nil || errLon != nil {
+		return 0, 0, false, fmt.Errorf("lat/lon illisibles : attendu des nombres")
+	}
+	// strconv.ParseFloat("NaN", 64) reussit, et toute comparaison avec NaN
+	// est fausse : le controle de bornes ci-dessous ne l'aurait pas arrete,
+	// laissant passer NaN jusqu'au fournisseur (+Inf/-Inf, eux, sont deja
+	// hors bornes et donc deja rejetes).
+	if math.IsNaN(lat) || math.IsNaN(lon) {
+		return 0, 0, false, fmt.Errorf("lat/lon illisibles : attendu des nombres")
+	}
+	if lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		return 0, 0, false, fmt.Errorf("lat/lon hors des bornes valides ([-90,90] / [-180,180])")
+	}
+	return arrondi3(lat), arrondi3(lon), true, nil
+}
+
+// parametreLieuOuDefaut est parametreLatLon suivi du repli sur le lieu par
+// defaut quand lat/lon sont absents — la forme dont ont besoin les trois
+// routes existantes (previsions/maree/pluie), qui n'ont jamais a distinguer
+// « absent » de « lieu par defaut » au-dela de ce point.
+func parametreLieuOuDefaut(r *http.Request) (lat, lon float64, err error) {
+	lat, lon, present, err := parametreLatLon(r)
+	if err != nil {
+		return 0, 0, err
+	}
+	if !present {
+		return latitude, longitude, nil
+	}
+	return lat, lon, nil
+}
+
+// arrondi3 arrondit a 3 decimales (~110 m), sous la maille de tous les
+// fournisseurs de cette application (prp/04, section 3).
+func arrondi3(v float64) float64 {
+	return float64(int(v*1000+sign(v)*0.5)) / 1000
 }
 
 func repondreJSON(w http.ResponseWriter, statut int, v any) {
@@ -363,7 +576,11 @@ func logging(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
-		log.Printf("%s %s %d %s", r.Method, r.URL.Path, rec.status, time.Since(start).Truncate(time.Millisecond))
+		// %q, pas %s : r.URL.Path est DECODE (un %0a dans l'URL y arrive en
+		// vrai saut de ligne) et forgerait une ligne de journal si on
+		// l'ecrivait tel quel (G706). %q echappe les caracteres de controle
+		// et garde la ligne lisible.
+		log.Printf("%s %q %d %s", r.Method, r.URL.Path, rec.status, time.Since(start).Truncate(time.Millisecond))
 	})
 }
 

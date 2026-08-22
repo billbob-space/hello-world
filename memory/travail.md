@@ -162,8 +162,9 @@ rencontre : trois chiffres de plus s'y ajoutent, sous « Ce qui coûte ».
 |---|---|
 | appels au modèle, dont ceux des **sous-agents** | savoir ce que coûte le geste « je lance un agent », qui n'avait pas de prix |
 | poids du **démarrage** — contrat, outillage, définitions d'outils — et sa part de la relecture | il est écrit une fois par session puis **relu à chaque appel** : mesuré entre la moitié et 80 % de toute la relecture, dont le contrat du dépôt ne fait que 7 %. C'est le seul poste qu'on réduise en élaguant l'outillage plutôt qu'en travaillant moins |
-| **tours courts** — ceux qui rendent moins de 300 jetons — et leur part de la facture | un tour paie **tout** le contexte relu, quelle que soit sa sortie : un appel d'outil nu coûte autant qu'une réponse longue. Mesurés à 67 % des tours et **51 % de la facture** sur la branche la plus lourde. La parade est une habitude, pas un réglage : **les appels indépendants partent dans le même tour**. Deux lectures qui ne dépendent pas l'une de l'autre, groupées, coûtent moitié moins que séparées |
-| **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons |
+| **tours courts** — ceux qui rendent moins de 300 jetons — et leur part de la facture, **dont ceux des agents** | un tour paie **tout** le contexte relu, quelle que soit sa sortie. Mesurés à 67 % des tours et **51 % de la facture** sur la branche la plus lourde. La parade dépend de QUI les fait, et c'est la correction du 21 août 2026 : chez la session principale, **les appels indépendants partent dans le même tour** — deux lectures groupées coûtent moitié moins que séparées. Chez un agent, non : un tour **est** un appel d'outil, et un test ne se groupe pas avec la correction qui en dépend. Mesure qui l'a tranché : **499 des 512 tours courts** d'une branche étaient des tours d'agent. La règle du groupement visait donc un levier quasi inexistant là où était l'argent — ce qui explique qu'écrite depuis des semaines, elle n'ait rien déplacé en vingt-deux branches |
+| **sessions d'agent** — leur nombre, et la longueur de la plus longue | le premier poste réel dès que des agents travaillent : 65 % de la facture d'une branche mesurée le 21 août 2026. Son coût croît en **carré** de la longueur — elle fait N tours, et chacun relit ce que les N-1 précédents ont accumulé. Mesure : trois sessions de 88 à 109 tours relisaient 178 k à 238 k jetons par tour, contre 11 k à 37 k pour six sessions de 4 à 19 tours. Au-delà de `COUT_AGENT_TOURS_ALERTE` — 60 tours, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `pret.sh` avertit. **Couper** veut dire : deux sessions de moitié, la seconde repartant du **PRP** et non de l'exploration de la première |
+| **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons. **L'annonce de la coupe se termine par le prompt de reprise** — plus bas |
 
 Et le bloc porte `cout-detail` : **un appel par ligne** — rang, agent, modèle,
 écriture, lecture, sortie. Compact et illisible à dessein, son lecteur est un
@@ -205,6 +206,45 @@ Quatre limites, toutes dites par la commande elle-même :
 - au-delà de quatre-vingt-dix jours, le taux de change est signalé comme vieux ;
 - c'est un **prix d'API, pas une facture** : sous abonnement, rien n'est refacturé
   à ce tarif. Le montant se lit comme une valeur de consommation.
+
+### Le prompt de reprise — ce qui termine l'annonce de la coupe
+
+**Tu annonces qu'une session est trop longue à trois moments**, et un seul geste les
+clôt tous les trois : au-delà de `COUT_CONTEXTE_ALERTE`, quand `cout.sh` avertit ;
+au-delà de `COUT_CONTEXTE_CRITIQUE`, quand `pret.sh` refuse le commit ; et en mode
+`/livrer`, quand tu **proposes** la coupe sans attendre de réponse.
+
+**Ton message se termine alors par le prompt de reprise, et rien ne le suit** : un bloc
+que l'utilisateur copie tel quel dans une session neuve. C'est la seule sortie vers
+l'utilisateur où chemins et noms de fichiers sont attendus — il ne le lit pas, il le
+transporte. Annoncer la coupe sans le fournir déplace la reconstitution du contexte vers
+la session qui n'en a aucun : c'est exactement le coût qu'on cherchait à éviter.
+
+Le prompt est **auto-suffisant**. La session qui le reçoit ne voit pas le fil, et ne doit
+surtout pas le rejouer : elle repart des documents du dépôt — PRD, PRP, entrée de journal,
+messages de commit — et le prompt lui dit lesquels, dans quel ordre.
+
+```
+Reprends la branche `<branche>` du dépôt <org/dépôt>.
+
+Périmètre — <les apps touchées, ou « fabrique »>
+Lis d'abord — <deux ou trois chemins : PRP, entrée de journal, PRD — rien d'autre>
+Fait — <ce qui est committé ET poussé, en deux ou trois puces>
+Reste — <ordonné, la prochaine étape en premier>
+Pièges — <ce qui a surpris ou coûté cher, pour ne pas le repayer>
+Ne refais pas — <les pistes fermées, et les fichiers ouverts pour rien>
+Mode — <`/livrer` si la session coupée était en mode autonome>
+```
+
+Trois règles d'écriture, qui décident si la reprise vaut mieux que repartir de zéro :
+
+- **« Fait » veut dire vérifié et poussé.** Jamais « je crois avoir » : la session neuve
+  n'a aucun moyen de contrôler ta mémoire, et un faux « fait » lui fera construire
+  par-dessus du vide.
+- **Un champ vide se retire**, il ne se remplit pas de « rien à signaler ».
+- **La branche et l'entrée de journal ne changent pas** : la reprise continue la même
+  entrée après un séparateur, et le relevé de coût de la session coupée s'y écrit
+  **avant** de fermer — le conteneur emporte le chiffre avec lui.
 
 ## Les deux modes de développement
 
@@ -289,6 +329,46 @@ Agent(subagent_type: "relecteur")   # relit la branche avant la PR, n'écrit rie
 Agent(subagent_type: "esthete")     # critique les écrans d'UNE app, dans un vrai navigateur
 ```
 
+**Chaque agent déclare son moteur ET son plafond**, et `./init.sh --check` refuse une
+fiche à qui l'un des deux manque. La raison est qu'un agent sans `model:` ne tombe pas
+en panne : il prend le **plus cher**, en silence. C'est ce qu'ont fait l'analyste et
+l'esthète pendant des semaines, l'esthète à 17 $ la passe sans que ce soit la décision
+de qui que ce soit.
+
+| Agent | Moteur | Plafond | Repère mesuré |
+|---|---|---|---|
+| `greffier` | `haiku` | 30 000 jetons | 0,07 $ |
+| `analyste` | `opus` | 80 000 jetons | 0,89 $ |
+| `artisan` | `sonnet` | 100 000 jetons, **un seul PRP** | 0,96 $ |
+| `relecteur` | `opus` | 100 000 jetons | 1,08 $ |
+| `esthète` | `opus` | 100 000 jetons **et 150 gestes** | 17,06 $ |
+
+Ces choix viennent d'un banc, pas d'une impression : même mission, même entrée, trois
+moteurs, avec des réponses connues d'avance — six défauts semés dans du vrai code parmi
+trois changements anodins, une distribution de journal calculée d'avance, douze tests
+d'acceptation écrits avant et jamais montrés. Méthode, vérités de référence et dix
+relevés : `docs/banc/agents/releve.md`, onze relevés de banc. Le greffier fait
+exception : son 0,07 $ vient de ses passages réels sur la branche, aucun moteur ne
+lui a été opposé — c'est un repère, pas une comparaison. Quatre enseignements qui ne
+se devinent pas :
+
+- **le moteur cher n'est pas proportionnellement cher à l'usage.** Le tarif d'`opus`
+  vaut cinq fois celui de `haiku` ; sur le même travail le relevé ne coûte que trois
+  fois et demie, parce qu'il relit 524 000 jetons là où `haiku` en relit 1 403 000. Le
+  tâtonnement se paie en contexte relu ;
+- **le moins cher réussit le mécanique et rate le jugement.** Les trois moteurs comptent
+  juste la distribution du journal — c'est un travail d'`awk`. Seul le moins cher
+  fabrique ensuite des chiffres **faux** dans son plan : plausibles, non sourcés, et
+  rien ne signale qu'ils sont inventés ;
+- **passer les tests ne prouve rien sur le code.** Les trois artisans passent les mêmes
+  douze tests d'acceptation. Un seul rend du code sans champ mort, commenté en français,
+  et sans un défaut qu'aucun test n'attrape ;
+- **le moteur n'est pas le poste.** L'esthète coûte seize fois le relecteur **à moteur
+  égal**, parce qu'il fait 141 gestes de navigateur et que chaque capture se relit à
+  tous les gestes suivants. Pour lui la borne utile est un nombre de gestes, pas un
+  moteur — d'où le second plafond, et l'obligation de dire ce qu'il n'a pas regardé
+  plutôt que de s'arrêter en silence.
+
 **Les deux derniers viennent en FIN de branche, une fois, avant la pull request** —
 jamais à chaque commit : c'est un arbitrage de coût pris avec l'utilisateur.
 
@@ -325,8 +405,10 @@ est objectif. Tous deux **ne se lancent jamais en tâche de fond**, pour la mêm
 
 Ce qui peut malgré tout tourner en même temps, et à quelle condition, est recensé dans
 `docs/parallelisme.md` — avec le rappel que `run_in_background: false` **n'est pas une
-garantie** : deux entrées de journal rapportent le harnais démarrant en fond un artisan
-lancé avec le drapeau explicite.
+garantie** : trois entrées de journal rapportent le harnais démarrant en fond un artisan
+lancé avec le drapeau explicite. La règle « jamais en tâche de fond » n'a donc **aucun
+moyen d'exécution** ; ce qui protège réellement, c'est un arbre de travail dédié par
+agent écrivain, ou l'appelant qui n'en met jamais deux en vol.
 
 L'`analyste` agrège les deux champs fermés, cherche les causes qui reviennent d'une
 branche à l'autre, et rend **dans sa réponse** un plan de trois à six actions
@@ -357,7 +439,18 @@ rencontrées dans une rubrique dédiée, que tu recopies dans l'entrée de branc
 Ne lui confie **pas plus d'un PRP à la fois**, et relance un artisan **neuf** plutôt
 que de poursuivre le même au-delà d'un chantier qui s'étire : c'est la session
 appelante, pas l'artisan, qui décide du périmètre passé à l'agent. Un chantier se
-dimensionne pour tenir sous 100 000 jetons, PRP compris. Mesure de `renaissance-gym` :
+dimensionne pour tenir sous 100 000 jetons, PRP compris — et **sous 60 tours**,
+qui est la même règle vue par le bout que `cout.sh` sait mesurer. Cette règle
+existait, écrite, sans qu'aucun chiffre ne la mette devant les yeux de personne ;
+c'est pour ça qu'elle n'était pas tenue. **Une règle écrite que rien ne mesure ne
+déplace rien** — la leçon vaut au-delà de celle-ci.
+
+Deux choses réduisent le coût d'un chantier, et une seule est gratuite. La
+gratuite : **la mission porte la carte, pas seulement la destination.** Une bonne
+part des premiers tours d'un agent sert à retrouver où vivent les choses, et
+chaque fichier ouvert pour rien est ensuite repayé à *chacun* des tours suivants.
+Le champ `acquis` sert à ça, et le PRP aussi : une valeur attendue s'y écrit avec
+ses **entrées**, sinon elle n'est pas reproductible par qui reçoit le document. Mesure de `renaissance-gym` :
 1 819 appels d'artisans à **181 026 jetons relus en moyenne**, soit des agents
 saturés en permanence, pour un poste de 113 $ sur 266 $. Les branches où l'artisan
 a reçu un chantier borné tournent entre 14 000 et 79 000.
@@ -423,7 +516,8 @@ mots, jamais les faits.
 ### Le rapport — agent → appelant
 
 Chaque agent porte son format dans sa consigne, sous `## Rendu`, et `--check`
-vérifie que les cinq le portent avec leurs champs : un agent réécrit sans son
+vérifie que les cinq le portent avec leurs champs — comme il vérifie leur `model:` et
+leur `## Plafond` : un agent réécrit sans son
 format redevient bavard sans que rien ne le signale.
 
 | Agent | Champs obligatoires |
