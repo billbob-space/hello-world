@@ -433,7 +433,22 @@ discover_apps() {
 # dependances — est lance AVANT, hors du piege : installer n'est pas tester, et
 # un cache froid rendait sinon le job rouge sur une cause etrangere au test.
 #
+# ET LES DEPOTS DE PAQUETS PASSENT. `prepare.sh` ne suffisait pas : sur un
+# runner au cache de modules VIDE, `go test` telecharge lui-meme ses
+# dependances, et le piege les bloquait — trois apps rouges en CI le 22 aout
+# 2026 (ardoise, compteur, pilabelle) sur « proxy.golang.org : connection
+# refused », quand estran, qui n'a que la bibliotheque standard, passait. Le
+# defaut ne pouvait pas se voir en local, ou le cache est chaud.
+#
+# NO_PROXY ouvre donc `proxy.golang.org`, `sum.golang.org` et
+# `registry.npmjs.org`, et RIEN d'autre. Verifie dans les deux sens : sous ces
+# variables, proxy.golang.org rend 200 et api.open-meteo.com est refuse. Ce sont
+# des depots de paquets, pas des API contre lesquelles une app se testerait :
+# l'exception ne rouvre pas le trou qu'elle est censee fermer. Les deux
+# orthographes sont posees — Go lit NO_PROXY, npm lit no_proxy.
+#
 # Defini ICI et nulle part ailleurs : DEUX endroits lancent les test.sh —
 # scripts/pret.sh et le job « test » de .github/workflows/build.yml — et une
 # valeur qui vit a deux endroits finit par vivre a deux valeurs.
-RESEAU_COUPE='HTTP_PROXY=http://127.0.0.1:1 HTTPS_PROXY=http://127.0.0.1:1'
+RESEAU_COUPE_HOTES='proxy.golang.org,sum.golang.org,registry.npmjs.org'
+RESEAU_COUPE="HTTP_PROXY=http://127.0.0.1:1 HTTPS_PROXY=http://127.0.0.1:1 NO_PROXY=$RESEAU_COUPE_HOTES no_proxy=$RESEAU_COUPE_HOTES"

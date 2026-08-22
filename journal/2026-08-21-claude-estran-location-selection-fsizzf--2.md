@@ -201,6 +201,35 @@ meme fil.
 HORS du piege dans les deux points d'entree, et la valeur porte un schema pour
 que l'erreur nomme la connexion. Verifie sur `ramure-v2` et sur `estran`.
 
+### 10. Le piege reseau bloquait aussi le TELECHARGEMENT des dependances, et seule la CI pouvait le voir
+
+**Symptome** — trois apps rouges des la premiere execution de la chaine
+complete : `ardoise`, `compteur`, `pilabelle`, toutes sur
+« `proxy.golang.org` : proxyconnect tcp: dial tcp 127.0.0.1:1: connect:
+connection refused ». `estran` passait — elle n'a que la bibliotheque standard.
+
+**Cause** — sur un runner au cache de modules VIDE, `go test` telecharge
+lui-meme ses dependances, et le piege les bloquait. Sortir `prepare.sh` du
+piege (anomalie 9) ne suffisait pas : les apps Go n'en ont pas, et c'est `go
+test` qui telecharge. **Ce defaut ne pouvait pas se voir en local**, ou le cache
+est chaud : j'ai lance les suites de cinq apps avant de pousser, toutes vertes.
+
+**Detecte par** — `CI`
+
+**Action** — `rien` — corrige : `NO_PROXY` ouvre `proxy.golang.org`,
+`sum.golang.org` et `registry.npmjs.org`, et rien d'autre. Verifie dans les deux
+sens — sous ces variables `proxy.golang.org` rend 200 et `api.open-meteo.com`
+est refuse — donc l'exception ne rouvre pas le trou qu'elle ferme : un depot de
+paquets n'est pas une API contre laquelle une app se testerait.
+
+La lecon n'est pas « il fallait y penser » mais **ou le controle etait
+verifiable** : le piege a ete exerce sur sa panne, dans les deux sens, et il
+l'aurait ete cent fois sans reveler celle-ci. Un environnement dont l'etat
+differe de la CI — ici un cache — rend une classe entiere de defauts invisible
+avant la CI. C'est le prix normal d'un garde-fou qui touche dix apps, et c'est
+la place juste de la CI dans l'echelle : plus chere que le test, moins chere que
+l'utilisateur.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
