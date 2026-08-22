@@ -1310,3 +1310,63 @@ claude-opus-5, claude-sonnet-5. Tarifs de `fabrique.yml`, en dollars par million
 996 agent claude-haiku-4-5-20251001 358 23071 3
 -->
 <!-- /cout -->
+
+### 14. La CI ne demarrait pas, et son silence ressemblait a une attente
+
+**Symptome** — la pull request ouverte, aucun controle n'apparait. Ni rouge, ni
+vert, ni « en cours » : **zero controle**, vingt-sept minutes durant. L'API le
+confirme — aucun run de workflow n'existe pour cette branche.
+
+**Cause** — `main` avait avance de quarante-cinq commits pendant la branche, et
+la pull request etait en conflit. GitHub ne peut alors pas construire la
+reference de fusion sur laquelle tournent les workflows declenches par
+`pull_request` : il n'echoue pas, il ne lance rien. `mergeable_state: dirty`
+dans la reponse de l'API etait le seul endroit ou cela se lisait.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — devant une CI muette, la premiere question n'est
+pas « qu'est-ce qui echoue » mais « a-t-elle seulement demarre ». Zero controle
+et un controle en cours se ressemblent, et seul l'etat de mergeabilite les
+distingue. Attendre un resultat qui ne viendra jamais coute plus cher qu'un
+appel d'API.
+
+### 15. Deux sessions ont ecrit le meme test, le meme jour, sous le meme nom
+
+**Symptome** — la fusion de `main` a fait entrer un second
+`TestCadragePlusEtroitSurEcranEtroit` dans le meme paquet, git ayant fusionne
+les deux ajouts **sans conflit** : ils tombaient a des endroits differents du
+fichier. Deux fonctions de meme nom dans un meme paquet Go — seul le
+compilateur l'aurait attrape.
+
+**Cause** — le nom du test est **impose par le PRD**, qui le designe comme la
+mitigation d'un risque. Deux sessions ayant lu le meme PRD le meme jour ont donc
+ecrit la meme fonction sous le meme nom, chacune de son cote. Un nom impose par
+un document partage est un point de collision par construction, et git ne voit
+pas les collisions de symboles, seulement celles de lignes.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — celle de `main` est gardee : elle verifie la meme
+propriete au niveau de la fonction **et** a travers la route HTTP, la seconde
+prouvant que le parametre de largeur atteint reellement la selection. La mienne
+s'arretait au premier niveau. Deux ecritures independantes de la meme exigence
+ne sont pas un gaspillage complet : la comparaison a designe la meilleure.
+
+### 16. Un cas de bout en bout rouge une fois, vert au rejeu, code identique
+
+**Symptome** — juste apres la fusion, `collection-hors-ligne.spec.ts` echoue sur
+le cycle hors ligne de F-33 : 20 passes, 1 echoue. Rejoue sans toucher une
+ligne : 21/21.
+
+**Cause** — non etablie. Ce n'est pas neuf dans ce depot : une entree anterieure
+rapporte deja « une suite de bout en bout rouge une fois sur trois, code
+identique ». Le rejeu unique est ici conforme a la regle — un echec qui ne se
+reproduit pas a l'identique une fois ne se traite pas comme un defaut, mais il
+se consigne, sans quoi la troisieme occurrence ressemblera encore a la premiere.
+
+**Detecte par** — `test`
+
+**Action** — `garde-fou` — l'instabilite est desormais vue sur deux suites
+differentes. Tant qu'elle n'est pas nommee, chaque branche paiera son rejeu et
+personne n'accumulera les occurrences.
