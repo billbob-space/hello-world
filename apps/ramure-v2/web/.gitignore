@@ -9,3 +9,6 @@ dist/
 # rapports Playwright, jamais suivis par git, regeneres a chaque run.
 test-results/
 playwright-report/
+
+# Rapport de couverture vitest (--coverage), regenere a chaque run de test.sh.
+coverage/

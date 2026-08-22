@@ -119,6 +119,49 @@ func TestSeuilDeVotesEcarteLesNotesNonSignificatives(t *testing.T) {
 	}
 }
 
+// TestTriMelangeNotesEtNonNotesRestentDansLeBonOrdre reproduit le defaut de
+// l'ancien comparateur a deux branches : une liste ou des albums notes et non
+// notes s'entrelacent, dans un ordre source defavorable a un tri correct par
+// simple parcours. L'ancien comparateur rendait false des qu'un album etait
+// sous le seuil, donc non transitif : un album note 9 pouvait rester derriere
+// un album note 1 des qu'un album non note s'intercalait entre eux.
+func TestTriMelangeNotesEtNonNotesRestentDansLeBonOrdre(t *testing.T) {
+	m, _ := nouveauMusicBrainzDeTest(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"release-groups":[
+			{"id":"a1","title":"Note 1.0","primary-type":"Album","secondary-types":[],"rating":{"votes-count":10,"value":1.0}},
+			{"id":"a2","title":"Sans note A","primary-type":"Album","secondary-types":[]},
+			{"id":"a3","title":"Note 9.0","primary-type":"Album","secondary-types":[],"rating":{"votes-count":10,"value":9.0}},
+			{"id":"a4","title":"Sans note B","primary-type":"Album","secondary-types":[]},
+			{"id":"a5","title":"Note 5.0","primary-type":"Album","secondary-types":[],"rating":{"votes-count":10,"value":5.0}}
+		]}`))
+	})
+
+	albums, err := m.Discographie(context.Background(), "mbid-1", budget.Centre)
+	if err != nil {
+		t.Fatalf("Discographie : %v", err)
+	}
+
+	attendu := []string{"Note 9.0", "Note 5.0", "Note 1.0", "Sans note A", "Sans note B"}
+	if len(albums) != len(attendu) {
+		t.Fatalf("albums = %+v, attendu %d elements", albums, len(attendu))
+	}
+	for i, titre := range attendu {
+		if albums[i].Titre != titre {
+			t.Fatalf("ordre = %v, attendu %v (position %d : %q, obtenu %q)",
+				titresDe(albums), attendu, i, titre, albums[i].Titre)
+		}
+	}
+}
+
+func titresDe(albums []Album) []string {
+	t := make([]string, len(albums))
+	for i, a := range albums {
+		t[i] = a.Titre
+	}
+	return t
+}
+
 func TestUnAppelUnique(t *testing.T) {
 	m, _ := nouveauMusicBrainzDeTest(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

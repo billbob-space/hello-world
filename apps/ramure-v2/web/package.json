@@ -6,13 +6,14 @@
   "scripts": {
     "build": "esbuild src/main.ts --bundle --format=esm --outfile=dist/app.js --minify && esbuild src/sw.ts --bundle --format=iife --outfile=dist/sw.js --minify && mkdir -p dist && cp manifest.webmanifest dist/manifest.webmanifest && cp icone.svg dist/icone.svg",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "1.56.1",
     "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "playwright-core": "1.56.1",
     "esbuild": "^0.24.0",
     "jsdom": "^25.0.1",
