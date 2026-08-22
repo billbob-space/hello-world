@@ -4,11 +4,15 @@
 // embarque par //go:embed web/dist (main.go). Cable ensemble geometrie.ts,
 // canevas.ts, camera.ts, promotion.ts (PRP 05) et desormais accueil.ts,
 // recherche.ts, fiche.ts (PRP 06) contre GET /api/centre, /api/suggest et
-// /api/fiche. Ce fichier n'est PAS teste unitairement : chaque brique qu'il
-// assemble l'est deja (voir web/tests/), et son propre role — cablage DOM
-// et evenements reels — est verifie manuellement (PRP 05, "l'arbre
-// s'affiche et se parcourt vraiment" ; PRP 06, "le parcours complet tient
-// a la main").
+// /api/fiche — via passerelle.ts (revue PRP 06), qui porte desormais TOUTE
+// la logique reseau (requetes, en-tetes, decodage JSON, SessionExpireeError)
+// et que web/tests/passerelle.test.ts couvre. Ce fichier n'est PAS teste
+// unitairement : chaque brique qu'il assemble l'est deja (voir web/tests/),
+// et son propre role restant — cablage DOM et evenements, composition avec
+// son propre etat (lignee, miroir hors ligne, panneaux) — est verifie
+// manuellement (PRP 05, "l'arbre s'affiche et se parcourt vraiment" ; PRP
+// 06, "le parcours complet tient a la main") et par le bout en bout
+// (Playwright, apps/ramure-v2/e2e/).
 import {
   ajusterZonesTactiles,
   appliquerVue as appliquerVueSurGroupe,
@@ -30,7 +34,6 @@ import {
   promouvoir,
   recadrerSiBouge,
 } from "./promotion";
-import { dispositionCourante } from "./disposition";
 import { textes } from "./textes";
 import { construireMur, type MurAccueil, type TuileDonnees } from "./accueil";
 import {
@@ -38,17 +41,13 @@ import {
   construireLienPartage,
   creerAmorceurUneFois,
   extraireGraineDeLURL,
-  type SuggestionAPI,
 } from "./recherche";
 import {
   GestionnaireService,
   SERVICES,
   construireApercuBranche,
   construireFiche,
-  type AlbumAPI,
-  type ExtraitAPI,
   type PanneauFiche,
-  type ProfilAPI,
 } from "./fiche";
 import {
   MiroirHorsLigne,
@@ -56,48 +55,19 @@ import {
   type EntreeAPI,
   type PanneauCollection,
 } from "./collection";
-import { EN_TETE_SESSION, SessionExpireeError, estReponseSessionExpiree, sessionId } from "./session";
-
-// Champs du JSON rendu par GET /api/centre : une seule convention
-// d'etiquetage — camelCase minuscule — sur tous les types, y compris
-// internal/source.* (Artiste, Voisin, Illustration, Profil, Album), qui
-// portent desormais une etiquette json explicite au meme titre que
-// Branche/Centre.
-interface VoisinAPI {
-  nom: string;
-  mbid: string;
-  affinite: number;
-}
-
-interface IllustrationAPI {
-  petite: string;
-  moyenne: string;
-  grande: string;
-}
-
-interface BrancheAPI {
-  voisin: VoisinAPI;
-  illustration: IllustrationAPI;
-  lienDeezer?: string;
-  heritiers?: VoisinAPI[];
-}
-
-interface CentreAPI {
-  artiste: { nom: string; mbid: string; pays: string; desambiguisation: string };
-  profil?: ProfilAPI;
-  illustration: IllustrationAPI;
-  discographie?: AlbumAPI[];
-  branches?: BrancheAPI[];
-  etat: "ok" | "aucun_voisin" | "panne";
-  message?: string;
-}
-
-interface FicheAPI {
-  profil: ProfilAPI;
-  extraits: ExtraitAPI[];
-  lienEcoute: string;
-  lienDeezer?: string;
-}
+import { EN_TETE_SESSION, SessionExpireeError, sessionId } from "./session";
+import {
+  ajouterALaCollection as envoyerAjoutCollection,
+  chargerCentre,
+  chargerCollectionServeur,
+  chargerFiche,
+  chargerReglageServeur as recupererReglageServeur,
+  chargerSuggestions,
+  enTetesJSON,
+  retirerDeLaCollection as envoyerRetraitCollection,
+  type CentreAPI,
+  type FicheAPI,
+} from "./passerelle";
 
 const ANNEAU: Anneau = { rayonMin: 150, rayonMax: 420 };
 const RAYON_CENTRE = 60;
@@ -304,26 +274,10 @@ function construireSelectService(): void {
   gestionnaireService.observer(() => panneauFiche?.actualiserLiens());
 }
 
-// chargerFiche appelle GET /api/fiche a l'OUVERTURE de la fiche — jamais
-// au chargement de l'arbre (§07) : c'est le seul endroit qui charge
-// Extraits, et le seul cout que ce PRP ajoute au-dela des deux appels
-// MusicBrainz du centre.
-async function chargerFiche(nom: string): Promise<FicheAPI | null> {
-  try {
-    const reponse = await fetch(
-      `/api/fiche?nom=${encodeURIComponent(nom)}&service=${encodeURIComponent(gestionnaireService.service)}`,
-    );
-    if (!reponse.ok) return null;
-    return (await reponse.json()) as FicheAPI;
-  } catch {
-    return null;
-  }
-}
-
 async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
   if (!ficheEl) return;
   const nom = centreAPI.artiste.nom;
-  const fiche = await chargerFiche(nom);
+  const fiche = await chargerFiche(nom, gestionnaireService.service);
   if (nomCentreCourant !== nom) return; // reponse tardive (§09) : ecartee
 
   mbidCentreCourant = centreAPI.artiste.mbid || null;
@@ -347,10 +301,6 @@ async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
 // l'identite, seulement le jeton de session (mesure) dans les en-tetes.
 // ---------------------------------------------------------------------
 
-function enTetesJSON(): HeadersInit {
-  return { "Content-Type": "application/json", [EN_TETE_SESSION]: session };
-}
-
 /** estGarde() lit la vue FUSIONNEE (serveur + miroir hors ligne, F-33) :
  * c'est elle qui doit refleter l'etat "garde" du bouton de la fiche,
  * jamais collectionServeur seule, qui ignorerait un ajout hors ligne pas
@@ -360,21 +310,11 @@ function estGarde(mbid: string | null): boolean {
   return miroir.vue(collectionServeur).some((e) => e.mbid === mbid);
 }
 
-async function chargerCollectionServeur(): Promise<EntreeAPI[]> {
-  try {
-    const reponse = await fetch("/api/collection", { headers: { [EN_TETE_SESSION]: session } });
-    if (!reponse.ok) return [];
-    return (await reponse.json()) as EntreeAPI[];
-  } catch {
-    return []; // hors ligne (F-33) : le miroir local prend le relais dans vue()
-  }
-}
-
 // actualiserCollection recharge la copie serveur ET repeint le panneau
 // (F-30 : lignee et date), sans jamais reconstruire le conteneur une fois
 // le panneau construit (idempotence, meme discipline que fiche.ts).
 async function actualiserCollection(): Promise<void> {
-  collectionServeur = await chargerCollectionServeur();
+  collectionServeur = await chargerCollectionServeur(session);
   const vue = miroir.vue(collectionServeur);
 
   if (collectionEl) {
@@ -403,30 +343,15 @@ async function ajouterALaCollection(nom: string, mbid: string): Promise<void> {
   const e: EntreeAPI = { nom, mbid, lignee: [...ligneeNoms, nom], ajoute: new Date().toISOString() };
   miroir.ajouter(e); // F-33 : visible immediatement, meme hors ligne
   panneauFiche?.actualiserGarde(true); // retour visuel immediat (F-28)
-  try {
-    const reponse = await fetch("/api/collection", {
-      method: "PUT",
-      headers: enTetesJSON(),
-      body: JSON.stringify({ nom, mbid, lignee: e.lignee }),
-    });
-    if (reponse.ok) miroir.confirmer([...collectionServeur, e]);
-  } catch {
-    // Reste en attente dans le miroir : reconcilie a la reconnexion (F-33).
-  }
+  const ok = await envoyerAjoutCollection(session, { nom, mbid, lignee: e.lignee });
+  if (ok) miroir.confirmer([...collectionServeur, e]);
   await actualiserCollection();
 }
 
 async function retirerDeLaCollection(mbid: string): Promise<void> {
   miroir.retirer(mbid);
   panneauFiche?.actualiserGarde(false);
-  try {
-    await fetch(`/api/collection?mbid=${encodeURIComponent(mbid)}`, {
-      method: "DELETE",
-      headers: { [EN_TETE_SESSION]: session },
-    });
-  } catch {
-    // Reste en attente dans le miroir : reconcilie a la reconnexion (F-33).
-  }
+  await envoyerRetraitCollection(session, mbid);
   await actualiserCollection();
 }
 
@@ -445,7 +370,7 @@ function basculerGarde(nom: string, mbid: string | null): void {
 async function synchroniserMiroir(): Promise<void> {
   for (const e of miroir.ajoutsEnAttente) {
     try {
-      await fetch("/api/collection", { method: "PUT", headers: enTetesJSON(), body: JSON.stringify(e) });
+      await fetch("/api/collection", { method: "PUT", headers: enTetesJSON(session), body: JSON.stringify(e) });
     } catch {
       break; // toujours hors ligne : on retentera au prochain evenement "online"
     }
@@ -493,16 +418,6 @@ boutonCollection?.addEventListener("click", () => {
 
 let requeteSuggestionsEnCours = 0;
 let minuteurSuggestions: number | undefined;
-
-async function chargerSuggestions(q: string): Promise<SuggestionAPI[]> {
-  try {
-    const reponse = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`);
-    if (!reponse.ok) return [];
-    return (await reponse.json()) as SuggestionAPI[];
-  } catch {
-    return [];
-  }
-}
 
 // fermerSuggestions (defaut #7, REFERENCE.md) : ferme la liste de
 // suggestions ET invalide toute requete debattue (debounce, 200ms) encore en
@@ -667,31 +582,6 @@ function cablerNoeud(n: NoeudDessine, nom: string): void {
   cablerActivation(n, () => void promouvoirVers(n, nom));
 }
 
-// chargerCentre porte le jeton de session (mesure) et, sur une plantation
-// seulement, l'amorcage (M-06/M-07) : jamais sur une promotion, que le
-// serveur distingue via origine=promotion (internal/api/centre.go).
-async function chargerCentre(
-  nom: string,
-  options?: { origine?: "promotion"; amorce?: "collection" | "partage" },
-): Promise<CentreAPI> {
-  // largeur (PRP 08, disposition.ts) : le SERVEUR decide seul du nombre de
-  // branches/heritiers pour cette disposition (internal/api/centre.go,
-  // cadragePour) — le client ne fait que nommer la disposition qu'il
-  // affiche reellement, jamais ne recompte lui-meme.
-  const params = new URLSearchParams({ nom, largeur: dispositionCourante() });
-  if (options?.origine) params.set("origine", options.origine);
-  if (options?.amorce) params.set("amorce", options.amorce);
-  const reponse = await fetch(`/api/centre?${params.toString()}`, {
-    headers: { [EN_TETE_SESSION]: session },
-  });
-  // F-41 : une session expiree ressemble a une reponse reseau normale
-  // (souvent un 200) — seul le CONTENU la trahit, jamais reponse.ok.
-  if (estReponseSessionExpiree(reponse, window.location.origin)) {
-    throw new SessionExpireeError();
-  }
-  return (await reponse.json()) as CentreAPI;
-}
-
 // reconstruireScene peint une scene ENTIEREMENT NEUVE a partir d'un
 // CentreAPI deja charge — partagee par planter() (une graine, F-04) et
 // remonterLignee() (F-14) : les deux repartent d'un centre sans noeud
@@ -780,7 +670,7 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
 
   let centreAPI: CentreAPI;
   try {
-    centreAPI = await chargerCentre(nom, { amorce });
+    centreAPI = await chargerCentre(nom, session, window.location.origin, { amorce });
   } catch (erreur) {
     if (lignee.estPerimee(generation)) return;
     if (erreur instanceof SessionExpireeError) {
@@ -812,7 +702,7 @@ async function remonterLignee(): Promise<void> {
 
   let centreAPI: CentreAPI;
   try {
-    centreAPI = await chargerCentre(nomCible, { origine: "promotion" });
+    centreAPI = await chargerCentre(nomCible, session, window.location.origin, { origine: "promotion" });
   } catch (erreur) {
     if (lignee.estPerimee(nav.generation)) return;
     if (erreur instanceof SessionExpireeError) {
@@ -854,7 +744,7 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
   try {
     resultat = await promouvoir(lignee, { id: noeud.id, nom }, {
       mouvementReduit: reduit,
-      chargerCentre: () => chargerCentre(nom, { origine: "promotion" }), // M-01
+      chargerCentre: () => chargerCentre(nom, session, window.location.origin, { origine: "promotion" }), // M-01
     });
   } catch (erreur) {
     if (erreur instanceof SessionExpireeError) {
@@ -1011,6 +901,10 @@ document.title = textes.titre;
 if (boutonLogo) boutonLogo.setAttribute("aria-label", textes.retourAccueil);
 if (boutonRemonter) boutonRemonter.setAttribute("aria-label", textes.remonterLaLignee);
 if (accueilSection) accueilSection.setAttribute("aria-label", textes.accueilTitre);
+// Constat de revue (PRP 06) : role="listbox" sans nom accessible n'annonce
+// qu'"liste, N elements" a un lecteur d'ecran — jamais de QUOI la liste
+// parle. textes.suggestionsLabel comble ce manque (WCAG 4.1.2).
+if (suggestionsEl) suggestionsEl.setAttribute("aria-label", textes.suggestionsLabel);
 if (miseAJourTexteEl) miseAJourTexteEl.textContent = textes.miseAJourDisponible;
 if (boutonMiseAJour) boutonMiseAJour.textContent = textes.miseAJourAppliquer;
 actualiserVisibiliteRemonter();
@@ -1030,21 +924,15 @@ construireSelectService();
 // memoire pour la session courante, sans casser l'ecran (degradation
 // gracieuse, comme partout ailleurs dans le client).
 async function chargerReglageServeur(): Promise<void> {
-  try {
-    const reponse = await fetch("/api/reglages", { headers: { [EN_TETE_SESSION]: session } });
-    if (!reponse.ok) return;
-    const corps = (await reponse.json()) as { service?: string };
-    if (corps.service && (SERVICES as readonly string[]).includes(corps.service)) {
-      gestionnaireService.definir(corps.service as (typeof SERVICES)[number]);
-      if (serviceSelect) serviceSelect.value = corps.service;
-    }
-  } catch {
-    // Le service par defaut du client (fiche.ts) reste en vigueur pour
-    // cette session.
+  const corps = await recupererReglageServeur(session);
+  if (!corps) return; // Le service par defaut du client (fiche.ts) reste en vigueur pour cette session.
+  if (corps.service && (SERVICES as readonly string[]).includes(corps.service)) {
+    gestionnaireService.definir(corps.service as (typeof SERVICES)[number]);
+    if (serviceSelect) serviceSelect.value = corps.service;
   }
 }
 gestionnaireService.observer((s) => {
-  void fetch("/api/reglages", { method: "PUT", headers: enTetesJSON(), body: JSON.stringify({ service: s }) }).catch(
+  void fetch("/api/reglages", { method: "PUT", headers: enTetesJSON(session), body: JSON.stringify({ service: s }) }).catch(
     () => {}, // meme echec : le choix reste actif dans cette session (repli, §09)
   );
 });

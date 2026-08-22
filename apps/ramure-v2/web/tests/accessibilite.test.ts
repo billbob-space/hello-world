@@ -60,6 +60,8 @@ function etiqueterCommandesStatiques(): void {
     partager.textContent = "⇪";
     partager.setAttribute("aria-label", textes.partagerLien);
   }
+  const suggestions = document.querySelector<HTMLElement>("#suggestions");
+  suggestions?.setAttribute("aria-label", textes.suggestionsLabel);
 }
 
 function stockageMemoire(): Storage {
@@ -427,6 +429,15 @@ describe("9 · les panneaux et fenetres sont titres, meme sans titre visible", (
     construireDocument();
     const formulaire = document.querySelector('form[role="search"]');
     expect(formulaire?.getAttribute("aria-label")?.trim()).toBeTruthy();
+  });
+
+  // Constat de revue (PRP 06) : role="listbox" sans nom accessible
+  // n'annonce que "liste, N elements" a un lecteur d'ecran, jamais de quoi
+  // elle parle (WCAG 4.1.2).
+  it("la liste de suggestions (role=listbox) porte le nom accessible de textes.suggestionsLabel", () => {
+    construireEtatCanevas();
+    const suggestions = document.querySelector('#suggestions[role="listbox"]');
+    expect(suggestions?.getAttribute("aria-label")?.trim()).toBe(textes.suggestionsLabel);
   });
 });
 

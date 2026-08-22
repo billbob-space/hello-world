@@ -18,13 +18,15 @@ export default defineConfig({
     // verifiee par test.sh via `npm run test` -> `vitest run --coverage`.
     // Seuil pose au niveau mesure aujourd'hui, arrondi vers le bas : il doit
     // rester vert des l'instant ou il est ecrit, et rougir des qu'un module
-    // perd de la couverture.
+    // perd de la couverture. Remonte de 53 a 57 (revue PRP 06) apres
+    // l'extraction de la couche reseau de main.ts vers passerelle.ts,
+    // couverte a 100 %.
     coverage: {
       provider: "v8",
       include: ["src/**"],
       reporter: ["text", "json-summary"],
       thresholds: {
-        lines: 53,
+        lines: 57,
       },
     },
   },

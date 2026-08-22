@@ -9,7 +9,7 @@
 // "lastfm:profil:"+Normaliser(nom) a deja ete remplie par /api/centre pour
 // ce meme artiste, donc cet appel est systematiquement un succes de
 // cache, jamais un second appel reseau (verifie par
-// TestBudgetRespecteALOuvertureDeLaFiche, internal/arbre).
+// TestBudgetLOuvertureDeLaFicheNeCouteRienDePlus, internal/api/fiche_test.go).
 //
 // Parametre "nom" plutot que "mbid" (contrairement au commentaire
 // d'origine du PRP) : Last.fm et Deezer interrogent tous deux par NOM, pas

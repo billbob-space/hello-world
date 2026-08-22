@@ -120,7 +120,7 @@ describe("4 · le service d'ecoute se choisit et tous les liens le respectent (F
     );
   });
 
-  it("Deezer est le service par defaut en l'absence de reglage (repli documente, PRP 07 non encore ecrit)", () => {
+  it("Deezer est le service par defaut en l'absence de reglage (repli documente, PRP 07 clos)", () => {
     const g = new GestionnaireService();
     expect(g.service).toBe("deezer");
   });

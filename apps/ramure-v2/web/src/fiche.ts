@@ -190,9 +190,11 @@ export class GestionnaireLecteur {
 }
 
 // ---------------------------------------------------------------------
-// Service d'ecoute (F-25) — memoire en session UNIQUEMENT tant que le
-// reglage serveur du PRP 07 n'existe pas (cf. prp/06-ecrans.md, "ce que la
-// suite attend de vous" n°4 : F-25 se coche au PRP 07, pas a celui-ci).
+// Service d'ecoute (F-25, close) — cette classe ne porte que le defaut et
+// la memoire en session ; le reglage releve du serveur au demarrage
+// (chargerReglageServeur, PRP 07, internal/api/reglages.go) l'ecrase des
+// que la reponse arrive, pour suivre le proprietaire d'un appareil a
+// l'autre.
 // ---------------------------------------------------------------------
 
 export const SERVICES = ["deezer", "spotify", "apple", "youtube", "tidal"] as const;
