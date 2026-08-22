@@ -164,7 +164,7 @@ rencontre : trois chiffres de plus s'y ajoutent, sous « Ce qui coûte ».
 | poids du **démarrage** — contrat, outillage, définitions d'outils — et sa part de la relecture | il est écrit une fois par session puis **relu à chaque appel** : mesuré entre la moitié et 80 % de toute la relecture, dont le contrat du dépôt ne fait que 7 %. C'est le seul poste qu'on réduise en élaguant l'outillage plutôt qu'en travaillant moins |
 | **tours courts** — ceux qui rendent moins de 300 jetons — et leur part de la facture, **dont ceux des agents** | un tour paie **tout** le contexte relu, quelle que soit sa sortie. Mesurés à 67 % des tours et **51 % de la facture** sur la branche la plus lourde. La parade dépend de QUI les fait, et c'est la correction du 21 août 2026 : chez la session principale, **les appels indépendants partent dans le même tour** — deux lectures groupées coûtent moitié moins que séparées. Chez un agent, non : un tour **est** un appel d'outil, et un test ne se groupe pas avec la correction qui en dépend. Mesure qui l'a tranché : **499 des 512 tours courts** d'une branche étaient des tours d'agent. La règle du groupement visait donc un levier quasi inexistant là où était l'argent — ce qui explique qu'écrite depuis des semaines, elle n'ait rien déplacé en vingt-deux branches |
 | **sessions d'agent** — leur nombre, et la longueur de la plus longue | le premier poste réel dès que des agents travaillent : 65 % de la facture d'une branche mesurée le 21 août 2026. Son coût croît en **carré** de la longueur — elle fait N tours, et chacun relit ce que les N-1 précédents ont accumulé. Mesure : trois sessions de 88 à 109 tours relisaient 178 k à 238 k jetons par tour, contre 11 k à 37 k pour six sessions de 4 à 19 tours. Au-delà de `COUT_AGENT_TOURS_ALERTE` — 60 tours, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `pret.sh` avertit. **Couper** veut dire : deux sessions de moitié, la seconde repartant du **PRP** et non de l'exploration de la première |
-| **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons |
+| **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons. **L'annonce de la coupe se termine par le prompt de reprise** — plus bas |
 
 Et le bloc porte `cout-detail` : **un appel par ligne** — rang, agent, modèle,
 écriture, lecture, sortie. Compact et illisible à dessein, son lecteur est un
@@ -206,6 +206,45 @@ Quatre limites, toutes dites par la commande elle-même :
 - au-delà de quatre-vingt-dix jours, le taux de change est signalé comme vieux ;
 - c'est un **prix d'API, pas une facture** : sous abonnement, rien n'est refacturé
   à ce tarif. Le montant se lit comme une valeur de consommation.
+
+### Le prompt de reprise — ce qui termine l'annonce de la coupe
+
+**Tu annonces qu'une session est trop longue à trois moments**, et un seul geste les
+clôt tous les trois : au-delà de `COUT_CONTEXTE_ALERTE`, quand `cout.sh` avertit ;
+au-delà de `COUT_CONTEXTE_CRITIQUE`, quand `pret.sh` refuse le commit ; et en mode
+`/livrer`, quand tu **proposes** la coupe sans attendre de réponse.
+
+**Ton message se termine alors par le prompt de reprise, et rien ne le suit** : un bloc
+que l'utilisateur copie tel quel dans une session neuve. C'est la seule sortie vers
+l'utilisateur où chemins et noms de fichiers sont attendus — il ne le lit pas, il le
+transporte. Annoncer la coupe sans le fournir déplace la reconstitution du contexte vers
+la session qui n'en a aucun : c'est exactement le coût qu'on cherchait à éviter.
+
+Le prompt est **auto-suffisant**. La session qui le reçoit ne voit pas le fil, et ne doit
+surtout pas le rejouer : elle repart des documents du dépôt — PRD, PRP, entrée de journal,
+messages de commit — et le prompt lui dit lesquels, dans quel ordre.
+
+```
+Reprends la branche `<branche>` du dépôt <org/dépôt>.
+
+Périmètre — <les apps touchées, ou « fabrique »>
+Lis d'abord — <deux ou trois chemins : PRP, entrée de journal, PRD — rien d'autre>
+Fait — <ce qui est committé ET poussé, en deux ou trois puces>
+Reste — <ordonné, la prochaine étape en premier>
+Pièges — <ce qui a surpris ou coûté cher, pour ne pas le repayer>
+Ne refais pas — <les pistes fermées, et les fichiers ouverts pour rien>
+Mode — <`/livrer` si la session coupée était en mode autonome>
+```
+
+Trois règles d'écriture, qui décident si la reprise vaut mieux que repartir de zéro :
+
+- **« Fait » veut dire vérifié et poussé.** Jamais « je crois avoir » : la session neuve
+  n'a aucun moyen de contrôler ta mémoire, et un faux « fait » lui fera construire
+  par-dessus du vide.
+- **Un champ vide se retire**, il ne se remplit pas de « rien à signaler ».
+- **La branche et l'entrée de journal ne changent pas** : la reprise continue la même
+  entrée après un séparateur, et le relevé de coût de la session coupée s'y écrit
+  **avant** de fermer — le conteneur emporte le chiffre avec lui.
 
 ## Les deux modes de développement
 
