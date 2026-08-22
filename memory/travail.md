@@ -162,7 +162,8 @@ rencontre : trois chiffres de plus s'y ajoutent, sous « Ce qui coûte ».
 |---|---|
 | appels au modèle, dont ceux des **sous-agents** | savoir ce que coûte le geste « je lance un agent », qui n'avait pas de prix |
 | poids du **démarrage** — contrat, outillage, définitions d'outils — et sa part de la relecture | il est écrit une fois par session puis **relu à chaque appel** : mesuré entre la moitié et 80 % de toute la relecture, dont le contrat du dépôt ne fait que 7 %. C'est le seul poste qu'on réduise en élaguant l'outillage plutôt qu'en travaillant moins |
-| **tours courts** — ceux qui rendent moins de 300 jetons — et leur part de la facture | un tour paie **tout** le contexte relu, quelle que soit sa sortie : un appel d'outil nu coûte autant qu'une réponse longue. Mesurés à 67 % des tours et **51 % de la facture** sur la branche la plus lourde. La parade est une habitude, pas un réglage : **les appels indépendants partent dans le même tour**. Deux lectures qui ne dépendent pas l'une de l'autre, groupées, coûtent moitié moins que séparées |
+| **tours courts** — ceux qui rendent moins de 300 jetons — et leur part de la facture, **dont ceux des agents** | un tour paie **tout** le contexte relu, quelle que soit sa sortie. Mesurés à 67 % des tours et **51 % de la facture** sur la branche la plus lourde. La parade dépend de QUI les fait, et c'est la correction du 21 août 2026 : chez la session principale, **les appels indépendants partent dans le même tour** — deux lectures groupées coûtent moitié moins que séparées. Chez un agent, non : un tour **est** un appel d'outil, et un test ne se groupe pas avec la correction qui en dépend. Mesure qui l'a tranché : **499 des 512 tours courts** d'une branche étaient des tours d'agent. La règle du groupement visait donc un levier quasi inexistant là où était l'argent — ce qui explique qu'écrite depuis des semaines, elle n'ait rien déplacé en vingt-deux branches |
+| **sessions d'agent** — leur nombre, et la longueur de la plus longue | le premier poste réel dès que des agents travaillent : 65 % de la facture d'une branche mesurée le 21 août 2026. Son coût croît en **carré** de la longueur — elle fait N tours, et chacun relit ce que les N-1 précédents ont accumulé. Mesure : trois sessions de 88 à 109 tours relisaient 178 k à 238 k jetons par tour, contre 11 k à 37 k pour six sessions de 4 à 19 tours. Au-delà de `COUT_AGENT_TOURS_ALERTE` — 60 tours, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `pret.sh` avertit. **Couper** veut dire : deux sessions de moitié, la seconde repartant du **PRP** et non de l'exploration de la première |
 | **croissance** de la relecture, du premier au dernier appel | au-delà de `COUT_CONTEXTE_ALERTE` — 300 000 jetons, défini dans `scripts/cout.sh` et jamais recopié ailleurs — `cout.sh` avertit à chaque `pret.sh`. **Couper** veut dire : terminer la session, en rouvrir une **sur la même branche**, qui reprend par le PRD, les PRP, l'entrée de journal et les messages de commit déjà écrits — **jamais par le fil de la conversation**. Neuf branches sur vingt-deux ont franchi ce seuil sans que personne coupe, la pire à 703 497 jetons |
 
 Et le bloc porte `cout-detail` : **un appel par ligne** — rang, agent, modèle,
@@ -399,7 +400,18 @@ rencontrées dans une rubrique dédiée, que tu recopies dans l'entrée de branc
 Ne lui confie **pas plus d'un PRP à la fois**, et relance un artisan **neuf** plutôt
 que de poursuivre le même au-delà d'un chantier qui s'étire : c'est la session
 appelante, pas l'artisan, qui décide du périmètre passé à l'agent. Un chantier se
-dimensionne pour tenir sous 100 000 jetons, PRP compris. Mesure de `renaissance-gym` :
+dimensionne pour tenir sous 100 000 jetons, PRP compris — et **sous 60 tours**,
+qui est la même règle vue par le bout que `cout.sh` sait mesurer. Cette règle
+existait, écrite, sans qu'aucun chiffre ne la mette devant les yeux de personne ;
+c'est pour ça qu'elle n'était pas tenue. **Une règle écrite que rien ne mesure ne
+déplace rien** — la leçon vaut au-delà de celle-ci.
+
+Deux choses réduisent le coût d'un chantier, et une seule est gratuite. La
+gratuite : **la mission porte la carte, pas seulement la destination.** Une bonne
+part des premiers tours d'un agent sert à retrouver où vivent les choses, et
+chaque fichier ouvert pour rien est ensuite repayé à *chacun* des tours suivants.
+Le champ `acquis` sert à ça, et le PRP aussi : une valeur attendue s'y écrit avec
+ses **entrées**, sinon elle n'est pas reproductible par qui reçoit le document. Mesure de `renaissance-gym` :
 1 819 appels d'artisans à **181 026 jetons relus en moyenne**, soit des agents
 saturés en permanence, pour un poste de 113 $ sur 266 $. Les branches où l'artisan
 a reçu un chantier borné tournent entre 14 000 et 79 000.

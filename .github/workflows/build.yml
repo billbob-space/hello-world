@@ -461,7 +461,15 @@ jobs:
       # connaitre les langages. Le runner fournit Go, Node, Python et Java ;
       # pour une autre chaine, testez dans un etage du Dockerfile.
       - name: tests de ${{ matrix.app }}
-        run: ./apps/${{ matrix.app }}/test.sh
+        # Sous RESEAU_COUPE : un test unitaire ne sort pas sur le reseau, et
+        # jusqu'au 2026-08-22 rien ne le verifiait — deux tests d'estran
+        # appelaient les vrais fournisseurs a chaque execution, ici comprise. La
+        # valeur vit dans lib/socle.sh et est LUE, jamais recopiee : les deux
+        # endroits qui lancent les test.sh (ce job et scripts/pret.sh) doivent
+        # rester d'accord.
+        run: |
+          . lib/socle.sh
+          env $RESEAU_COUPE ./apps/${{ matrix.app }}/test.sh
 
   # La revue outillee — qualite, securite, dependances vulnerables, couverture,
   # duplication. Un job SEPARE de « test » et non une etape de plus : les deux

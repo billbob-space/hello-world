@@ -396,3 +396,28 @@ discover_apps() {
     fi
   fi
 }
+
+# RESEAU_COUPE — le proxy mort sous lequel tournent les test.sh des apps. Le PRD
+# de la fabrique interdit qu'un test unitaire sorte sur le reseau, et rien ne le
+# verifiait : deux tests d'estran appelaient le vrai Open-Meteo et le vrai
+# Meteo-France a CHAQUE execution, CI comprise, sans que rien ne le signale.
+# Leurs clients repliaient sur les URL de PRODUCTION quand la variable de
+# redirection etait absente — le bon comportement en production, le mauvais en
+# test, et rien ne distingue les deux. Ils passaient, parce qu'un appel reseau
+# REUSSI ne se voit pas ; et un appel echoue se serait lu comme la panne de
+# fournisseur que ces tests couvrent justement. Invisible dans les deux sens.
+#
+# Go n'applique JAMAIS le proxy a la boucle locale — le paquet httpproxy exclut
+# localhost d'office — donc les serveurs httptest sur lesquels reposent toutes
+# les suites du depot ne le voient pas passer, et un appel vers l'exterieur
+# echoue immediatement.
+#
+# Un espace de noms reseau (« unshare -rn ») serait plus etanche, et a ete essaye
+# d'abord : il laisse « lo » eteint, le rallumer demande iproute2, et « ip »
+# manque sur une machine depouillee. Un garde-fou qui ne demarre pas la ne garde
+# rien.
+#
+# Defini ICI et nulle part ailleurs : DEUX endroits lancent les test.sh —
+# scripts/pret.sh et le job « test » de .github/workflows/build.yml — et une
+# valeur qui vit a deux endroits finit par vivre a deux valeurs.
+RESEAU_COUPE='HTTP_PROXY=127.0.0.1:1 HTTPS_PROXY=127.0.0.1:1'

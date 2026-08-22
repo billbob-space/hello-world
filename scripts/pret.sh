@@ -24,6 +24,7 @@ cd "$(git rev-parse --show-toplevel)"
 . lib/socle.sh
 . lib/journal.sh
 
+
 BASE=$(fab base_branch main)
 
 # fichiers_touches, fichiers_ajoutes et apps_touchees vivent desormais dans
@@ -100,9 +101,13 @@ if [ -z "$touchees" ]; then
   ok "aucune app modifiee — pas de test a lancer"
 else
   for a in $touchees; do
+    # Les test.sh tournent sous RESEAU_COUPE (lib/socle.sh) : le PRD de la
+    # fabrique interdit qu'un test unitaire sorte sur le reseau, et rien ne le
+    # verifiait. Le pourquoi et le comment sont la-bas, avec l'approche essayee
+    # d'abord et pourquoi elle a ete abandonnee.
     if [ ! -x "apps/$a/test.sh" ]; then
       bad "[$a] test.sh absent ou non executable"
-    elif "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
+    elif env $RESEAU_COUPE "apps/$a/test.sh" >/tmp/.pret-test.$$ 2>&1; then
       ok "[$a] tests verts"
     else
       bad "[$a] tests en echec :"
