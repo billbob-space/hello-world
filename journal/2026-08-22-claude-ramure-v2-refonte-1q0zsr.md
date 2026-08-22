@@ -625,6 +625,19 @@ promesse verifiable mecaniquement : soit la fonction existe quelque part sous
 l'app, soit le document ment. Et le controle existant doit d'abord cesser de se
 tromper avant qu'on lui en demande plus.
 
+**Suite, chiffree.** Le controle existant rend **sept** avertissements sur cette
+app. Verification faite un par un : **six sont faux** — les tests existent, sous
+`internal/`, ou il ne cherche pas. Le septieme est vrai :
+`TestCadragePlusEtroitSurEcranEtroit`, que le PRD §14 designe comme la
+mitigation du risque « le canevas exige de la place », n'existe nulle part.
+`cadragePour` — la fonction qui fait dependre de la largeur le nombre de
+branches et d'heritiers — n'a aucun test : tous les tests d'arbre passent
+`CadrageLarge` en dur.
+
+Six faux positifs cachaient un vrai. C'est la demonstration exacte de ce que
+coute un controle qui crie a tort : non pas du bruit, mais un vrai constat
+rendu invisible parmi ses six voisins.
+
 ### 8. Une constante de libelle definie et jamais posee ne se voit dans aucun axe
 
 **Symptome** — `textes.suggestionsLabel` etait exporte, jamais reference.
