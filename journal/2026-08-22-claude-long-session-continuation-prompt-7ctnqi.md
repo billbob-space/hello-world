@@ -82,7 +82,7 @@ manquante, est corrigé sans suite.
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-22 à 09:18 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-22 à 09:28 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
 claude-opus-4-7, claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
@@ -90,27 +90,35 @@ claude-opus-4-7, claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 71 | 0,00 $ |
-| Écriture de cache | 158 194 | 0,99 $ |
-| Lecture de cache | 3 221 677 | 1,61 $ |
-| Sortie | 21 533 | 0,54 $ |
-| **Total** | **3 401 475** | **3,14 $ — 2,73 €** |
+| Entrée | 8 666 | 0,04 $ |
+| Écriture de cache | 334 236 | 2,09 $ |
+| Lecture de cache | 6 797 718 | 3,40 $ |
+| Sortie | 43 721 | 1,09 $ |
+| **Total** | **7 184 341** | **6,62 $ — 5,75 €** |
 
 **Ce qui coûte**
 
-- **34 appel(s) au modèle** — un par réponse, outils compris —, aucun par des sous-agents.
+- **82 appel(s) au modèle** — un par réponse, outils compris —, dont 16 par des sous-agents — 595 554 jetons, 0,65 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 491 jetons, écrits une fois par session puis relus à chaque
-  échange : 2 260 203 jetons de relecture, 70 % de tout ce qui a été relu.
-- **Tours courts** — 16 des 34 tours (47 %) sortent
+  échange : 4 451 915 jetons de relecture, 65 % de tout ce qui a été relu.
+- **Tours courts** — 48 des 82 tours (58 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 1,16 $, soit 37 % de la facture.
-  Grouper les appels indépendants dans un même tour divise ce poste.
+  une sortie de rien. Ils coûtent 2,83 $, soit 42 % de la facture.
+  Dont 13 chez des agents, où un tour EST un appel d'outil :
+  ceux-là ne se groupent pas — c'est la LONGUEUR de la session qu'il faut réduire,
+  ligne suivante. Le reste vient de la session principale, et se groupe.
+- **Sessions d'agent** — 1, dont la plus longue fait 16 tours,
+  relit 33 733 jetons par tour en moyenne et coûte 0,65 $.
+  Son coût croît en **carré** de sa longueur : deux fois plus de tours, chacun
+  relisant deux fois plus. Deux sessions de moitié, la seconde repartant du
+  document de conception et non de l'exploration de la première, coûtent environ
+  la moitié.
 - **Croissance** — 68 491 jetons relus au premier appel qui relise
-  quelque chose, 120 520 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 29 208 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-total: 3401475 -->
-<!-- cout-agent-max: 0 -->
+<!-- cout-total: 7184341 -->
+<!-- cout-agent-max: 16 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68491 0 596
 2 principal claude-opus-5 3860 68491 319
@@ -146,5 +154,53 @@ claude-opus-4-7, claude-opus-5. Tarifs de `fabrique.yml`, en dollars par million
 32 principal claude-opus-4-7 503 35328 205
 33 principal claude-opus-5 954 119566 1749
 34 principal claude-opus-5 1843 120520 171
+35 principal claude-opus-4-7 6120 29208 275
+36 principal claude-opus-4-7 429 35328 98
+37 principal claude-opus-5 481 122363 141
+38 principal claude-opus-4-7 275 35757 205
+39 principal claude-opus-5 375 122844 175
+40 principal claude-opus-4-7 21970 35831 2060
+41 principal claude-opus-4-7 0 35328 106
+42 principal claude-opus-4-7 189 35328 96
+43 principal claude-opus-4-7 283 35517 82
+44 principal claude-opus-5 1487 123219 267
+45 principal claude-opus-4-7 16492 35800 81
+46 principal claude-opus-4-7 5442 52292 80
+47 principal claude-opus-5 1038 124706 832
+48 principal claude-opus-4-7 30467 36032 2803
+49 principal claude-opus-4-7 8596 57734 2459
+50 principal claude-opus-4-7 3314 66330 1188
+51 principal claude-opus-5 1215 125744 628
+52 principal claude-opus-5 967 126959 309
+53 principal claude-opus-5 2033 128235 557
+54 principal claude-opus-5 1977 130268 215
+55 principal claude-opus-5 359 132245 141
+56 principal claude-opus-5 942 132604 393
+57 principal claude-opus-5 1563 133546 257
+58 principal claude-opus-5 517 135109 2047
+59 principal claude-opus-5 2078 135626 1899
+60 principal claude-opus-5 2368 137704 242
+61 principal claude-opus-5 435 140072 122
+62 principal claude-opus-5 507 140507 422
+63 principal claude-opus-5 594 141014 154
+64 principal claude-opus-5 639 141608 1617
+65 principal claude-opus-5 1674 142247 193
+66 principal claude-opus-4-7 7334 29208 132
+67 agent claude-opus-5 12325 0 220
+68 agent claude-opus-5 2612 12325 17
+69 agent claude-opus-5 2381 14937 2
+70 agent claude-opus-5 7049 17318 334
+71 agent claude-opus-5 6658 24367 323
+72 agent claude-opus-5 3486 31025 991
+73 agent claude-opus-5 2808 34511 3
+74 agent claude-opus-5 1822 37319 2
+75 agent claude-opus-5 3088 39141 2
+76 agent claude-opus-5 696 42229 2
+77 agent claude-opus-5 879 42925 3
+78 agent claude-opus-5 2235 43804 3
+79 agent claude-opus-5 2904 46039 3
+80 agent claude-opus-5 2669 48943 2
+81 agent claude-opus-5 1621 51612 3
+82 agent claude-opus-5 649 53233 2
 -->
 <!-- /cout -->
