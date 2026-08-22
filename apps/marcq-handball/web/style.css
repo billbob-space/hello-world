@@ -486,7 +486,13 @@ body {
   text-decoration: none;
   font-size: .85rem;
 }
-.exercice.fait .video-exercice { opacity: .55; }
+/* Un exercice coche n'attenue plus la colonne d'actions par `opacity` : sa
+   couleur de repos, `--marcq-encre-douce`, est deja la plus discrete de la
+   palette (7,4:1 sur le fond clair). L'attenuer encore repassait sous les
+   4,5:1 de la WCAG — mesure axe, `#/seance`, 3 cases cochees — sans qu'aucune
+   couleur neuve ne soit necessaire pour le corriger : il suffisait de ne plus
+   doubler la mise en sourdine. Le trait laisse par une case cochee (bordure de
+   ligne, texte barre) porte deja tout le signal de « fait ». */
 
 /* Le minuteur, en tableau d'affichage : chiffres a chasse fixe — sans eux,
    « 0:39 » puis « 0:38 » font sauter le bouton a chaque seconde, et l'oeil suit
@@ -528,8 +534,10 @@ body {
 .chrono-remise-dort { visibility: hidden; }
 
 /* Un exercice coche garde son minuteur — on peut vouloir le relancer pour un
-   second tour —, mais il cesse d'attirer l'oeil. */
-.exercice.fait .chrono { opacity: .55; }
+   second tour. Il ne perd plus `opacity` en le cochant, pour la meme raison
+   que `.video-exercice` juste au-dessus : sa couleur de repos est deja
+   discrete, et l'estomper encore faisait tomber le texte a 2,56:1 — mesure
+   axe sur trois nombres du chronometre, `#/seance`, 3 cases cochees. */
 
 /* Plus haut que la cible minimale de l'app : la ligne est atteinte du pouce, en
    mouvement, les mains moites (PRD §11). */

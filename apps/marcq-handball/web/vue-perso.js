@@ -202,8 +202,12 @@ function blocPart(part) {
 
   // La barre commune de barre.js. Elle reste annoncee — le pourcentage juste
   // au-dessus est un texte, pas une mesure que le lecteur d'ecran relie a elle.
+  // Le nom dit ce qu'elle mesure, pas le compte (voir barre.js) : c'est
+  // l'avancement du PROGRAMME, pas d'une seance — a ne pas confondre avec le
+  // nom pose sur l'ecran de seance et sur l'ecran du jour.
   const jauge = el('p', 'progression-perso');
-  jauge.append(creerBarre(part.cochees, part.echelle));
+  const nom = 'Avancement des exercices du programme';
+  jauge.append(creerBarre(part.cochees, part.echelle, { nom }));
 
   bloc.append(chiffre, jauge, el('p', 'phrase-part', part.phrase));
   return bloc;

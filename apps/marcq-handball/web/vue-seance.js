@@ -200,8 +200,15 @@ export function monterSeance(hote, ctx) {
   // La barre commune de barre.js, comme l'ecran du jour. C'est la seule de
   // l'application qui bouge sous les yeux : `reglerBarre` est rappelee a chaque
   // coche, et c'est le CSS qui fait glisser le remplissage (PRD §10).
+  //
+  // Non muette : c'est la seule barre de l'ecran, et le compte a cote n'est pas
+  // relie a elle. Le nom dit ce qu'elle mesure, jamais le compte — voir
+  // barre.js : `reglerBarre` tient les deux nombres a jour dans
+  // `aria-valuetext`, pose une fois a la creation ici mais rejoue a chaque
+  // coche, contrairement au nom.
   const progression = el('p', 'progression-seance');
-  const barre = creerBarre(0, modele.total);
+  const nom = 'Avancement des exercices de la séance';
+  const barre = creerBarre(0, modele.total, { nom });
   const compte = el('span', 'compte');
   progression.append(barre, compte);
   section.append(progression);

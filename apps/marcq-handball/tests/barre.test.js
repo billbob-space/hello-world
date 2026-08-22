@@ -64,6 +64,42 @@ test('la barre garde un role annonce, sauf quand elle est declaree muette', () =
   assert.match(source, /aria-hidden/);
 });
 
+// Sans `aria-valuetext`, un lecteur d'ecran annonce un POURCENTAGE calcule a
+// partir de valuenow/valuemin/valuemax — « 43 % » quand l'ecran ecrit « 3 / 7 ».
+// L'unite entendue n'existe alors sur aucun ecran de l'app, et rien a l'oeil ne
+// signalerait le retour de ce decalage. Il est pose par `reglerBarre` et non par
+// `creerBarre` : c'est le seul des deux qui soit rejoue a chaque coche.
+test('la barre dicte le compte, et non un pourcentage', () => {
+  const source = lire('barre.js');
+  const regler = source.match(/export function reglerBarre[\s\S]*?\n\}/);
+  assert.ok(regler, 'reglerBarre a disparu de barre.js');
+  assert.match(regler[0], /aria-valuetext/,
+    'la barre laisse le lecteur d ecran recalculer un pourcentage');
+});
+
+// Le nom accessible est pose UNE FOIS, a la creation, et `reglerBarre` ne le
+// rejoue pas. Un nom qui porterait le compte se figerait donc au compte du
+// montage — « 0 sur 7 » pour toute la seance sur le seul ecran ou la barre
+// bouge — sans que rien a l'ecran ne le montre.
+test('aucun ecran ne met le compte dans le nom de la barre', () => {
+  for (const vue of ['vue-jour.js', 'vue-seance.js', 'vue-perso.js',
+    'vue-bilan.js', 'vue-equipe.js', 'vue-coach.js']) {
+    const source = lire(vue);
+    // Le nom d'une barre est ce qui est passe a `creerBarre`, directement ou par
+    // une variable `nom` que l'appel reprend. Les deux formes sont lues ; les
+    // autres `nom:` du fichier — une case de calendrier, par exemple — ne sont
+    // pas des noms de barre et n'ont rien a voir ici.
+    const parNom = /creerBarre\([^)]*\bnom\b/.test(source)
+      ? (source.match(/const nom = ('[^']*'|`[^`]*`)/g) ?? [])
+      : [];
+    const enLigne = source.match(/creerBarre\([^)]*nom: *('[^']*'|`[^`]*`)/g) ?? [];
+    for (const nom of [...parNom, ...enLigne]) {
+      assert.doesNotMatch(nom, /\$\{/,
+        `${vue} interpole une valeur dans le nom de la barre : elle se figera au montage`);
+    }
+  }
+});
+
 // Six ecrans affichent une barre ; aucun ne doit la reconstruire a la main.
 test('aucun ecran ne fabrique sa propre barre', () => {
   for (const vue of ['vue-jour.js', 'vue-seance.js', 'vue-perso.js',

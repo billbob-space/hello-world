@@ -118,11 +118,22 @@ export function monterJour(hote, ctx) {
 
 // La barre commune de barre.js. C'est un etat, pas une recompense : le mouvement
 // du PRD §10 est celui de l'ecran de seance, qui recoche.
+//
+// Non muette : c'est la seule barre de l'ecran, et le compte juste a cote
+// n'est pas relie a elle (aria-labelledby y perd l'annonce « ce qu'elle
+// mesure » que porte cette phrase). Le nom dit l'exercice compte, pas le mot
+// seul « progression ».
+//
+// Le nom ne porte PAS le compte, et c'est deliberé : `reglerBarre` tient les
+// deux nombres a jour dans `aria-valuetext`, jamais dans le nom. Les mettre ici
+// les aurait dits deux fois de suite a la voix — « 3 sur 7, barre de
+// progression, 3 sur 7 » — la ou l'ecran les ecrit une fois.
 function barreProgression(etat) {
   const bloc = document.createElement('p');
   bloc.className = 'progression-jour';
 
-  const barre = creerBarre(etat.coches, etat.total);
+  const nom = 'Avancement des exercices de la séance';
+  const barre = creerBarre(etat.coches, etat.total, { nom });
 
   const compte = document.createElement('span');
   compte.className = 'compte';

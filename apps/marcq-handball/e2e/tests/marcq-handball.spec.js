@@ -17,6 +17,18 @@
 const { test, expect } = require("@playwright/test");
 const AxeBuilder = require("@axe-core/playwright").default;
 
+// Une date figee, DANS le programme (2026-08-03 au 2026-08-21, web/programme.json),
+// sur un jour QUI PORTE UNE SEANCE (2026-08-12, « Fractionné long »), ni la
+// premiere ni la derniere du programme : app.js bascule la racine sur le bilan
+// des que `aujourdhui` depasse `prog.fin` (PRD §9), et ces deux tests jouent le
+// parcours du jour, pas celui du bilan. Sans horloge figee ils suivent la date
+// systeme et deviennent rouges des le 22 aout 2026.
+//
+// Un jour de SEANCE, pas de repos : un jour de repos evite la barre de
+// progression (barre.js, vue-jour.js) au lieu de l'exercer, et l'a longtemps
+// laissee sans nom accessible sans qu'aucun test ne le voie.
+const DATE_DANS_LE_PROGRAMME = "2026-08-12T12:00:00Z";
+
 async function verifierAccessibilite(page) {
   const resultat = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -65,6 +77,9 @@ test("la sonde de sante repond", async ({ request }) => {
 });
 
 test("le parcours principal : prenom, jour, equipe", async ({ page }) => {
+  // Doit s'installer AVANT `goto` : app.js lit la date au chargement, dans
+  // son tout premier rendu.
+  await page.clock.install({ time: DATE_DANS_LE_PROGRAMME });
   await page.goto("/");
 
   // Ecran 1 : le prenom (vue-prenom.js). Un champ, un bouton — l'enfant
@@ -93,6 +108,9 @@ test("le parcours principal : prenom, jour, equipe", async ({ page }) => {
 // qui juge ce qui ne se mesure pas. Ces deux-la ne se remplacent pas l'un
 // l'autre.
 test("aucune violation d'accessibilite serieuse sur le parcours", async ({ page }) => {
+  // Meme raison que le test precedent : figer la date avant `goto`, sinon le
+  // parcours entier de ce test se joue sur l'ecran du bilan.
+  await page.clock.install({ time: DATE_DANS_LE_PROGRAMME });
   await page.goto("/");
   await verifierAccessibilite(page); // ecran du prenom
 
@@ -100,6 +118,24 @@ test("aucune violation d'accessibilite serieuse sur le parcours", async ({ page 
   await page.getByRole("button", { name: "C’est parti" }).click();
   await expect(page.getByText("Salut Léa")).toBeVisible();
   await verifierAccessibilite(page); // ecran du jour
+
+  // Ecran de seance (vue-seance.js) : le trou du 2026-08-22 (journal) — la
+  // barre y manquait de nom accessible, et une case cochee y faisait tomber
+  // le chronometre sous 4,5:1 de contraste — n'a jamais ete vu ici, ce
+  // parcours ne visitant pas cet ecran. Trois cases cochees, comme la mesure
+  // qui a trouve le trou : c'est l'etat qui declenchait le defaut de
+  // contraste, un ecran vierge ne l'aurait pas revele.
+  await page.getByRole("link", { name: "Commencer la séance" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const cases = page.locator(".case-exercice");
+  for (let i = 0; i < 3; i += 1) await cases.nth(i).check();
+  await expect(cases.nth(0)).toBeChecked();
+  await verifierAccessibilite(page); // ecran de seance
+
+  // Ecran « Ma progression » (vue-perso.js) : meme trou, meme barre sans nom.
+  await page.getByRole("link", { name: "Ma progression" }).click();
+  await expect(page.getByRole("heading", { name: "Ma progression", level: 1 })).toBeVisible();
+  await verifierAccessibilite(page); // ecran perso
 
   await page.getByRole("link", { name: "L’équipe" }).click();
   await expect(page.getByRole("heading", { name: "L’équipe", level: 2 })).toBeVisible();
