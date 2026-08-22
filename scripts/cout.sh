@@ -384,6 +384,11 @@ cout_ecrit() {  # cout_ecrit <entree> <bloc> — remplace le bloc existant, ou l
 # la session — et a la fin du releve normal, ce qui la rend observable par
 # test-cout.sh, dont le harnais lance --dry-run. « champ » n'existe pas encore
 # ici, d'ou la lecture directe du releve par awk.
+# Les deux messages rappellent le prompt de reprise, et pas seulement la coupe :
+# annoncer « cette session est trop longue » sans le bloc a copier laisse la
+# reconstitution du contexte a la session qui n'en a aucun — soit precisement le
+# cout qu'on coupait pour eviter. La regle vit dans CLAUDE.md ; elle est rappelee
+# ICI parce que c'est le seul moment ou elle s'applique.
 # Rend 3 quand le seuil CRITIQUE est franchi, 0 sinon : c'est ce code que
 # pret.sh transforme en refus. Un code dedie plutot qu'une sortie non nulle
 # ordinaire, pour qu'une panne du script — qui sortirait en 1 ou 2 — ne se lise
@@ -393,10 +398,10 @@ cout_alerte() {  # cout_alerte <releve>
   dernier=$(printf '%s\n' "$1" | awk '$1 == "COURBE" { print $3 }')
   [ -n "$dernier" ] && [ "$dernier" -gt "$COUT_CONTEXTE_ALERTE" ] 2>/dev/null || return 0
   if [ "$dernier" -gt "$COUT_CONTEXTE_CRITIQUE" ] 2>/dev/null; then
-    bad "contexte de $(jetons_nb "$dernier") jetons — au-dela du critique ; termine cette session et rouvre-en une sur la MEME branche, qui reprend par le depot"
+    bad "contexte de $(jetons_nb "$dernier") jetons — au-dela du critique ; termine cette session et rouvre-en une sur la MEME branche, qui reprend par le depot. Termine ton message a l'utilisateur par le PROMPT DE REPRISE, gabarit dans memory/travail.md"
     return 3
   fi
-  warn "contexte de $(jetons_nb "$dernier") jetons — chaque tour le paie en entier ; coupe la session, ou confie la suite a l'artisan"
+  warn "contexte de $(jetons_nb "$dernier") jetons — chaque tour le paie en entier ; coupe la session, ou confie la suite a l'artisan. Si tu annonces la coupe, termine ton message par le PROMPT DE REPRISE, gabarit dans memory/travail.md"
 }
 
 # Prend le releve en argument plutot que de le refaire : l'alerte de contexte,

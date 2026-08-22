@@ -18,7 +18,8 @@ label DNS valide. Org, dépôt et domaine sont dans `fabrique.yml`.
   ce qui bloque.
 - **Dis l'effet, pas le mécanisme** — « le site répond à nouveau » plutôt que « le
   healthcheck repasse healthy ». Ni noms de fichiers, ni options, ni extraits de code,
-  sauf geste à faire ; alors la commande exacte, seule.
+  sauf geste à faire — une commande, ou le prompt de reprise d'une session trop longue ;
+  alors, seul et exact, ce qui se copie.
 
 **Cette règle vaut pour ce que tu dis, pas pour ce que tu écris dans le dépôt.** Messages
 de commit, entrées de `journal/`, `README` et corps de PR gardent toute leur précision
@@ -127,6 +128,11 @@ directement. Toi, tu écris ce qui est partagé (`.claude/`, `scripts/`, `fabriq
 croît en **carré** : elle fait N tours, dont chacun repaie ce que les N-1 précédents ont
 lu. Un chantier tient **sous 60 tours** — `pret.sh` avertit au-delà. Couper veut dire deux
 sessions de moitié, la seconde repartant du PRP, jamais de l'exploration de la première.
+
+**Quand tu annonces que la session est trop longue, ton message se TERMINE par le prompt
+de reprise** — un bloc à copier tel quel dans une session neuve, rien après lui. Annoncer
+la coupe sans le fournir laisse la reconstitution du contexte à celle qui n'en a aucun.
+Gabarit : `memory/travail.md`.
 
 **Tes appels indépendants à toi partent dans le MÊME tour** — deux lectures groupées
 coûtent moitié moins que séparées. La règle s'arrête là : chez un agent, un tour *est* un
