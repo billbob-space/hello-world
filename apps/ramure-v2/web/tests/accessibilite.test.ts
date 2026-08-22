@@ -62,6 +62,15 @@ function etiqueterCommandesStatiques(): void {
   }
   const suggestions = document.querySelector<HTMLElement>("#suggestions");
   suggestions?.setAttribute("aria-label", textes.suggestionsLabel);
+  // Constat C2 (critique 2026-08-22) : ces trois libelles ne sont plus
+  // figes dans index.html (ils y avaient diverge, sans accent) — main.ts
+  // les pose desormais au demarrage, comme les autres ci-dessus.
+  const zoomerArriere = document.querySelector<HTMLElement>("#zoomer-arriere");
+  zoomerArriere?.setAttribute("aria-label", textes.zoomerArriere);
+  const zoomerAvant = document.querySelector<HTMLElement>("#zoomer-avant");
+  zoomerAvant?.setAttribute("aria-label", textes.zoomerAvant);
+  const service = document.querySelector<HTMLElement>("#service");
+  service?.setAttribute("aria-label", textes.choisirService);
 }
 
 function stockageMemoire(): Storage {

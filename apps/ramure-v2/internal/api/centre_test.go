@@ -108,6 +108,38 @@ func TestGraineAbsenteEstUneErreurDeRequete(t *testing.T) {
 	}
 }
 
+// TestCadragePlusEtroitSurEcranEtroit — nom impose par le PRD §14, qui
+// designe ce test comme la mitigation du risque « le canevas exige de la
+// place » (constat C5, critique 2026-08-22) : cadragePour n'avait jamais
+// ete teste, tous les tests d'arbre appelant Composer directement avec
+// CadrageLarge en dur. Les chiffres sont lus dans arbre.CadrageEtroit et
+// arbre.CadrageLarge, jamais recopies ici, pour ne pas se decorreler d'un
+// futur ajustement de ces valeurs.
+func TestCadragePlusEtroitSurEcranEtroit(t *testing.T) {
+	if got := cadragePour("etroit"); got != arbre.CadrageEtroit {
+		t.Fatalf("cadragePour(\"etroit\") = %+v, attendu arbre.CadrageEtroit = %+v", got, arbre.CadrageEtroit)
+	}
+	if got := cadragePour("large"); got != arbre.CadrageLarge {
+		t.Fatalf("cadragePour(\"large\") = %+v, attendu arbre.CadrageLarge = %+v", got, arbre.CadrageLarge)
+	}
+	// arbre.CadrageEtroit et arbre.CadrageLarge different reellement l'un de
+	// l'autre en branches ET en heritiers : sans ce garde, les deux
+	// egalites ci-dessus resteraient vraies meme si cadragePour renvoyait
+	// deux fois la meme valeur.
+	if arbre.CadrageEtroit.Branches == arbre.CadrageLarge.Branches {
+		t.Fatalf("CadrageEtroit et CadrageLarge ont le meme nombre de branches (%d) : plus rien ne distingue les deux cadrages", arbre.CadrageEtroit.Branches)
+	}
+	if arbre.CadrageEtroit.Heritiers == arbre.CadrageLarge.Heritiers {
+		t.Fatalf("CadrageEtroit et CadrageLarge ont le meme nombre d'heritiers (%d) : plus rien ne distingue les deux cadrages", arbre.CadrageEtroit.Heritiers)
+	}
+
+	for _, largeur := range []string{"", "xxl", "ETROIT", "inconnue"} {
+		if got := cadragePour(largeur); got != arbre.CadrageLarge {
+			t.Errorf("cadragePour(%q) = %+v, attendu repli sur arbre.CadrageLarge = %+v", largeur, got, arbre.CadrageLarge)
+		}
+	}
+}
+
 func TestLargeurInconnueRetombeSurLarge(t *testing.T) {
 	d := construireStackDeTest(t, "Portishead", 20)
 	rec := httptest.NewRecorder()

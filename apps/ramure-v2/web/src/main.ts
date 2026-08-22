@@ -1034,6 +1034,13 @@ if (boutonPartager) {
   boutonPartager.textContent = "⇪";
   boutonPartager.setAttribute("aria-label", textes.partagerLien);
 }
+// Constat C2 (critique 2026-08-22) : ces trois libelles etaient figes en dur
+// dans index.html, sans accent, et avaient deja diverge de textes.ts (qui
+// les porte accentues). Cables ici comme le reste des aria-label de ce
+// fichier : une seule source de verite, index.html ne fige plus rien.
+if (boutonZoomerArriere) boutonZoomerArriere.setAttribute("aria-label", textes.zoomerArriere);
+if (boutonZoomerAvant) boutonZoomerAvant.setAttribute("aria-label", textes.zoomerAvant);
+if (serviceSelect) serviceSelect.setAttribute("aria-label", textes.choisirService);
 construireSelectService();
 
 // F-25 (close) : le service releve du serveur au demarrage — jamais du

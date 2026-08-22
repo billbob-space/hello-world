@@ -320,10 +320,13 @@
     <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
   </form>
   <p id="correction" class="correction" role="status" hidden></p>
-  <select id="service" class="service" aria-label="Service d'ecoute"></select>
+  <!-- aria-label pose par main.ts depuis textes.ts (choisirService,
+       zoomerArriere, zoomerAvant) : jamais fige ici, cf. C2 2026-08-22 -
+       un libelle en dur ici divergeait deja de textes.ts (accents). -->
+  <select id="service" class="service"></select>
   <div class="camera">
-    <button type="button" id="zoomer-arriere" aria-label="Dezoomer">−</button>
-    <button type="button" id="zoomer-avant" aria-label="Zoomer">+</button>
+    <button type="button" id="zoomer-arriere">−</button>
+    <button type="button" id="zoomer-avant">+</button>
     <button type="button" id="cadrage-initial" hidden>Revenir au cadrage initial</button>
     <button type="button" id="partager" class="partager"></button>
     <button type="button" id="collection-bouton" class="partager"></button>

@@ -400,6 +400,13 @@ export function construireFiche(conteneur: HTMLElement, options: OptionsFiche): 
   if (genres.length > 0) {
     const listeGenres = document.createElement("p");
     listeGenres.className = "fiche-genres";
+    // Constat C4 (critique 2026-08-22) : textes.genresTitre etait defini,
+    // jamais pose (meme defaut deja consigne au journal pour
+    // suggestionsLabel). Sans lui, un lecteur d'ecran enonce simplement
+    // "trip hop, downtempo" sans dire QUOI — role="group" expose ce nom au
+    // meme titre qu'une region, sur un simple paragraphe.
+    listeGenres.setAttribute("role", "group");
+    listeGenres.setAttribute("aria-label", textes.genresTitre);
     listeGenres.textContent = genres.join(" · ");
     conteneur.append(listeGenres);
   }
