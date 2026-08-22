@@ -54,7 +54,7 @@ test("F-33 -- cycle hors ligne reel : garder hors ligne, puis reconciliation au 
   // F-33 : la collection reste UTILISABLE localement -- le bouton reflete
   // le geste IMMEDIATEMENT (miroir hors ligne, web/src/main.ts
   // ajouterALaCollection), sans attendre un reseau qui n'est pas la.
-  await expect(boutonGarder).toHaveText("Deja garde");
+  await expect(boutonGarder).toHaveText("Déjà gardé");
   await expect(boutonGarder).toHaveAttribute("aria-pressed", "true");
 
   // Le serveur (simule) n'a RIEN recu : la tentative PUT a echoue
@@ -97,7 +97,7 @@ test("F-33 -- cycle hors ligne reel : garder hors ligne, puis reconciliation au 
 
   // Le bouton reste coherent apres la reconciliation -- aucun "sursaut"
   // visuel (F-28) alors que la source de verite vient de changer sous lui.
-  await expect(boutonGarder).toHaveText("Deja garde");
+  await expect(boutonGarder).toHaveText("Déjà gardé");
 });
 
 test("F-33 -- un retrait hors ligne ne ressuscite pas a la reconnexion", async ({ page, context }) => {
@@ -118,7 +118,7 @@ test("F-33 -- un retrait hors ligne ne ressuscite pas a la reconnexion", async (
   await page.fill("#graine", "Artiste Deja Garde");
   await page.locator("#recherche button[type=submit]").click();
   const boutonGarder = page.locator(".fiche-garder");
-  await expect(boutonGarder).toHaveText("Deja garde"); // reconnu des l'ouverture (F-28/F-33, actualiserCollection au demarrage)
+  await expect(boutonGarder).toHaveText("Déjà gardé"); // reconnu des l'ouverture (F-28/F-33, actualiserCollection au demarrage)
 
   await context.setOffline(true);
   scenario.horsLigne = true;

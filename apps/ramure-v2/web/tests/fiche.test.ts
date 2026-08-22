@@ -16,7 +16,9 @@ import {
   typesPresents,
   type AlbumAPI,
   type ExtraitAPI,
+  type ProfilAPI,
 } from "../src/fiche";
+import { textes } from "../src/textes";
 
 const albums: AlbumAPI[] = [
   { mbid: "a1", titre: "Dummy", sortie: "1994", type: "studio", note: 4.5, votes: 42 },
@@ -120,7 +122,7 @@ describe("4 · le service d'ecoute se choisit et tous les liens le respectent (F
     );
   });
 
-  it("Deezer est le service par defaut en l'absence de reglage (repli documente, PRP 07 non encore ecrit)", () => {
+  it("Deezer est le service par defaut en l'absence de reglage (repli documente, PRP 07 clos)", () => {
     const g = new GestionnaireService();
     expect(g.service).toBe("deezer");
   });
@@ -281,5 +283,61 @@ describe("8 · garder est disponible depuis la fiche, et n'interrompt rien (F-28
     panneau.actualiserGarde(true);
     const bouton = conteneur.querySelector<HTMLButtonElement>(".fiche-garder")!;
     expect(bouton.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+// Constat C1 (critique 2026-08-22, correctif C11) : genres et audience
+// etaient TYPES et jamais peints, et un profil totalement absent ne se
+// distinguait pas d'un artiste sans profil (F-36). fiche.ts a ete corrige,
+// sans qu'aucune assertion ne le verifie — les trois cas ci-dessous
+// couvrent le rendu, l'absence marquee, et la non-fuite de l'une des deux
+// parties quand seule l'autre est presente.
+describe("9 · le profil affiche genres et audience, ou dit qu'il est indisponible (F-19, F-36)", () => {
+  function ficheAvec(profil: ProfilAPI): HTMLDivElement {
+    const conteneur = document.createElement("div");
+    construireFiche(conteneur, {
+      nom: "Portishead",
+      profil,
+      albums: [],
+      extraits: [],
+      service: new GestionnaireService(),
+    });
+    return conteneur;
+  }
+
+  it("genres ET audience presents : les deux sont peints, sous forme lisible", () => {
+    const conteneur = ficheAvec({ presentation: "", genres: ["trip hop", "downtempo"], auditeurs: 123456 });
+
+    const genres = conteneur.querySelector(".fiche-genres");
+    expect(genres?.textContent).toBe("trip hop · downtempo");
+    expect(genres?.getAttribute("aria-label")).toBe(textes.genresTitre);
+    const audience = conteneur.querySelector(".fiche-audience");
+    expect(audience?.textContent).toBe(textes.auditeurs(123456));
+    expect(conteneur.querySelector(".fiche-profil-absent")).toBeNull();
+  });
+
+  it("profil entierement vide (etat mesure de /api/centre) : la fiche le DIT, plutot que de ne rien montrer", () => {
+    const conteneur = ficheAvec({ presentation: "", genres: [], auditeurs: 0 });
+
+    const absent = conteneur.querySelector(".fiche-profil-absent");
+    expect(absent?.textContent).toBe(textes.profilIndisponible);
+    expect(conteneur.querySelector(".fiche-genres")).toBeNull();
+    expect(conteneur.querySelector(".fiche-audience")).toBeNull();
+  });
+
+  it("seule l'audience est presente : les genres ne fuient pas, et le message d'indisponibilite n'apparait pas", () => {
+    const conteneur = ficheAvec({ presentation: "", genres: [], auditeurs: 500 });
+
+    expect(conteneur.querySelector(".fiche-audience")?.textContent).toBe(textes.auditeurs(500));
+    expect(conteneur.querySelector(".fiche-genres")).toBeNull();
+    expect(conteneur.querySelector(".fiche-profil-absent")).toBeNull();
+  });
+
+  it("seuls les genres sont presents : l'audience ne fuit pas, et le message d'indisponibilite n'apparait pas", () => {
+    const conteneur = ficheAvec({ presentation: "", genres: ["idm"], auditeurs: 0 });
+
+    expect(conteneur.querySelector(".fiche-genres")?.textContent).toBe("idm");
+    expect(conteneur.querySelector(".fiche-audience")).toBeNull();
+    expect(conteneur.querySelector(".fiche-profil-absent")).toBeNull();
   });
 });

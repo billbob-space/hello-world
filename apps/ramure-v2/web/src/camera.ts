@@ -88,3 +88,72 @@ export function aBouge(v: Vue, neutre: Vue): boolean {
     Math.abs(v.echelle - neutre.echelle) > EPSILON
   );
 }
+
+// ---------------------------------------------------------------------
+// viewportLibre — le rectangle du canevas REELLEMENT disponible, panneaux
+// ancres deduits (critique 2026-08-22, C7/C12).
+// ---------------------------------------------------------------------
+
+/** Mesure d'un panneau ancre, deja exprimee dans le repere de la boite du
+ * svg (voir `gauche`/`haut` ci-dessous) : main.ts (cablage) fait la seule
+ * lecture DOM (`getBoundingClientRect`) et lui passe le resultat ; cette
+ * fonction reste pure, comme le reste de ce module. */
+export interface PanneauMesure {
+  largeur: number;
+  hauteur: number;
+  /** distance du bord gauche du panneau au bord gauche de la boite svg */
+  gauche: number;
+  /** distance du bord haut du panneau au bord haut de la boite svg */
+  haut: number;
+}
+
+// viewportLibre rend le rectangle du canevas REELLEMENT disponible, panneaux
+// ancres deduits.
+//
+// Critique 2026-08-22 C7 / C12 : le cadrage passait `{0, 0, svg.clientWidth,
+// svg.clientHeight}` — la boite svg ENTIERE — a cadrageNeutre(), qui centre
+// dedans. Les panneaux ancres (fiche, collection) n'en etaient jamais
+// retranches. Mesure @390x844 : svg 390x727 depuis y=117, fiche ancree en bas
+// a y=464 sur 380 px ; le centre tombait a y=481 (soit 117 + 727/2), donc SOUS
+// la fiche, couvert a 76 %, avec trois branches. Mesure @1440x900 : fiche a
+// x=1072, arbre centre a x=720 au lieu de x=536 — 437 px de vide a gauche
+// contre 88 px de jeu a droite. Le PRD §07 l'exige explicitement : « le
+// canevas se recale sur l'espace restant quand un panneau s'ouvre ou se
+// replie ».
+//
+// `largeurBoiteSvg`/`hauteurBoiteSvg` sont les dimensions REELLES (fractionnaires,
+// `getBoundingClientRect`) de la boite svg — utilisees uniquement pour trancher
+// si un panneau "prend toute la largeur" (ancre en bas, disposition etroite) ou
+// "prend toute la hauteur" (ancre a droite, disposition large), sur la part de
+// largeur occupee plutot que sur un point de rupture duplique : disposition.ts
+// reste la seule source de verite sur la disposition.
+export function viewportLibre(
+  plein: Rect,
+  largeurBoiteSvg: number,
+  hauteurBoiteSvg: number,
+  panneaux: readonly PanneauMesure[],
+): Rect {
+  if (largeurBoiteSvg === 0 || hauteurBoiteSvg === 0) return plein;
+
+  let hautLibre = 0;
+  let basLibre = plein.hauteur;
+  let gaucheLibre = 0;
+  let droiteLibre = plein.largeur;
+
+  for (const panneau of panneaux) {
+    if (panneau.largeur === 0 || panneau.hauteur === 0) continue;
+    const prendToutLarge = panneau.largeur >= largeurBoiteSvg * 0.9;
+    if (prendToutLarge) {
+      basLibre = Math.min(basLibre, panneau.haut);
+    } else {
+      droiteLibre = Math.min(droiteLibre, panneau.gauche);
+    }
+  }
+
+  const largeur = droiteLibre - gaucheLibre;
+  const hauteur = basLibre - hautLibre;
+  // Un panneau qui couvrirait tout ne doit pas produire un cadrage nul : on
+  // retombe alors sur la boite entiere plutot que sur un viewport degenere.
+  if (largeur < 80 || hauteur < 80) return plein;
+  return { x: gaucheLibre, y: hautLibre, largeur, hauteur };
+}

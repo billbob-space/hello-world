@@ -222,14 +222,24 @@ func (m *MusicBrainz) Discographie(ctx context.Context, mbid string, p budget.Po
 		}
 		albums = append(albums, album)
 	}
-	// Tri stable : deux albums sans note (ou sous le seuil) gardent l'ordre de
-	// la source entre deux appels (F-21, mitigation §14). Seuls les albums notes
-	// et significatifs sont departages par leur note, decroissante.
-	sort.SliceStable(albums, func(i, j int) bool {
-		if albums[i].Votes >= MinVotes && albums[j].Votes >= MinVotes {
-			return albums[i].Note > albums[j].Note
+	// Tri par cle unique, pas par comparaison a deux branches : une comparaison
+	// qui rend faux des qu'un seul des deux albums est sous le seuil n'est pas
+	// un ordre strict faible (elle n'est pas transitive — deux albums notes
+	// peuvent devenir « egaux » via un album non note intercale entre eux), et
+	// Go trie alors de travers sans jamais le signaler. La cle rend ce risque
+	// impossible : un album sous MinVotes recoit une cle strictement
+	// inferieure a toute note reelle (les notes MusicBrainz sont >= 0), donc
+	// tous les albums notes et significatifs passent avant, tries par note
+	// decroissante ; les non-notes (memes cles) suivent, departages par
+	// sort.SliceStable dans l'ordre de la source (F-21, mitigation §14).
+	cleTri := func(a Album) float64 {
+		if a.Votes >= MinVotes {
+			return a.Note
 		}
-		return false
+		return -1
+	}
+	sort.SliceStable(albums, func(i, j int) bool {
+		return cleTri(albums[i]) > cleTri(albums[j])
 	})
 	return albums, nil
 }

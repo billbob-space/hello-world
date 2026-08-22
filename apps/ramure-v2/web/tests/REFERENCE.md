@@ -6,17 +6,36 @@ PRP 09, tâche 1 (PRD §13) : « une base de référence est tenue à jour : nom
 de tests attendus au vert et liste explicite des échecs connus non
 applicables, pour qu'aucune équipe ne rouvre deux fois la même enquête. »
 
-Relevé le 19 août 2026, sur le commit qui introduit ce fichier.
+Relevé le 19 août 2026, sur le commit qui introduit ce fichier. **Remesuré le
+22 août 2026** (fermeture des constats C1 et C5 de la critique du même jour :
+quatre tests ajoutés côté client, un côté Go) — chaque chiffre ci-dessous
+sort d'une commande relancée ce jour-là (`npm run --prefix web test` et
+`go test ./... -list '.*'`), aucun n'est recopié d'une mesure antérieure.
 
 ## Ce qui tourne toujours (`./apps/ramure-v2/test.sh`, CI comprise)
 
 | Suite | Commande | Attendu au vert |
 |---|---|---|
-| Client TypeScript | `npm run --prefix web test` (vitest) | **165 tests**, 13 fichiers |
-| Go, tous paquets | `go test -race -count=1 ./...` | **161 fonctions de test**, 10 paquets (`.`, `internal/api`, `internal/arbre`, `internal/budget`, `internal/cache`, `internal/collection`, `internal/equite`, `internal/identite`, `internal/mesure`, `internal/source`) |
+| Client TypeScript | `npm run --prefix web test` (vitest) | **209 tests**, 14 fichiers |
+| Go, tous paquets | `go test -race -count=1 ./...` | **166 fonctions de test**, 10 paquets (`.`, `internal/api`, `internal/arbre`, `internal/budget`, `internal/cache`, `internal/collection`, `internal/equite`, `internal/identite`, `internal/mesure`, `internal/source`) |
 
 Le premier repère (PRP 02) était de 26 fonctions dans `internal/` ; la série
-en compte maintenant 161 sur l'ensemble du module.
+en compte maintenant 166 sur l'ensemble du module.
+
+`npm run --prefix web test` exécute `vitest run --coverage` : la couverture
+navigateur (`web/vitest.config.ts`, provider `v8`, lignes de `src/**`) est un
+**plancher bloquant** de cette commande, pas une mesure à part — en dessous du
+seuil, `test.sh` échoue. Relevé du jour : **57,19 % de lignes**, plancher
+**57 %** (inchangé : l'écart au plancher reste sous un point, cf.
+`web/vitest.config.ts`).
+
+Ces deux comptes (tests, couverture) restent des littéraux recopiés à la
+main, pas des valeurs dérivées automatiquement : ni `vitest`, ni `go test`,
+n'écrivent aujourd'hui leur résultat dans un fichier que ce document pourrait
+lire à la génération. Rendre ce chiffre non recopiable demanderait d'outiller
+`test.sh` pour publier ces deux nombres quelque part (ex. `coverage/
+coverage-summary.json`, déjà écrit par `vitest --coverage`, mais rien
+n'agrège aujourd'hui le compte Go) — hors périmètre de ce chantier.
 
 ## Ce que joue `apps/ramure-v2/e2e/lancer.sh` (CI comprise)
 

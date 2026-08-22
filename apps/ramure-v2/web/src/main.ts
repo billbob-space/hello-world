@@ -4,11 +4,15 @@
 // embarque par //go:embed web/dist (main.go). Cable ensemble geometrie.ts,
 // canevas.ts, camera.ts, promotion.ts (PRP 05) et desormais accueil.ts,
 // recherche.ts, fiche.ts (PRP 06) contre GET /api/centre, /api/suggest et
-// /api/fiche. Ce fichier n'est PAS teste unitairement : chaque brique qu'il
-// assemble l'est deja (voir web/tests/), et son propre role — cablage DOM
-// et evenements reels — est verifie manuellement (PRP 05, "l'arbre
-// s'affiche et se parcourt vraiment" ; PRP 06, "le parcours complet tient
-// a la main").
+// /api/fiche — via passerelle.ts (revue PRP 06), qui porte desormais TOUTE
+// la logique reseau (requetes, en-tetes, decodage JSON, SessionExpireeError)
+// et que web/tests/passerelle.test.ts couvre. Ce fichier n'est PAS teste
+// unitairement : chaque brique qu'il assemble l'est deja (voir web/tests/),
+// et son propre role restant — cablage DOM et evenements, composition avec
+// son propre etat (lignee, miroir hors ligne, panneaux) — est verifie
+// manuellement (PRP 05, "l'arbre s'affiche et se parcourt vraiment" ; PRP
+// 06, "le parcours complet tient a la main") et par le bout en bout
+// (Playwright, apps/ramure-v2/e2e/).
 import {
   ajusterZonesTactiles,
   appliquerVue as appliquerVueSurGroupe,
@@ -21,7 +25,16 @@ import {
   type NoeudDessine,
 } from "./canevas";
 import { placerBranches, placerHeritiers, type Anneau } from "./geometrie";
-import { aBouge, cadrageNeutre, deplacer, zoomer, type Vue } from "./camera";
+import {
+  aBouge,
+  cadrageNeutre,
+  deplacer,
+  viewportLibre as calculerViewportLibre,
+  zoomer,
+  type PanneauMesure,
+  type Rect,
+  type Vue,
+} from "./camera";
 import {
   GestionnaireLignee,
   annoncerNouveauCentre,
@@ -30,7 +43,6 @@ import {
   promouvoir,
   recadrerSiBouge,
 } from "./promotion";
-import { dispositionCourante } from "./disposition";
 import { textes } from "./textes";
 import { construireMur, type MurAccueil, type TuileDonnees } from "./accueil";
 import {
@@ -38,17 +50,13 @@ import {
   construireLienPartage,
   creerAmorceurUneFois,
   extraireGraineDeLURL,
-  type SuggestionAPI,
 } from "./recherche";
 import {
   GestionnaireService,
   SERVICES,
   construireApercuBranche,
   construireFiche,
-  type AlbumAPI,
-  type ExtraitAPI,
   type PanneauFiche,
-  type ProfilAPI,
 } from "./fiche";
 import {
   MiroirHorsLigne,
@@ -56,48 +64,19 @@ import {
   type EntreeAPI,
   type PanneauCollection,
 } from "./collection";
-import { EN_TETE_SESSION, SessionExpireeError, estReponseSessionExpiree, sessionId } from "./session";
-
-// Champs du JSON rendu par GET /api/centre : une seule convention
-// d'etiquetage — camelCase minuscule — sur tous les types, y compris
-// internal/source.* (Artiste, Voisin, Illustration, Profil, Album), qui
-// portent desormais une etiquette json explicite au meme titre que
-// Branche/Centre.
-interface VoisinAPI {
-  nom: string;
-  mbid: string;
-  affinite: number;
-}
-
-interface IllustrationAPI {
-  petite: string;
-  moyenne: string;
-  grande: string;
-}
-
-interface BrancheAPI {
-  voisin: VoisinAPI;
-  illustration: IllustrationAPI;
-  lienDeezer?: string;
-  heritiers?: VoisinAPI[];
-}
-
-interface CentreAPI {
-  artiste: { nom: string; mbid: string; pays: string; desambiguisation: string };
-  profil?: ProfilAPI;
-  illustration: IllustrationAPI;
-  discographie?: AlbumAPI[];
-  branches?: BrancheAPI[];
-  etat: "ok" | "aucun_voisin" | "panne";
-  message?: string;
-}
-
-interface FicheAPI {
-  profil: ProfilAPI;
-  extraits: ExtraitAPI[];
-  lienEcoute: string;
-  lienDeezer?: string;
-}
+import { EN_TETE_SESSION, SessionExpireeError, sessionId } from "./session";
+import {
+  ajouterALaCollection as envoyerAjoutCollection,
+  chargerCentre,
+  chargerCollectionServeur,
+  chargerFiche,
+  chargerReglageServeur as recupererReglageServeur,
+  chargerSuggestions,
+  enTetesJSON,
+  retirerDeLaCollection as envoyerRetraitCollection,
+  type CentreAPI,
+  type FicheAPI,
+} from "./passerelle";
 
 const ANNEAU: Anneau = { rayonMin: 150, rayonMax: 420 };
 const RAYON_CENTRE = 60;
@@ -179,6 +158,58 @@ function mouvementReduit(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
+// viewportLibre (cablage) : la SEULE lecture DOM (getBoundingClientRect du
+// svg et des deux panneaux ancres) — le calcul lui-meme (C7/C12, critique
+// 2026-08-22) est une fonction pure de camera.ts, testee sans DOM comme le
+// reste de ce module (voir sa doc la-bas). cadrageNeutre() honore deja
+// viewport.x et viewport.y : il suffit de lui donner le bon rectangle, la
+// camera n'a pas a changer.
+function viewportLibre(): Rect {
+  const largeurSvg = svg?.clientWidth || 800;
+  const hauteurSvg = svg?.clientHeight || 600;
+  const plein: Rect = { x: 0, y: 0, largeur: largeurSvg, hauteur: hauteurSvg };
+  if (!svg) return plein;
+  const boiteSvg = svg.getBoundingClientRect();
+
+  const panneaux: PanneauMesure[] = [];
+  for (const panneau of [ficheEl, collectionEl]) {
+    if (!panneau || panneau.hidden) continue;
+    const b = panneau.getBoundingClientRect();
+    panneaux.push({
+      largeur: b.width,
+      hauteur: b.height,
+      gauche: b.left - boiteSvg.left,
+      haut: b.top - boiteSvg.top,
+    });
+  }
+  return calculerViewportLibre(plein, boiteSvg.width, boiteSvg.height, panneaux);
+}
+
+// poserBoutonFermeture ajoute au panneau une commande de sortie, une seule
+// fois, en tete.
+//
+// Critique 2026-08-22 C13 / C16 : le PRD §07 decrit la fiche large comme un
+// « panneau lateral flottant, REPLIABLE » et la collection large comme une
+// fenetre a fermer — mesure : la fiche ne portait que « Garder cet artiste »
+// et « Lire … », et le panneau collection portait ZERO bouton. textes.ts
+// definit deja collectionFermer (« Fermer la collection »), sans aucun usage
+// dans web/src. Une fois la collection ouverte, plus rien a l'ecran ne la
+// refermait.
+function poserBoutonFermeture(panneau: HTMLElement, libelle: string, action: () => void): void {
+  const existant = panneau.querySelector<HTMLButtonElement>(".panneau-fermer");
+  if (existant) {
+    existant.setAttribute("aria-label", libelle);
+    return;
+  }
+  const bouton = document.createElement("button");
+  bouton.type = "button";
+  bouton.className = "panneau-fermer";
+  bouton.setAttribute("aria-label", libelle);
+  bouton.textContent = "\u00d7";
+  bouton.addEventListener("click", action);
+  panneau.prepend(bouton);
+}
+
 function appliquerVue(): void {
   if (groupeRacine) {
     appliquerVueSurGroupe(groupeRacine, vue);
@@ -191,6 +222,22 @@ function appliquerVue(): void {
   }
   if (boutonCadrage) {
     boutonCadrage.hidden = !aBouge(vue, vueNeutre);
+  }
+}
+
+// recadrer recalcule le cadrage neutre apres qu'un panneau s'est ouvert ou
+// referme (PRD §07 : « le canevas se recale sur l'espace restant »). Il ne
+// touche PAS a la vue si l'utilisateur l'a deplacee ou zoomee lui-meme :
+// reprendre la main sur sa camera parce qu'un panneau bouge serait pire que
+// le defaut corrige.
+function recadrer(): void {
+  if (!svg || !groupeRacine) return;
+  const utilisateurAOrienteLaVue = aBouge(vue, vueNeutre);
+  const contenu = { x: -ANNEAU.rayonMax, y: -ANNEAU.rayonMax, largeur: 2 * ANNEAU.rayonMax, hauteur: 2 * ANNEAU.rayonMax };
+  vueNeutre = cadrageNeutre(contenu, viewportLibre());
+  if (!utilisateurAOrienteLaVue) {
+    vue = vueNeutre;
+    appliquerVue();
   }
 }
 
@@ -274,12 +321,30 @@ function afficherAccueil(): void {
   if (ficheEl) ficheEl.hidden = true;
   if (apercuEl) apercuEl.hidden = true;
   if (etat) etat.textContent = "";
+  commandesDArbre(false);
+}
+
+// commandesDArbre montre ou cache les commandes qui n'ont de sens QUE sur un
+// arbre plante.
+//
+// Critique 2026-08-22 C4 : sur l'accueil, « Zoomer », « Dezoomer » et
+// « Copier le lien de cet arbre » etaient visibles et actifs (mesure : 40x40
+// chacun) alors qu'aucun arbre n'existe — et le libelle du partage nomme un
+// objet absent. L'application SAIT deja retirer une commande hors contexte :
+// « Revenir au cadrage initial » et « Revenir a l'artiste precedent »
+// mesuraient bien 0x0 sur le meme ecran. Ces trois-la manquaient a l'appel.
+// La collection (♥) reste, elle : elle a du sens sans arbre.
+function commandesDArbre(visibles: boolean): void {
+  if (boutonZoomerAvant) boutonZoomerAvant.hidden = !visibles;
+  if (boutonZoomerArriere) boutonZoomerArriere.hidden = !visibles;
+  if (boutonPartager) boutonPartager.hidden = !visibles;
 }
 
 function masquerAccueil(): void {
   if (!accueilSection || !svg) return;
   accueilSection.hidden = true;
   svg.removeAttribute("hidden");
+  commandesDArbre(true);
 }
 
 // ---------------------------------------------------------------------
@@ -304,26 +369,10 @@ function construireSelectService(): void {
   gestionnaireService.observer(() => panneauFiche?.actualiserLiens());
 }
 
-// chargerFiche appelle GET /api/fiche a l'OUVERTURE de la fiche — jamais
-// au chargement de l'arbre (§07) : c'est le seul endroit qui charge
-// Extraits, et le seul cout que ce PRP ajoute au-dela des deux appels
-// MusicBrainz du centre.
-async function chargerFiche(nom: string): Promise<FicheAPI | null> {
-  try {
-    const reponse = await fetch(
-      `/api/fiche?nom=${encodeURIComponent(nom)}&service=${encodeURIComponent(gestionnaireService.service)}`,
-    );
-    if (!reponse.ok) return null;
-    return (await reponse.json()) as FicheAPI;
-  } catch {
-    return null;
-  }
-}
-
 async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
   if (!ficheEl) return;
   const nom = centreAPI.artiste.nom;
-  const fiche = await chargerFiche(nom);
+  const fiche = await chargerFiche(nom, gestionnaireService.service);
   if (nomCentreCourant !== nom) return; // reponse tardive (§09) : ecartee
 
   mbidCentreCourant = centreAPI.artiste.mbid || null;
@@ -337,7 +386,12 @@ async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
     dejaGarde: estGarde(mbidCentreCourant),
     surBasculerGarde: () => void basculerGarde(nom, mbidCentreCourant),
   });
+  poserBoutonFermeture(ficheEl, textes.ficheReplier, () => {
+    ficheEl.hidden = true;
+    recadrer();
+  });
   ficheEl.hidden = false;
+  recadrer(); // C7 : la fiche vient d'occuper le bas (etroit) ou la droite (large)
 }
 
 // ---------------------------------------------------------------------
@@ -346,10 +400,6 @@ async function afficherFiche(centreAPI: CentreAPI): Promise<void> {
 // deja par X-Forwarded-User (N-08) ; ce module ne porte JAMAIS
 // l'identite, seulement le jeton de session (mesure) dans les en-tetes.
 // ---------------------------------------------------------------------
-
-function enTetesJSON(): HeadersInit {
-  return { "Content-Type": "application/json", [EN_TETE_SESSION]: session };
-}
 
 /** estGarde() lit la vue FUSIONNEE (serveur + miroir hors ligne, F-33) :
  * c'est elle qui doit refleter l'etat "garde" du bouton de la fiche,
@@ -360,21 +410,22 @@ function estGarde(mbid: string | null): boolean {
   return miroir.vue(collectionServeur).some((e) => e.mbid === mbid);
 }
 
-async function chargerCollectionServeur(): Promise<EntreeAPI[]> {
-  try {
-    const reponse = await fetch("/api/collection", { headers: { [EN_TETE_SESSION]: session } });
-    if (!reponse.ok) return [];
-    return (await reponse.json()) as EntreeAPI[];
-  } catch {
-    return []; // hors ligne (F-33) : le miroir local prend le relais dans vue()
-  }
-}
-
 // actualiserCollection recharge la copie serveur ET repeint le panneau
 // (F-30 : lignee et date), sans jamais reconstruire le conteneur une fois
 // le panneau construit (idempotence, meme discipline que fiche.ts).
 async function actualiserCollection(): Promise<void> {
-  collectionServeur = await chargerCollectionServeur();
+  // C17 (critique 2026-08-22) : un 401 sur /api/collection dit "la session a
+  // expire", jamais "la collection est vide" (F-41) — meme distinction, meme
+  // affichage que sur les trois autres chemins de chargerCentre.
+  try {
+    collectionServeur = await chargerCollectionServeur(session, window.location.origin);
+  } catch (erreur) {
+    if (erreur instanceof SessionExpireeError) {
+      afficherSessionExpiree();
+      return;
+    }
+    throw erreur;
+  }
   const vue = miroir.vue(collectionServeur);
 
   if (collectionEl) {
@@ -386,6 +437,12 @@ async function actualiserCollection(): Promise<void> {
           void planter(e.nom, "collection"); // M-06 : AmorceCollection
         },
         surRetirer: (mbid) => void retirerDeLaCollection(mbid),
+      });
+      // Apres construireCollection, qui remplace tout le contenu du panneau.
+      poserBoutonFermeture(collectionEl, textes.collectionFermer, () => {
+        collectionEl.hidden = true;
+        if (ficheEl) ficheEl.hidden = nomCentreCourant === null;
+        recadrer();
       });
     } else {
       panneauCollection.actualiser(vue);
@@ -403,30 +460,15 @@ async function ajouterALaCollection(nom: string, mbid: string): Promise<void> {
   const e: EntreeAPI = { nom, mbid, lignee: [...ligneeNoms, nom], ajoute: new Date().toISOString() };
   miroir.ajouter(e); // F-33 : visible immediatement, meme hors ligne
   panneauFiche?.actualiserGarde(true); // retour visuel immediat (F-28)
-  try {
-    const reponse = await fetch("/api/collection", {
-      method: "PUT",
-      headers: enTetesJSON(),
-      body: JSON.stringify({ nom, mbid, lignee: e.lignee }),
-    });
-    if (reponse.ok) miroir.confirmer([...collectionServeur, e]);
-  } catch {
-    // Reste en attente dans le miroir : reconcilie a la reconnexion (F-33).
-  }
+  const ok = await envoyerAjoutCollection(session, { nom, mbid, lignee: e.lignee });
+  if (ok) miroir.confirmer([...collectionServeur, e]);
   await actualiserCollection();
 }
 
 async function retirerDeLaCollection(mbid: string): Promise<void> {
   miroir.retirer(mbid);
   panneauFiche?.actualiserGarde(false);
-  try {
-    await fetch(`/api/collection?mbid=${encodeURIComponent(mbid)}`, {
-      method: "DELETE",
-      headers: { [EN_TETE_SESSION]: session },
-    });
-  } catch {
-    // Reste en attente dans le miroir : reconcilie a la reconnexion (F-33).
-  }
+  await envoyerRetraitCollection(session, mbid);
   await actualiserCollection();
 }
 
@@ -445,7 +487,7 @@ function basculerGarde(nom: string, mbid: string | null): void {
 async function synchroniserMiroir(): Promise<void> {
   for (const e of miroir.ajoutsEnAttente) {
     try {
-      await fetch("/api/collection", { method: "PUT", headers: enTetesJSON(), body: JSON.stringify(e) });
+      await fetch("/api/collection", { method: "PUT", headers: enTetesJSON(session), body: JSON.stringify(e) });
     } catch {
       break; // toujours hors ligne : on retentera au prochain evenement "online"
     }
@@ -484,6 +526,7 @@ boutonCollection?.addEventListener("click", () => {
   const vaOuvrir = collectionEl.hidden;
   collectionEl.hidden = !vaOuvrir;
   if (ficheEl) ficheEl.hidden = vaOuvrir ? true : nomCentreCourant === null;
+  recadrer(); // C7/C12 : l'espace libre du canevas vient de changer
   if (vaOuvrir) void actualiserCollection();
 });
 
@@ -493,16 +536,6 @@ boutonCollection?.addEventListener("click", () => {
 
 let requeteSuggestionsEnCours = 0;
 let minuteurSuggestions: number | undefined;
-
-async function chargerSuggestions(q: string): Promise<SuggestionAPI[]> {
-  try {
-    const reponse = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`);
-    if (!reponse.ok) return [];
-    return (await reponse.json()) as SuggestionAPI[];
-  } catch {
-    return [];
-  }
-}
 
 // fermerSuggestions (defaut #7, REFERENCE.md) : ferme la liste de
 // suggestions ET invalide toute requete debattue (debounce, 200ms) encore en
@@ -667,31 +700,6 @@ function cablerNoeud(n: NoeudDessine, nom: string): void {
   cablerActivation(n, () => void promouvoirVers(n, nom));
 }
 
-// chargerCentre porte le jeton de session (mesure) et, sur une plantation
-// seulement, l'amorcage (M-06/M-07) : jamais sur une promotion, que le
-// serveur distingue via origine=promotion (internal/api/centre.go).
-async function chargerCentre(
-  nom: string,
-  options?: { origine?: "promotion"; amorce?: "collection" | "partage" },
-): Promise<CentreAPI> {
-  // largeur (PRP 08, disposition.ts) : le SERVEUR decide seul du nombre de
-  // branches/heritiers pour cette disposition (internal/api/centre.go,
-  // cadragePour) — le client ne fait que nommer la disposition qu'il
-  // affiche reellement, jamais ne recompte lui-meme.
-  const params = new URLSearchParams({ nom, largeur: dispositionCourante() });
-  if (options?.origine) params.set("origine", options.origine);
-  if (options?.amorce) params.set("amorce", options.amorce);
-  const reponse = await fetch(`/api/centre?${params.toString()}`, {
-    headers: { [EN_TETE_SESSION]: session },
-  });
-  // F-41 : une session expiree ressemble a une reponse reseau normale
-  // (souvent un 200) — seul le CONTENU la trahit, jamais reponse.ok.
-  if (estReponseSessionExpiree(reponse, window.location.origin)) {
-    throw new SessionExpireeError();
-  }
-  return (await reponse.json()) as CentreAPI;
-}
-
 // reconstruireScene peint une scene ENTIEREMENT NEUVE a partir d'un
 // CentreAPI deja charge — partagee par planter() (une graine, F-04) et
 // remonterLignee() (F-14) : les deux repartent d'un centre sans noeud
@@ -751,7 +759,7 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
     void afficherFiche(centreAPI);
   }
 
-  const viewport = { x: 0, y: 0, largeur: svg.clientWidth || 800, hauteur: svg.clientHeight || 600 };
+  const viewport = viewportLibre();
   const contenu = { x: -ANNEAU.rayonMax, y: -ANNEAU.rayonMax, largeur: 2 * ANNEAU.rayonMax, hauteur: 2 * ANNEAU.rayonMax };
   vue = cadrageNeutre(contenu, viewport);
   vueNeutre = vue;
@@ -780,7 +788,7 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
 
   let centreAPI: CentreAPI;
   try {
-    centreAPI = await chargerCentre(nom, { amorce });
+    centreAPI = await chargerCentre(nom, session, window.location.origin, { amorce });
   } catch (erreur) {
     if (lignee.estPerimee(generation)) return;
     if (erreur instanceof SessionExpireeError) {
@@ -812,7 +820,7 @@ async function remonterLignee(): Promise<void> {
 
   let centreAPI: CentreAPI;
   try {
-    centreAPI = await chargerCentre(nomCible, { origine: "promotion" });
+    centreAPI = await chargerCentre(nomCible, session, window.location.origin, { origine: "promotion" });
   } catch (erreur) {
     if (lignee.estPerimee(nav.generation)) return;
     if (erreur instanceof SessionExpireeError) {
@@ -854,7 +862,7 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
   try {
     resultat = await promouvoir(lignee, { id: noeud.id, nom }, {
       mouvementReduit: reduit,
-      chargerCentre: () => chargerCentre(nom, { origine: "promotion" }), // M-01
+      chargerCentre: () => chargerCentre(nom, session, window.location.origin, { origine: "promotion" }), // M-01
     });
   } catch (erreur) {
     if (erreur instanceof SessionExpireeError) {
@@ -1011,6 +1019,10 @@ document.title = textes.titre;
 if (boutonLogo) boutonLogo.setAttribute("aria-label", textes.retourAccueil);
 if (boutonRemonter) boutonRemonter.setAttribute("aria-label", textes.remonterLaLignee);
 if (accueilSection) accueilSection.setAttribute("aria-label", textes.accueilTitre);
+// Constat de revue (PRP 06) : role="listbox" sans nom accessible n'annonce
+// qu'"liste, N elements" a un lecteur d'ecran — jamais de QUOI la liste
+// parle. textes.suggestionsLabel comble ce manque (WCAG 4.1.2).
+if (suggestionsEl) suggestionsEl.setAttribute("aria-label", textes.suggestionsLabel);
 if (miseAJourTexteEl) miseAJourTexteEl.textContent = textes.miseAJourDisponible;
 if (boutonMiseAJour) boutonMiseAJour.textContent = textes.miseAJourAppliquer;
 actualiserVisibiliteRemonter();
@@ -1022,6 +1034,13 @@ if (boutonPartager) {
   boutonPartager.textContent = "⇪";
   boutonPartager.setAttribute("aria-label", textes.partagerLien);
 }
+// Constat C2 (critique 2026-08-22) : ces trois libelles etaient figes en dur
+// dans index.html, sans accent, et avaient deja diverge de textes.ts (qui
+// les porte accentues). Cables ici comme le reste des aria-label de ce
+// fichier : une seule source de verite, index.html ne fige plus rien.
+if (boutonZoomerArriere) boutonZoomerArriere.setAttribute("aria-label", textes.zoomerArriere);
+if (boutonZoomerAvant) boutonZoomerAvant.setAttribute("aria-label", textes.zoomerAvant);
+if (serviceSelect) serviceSelect.setAttribute("aria-label", textes.choisirService);
 construireSelectService();
 
 // F-25 (close) : le service releve du serveur au demarrage — jamais du
@@ -1030,21 +1049,15 @@ construireSelectService();
 // memoire pour la session courante, sans casser l'ecran (degradation
 // gracieuse, comme partout ailleurs dans le client).
 async function chargerReglageServeur(): Promise<void> {
-  try {
-    const reponse = await fetch("/api/reglages", { headers: { [EN_TETE_SESSION]: session } });
-    if (!reponse.ok) return;
-    const corps = (await reponse.json()) as { service?: string };
-    if (corps.service && (SERVICES as readonly string[]).includes(corps.service)) {
-      gestionnaireService.definir(corps.service as (typeof SERVICES)[number]);
-      if (serviceSelect) serviceSelect.value = corps.service;
-    }
-  } catch {
-    // Le service par defaut du client (fiche.ts) reste en vigueur pour
-    // cette session.
+  const corps = await recupererReglageServeur(session);
+  if (!corps) return; // Le service par defaut du client (fiche.ts) reste en vigueur pour cette session.
+  if (corps.service && (SERVICES as readonly string[]).includes(corps.service)) {
+    gestionnaireService.definir(corps.service as (typeof SERVICES)[number]);
+    if (serviceSelect) serviceSelect.value = corps.service;
   }
 }
 gestionnaireService.observer((s) => {
-  void fetch("/api/reglages", { method: "PUT", headers: enTetesJSON(), body: JSON.stringify({ service: s }) }).catch(
+  void fetch("/api/reglages", { method: "PUT", headers: enTetesJSON(session), body: JSON.stringify({ service: s }) }).catch(
     () => {}, // meme echec : le choix reste actif dans cette session (repli, §09)
   );
 });

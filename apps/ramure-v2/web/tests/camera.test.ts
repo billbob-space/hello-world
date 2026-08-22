@@ -9,7 +9,10 @@ import {
   aBouge,
   cadrageNeutre,
   deplacer,
+  viewportLibre,
   zoomer,
+  type PanneauMesure,
+  type Rect,
   type Vue,
 } from "../src/camera";
 
@@ -120,5 +123,71 @@ describe("cadrageNeutre", () => {
     // etroite des deux dimensions).
     expect(contenu.largeur * v.echelle).toBeLessThanOrEqual(viewport.largeur + 1e-6);
     expect(contenu.hauteur * v.echelle).toBeLessThanOrEqual(viewport.hauteur + 1e-6);
+  });
+});
+
+// viewportLibre (C7/C12, critique 2026-08-22) : extrait de main.ts (cablage
+// DOM retire), fonction pure comme le reste de ce module. main.ts ne fait
+// plus que mesurer (getBoundingClientRect) et filtrer les panneaux fermes
+// (`panneau.hidden`) AVANT d'appeler cette fonction — un panneau ferme
+// n'apparait donc jamais dans `panneaux`, sauf mesure degenere (0x0), que
+// cette fonction ecarte aussi par prudence.
+describe("viewportLibre", () => {
+  it("aucun panneau (aucun ouvert) : rend le rectangle plein tel quel", () => {
+    const plein: Rect = { x: 0, y: 0, largeur: 390, hauteur: 727 };
+    expect(viewportLibre(plein, 390, 727, [])).toEqual(plein);
+  });
+
+  it("un panneau mesure 0x0 (ferme, transmis par erreur) est ignore comme s'il etait absent", () => {
+    const plein: Rect = { x: 0, y: 0, largeur: 390, hauteur: 727 };
+    const ferme: PanneauMesure = { largeur: 0, hauteur: 0, gauche: 0, haut: 347 };
+    expect(viewportLibre(plein, 390, 727, [ferme])).toEqual(plein);
+  });
+
+  it("@390 (etroit) : la fiche ancree en bas rogne la hauteur, jamais la largeur", () => {
+    // Mesure C7 : svg 390x727, fiche ancree en bas a y=464 (haut = 464-117=347).
+    const plein: Rect = { x: 0, y: 0, largeur: 390, hauteur: 727 };
+    const fiche: PanneauMesure = { largeur: 390, hauteur: 380, gauche: 0, haut: 347 };
+
+    const libre = viewportLibre(plein, 390, 727, [fiche]);
+
+    expect(libre).toEqual({ x: 0, y: 0, largeur: 390, hauteur: 347 });
+  });
+
+  it("@1440 (large) : la fiche ancree a droite rogne la largeur, jamais la hauteur", () => {
+    // Mesure C12 : svg 1440x900, fiche a x=1072.
+    const plein: Rect = { x: 0, y: 0, largeur: 1440, hauteur: 900 };
+    const fiche: PanneauMesure = { largeur: 352, hauteur: 747, gauche: 1072, haut: 0 };
+
+    const libre = viewportLibre(plein, 1440, 900, [fiche]);
+
+    expect(libre).toEqual({ x: 0, y: 0, largeur: 1072, hauteur: 900 });
+  });
+
+  it("plusieurs panneaux mesures ensemble : le plus contraignant sur chaque axe l'emporte", () => {
+    const plein: Rect = { x: 0, y: 0, largeur: 1440, hauteur: 900 };
+    const large: PanneauMesure = { largeur: 352, hauteur: 747, gauche: 1072, haut: 0 };
+    const plusEtroit: PanneauMesure = { largeur: 300, hauteur: 700, gauche: 900, haut: 0 };
+
+    const libre = viewportLibre(plein, 1440, 900, [large, plusEtroit]);
+
+    expect(libre.largeur).toBe(900); // le panneau le plus a gauche des deux
+  });
+
+  it("un panneau qui couvre plus que le viewport retombe sur le rectangle plein, jamais un cadrage degenere", () => {
+    // L'espace restant (10 px de haut) est sous le plancher de 80 px :
+    // mieux vaut recentrer sur la boite entiere qu'un cadrage quasi nul.
+    const plein: Rect = { x: 0, y: 0, largeur: 390, hauteur: 400 };
+    const panneauEnvahissant: PanneauMesure = { largeur: 390, hauteur: 390, gauche: 0, haut: 10 };
+
+    expect(viewportLibre(plein, 390, 400, [panneauEnvahissant])).toEqual(plein);
+  });
+
+  it("boite svg pas encore mesuree (largeur ou hauteur nulle) : rend le rectangle plein", () => {
+    const plein: Rect = { x: 0, y: 0, largeur: 390, hauteur: 727 };
+    const fiche: PanneauMesure = { largeur: 390, hauteur: 380, gauche: 0, haut: 347 };
+
+    expect(viewportLibre(plein, 0, 727, [fiche])).toEqual(plein);
+    expect(viewportLibre(plein, 390, 0, [fiche])).toEqual(plein);
   });
 });

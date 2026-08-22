@@ -68,7 +68,7 @@ test("F-42/N-12 -- cycle complet : detection -> banniere -> clic -> activation",
     // --- Banniere : "Une nouvelle version de RAMURE est disponible." ---
     await expect(page.locator("#mise-a-jour")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator("#mise-a-jour-texte")).toHaveText("Une nouvelle version de RAMURE est disponible.");
-    await expect(page.locator("#mise-a-jour-appliquer")).toHaveText("Mettre a jour");
+    await expect(page.locator("#mise-a-jour-appliquer")).toHaveText("Mettre à jour");
 
     // --- Clic -> activation -> rechargement REEL de la page -------------
     const rechargement = page.waitForEvent("load");

@@ -190,9 +190,11 @@ export class GestionnaireLecteur {
 }
 
 // ---------------------------------------------------------------------
-// Service d'ecoute (F-25) — memoire en session UNIQUEMENT tant que le
-// reglage serveur du PRP 07 n'existe pas (cf. prp/06-ecrans.md, "ce que la
-// suite attend de vous" n°4 : F-25 se coche au PRP 07, pas a celui-ci).
+// Service d'ecoute (F-25, close) — cette classe ne porte que le defaut et
+// la memoire en session ; le reglage releve du serveur au demarrage
+// (chargerReglageServeur, PRP 07, internal/api/reglages.go) l'ecrase des
+// que la reponse arrive, pour suivre le proprietaire d'un appareil a
+// l'autre.
 // ---------------------------------------------------------------------
 
 export const SERVICES = ["deezer", "spotify", "apple", "youtube", "tidal"] as const;
@@ -392,6 +394,40 @@ export function construireFiche(conteneur: HTMLElement, options: OptionsFiche): 
     conteneur.append(presentation);
   }
 
+  // Critique 2026-08-22 C11 : genres et audience etaient declares dans le type
+  // et jamais peints — F-19 les exige au meme titre que la presentation.
+  const genres = options.profil.genres ?? [];
+  if (genres.length > 0) {
+    const listeGenres = document.createElement("p");
+    listeGenres.className = "fiche-genres";
+    // Constat C4 (critique 2026-08-22) : textes.genresTitre etait defini,
+    // jamais pose (meme defaut deja consigne au journal pour
+    // suggestionsLabel). Sans lui, un lecteur d'ecran enonce simplement
+    // "trip hop, downtempo" sans dire QUOI — role="group" expose ce nom au
+    // meme titre qu'une region, sur un simple paragraphe.
+    listeGenres.setAttribute("role", "group");
+    listeGenres.setAttribute("aria-label", textes.genresTitre);
+    listeGenres.textContent = genres.join(" · ");
+    conteneur.append(listeGenres);
+  }
+  if (options.profil.auditeurs > 0) {
+    const audience = document.createElement("p");
+    audience.className = "fiche-audience";
+    audience.textContent = textes.auditeurs(options.profil.auditeurs);
+    conteneur.append(audience);
+  }
+  // Aucune des trois parties du profil n'est arrivee : le dire, plutot que de
+  // laisser un blanc que l'utilisateur lira comme « cet artiste n'a pas de
+  // profil ». Mesure du 2026-08-22 : /api/centre rend etat "ok" avec
+  // presentation "", genres null, auditeurs 0 — la fiche ne montrait alors que
+  // le nom et 100 lignes de discographie, sans un mot.
+  if (!options.profil.presentation && genres.length === 0 && options.profil.auditeurs <= 0) {
+    const absent = document.createElement("p");
+    absent.className = "fiche-profil-absent";
+    absent.textContent = textes.profilIndisponible;
+    conteneur.append(absent);
+  }
+
   const lienArtiste = document.createElement("a");
   lienArtiste.className = "fiche-lien-artiste";
   lienArtiste.target = "_blank";
@@ -447,11 +483,29 @@ export function construireFiche(conteneur: HTMLElement, options: OptionsFiche): 
     const filtre = document.createElement("select");
     filtre.className = "discographie-filtre";
     filtre.setAttribute("aria-label", textes.filtrerParType);
-    const options_ = ["tous", ...typesPresents(options.albums)];
+    // Critique 2026-08-22 C8 : le select rendait la VALEUR machine
+    // ("format-court", "studio", "compilation", "live") alors que textes.ts
+    // porte deja les libelles — typeStudio, typeLive, typeCompilation,
+    // typeFormatCourt n'avaient aucun usage dans web/src. On les branche, et
+    // on impose l'ordre que F-22 enonce (studio, live, compilation, format
+    // court) plutot que l'ordre d'apparition dans la discographie.
+    const libelles: Readonly<Record<string, string>> = {
+      studio: textes.typeStudio,
+      live: textes.typeLive,
+      compilation: textes.typeCompilation,
+      "format-court": textes.typeFormatCourt,
+    };
+    const ordreF22 = ["studio", "live", "compilation", "format-court"];
+    const presents = typesPresents(options.albums);
+    const tries = [
+      ...ordreF22.filter((t) => presents.includes(t)),
+      ...presents.filter((t) => !ordreF22.includes(t)),
+    ];
+    const options_ = ["tous", ...tries];
     for (const t of options_) {
       const opt = document.createElement("option");
       opt.value = t;
-      opt.textContent = t === "tous" ? textes.typeTous : t;
+      opt.textContent = t === "tous" ? textes.typeTous : (libelles[t] ?? t);
       filtre.append(opt);
     }
     filtre.addEventListener("change", () => {
