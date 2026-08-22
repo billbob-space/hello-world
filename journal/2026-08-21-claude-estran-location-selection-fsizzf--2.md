@@ -230,6 +230,28 @@ avant la CI. C'est le prix normal d'un garde-fou qui touche dix apps, et c'est
 la place juste de la CI dans l'echelle : plus chere que le test, moins chere que
 l'utilisateur.
 
+### 11. `marcq-handball` est casse depuis un moment, et la CI ne pouvait pas le dire
+
+**Symptome** — la chaine complete, declenchee parce que cette branche touche
+l'outillage partage, rend `bout-en-bout (marcq-handball)` rouge : deux tests sur
+cinq echouent, « Salut Lea » n'apparait jamais apres la saisie du prenom. Rejoue
+en local sur un arbre dont `apps/` est **identique a `main`** au bit pres : meme
+echec. Ce n'est donc pas cette branche.
+
+**Cause** — la CI ne lance la matrice que sur les apps **modifiees**. Une app que
+personne ne touche n'est jamais rejouee, et son rouge attend qu'un changement
+partage le revele. Entre-temps `main` est vert, et l'app est cassee : c'est le
+vert silencieux, applique non plus a un controle mais a une app entiere.
+
+**Detecte par** — `CI`
+
+**Action** — `arbitrage` — corriger `marcq-handball` sort du perimetre de cette
+branche (`fabrique`), et la decision n'est pas technique : soit la matrice
+couvre TOUTES les apps periodiquement — ce qui coute une chaine complete par
+nuit —, soit on accepte qu'une app non touchee puisse pourrir sans qu'on le
+sache. La question va a l'utilisateur ; le rouge, lui, est nomme plutot que
+laisse au hasard d'un futur changement partage.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
