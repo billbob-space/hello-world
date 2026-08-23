@@ -47,6 +47,10 @@ export function partDe(coches, echelle) {
 // donc fige au compte du montage, et mentirait des la premiere coche sur le
 // seul ecran ou la barre bouge. Le chiffre vit dans les aria-value* en dessous,
 // qui, eux, sont remis a jour a chaque appel.
+//
+// `texte`, lui, n'est pas destructure ici : cree comme rejoue, il traverse
+// `options` tel quel jusqu'a `reglerBarre`, qui seule en fait quelque chose —
+// voir sa documentation.
 export function creerBarre(coches, echelle, options = {}) {
   const { classe = '', muette = false, nom = null } = options;
 
@@ -75,7 +79,12 @@ export function creerBarre(coches, echelle, options = {}) {
 // `muette` est repasse plutot que relu sur l'element : relire un attribut qu'on
 // vient d'ecrire fait dependre le calcul de l'etat du DOM, ce qui se paie deux
 // fois — en lecture inutile, et en double de DOM a etoffer dans les tests.
-export function reglerBarre(barre, coches, echelle, { muette = false } = {}) {
+//
+// `texte` remplace le « n sur max » par defaut quand l'ecran appelant affiche
+// un mot different a cote de la barre — l'ecran du jour, en etat « en-cours »,
+// ecrit « Il t’en reste 4 » et ne peut pas laisser la voix annoncer « 3 sur 7 »
+// a la place : l'oeil et la voix ne divergent pas.
+export function reglerBarre(barre, coches, echelle, { muette = false, texte = null } = {}) {
   barre.style.setProperty('--part', String(partDe(coches, echelle)));
   if (muette) return;
   const max = Number(echelle) > 0 ? echelle : 1;
@@ -86,6 +95,7 @@ export function reglerBarre(barre, coches, echelle, { muette = false } = {}) {
   // des trois valeurs ci-dessus et annonce « 43 % » la ou l'ecran, lui, ecrit
   // « 3 / 7 ». L'unite entendue n'existe alors nulle part a l'oeil, et il reste
   // une division a faire pour rapprocher les deux. On dicte donc le compte, qui
-  // est ce que l'ecran montre.
-  barre.setAttribute('aria-valuetext', `${coches} sur ${max}`);
+  // est ce que l'ecran montre — ou le texte fourni par l'appelant, quand ce que
+  // l'ecran montre n'est plus un compte.
+  barre.setAttribute('aria-valuetext', texte ?? `${coches} sur ${max}`);
 }

@@ -206,7 +206,7 @@ function blocPart(part) {
   // l'avancement du PROGRAMME, pas d'une seance — a ne pas confondre avec le
   // nom pose sur l'ecran de seance et sur l'ecran du jour.
   const jauge = el('p', 'progression-perso');
-  const nom = 'Avancement des exercices du programme';
+  const nom = 'Avancement des exercices programmés à ce jour';
   jauge.append(creerBarre(part.cochees, part.echelle, { nom }));
 
   bloc.append(chiffre, jauge, el('p', 'phrase-part', part.phrase));

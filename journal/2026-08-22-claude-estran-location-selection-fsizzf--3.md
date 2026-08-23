@@ -127,3 +127,71 @@ reste un choix fait par un agent a la place de l'utilisateur.
 
 **Action** — `arbitrage` — a confirmer par l'utilisateur ; ecrit ici plutot que
 tu, pour qu'il ne reste pas un mot pose par defaut que plus personne n'interroge.
+
+### 7. La fiche produit a decrit du code qui n'existait pas encore
+
+**Symptome** — releve par le `relecteur`. J'avais ecrit dans `PRODUCT.md`
+« **Ce qui existe maintenant** : l'ecran du jour dit en toutes lettres... »
+alors que l'artisan etait encore en train de le construire : `vue-jour.js`
+n'avait que deux etats, aucun « Revoir » n'existait, et le total restait ecrit
+deux fois.
+
+**Cause** — j'ai ecrit la section produit AU MOMENT de la decision de
+l'utilisateur, et non au moment de la livraison. L'intention etait bonne — la
+decision est reelle, tranchee sur maquettes — mais un PRD qui dit « maintenant »
+d'un code absent ment des la fusion, et rien ne distingue a la lecture une
+decision prise d'une decision prise ET livree.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — la section produit s'ecrit quand le code existe, et
+part dans LE MEME commit que lui. Le contrat le disait deja (« dans le meme
+commit que le code ») ; ce que cette anomalie ajoute, c'est qu'ecrire d'avance
+dans l'arbre de travail suffit a creer le mensonge, meme sans committer.
+
+### 8. Mes deux sections de PRD etaient placees hors de la section qui les accueille
+
+**Symptome** — releve par le `relecteur` : ecrites en `###`, elles atterrissaient
+APRES « 16. Ajoute apres les PRP » au lieu d'etre dedans, ou les neuf
+precedentes sont en `####`.
+
+**Cause** — je n'ai pas regarde le niveau de titre des sections voisines avant
+d'ecrire.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — renumerotees `16.10` et `16.11`.
+
+### 9. Le garde-fou de contexte a bloque un commit deja verifie
+
+**Symptome** — `pret.sh` a refuse l'etape : « contexte de 643 821 jetons — au-dela
+du critique ». Le seuil est 600 000 (`COUT_CONTEXTE_CRITIQUE`, `scripts/cout.sh`).
+Le travail etait pourtant **fini et vert** — tests 339/339, e2e 5/5 aujourd'hui et
+sous une horloge de novembre, revue outillee verte, critique UX rendue — et
+simplement pas encore enregistre.
+
+**Cause** — le garde-fou vise a empecher de CONTINUER a travailler dans une
+session saturee. Il attrape aussi le dernier geste d'une session qui, elle, a
+fini : son message dit « rouvre une session sur la MEME branche, qui reprend par
+le depot », alors que precisement le travail n'y est pas encore. La session neuve
+ne trouverait rien a reprendre.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — pose a l'utilisateur, qui a tranche : enregistrer,
+puis couper. Le contournement est assume et ecrit ici plutot que tu, parce qu'un
+garde-fou contourne en silence est pire qu'un garde-fou absent — il donne
+l'illusion qu'il tient.
+
+**Ce qu'il faudrait changer, et qui n'est pas fait ici** : le refus devrait
+porter sur l'ouverture d'un CHANTIER, pas sur l'enregistrement de ce qui est
+deja verifie. Un `pret.sh` qui laisse passer un arbre vert tout en refusant la
+suite dirait la meme chose sans pousser a le contourner. A porter par une branche
+`fabrique/` — pas par celle-ci, dont le perimetre est deja large et le contexte
+justement sature.
+
+**Et la mesure elle-meme est juste** : cette session a fait bien plus que ce
+qu'une branche devrait porter. Elle est partie d'un test rouge et a livre six
+corrections d'accessibilite, deux decisions d'ecran, un filet hebdomadaire et
+trois regles de contrat. C'est le garde-fou qui avait raison sur le fond ; c'est
+son POINT D'APPLICATION qui est mal choisi.

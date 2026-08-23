@@ -112,6 +112,11 @@ test("aucune violation d'accessibilite serieuse sur le parcours", async ({ page 
   // parcours entier de ce test se joue sur l'ecran du bilan.
   await page.clock.install({ time: DATE_DANS_LE_PROGRAMME });
   await page.goto("/");
+  // Barriere avant mesure : `index.html` livre un `<main>` vide, et `app.js` ne
+  // rend qu'apres `await fetch('/programme.json')`, que `page.goto` n'attend
+  // pas. Sans elle, axe analyse un ecran vide, ne trouve rien, et declare
+  // l'ecran du prenom propre sans l'avoir regarde.
+  await expect(page.getByLabel("Ton prénom")).toBeVisible();
   await verifierAccessibilite(page); // ecran du prenom
 
   await page.getByLabel("Ton prénom").fill("Léa");

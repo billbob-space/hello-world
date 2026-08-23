@@ -175,6 +175,17 @@ export function etatSeance(prog, dateISO, aujourdhui, faits = {}) {
   return { statut, cochable, total, coches };
 }
 
+// La premiere seance strictement posterieure a une date donnee, ou null s'il
+// n'y en a plus. Les seances sont validees strictement croissantes (voir
+// chargerProgramme) : la premiere posterieure trouvee est bien la plus
+// proche. Sert au jour de repos (seanceDuJour ci-dessous) et au bloc de
+// l'ecran du jour qui pointe vers la prochaine seance une fois celle du jour
+// terminee (vue-jour.js) — un seul calcul, deux appelants, pour qu'aucun des
+// deux ne puisse inventer une date que l'autre ne connaitrait pas.
+export function seanceSuivante(prog, dateISO) {
+  return prog.seances.find((s) => s.date > dateISO) ?? null;
+}
+
 // La seance a montrer en ouvrant l'app.
 //   'aujourd-hui' : il y a seance aujourd'hui
 //   'repos'       : pas de seance ce jour ; `seance` porte la prochaine, ou
@@ -186,10 +197,7 @@ export function seanceDuJour(prog, aujourdhui) {
   const duJour = prog.seances.find((s) => s.date === aujourdhui);
   if (duJour) return { seance: duJour, cas: 'aujourd-hui' };
 
-  // Les seances sont validees strictement croissantes : la premiere posterieure
-  // est bien la prochaine.
-  const prochaine = prog.seances.find((s) => s.date > aujourdhui) ?? null;
-  return { seance: prochaine, cas: 'repos' };
+  return { seance: seanceSuivante(prog, aujourdhui), cas: 'repos' };
 }
 
 // Tous les jours du programme, de debut a fin inclus : une seance ou du repos,
