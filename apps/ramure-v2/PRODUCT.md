@@ -793,6 +793,15 @@ disqualifie la moitié des réponses possibles à la première.
    écrite ici pour qu'une relecture ultérieure ne prenne pas ce garde-fou pour un
    oubli et ne le retire pas.
 
+   *Limite connue de cette exception* — sous environ 296 px de hauteur de
+   fenêtre, la rangée montrée dépasse d'un quart et le nom, posé en bas de la
+   pochette, tombe entièrement hors de la zone : il reste des aplats cliquables
+   sans un mot, l'intitulé accessible tenant seul. Non corrigé, et assumé pour
+   deux raisons : la décision ci-dessus porte sur *montrer la rangée*, pas sur
+   *garder le nom*, et aucune fenêtre d'appareil réel n'y descend — un téléphone
+   couché tient une rangée entière, nom compris. Écrit pour que la limite soit
+   connue plutôt que découverte.
+
    Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
    artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »
    (§07) — et non l'inventaire de la collection, qui a son propre écran (F-25).
