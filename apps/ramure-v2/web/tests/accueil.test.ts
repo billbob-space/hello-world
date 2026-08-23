@@ -8,11 +8,15 @@ import {
   capaciteMur,
   chargerOrdre,
   construireMur,
+  libelleAccueilIntertitre,
+  libelleTriRecents,
   memoriserOrdre,
   trierTuiles,
   type MesureMur,
+  type SourceMur,
   type TuileDonnees,
 } from "../src/accueil";
+import { textes } from "../src/textes";
 
 function stockageMemoire(): Storage {
   const donnees = new Map<string, string>();
@@ -446,5 +450,47 @@ describe("11 · un redimensionnement replafonne le mur, il ne le REBAT pas", () 
     // ...et l'ordre complet des libelles, visibles ou non, n'a pas bouge
     // (constat 4 : ce n'est pas un rebattage, seul le masquage a change).
     expect(tousLesLibelles()).toEqual(ordreAvant);
+  });
+});
+
+describe("12 · le mur nomme ce qu'il montre, sans mentir sur une garde qui n'a pas eu lieu (§17 Q10, N4)", () => {
+  const SOURCES: readonly SourceMur[] = ["amorcage", "collection"];
+
+  it("propose les deux etats du mur", () => {
+    expect(SOURCES).toEqual(["amorcage", "collection"]);
+  });
+
+  it("l'intertitre nomme \"Pour commencer\" tant que rien n'est garde (amorcage editorial)", () => {
+    expect(libelleAccueilIntertitre("amorcage")).toBe(textes.accueilIntertitrePourCommencer);
+    expect(libelleAccueilIntertitre("amorcage")).not.toBe(textes.triRecents); // n'affirme pas une garde
+  });
+
+  it("l'intertitre nomme \"Déjà gardés\" une fois la collection reelle, jamais le libelle du tri", () => {
+    expect(libelleAccueilIntertitre("collection")).toBe(textes.accueilIntertitreCollection);
+    expect(libelleAccueilIntertitre("collection")).not.toBe(textes.triRecents);
+  });
+
+  it("le tri 'recents' ne s'appelle jamais \"Gardés récemment\" au-dessus de l'amorcage editorial", () => {
+    // C'est le defaut exact du constat N4 : le premier visiteur lisait ce
+    // libelle au-dessus de six artistes que personne n'avait gardes.
+    expect(libelleTriRecents("amorcage")).not.toBe(textes.triRecents);
+    expect(libelleTriRecents("amorcage")).toBe(textes.triSelectionEditoriale);
+  });
+
+  it("le tri 'recents' redevient \"Gardés récemment\" des que le mur vient reellement de la collection", () => {
+    expect(libelleTriRecents("collection")).toBe(textes.triRecents);
+  });
+
+  // Constat 2026-08-23 N7 : avant cette decision, l'intertitre reprenait
+  // MOT POUR MOT le libelle du tri "recents" en etat collection — deux
+  // fois la meme chaine dans la meme bande de 36 px, et l'intertitre
+  // continuait d'annoncer un classement par date de garde des que le
+  // visiteur passait sur l'alphabetique ou l'aleatoire. Le test d'egalite
+  // qui verrouillait cette fusion est remplace par son contraire : les
+  // deux chaines DOIVENT differer en collection, et l'intertitre ne doit
+  // JAMAIS affirmer une garde tant qu'elle n'a pas eu lieu (amorcage).
+  it("l'intertitre et le tri ne partagent pas leur formulation (§17 Q10, N7)", () => {
+    expect(libelleAccueilIntertitre("amorcage")).not.toBe(textes.triRecents);
+    expect(libelleAccueilIntertitre("collection")).not.toBe(libelleTriRecents("collection"));
   });
 });

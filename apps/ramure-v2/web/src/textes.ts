@@ -34,15 +34,57 @@ export const textes = {
   // Accueil, mur de pochettes et tri (PRD §07 etat A, F-05, F-06, F-07).
   planterDepuisTuile: (nom: string): string => `Planter ${nom}`,
   triLabel: "Trier le mur",
+  // §17 Q10 (PRODUCT.md, decision du 23 aout 2026, constat N7) : nomme
+  // l'ORDRE "recents" du tri, jamais l'intertitre — les deux repondent a
+  // des questions differentes (l'un "dans quel ordre", l'autre "ce que le
+  // mur montre") et NE PARTAGENT PLUS leur formulation depuis le constat
+  // N7 : les confondre reproduirait le libelle qui ment (une seule chaine
+  // dans la bande de 36 px, fausse des que le visiteur trie autrement).
+  // Voir accueilIntertitreCollection ci-dessous pour l'intertitre.
   triRecents: "Gardés récemment",
+  // Libelle de l'ordre "recents" tant que le mur vient de l'amorcage
+  // editorial (aucune collection cablee, F-28/F-30) : "recents" respecte
+  // alors l'ordre EDITORIAL fourni par l'appelant (accueil.ts,
+  // trierTuiles), qui n'a rien de "garde" — cf. triRecents ci-dessus.
+  triSelectionEditoriale: "Sélection éditoriale",
   triAlphabetique: "Ordre alphabétique",
   triAleatoire: "Aléatoire",
+  // §17 Q10 : la promesse quitte le haut de l'accueil pour devenir le
+  // texte d'attente du champ de recherche — elle continue de dire ce que
+  // fait le produit, lue au moment ou elle sert plutot qu'affirmee en
+  // permanence au-dessus d'un mur qu'elle ne decrit pas.
   accueilPromesse: "Plante un nom, saute de branche en branche.",
-  accueilVide: "Plante un premier artiste pour commencer l'exploration.",
+  // Texte d'attente par defaut du champ de recherche HORS accueil (etat
+  // B) : restaure par masquerAccueil() (main.ts) quand accueilPromesse
+  // cesse de s'appliquer. Identique a la valeur figee dans index.html
+  // (attribut `placeholder`, lu avant que ce script ne s'execute) — les
+  // deux DOIVENT rester synchrones (defaut deja rencontre, critique
+  // 2026-08-22 C2 : un libelle en dur y avait diverge de textes.ts).
+  // GARDE (constat 2026-08-23 N3) : accessibilite.test.ts §13 lit le vrai
+  // index.html et compare son attribut `placeholder` a cette valeur — une
+  // divergence future y fait rougir un test plutot que d'attendre une
+  // nouvelle critique visuelle.
+  champRecherchePlaceholder: "Planter un artiste…",
+  // Intertitre du mur (§17 Q10, decision du 23 aout 2026) : nomme ce qu'on
+  // regarde, remplace l'ancien `accueilVide` — ecrit pour "rien de garde"
+  // mais jamais appele (critique 2026-08-23 N4). Sert desormais vraiment
+  // dans accueil.ts (libelleAccueilIntertitre), etat "amorcage".
+  accueilIntertitrePourCommencer: "Pour commencer",
+  // Intertitre du mur, etat "collection" (§17 Q10, constat N7). Nomme la
+  // COLLECTION elle-meme — ce que le mur montre, quel que soit l'ordre
+  // choisi — et non un ordre de tri : DELIBEREMENT distinct de triRecents
+  // ci-dessus, qui ne reste vrai qu'en tri "recents". Reprendre triRecents
+  // ici affirmerait un classement par date de garde meme quand le
+  // visiteur vient de basculer sur l'ordre alphabetique ou aleatoire.
+  accueilIntertitreCollection: "Déjà gardés",
   // Intitule accessible du panneau d'accueil (§12, "les panneaux et
-  // fenetres sont titres, meme sans titre visible") : aucun heading visible
-  // ne porte ce role dans la barre d'accueil, d'ou ce nom pose sur la
-  // section elle-meme.
+  // fenetres sont titres, meme sans titre visible"). L'intertitre du mur
+  // (accueilIntertitrePourCommencer / accueilIntertitreCollection
+  // ci-dessus) est un heading visible, mais il nomme la LISTE de tuiles,
+  // pas la section qui la contient (recherche + tri + mur) : les deux
+  // noms sont DISTINCTS et coexistent (l'un sur #accueil, l'autre sur son
+  // intertitre), exactement comme un article a un titre et un <nav>
+  // distinct pour sa table des matieres.
   accueilTitre: "Accueil",
   retourAccueil: "Retour à l'accueil",
 

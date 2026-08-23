@@ -57,6 +57,15 @@ test("pas d'arbre precedent -- la bande s'affiche seule (§17 Q6, cas traite, pa
   await expect(page.locator("#accueil")).toBeVisible();
   await expect(page.locator("#accueil")).toHaveClass(/estompe/);
   await expect(page.locator("#accueil")).toHaveCSS("opacity", "0.4");
+  // Constat 2026-08-23 N1 : l'accueil qui revient ici NE PASSE PAS par
+  // afficherAccueil() (traiterEchecPlantation pose accueilSection.hidden
+  // directement) -- sans le correctif, le champ gardait le placeholder
+  // ordinaire pose par masquerAccueil() au lieu de la promesse que
+  // l'accueil doit montrer, exactement quand le visiteur vient d'echouer.
+  await expect(page.locator("#graine")).toHaveAttribute(
+    "placeholder",
+    "Plante un nom, saute de branche en branche.",
+  );
   // Zoom, dezoom et partage n'ont de sens que sur un arbre : masques (N6).
   await expect(page.locator("#zoomer-avant")).toBeHidden();
   await expect(page.locator("#zoomer-arriere")).toBeHidden();

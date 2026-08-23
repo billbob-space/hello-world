@@ -21,6 +21,41 @@ export interface TuileDonnees {
   illustration?: string;
 }
 
+// SourceMur (§17 Q10, PRODUCT.md, decision du 23 aout 2026) : ce que le
+// mur montre en ce moment — les artistes deja gardes ("collection"), ou a
+// defaut la selection editoriale d'amorcage ("amorcage", PRD §07 etat A).
+// Seul "amorcage" est atteignable aujourd'hui : la collection ne nourrit
+// pas encore le mur (F-28/F-30, main.ts AMORCAGE_EDITORIAL). Pose en
+// PARAMETRE explicite plutot que deduit en silence d'une collection vide
+// une fois cablee : sans quoi la branche "collection" resterait ecrite
+// mais jamais executee ni testee — le sort deja subi par `accueilVide`
+// (critique 2026-08-23 N4, "ecrit, jamais utilise nulle part").
+export type SourceMur = "amorcage" | "collection";
+
+// libelleAccueilIntertitre et libelleTriRecents (§17 Q10, constats N4 et
+// N7) : le mur ne nommait ce qu'il montre nulle part, et le tri par defaut
+// affirmait "Gardes recemment" au-dessus de six artistes que personne
+// n'avait gardes — le seul mot qui qualifiait le mur le qualifiait faux,
+// pour CHAQUE premier visiteur (N4).
+//
+// Les deux fonctions repondent a des questions DIFFERENTES et ne
+// partagent PLUS leur formulation (N7) : libelleAccueilIntertitre dit CE
+// QUE LE MUR MONTRE (la collection elle-meme, vraie quel que soit l'ordre
+// choisi), libelleTriRecents dit DANS QUEL ORDRE (vrai seulement quand le
+// tri actif est "recents"). Les confondre — reprendre `textes.triRecents`
+// pour les deux, comme avant N7 — afficherait deux fois la meme chaine
+// dans la meme bande de 36 px, et l'intertitre continuerait d'annoncer un
+// classement par date de garde apres que le visiteur soit passe en
+// alphabetique ou en aleatoire : exactement le libelle qui ment que N4
+// venait de corriger, recree dans l'etat "collection".
+export function libelleAccueilIntertitre(source: SourceMur): string {
+  return source === "collection" ? textes.accueilIntertitreCollection : textes.accueilIntertitrePourCommencer;
+}
+
+export function libelleTriRecents(source: SourceMur): string {
+  return source === "collection" ? textes.triRecents : textes.triSelectionEditoriale;
+}
+
 // Trois ordres au minimum (F-06) : "recents" respecte l'ordre fourni par
 // l'appelant (la collection, plus recent d'abord), "alphabetique" est
 // stable et previsible, "aleatoire" est CONSOMME a chaque appel — donc

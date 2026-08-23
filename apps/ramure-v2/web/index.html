@@ -71,6 +71,30 @@
     margin: 0; font-size: var(--texte-titre); letter-spacing: .18em; font-weight: 600;
   }
   #recherche { display: flex; gap: var(--espace-2); flex: 1; min-width: 12rem; }
+  /* §17 Q10 (PRODUCT.md, decision du 23 aout 2026, constat N3) : sur
+     l'accueil ECRAN LARGE, le champ vide etait l'objet le plus grand ET
+     le plus contraste de l'ecran -- 1000px mesures a 1440, alors qu'il
+     n'est pas ce qu'on vient voir. Repli emprunte a la variante A
+     ecartee (le champ retrouve une taille normale, ~420px) SANS reprendre
+     sa structure de bandeau propre : seul #recherche cesse de s'etirer.
+     Scope a l'etat A par :has(), jamais un remplacement de la regle
+     generale : l'etat B (canevas, hors perimetre de cette decision) garde
+     le comportement actuel.
+     DOUBLEMENT scope, avec le point de rupture partage par toute
+     l'appli (60rem, disposition.ts SEUIL_LARGE_PX) : un flex-basis fixe
+     de 420px, applique aussi sous ce seuil, agrandissait l'HYPOTHESE de
+     largeur que l'algorithme de retour a la ligne utilise pour repartir
+     les elements du header -- pas la taille finale (retrecie par
+     `flex-shrink`), mais celle testee AVANT retrecissement. A 390px, ca
+     poussait le select de service et les commandes de camera sur une
+     ligne de plus (mesure : 154px de haut au lieu de 117px avant cette
+     regle, alors que la contrainte §17 q10 est que le haut de l'accueil
+     ne doit PAS grandir a cette largeur). Hors de ce media query,
+     `min-width: 12rem` ci-dessus continue seul de regir le champ, comme
+     avant cette decision. */
+  @media (min-width: 60rem) {
+    body:has(#accueil:not([hidden])) #recherche { flex: 0 1 26.25rem; /* 420px */ }
+  }
   #recherche input {
     flex: 1; min-width: 0; padding: var(--espace-2) var(--espace-3); border-radius: .4rem;
     border: 1px solid #3a3a3a; background: #161617; color: inherit;
@@ -262,10 +286,27 @@
   /* Etat A — accueil (§07) : mur de pochettes plein ecran, sans defilement,
      le nombre de colonnes suit la largeur PAR CSS. */
   .accueil { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  /* §17 Q10 (PRODUCT.md, decision du 23 aout 2026, variante C -- "le mur
+     possede le haut") : cette bande portait la phrase de promesse
+     (12,8px, gris, la plus faible teinte de l'ecran, critique 2026-08-23
+     N3) ; elle porte desormais l'intertitre qui nomme le mur. Padding
+     vertical ramene de --espace-2 (8px) a --espace-1 (4px) et le select
+     de tri retreci ci-dessous (.accueil-barre .tri) : c'est la HAUTEUR du
+     select (40px, min-height general de .tri) qui dominait la rangee et
+     la portait a 56,6px mesures -- la cible de 36px n'est atteignable
+     qu'en la reduisant, pas en changeant seulement son contenu. */
   .accueil-barre {
     display: flex; align-items: center; justify-content: space-between; gap: var(--espace-3);
-    padding: var(--espace-2) var(--espace-3); font-size: var(--texte-second); color: #8a867c;
+    padding: var(--espace-1) var(--espace-3); font-size: var(--texte-second); color: #8a867c;
   }
+  .accueil-intertitre {
+    margin: 0; font-size: var(--texte-corps); font-weight: 600; color: #ece7dc;
+  }
+  /* Cible tactile (§12) : 1,75rem = 28px, au-dessus du plancher WCAG 2.5.8
+     (24px, disposition.ts CIBLE_TACTILE_MIN_PX) -- volontairement sous les
+     2,5rem/40px partages par .tri ailleurs dans l'ecran (fiche, §07 etat
+     B), qui n'a pas la meme contrainte de hauteur totale a tenir. */
+  .accueil-barre .tri { min-height: 1.75rem; }
   /* Critique 2026-08-22 C3 (premiere correction) : `auto-fill` conservait
      les pistes vides, 485 px (34 % de 1440) de noir a droite. `auto-fit`
      les effondre : les colonnes en `minmax(9rem, 1fr)` occupent alors la
@@ -445,10 +486,22 @@
   <p id="echec-plantation" class="echec-plantation" role="alert" hidden></p>
   <section id="accueil" class="accueil" hidden>
     <div class="accueil-barre">
-      <p id="accueil-promesse" class="accueil-promesse"></p>
+      <!-- Intertitre (§17 Q10, PRODUCT.md, decisions du 23 aout 2026,
+           constats N4 et N7) : nomme ce que le mur montre -- "Pour
+           commencer" tant que rien n'est garde, "Deja gardes" ensuite
+           (main.ts, afficherAccueil, via accueil.ts:libelleAccueilIntertitre)
+           -- JAMAIS le libelle du tri (#tri ci-dessous) : les deux
+           repondent a des questions differentes et ne partagent plus leur
+           formulation (constat N7), pour ne pas affirmer un classement par
+           date de garde quand le visiteur trie autrement.
+           h2, comme .fiche-titre (fiche.ts) : un vrai titre, jamais un
+           <p> qui ne porte qu'une couleur de texte. aria-labelledby sur
+           #mur (plus bas) en fait le nom accessible de la liste, pas
+           seulement un texte pose a cote d'elle. -->
+      <h2 id="accueil-intertitre" class="accueil-intertitre"></h2>
       <select id="tri" class="tri" aria-label="Trier le mur"></select>
     </div>
-    <div id="mur"></div>
+    <div id="mur" aria-labelledby="accueil-intertitre"></div>
   </section>
   <!-- role="group", jamais role="img" (PRP 08) : un role="img" masque ses
        descendants a l'arbre d'accessibilite (aucun enfant expose), ce qui
