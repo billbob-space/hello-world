@@ -804,6 +804,23 @@ disqualifie la moitié des réponses possibles à la première.
    couché tient une rangée entière, nom compris. Écrit pour que la limite soit
    connue plutôt que découverte.
 
+   Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
+   artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »
+   (§07) — et non l'inventaire de la collection, qui a son propre écran (F-25).
+   Un mur qui montre les vingt premiers d'une collection de cinquante ne ment
+   pas ; un mur qui en coupe trente en les laissant dans la page, si.
+
+   *Écarté* — **rétrécir la tuile sous le plancher de 9 rem** pour tout faire
+   tenir : le plancher existe parce qu'en deçà une pochette cesse d'être
+   reconnaissable, et un mur de vignettes illisibles ne « donne pas envie »,
+   ce qui est la seule chose que le §07 demande à cet écran. La contrainte se
+   déplacerait sans disparaître, jusqu'à devenir absurde sur une grande
+   collection. **Rouvrir le contrat et autoriser le défilement** : c'est la
+   réponse la moins chère à écrire et la plus chère à porter — le §07 interdit le
+   défilement sur l'accueil parce que le mur est un tableau qu'on embrasse d'un
+   regard, pas une liste qu'on parcourt ; rendre l'accueil défilant en ferait un
+   autre écran, décision qui excède de loin le défaut qu'elle corrigerait.
+
 10. **Qui possède les 121 px du haut de l'accueil — la recherche, la phrase, ou
     le mur ?** — *Une seconde critique, postérieure au calage haut, relève deux
     choses à la fois. Le champ de recherche vide, 1 000 px de large, est l'objet
@@ -861,22 +878,59 @@ disqualifie la moitié des réponses possibles à la première.
     seule des trois qui **grandit** le haut sur téléphone, là où l'écran est le
     plus disputé, et elle laisse le libellé du tri mentir elle aussi.
 
-   Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
-   artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »
-   (§07) — et non l'inventaire de la collection, qui a son propre écran (F-25).
-   Un mur qui montre les vingt premiers d'une collection de cinquante ne ment
-   pas ; un mur qui en coupe trente en les laissant dans la page, si.
+11. **Où va la bande d'échec, maintenant que le bandeau porte un titre ?** — *La
+    question 6 a placé l'échec de plantation en bande pleine largeur sous la
+    barre de recherche. Depuis la question 10, cette barre porte aussi un
+    intertitre et le tri — et la bande les recouvre **entièrement**, aux deux
+    largeurs. Le tri n'est plus cliquable mais **reste atteignable au clavier**,
+    ce qui est un défaut d'accessibilité et non une gêne : le focus se pose sur
+    un contrôle que l'œil ne voit pas. La superposition qui devait l'en sortir
+    est inerte par construction — l'estompe de l'arrière-plan crée un contexte
+    d'empilement qui l'enferme.*
+    → **La bande pousse le mur.** Elle garde sa place, collée au champ qui l'a
+    provoquée, et l'accueil descend de sa hauteur. Rien ne recouvre rien : le
+    défaut disparaît par la géométrie plutôt que par une rustine d'empilement.
+    C'est la seule des trois qui ne déplace **ni le message d'erreur ni le
+    contrôle qui le corrige** — un message d'erreur se lit collé à ce qui l'a
+    causé.
 
-   *Écarté* — **rétrécir la tuile sous le plancher de 9 rem** pour tout faire
-   tenir : le plancher existe parce qu'en deçà une pochette cesse d'être
-   reconnaissable, et un mur de vignettes illisibles ne « donne pas envie »,
-   ce qui est la seule chose que le §07 demande à cet écran. La contrainte se
-   déplacerait sans disparaître, jusqu'à devenir absurde sur une grande
-   collection. **Rouvrir le contrat et autoriser le défilement** : c'est la
-   réponse la moins chère à écrire et la plus chère à porter — le §07 interdit le
-   défilement sur l'accueil parce que le mur est un tableau qu'on embrasse d'un
-   regard, pas une liste qu'on parcourt ; rendre l'accueil défilant en ferait un
-   autre écran, décision qui excède de loin le défaut qu'elle corrigerait.
+    *Coût, et sa condition* — 44 px de mur à 1440, 82 px à 390. Ces pixels ne
+    deviennent un défaut que si le plafond de la question 9 n'est pas réévalué à
+    l'apparition et à la disparition de la bande : sans quoi la dernière rangée
+    serait rognée tant qu'elle est là, ce que la question 9 interdit. Ce n'est
+    pas un mécanisme neuf — c'est le même appel que le redimensionnement fait
+    déjà.
+
+    *Écarté* — **la bande se glisse sous le bandeau** : le titre et le tri
+    restent entiers et actionnables, rien de ce que le visiteur regardait ne
+    bouge, mais un titre s'intercale entre la faute de frappe et son explication.
+    **Le bandeau cède la ligne** — retiré de l'œil *et* du parcours clavier
+    pendant l'échec : honnête, sans perte de hauteur, mais il retire le repère du
+    mur au moment précis où le visiteur en a le plus besoin.
+
+12. **Sur téléphone, la promesse s'arrête à « Plante un nom, sa »** — *La
+    question 10 a fait de la promesse le texte d'attente du champ de recherche.
+    À 1 440 px la phrase tient ; à 390 le champ ne fait que 140,3 px parce qu'il
+    partage sa ligne avec le logo, et **42,2 % de la phrase seulement est
+    lisible**, sans point de suspension ni aucun signal de coupe. Ce qui reste
+    est l'instruction ; ce qui tombe — « saute de branche en branche » — **est**
+    la promesse.*
+    → **Le champ prend sa ligne** sous 60 rem ; logo, service d'écoute et
+    collection se partagent la première. Mesuré sur l'application, pas projeté :
+    l'en-tête reste à **117 px** et le mur à **691 px**, inchangés — l'en-tête
+    tenait déjà sur deux lignes. Le champ passe de 140,3 à **281,8 px** et la
+    promesse de 42,2 à **94,6 %**. La décision ne coûte aucun pixel, et elle
+    triple au passage la largeur du champ où l'on tape des noms d'artistes.
+
+    *Écarté* — **la même chose, plus le bouton « Planter » réduit à un glyphe**
+    (40 px au lieu de 72) : les 32 px récupérés feraient tenir la phrase entière,
+    mais au prix d'un bouton sans mot — l'application en a déjà retiré un pour
+    cette raison exacte. **La promesse redescend en clair sous le champ** tant
+    qu'il est vide : elle coûte une vingtaine de pixels de mur et surtout
+    **rouvre la question 10**, en rendant à la promesse de la hauteur au premier
+    rang, ce que les questions 8 puis 10 ont écarté deux fois. Les 5,4 % qui
+    manquent à la variante retenue sont « he. » : ni un bouton muet ni la
+    réouverture d'une décision prise deux fois n'achètent assez pour ce prix.
 
 ---
 

@@ -38,7 +38,7 @@
 // apercoive -- d'ou le test dedie plus bas, qui mesure le haut ET la
 // hauteur qu'il laisse au mur, jamais l'un sans l'autre.
 import { expect, test } from "@playwright/test";
-import { ScenarioAPI, centreOK, installerAPI } from "./support/api";
+import { ScenarioAPI, centreOK, centreVide, installerAPI } from "./support/api";
 import { BASE_URL, demarrerServeur, type ServeurRamure } from "./support/serveur";
 
 let serveur: ServeurRamure;
@@ -279,6 +279,100 @@ test("le haut de l'accueil tient sa cible (~100px a 1440, pas de croissance a 39
   ).toBeGreaterThanOrEqual(ACQUIS_MUR_390 - MARGE_MUR);
 });
 
+// PRODUCT.md §17 Q11 (decision du 23 aout 2026, variante A -- "la bande
+// pousse le mur") : "Cout, et sa condition" chiffre la perte a 44px de mur
+// a 1440, 82px a 390 -- pour le message d'echec REELLEMENT deploye, dont
+// le nombre de lignes (donc la hauteur de la bande) suit sa longueur
+// exacte. Ce test-ci ne fige pas ce chiffre (fige au texte, pas a la
+// geometrie) : il verifie l'INVARIANT que §17 Q11 promet -- le mur perd
+// EXACTEMENT la hauteur de la bande, quelle qu'elle soit, jamais plus ni
+// moins -- aux DEUX largeurs, AVEC et SANS la bande. echec-plantation.spec.ts
+// verifie deja que rien n'est RECOUVERT (barre/bande) et que le plafond
+// (§17 Q9) suit.
+for (const [libelle, largeur, hauteur] of [
+  ["@1440", 1440, 900],
+  ["@390", 390, 844],
+] as const) {
+  test(`la bande d'echec coute exactement sa propre hauteur au mur, jamais plus ni moins ${libelle} (§17 Q11)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: largeur, height: hauteur });
+    const scenario = new ScenarioAPI();
+    scenario.definirCentre("Zzzt", centreVide('Aucun artiste ne correspond a "Zzzt".'));
+    await installerAPI(page, scenario);
+    await page.goto(`${BASE_URL}/`);
+    await expect(page.locator("#accueil")).toBeVisible();
+
+    const murSansBande = await page.locator("#mur").boundingBox();
+    if (!murSansBande) throw new Error("#mur introuvable");
+
+    await page.fill("#graine", "Zzzt");
+    await page.locator("#recherche button[type=submit]").click();
+    const bande = await page.locator("#echec-plantation").boundingBox();
+    const murAvecBande = await page.locator("#mur").boundingBox();
+    if (!bande || !murAvecBande) throw new Error("geometrie apres echec introuvable");
+
+    const perte = murSansBande.height - murAvecBande.height;
+    expect(
+      perte,
+      `perte de hauteur du mur mesuree : ${perte.toFixed(1)}px, bande mesuree : ${bande.height.toFixed(1)}px (cible PRD ~44px a 1440, ~82px a 390 pour le message deploye)`,
+    ).toBeCloseTo(bande.height, 0); // le mur perd EXACTEMENT la hauteur de la bande, rien de plus
+
+    // Retour a l'accueil : le mur retrouve EXACTEMENT sa hauteur d'avant.
+    await page.locator("#logo").click();
+    await expect(page.locator("#echec-plantation")).toBeHidden();
+    const murRetour = await page.locator("#mur").boundingBox();
+    if (!murRetour) throw new Error("#mur introuvable au retour");
+    expect(murRetour.height, "le mur doit retrouver EXACTEMENT sa hauteur d'avant l'echec").toBeCloseTo(
+      murSansBande.height,
+      0,
+    );
+  });
+}
+
+// PRODUCT.md §17 Q12 (decision du 23 aout 2026, critique 2026-08-23-c,
+// question 2) : sous 60rem, le champ de recherche partageait sa ligne avec
+// le logo et ne faisait que 140,3px -- 42,2 % seulement de la promesse
+// (texte d'attente, §17 Q10) y restait lisible, sans point de suspension
+// ni aucun signal de coupe. Le champ prend desormais sa propre ligne ;
+// logo, service d'ecoute et collection se partagent la premiere. Mesure
+// sur l'app, jamais projetee : en-tete et mur INCHANGES (§17 Q10 tient),
+// seul ce que la premiere ligne du header porte change.
+test("sous 60rem, le champ de recherche prend sa propre ligne SANS faire grandir l'en-tete ni retrecir le mur (§17 Q12)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installerAPI(page, new ScenarioAPI());
+  await page.goto(`${BASE_URL}/`);
+  await expect(page.locator("#accueil")).toBeVisible();
+
+  const champ = await page.locator("#graine").boundingBox();
+  const recherche = await page.locator("#recherche").boundingBox();
+  const logo = await page.locator("#logo").boundingBox();
+  const header = await page.locator("header").boundingBox();
+  const mur = await page.locator("#mur").boundingBox();
+  if (!champ || !recherche || !logo || !header || !mur) throw new Error("geometrie du header introuvable");
+
+  // Le champ ne partage plus sa ligne avec le logo : sa boite commence
+  // strictement APRES le bas du logo (avant §17 Q12, mesure a 140,3px de
+  // large parce que la ligne du logo etait aussi la sienne).
+  expect(
+    recherche.y,
+    `#recherche (y=${recherche.y}) doit commencer apres le bas du logo (${logo.y + logo.height}), sur sa propre ligne`,
+  ).toBeGreaterThanOrEqual(logo.y + logo.height - 1);
+
+  // Largeur du champ : 140,3px avant cette decision, 281,8px mesures sur
+  // l'app apres -- borne large (>= 250px) pour ne pas figer un arrondi de
+  // police/plateforme, tres au-dessus de l'ancienne valeur dans tous les cas.
+  expect(champ.width, `largeur du champ mesuree : ${champ.width.toFixed(1)}px (etait 140,3px)`).toBeGreaterThan(250);
+
+  // En-tete et mur : les cibles ecrites au PRD, mesurees sur l'application
+  // (§17 Q10 continue de tenir -- cette decision ne lui coute rien).
+  const MARGE = 5;
+  expect(header.height, `en-tete mesure : ${header.height.toFixed(1)}px (cible 117px)`).toBeLessThanOrEqual(117 + MARGE);
+  expect(mur.height, `mur mesure : ${mur.height.toFixed(1)}px (cible 691px)`).toBeGreaterThanOrEqual(691 - MARGE);
+});
+
 // Constat 2026-08-23 N2 : le cablage entre `source` et l'ecran -- l'option
 // "recents" du tri, le texte d'attente promis sur l'accueil, et son retrait
 // des qu'une graine est plantee -- n'etait couvert par AUCUNE spec e2e,
@@ -307,6 +401,17 @@ test("tri 'recents' = \"Sélection éditoriale\" et texte d'attente = la promess
     "Plante un nom, saute de branche en branche.",
   );
 
+  // Critique 2026-08-23-c N4 : un texte d'attente n'est PAS annonce quand le
+  // champ a deja un nom accessible (<label> "Nom d'artiste") -- la promesse
+  // n'existait que pour l'oeil, alors que §17 Q10 la garde pour que
+  // « l'accueil continue de dire ce qu'il fait a qui ne connait pas le
+  // produit ». Le meme appel (appliquerTexteAttente) pose donc aussi
+  // aria-describedby, et le cycle de sortie ci-dessous le retire.
+  await expect(page.locator("#graine")).toHaveAttribute("aria-describedby", "promesse-attente");
+  await expect(page.locator("#promesse-attente")).toHaveText(
+    "Plante un nom, saute de branche en branche.",
+  );
+
   await page.fill("#graine", "Portishead");
   await page.locator("#recherche button[type=submit]").click();
   await expect(page.locator("#accueil")).toBeHidden();
@@ -315,4 +420,6 @@ test("tri 'recents' = \"Sélection éditoriale\" et texte d'attente = la promess
   // champ retrouve son texte d'attente ordinaire des qu'une graine est
   // plantee.
   await expect(page.locator("#graine")).toHaveAttribute("placeholder", "Planter un artiste…");
+  await expect(page.locator("#graine")).not.toHaveAttribute("aria-describedby", /./);
+  await expect(page.locator("#promesse-attente")).toHaveText("");
 });

@@ -95,10 +95,46 @@
   @media (min-width: 60rem) {
     body:has(#accueil:not([hidden])) #recherche { flex: 0 1 26.25rem; /* 420px */ }
   }
+  /* §17 Q12 (PRODUCT.md, decision du 23 aout 2026, critique 2026-08-23-c,
+     question 2) : sous 60rem, #recherche partageait sa ligne avec le logo
+     et ne faisait que 140,3px de large -- 42,2 % seulement de la promesse
+     (le texte d'attente pose par §17 Q10) y restait lisible, sans point de
+     suspension ni aucun signal de coupe. Ce qui tombait ("saute de branche
+     en branche") EST la promesse.
+     Le champ prend desormais sa PROPRE ligne : `flex-basis: 100%` l'empeche
+     de tenir a cote de quoi que ce soit sur une ligne d'un conteneur
+     flex-wrap (un item a 100% de base occupe la ligne entiere a lui seul),
+     et `order` le deplace APRES le service d'ecoute et la camera -- eux ne
+     bougent pas, gardant l'ordre naturel (DOM = visuel) qu'ils ont deja a
+     60rem et au-dela. Mesure sur l'app, pas projetee : en-tete (117px) et
+     mur (691px) INCHANGES a 390 -- l'en-tete tenait deja sur deux lignes,
+     seul ce qu'elles portent change -- le champ passe de 140,3 a 281,8px,
+     la promesse de 42,2 a 94,6 % lisible.
+     Cout accepte -- ordre visuel et ordre du DOM/de tabulation divergent
+     sous ce seuil (jamais au-dessus) : Tab visite le champ AVANT le
+     service et la camera, qui s'affichent pourtant au-dessus de lui.
+     Connu, non instrumente : aucun outil de la suite (axe, tests) ne
+     verifie l'ordre visuel contre l'ordre de tabulation. */
+  @media (max-width: 59.9375rem) {
+    #recherche { order: 10; flex-basis: 100%; }
+  }
   #recherche input {
     flex: 1; min-width: 0; padding: var(--espace-2) var(--espace-3); border-radius: .4rem;
     border: 1px solid #3a3a3a; background: #161617; color: inherit;
   }
+  /* Critique 2026-08-23-c N2 : depuis §17 Q10, ce texte d'attente porte la
+     PROMESSE du produit sur l'accueil -- et il etait le dernier element de
+     l'app laisse au rendu par defaut du navigateur, comme le lien de #etat
+     avant lui (critique 2026-08-23 N1/N3). Mesure : rgb(117,117,117) pose
+     par Chrome sous `color-scheme: dark`, sur le fond #161617 du champ,
+     soit 3,92:1 la ou WCAG 2.2 AA exige 4,5:1 a 13,3 px. axe ne le voit
+     pas : sa regle color-contrast evalue les noeuds de texte, jamais le
+     pseudo-element ::placeholder -- d'ou 26/26 vert au-dessus d'un echec.
+     #8a867c est le gris secondaire DEJA employe par l'ecran (.accueil-barre,
+     #etat, .collection-date), pas une teinte neuve : 4,98:1 mesures, et il
+     reste nettement en retrait du texte saisi (#ece7dc, 14,67:1), ce qui
+     est la seule chose que le rendu par defaut faisait bien. */
+  #recherche input::placeholder { color: #8a867c; opacity: 1; }
   #recherche button, .camera button {
     padding: var(--espace-2) var(--espace-3); border-radius: .4rem; border: 1px solid #3a3a3a;
     background: #1c1c1e; color: inherit; cursor: pointer;
@@ -132,6 +168,34 @@
   }
 
   main { position: relative; overflow: hidden; }
+  /* §17 Q11 (PRODUCT.md, decision du 23 aout 2026, question "ou va la
+     bande d'echec, maintenant que le bandeau porte un titre ?", variante A
+     retenue -- "la bande pousse le mur"). Avant cette regle,
+     #echec-plantation etait TOUJOURS en `position: absolute` par-dessus
+     tout <main> (regle par defaut plus bas) : sur l'accueil, elle
+     recouvrait alors ENTIEREMENT .accueil-barre (intertitre + tri) aux
+     deux largeurs -- 44px a 1440, 82px a 390. Le tri restait FOCALISABLE
+     au clavier mais invisible (WCAG 2.4.11, "Focus non masque"), et le
+     z-index local cense l'en sortir etait INERTE par construction :
+     l'opacite de #accueil.estompe cree un contexte d'empilement qui
+     l'enferme, quelle que soit la valeur posee dessus (critique
+     2026-08-23-c, N1). Le PRD tranche que la geometrie corrige ce defaut,
+     pas l'empilement : quand #accueil est visible, <main> devient une
+     grille de deux rangees -- la bande, si elle est visible, prend la
+     premiere a sa hauteur naturelle (`auto`) ; #accueil prend la seconde,
+     tout le reste (`1fr`). `grid-row` fixe explicitement le rang de
+     chacun : sans lui, une bande masquee (`hidden`, `display:none`, ne
+     consomme donc aucune rangee) ferait retomber #accueil sur la rangee
+     `auto` au lieu de `1fr`. Scope a l'etat A par :has() (meme technique
+     que #recherche, §17 Q10 ci-dessus) : l'etat B (canevas, un arbre deja
+     construit) GARDE le comportement absolu inchange plus bas -- ce n'est
+     pas le cas que cette question corrige. */
+  main:has(#accueil:not([hidden])) {
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+  main:has(#accueil:not([hidden])) #echec-plantation { position: static; grid-row: 1; }
+  main:has(#accueil:not([hidden])) #accueil { position: static; inset: auto; grid-row: 2; }
   #canevas { display: block; width: 100%; height: 100%; touch-action: none; }
   .noeud { cursor: pointer; }
   .noeud:focus-visible circle { outline: 3px solid #f0a828; outline-offset: 2px; }
@@ -165,7 +229,11 @@
      signale ce changement d'etat a une technologie d'assistance. Fond et
      texte mesures : ratio de contraste 10.45:1 (WCAG 2.2 AA exige 4.5:1).
      Positionnee (position:absolute, z-index) plutot qu'en flux : elle
-     n'affecte jamais la hauteur de <main>, ni le grid de <body>. */
+     n'affecte jamais la hauteur de <main>, ni le grid de <body>.
+     EXCEPTION -- §17 Q11 : sur l'accueil (#accueil visible), la regle
+     `main:has(#accueil:not([hidden])) #echec-plantation` plus haut repasse
+     cette position a `static` : la bande pousse alors #accueil au lieu de
+     le recouvrir. Ce paragraphe reste vrai pour l'etat B (canevas). */
   #echec-plantation {
     position: absolute; top: 0; left: 0; right: 0; z-index: 4;
     margin: 0; padding: var(--espace-3) var(--espace-4);
@@ -199,22 +267,34 @@
      il reste construit derriere la bande avec ses branches en place, et y
      cliquer promouvrait un noeud pendant que l'echec reste a traiter -- un
      effet de bord sans equivalent sur l'accueil, qui ne fait que replanter
-     via le meme formulaire deja visible au-dessus. L'estompe reste donc
-     VISUELLE ici : seule l'opacite baisse, tuiles et barre restent actives. */
-  #accueil.estompe { opacity: .4; transition: opacity .15s ease; }
-  /* La bande est posee en absolu sur #contenu, et .accueil est en inset:0 :
-     la barre de l'accueil (promesse + tri) passe donc DERRIERE elle en
-     empilement par defaut. Mesure : le select de tri se retrouve couvert a
-     89 %, il en depasse 4 px sous le bord de la bande -- une lisiere qui se
-     lit comme un defaut de rendu. Avant N5, on la rendait invisible
-     (`visibility: hidden`) -- mais l'arbitrage exige qu'elle reste
-     actionnable. Un z-index local la fait plutot passer PAR-DESSUS la
-     bande : entierement visible (et dans l'opacite .4 de son parent), sans
-     la lisiere. */
-  #accueil.estompe .accueil-barre { position: relative; z-index: 5; }
+     via le meme formulaire deja visible au-dessus.
+     Portee sur #mur SEUL, jamais sur #accueil entier : opacity SE COMPOSE
+     avec ses descendants (aucune valeur posee sur un enfant ne peut la
+     compenser, une valeur > 1 etant bornee a 1 par la specification CSS) --
+     poser .4 sur #accueil aurait donc AUSSI dimme .accueil-barre, exactement
+     ce que la geometrie de §17 Q11 vient de sortir de sous la bande. Rendu
+     visible pour la premiere fois par ce meme correctif (axe-core ne
+     signale pas le contraste d'un texte entierement couvert par un autre
+     element -- ce que #echec-plantation faisait avant Q11) : #accueil-
+     intertitre (3,28:1) et #tri (1,70:1) sous les 4,5:1 de WCAG 2.2 AA une
+     fois reellement visibles. C'est « le mur precedent », donc #mur, que
+     Q6 estompe -- .accueil-barre est l'UI courante (intertitre + tri),
+     jamais la selection passee ; elle reste a pleine opacite, cliquable ET
+     lisible. */
+  #accueil.estompe #mur { opacity: .4; transition: opacity .15s ease; }
+  /* §17 Q11 -- retire ici : une regle posait `position:relative; z-index:5`
+     sur .accueil-barre pour la faire passer PAR-DESSUS #echec-plantation
+     quand #accueil est estompe. Elle etait INERTE par construction :
+     l'opacite de la regle ci-dessus cree un contexte d'empilement qui
+     enferme tout z-index descendant, quelle que soit sa valeur (critique
+     2026-08-23-c, N1 -- mesure : le tri restait couvert a 100 %, focalisable
+     mais invisible). La regle `main:has(#accueil:not([hidden]))` plus haut
+     fait qu'il n'y a plus rien a faire remonter : la bande POUSSE #accueil
+     au lieu de le recouvrir, .accueil-barre n'est donc plus jamais sous
+     elle, empilement ou pas. */
   @media (prefers-reduced-motion: reduce) {
     #canevas.estompe,
-    #accueil.estompe,
+    #accueil.estompe #mur,
     #fiche.estompe,
     #apercu-branche.estompe,
     #collection.estompe { transition: none; }
@@ -345,9 +425,26 @@
     padding: 0; color: #ece7dc;
   }
   .tuile-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* Critique 2026-08-23-c N3 : le degrade `transparent -> rgba(0,0,0,.65)`
+     etait etale sur TOUTE la boite du libelle (31 px mesures), si bien que
+     l'opacite sous les glyphes eux-memes ne valait que .231 en haut de
+     capitale et .419 en bas -- pas .65, qui n'est atteint que sur le bord
+     inferieur de la boite, la ou il n'y a plus de texte. Contrastes mesures
+     du nom (#ece7dc) sur les replis graphiques actuels, en haut de glyphe :
+     Autechre 3,02:1 · Aphex Twin 3,41:1 · Boards of Canada 3,90:1 -- 3
+     pochettes sur 6 sous les 4,5:1 de WCAG 2.2 AA. axe ne le voit pas non
+     plus : un texte pose sur un degrade ou une image lui rend "incomplete",
+     jamais "violation", donc le vert de la suite ne couvre pas ce cas.
+     Et le defaut EMPIRE en ligne : ces aplats sont un repli, les vraies
+     pochettes peuvent etre blanches (pire cas : 1,5:1 avec l'ancien voile).
+     Le voile monte donc a .82 et atteint sa pleine valeur AVANT la bande de
+     glyphes plutot qu'apres : pire cas theorique (pochette blanche) 5,41:1
+     en haut de capitale, 9,25:1 au milieu. Le fondu haut est conserve --
+     c'est lui qui evite la barre noire franche en travers de la pochette. */
   .tuile-libelle {
     position: relative; z-index: 1; width: 100%; padding: var(--espace-2) var(--espace-2);
-    background: linear-gradient(transparent, rgba(0,0,0,.65));
+    background: linear-gradient(to bottom,
+      rgba(0,0,0,0) 0%, rgba(0,0,0,.55) 25%, rgba(0,0,0,.82) 55%, rgba(0,0,0,.82) 100%);
     font-size: var(--texte-second); text-align: left;
   }
   .tuile-apparition { animation: apparition .25s ease both; }
@@ -466,6 +563,20 @@
            role="combobox" aria-autocomplete="list" aria-controls="suggestions" aria-expanded="false">
     <button type="submit">Planter</button>
     <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
+    <!-- Critique 2026-08-23-c N4 : §17 Q10 justifie le depart de la promesse
+         du bandeau par « l'accueil continue de dire ce qu'il fait a qui ne
+         connait pas le produit », la promesse devenant le texte d'attente du
+         champ. Un texte d'attente n'est PAS lu quand le champ porte deja un
+         nom accessible : mesure sur l'arbre d'accessibilite, le champ
+         s'annonce « Nom d'artiste, zone d'edition » et rien d'autre -- la
+         promesse n'existait plus du tout pour un lecteur d'ecran, alors
+         qu'elle etait lue en flux quand elle etait un <p> du bandeau. Ce
+         paragraphe la rend au son sans lui rendre un pixel : main.ts le
+         remplit depuis textes.accueilPromesse et pose/retire
+         aria-describedby sur #graine en meme temps que le placeholder,
+         par le meme appel (appliquerTexteAttente) -- jamais un second site
+         qui pourrait deriver. Texte JAMAIS fige ici, comme le reste. -->
+    <p id="promesse-attente" class="visuellement-cache"></p>
   </form>
   <p id="correction" class="correction" role="status" hidden></p>
   <!-- aria-label pose par main.ts depuis textes.ts (choisirService,

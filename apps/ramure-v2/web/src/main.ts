@@ -109,6 +109,7 @@ const etat = document.querySelector<HTMLElement>("#etat");
 const echecPlantationEl = document.querySelector<HTMLElement>("#echec-plantation");
 const formulaire = document.querySelector<HTMLFormElement>("#recherche");
 const champGraine = document.querySelector<HTMLInputElement>("#graine");
+const promesseAttente = document.querySelector<HTMLParagraphElement>("#promesse-attente");
 const boutonZoomerAvant = document.querySelector<HTMLButtonElement>("#zoomer-avant");
 const boutonZoomerArriere = document.querySelector<HTMLButtonElement>("#zoomer-arriere");
 const boutonCadrage = document.querySelector<HTMLButtonElement>("#cadrage-initial");
@@ -340,6 +341,18 @@ function construireSelectTri(source: SourceMur): void {
 // place apres un echec de plantation revenu sur l'accueil.
 function appliquerTexteAttente(surAccueil: boolean): void {
   if (champGraine) champGraine.placeholder = surAccueil ? textes.accueilPromesse : textes.champRecherchePlaceholder;
+  // Critique 2026-08-23-c N4 : le texte d'attente ne porte la promesse que
+  // pour l'oeil — un champ qui a deja un nom accessible (<label> « Nom
+  // d'artiste ») n'annonce jamais son placeholder. La promesse est donc
+  // AUSSI portee par un paragraphe visuellement cache, decrit par
+  // aria-describedby, pose et retire ICI, au meme endroit et au meme
+  // moment que le placeholder : deux sites separes auraient derive comme
+  // le placeholder avait derive avant que cette fonction n'existe.
+  if (promesseAttente) promesseAttente.textContent = surAccueil ? textes.accueilPromesse : "";
+  if (champGraine) {
+    if (surAccueil) champGraine.setAttribute("aria-describedby", "promesse-attente");
+    else champGraine.removeAttribute("aria-describedby");
+  }
 }
 
 function afficherAccueil(source: SourceMur = "amorcage"): void {
@@ -425,8 +438,28 @@ function traiterEchecPlantation(message: string): void {
     // que l'accueil doit montrer — exactement quand le visiteur vient
     // d'echouer une plantation.
     appliquerTexteAttente(true);
+    // §17 Q11 : sans cette ligne, #canevas restait DEMASQUE -- planter()
+    // appelle masquerAccueil() (qui retire `hidden` de #canevas) AVANT de
+    // savoir que la tentative va echouer, et rien ne le remasquait ici.
+    // Invisible sous l'ancien empilement (#accueil en `position:absolute;
+    // inset:0` passait PAR-DESSUS un canevas vide, 0 noeud) : redevenu
+    // visible des que #accueil participe a la grille de <main> (regle
+    // `main:has(...)`, index.html) -- un #canevas normal-flow, non masque,
+    // devient alors un item de grille de PLUS, qui vole de la hauteur a
+    // #accueil (mesure : 194px de mur perdus au lieu de 44px). Sur le
+    // premier echec depuis un accueil vierge (aucun arbre n'existe encore),
+    // #canevas doit rester masque au meme titre que la fiche et l'apercu.
+    if (svg) svg.setAttribute("hidden", "");
   }
   afficherEchecPlantation(elementsEchec(), message, arbrePresent);
+  // §17 Q11 : la bande pousse #accueil (index.html, regle `main:has(...)`)
+  // -- la hauteur reellement disponible pour `.mur` vient de changer,
+  // exactement comme au redimensionnement (§17 Q9). Meme appel, jamais un
+  // mecanisme neuf ; sans lui, la derniere rangee resterait rognee tant
+  // que la bande reste affichee. Sans effet si l'accueil n'est pas la
+  // scene visible (arbrePresent) : `mur` porte alors l'accueil precedent,
+  // deja detruit au prochain afficherAccueil().
+  if (!arbrePresent) mur?.replafonner();
 }
 
 function masquerAccueil(): void {
@@ -839,6 +872,13 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
     return;
   }
   masquerEchecPlantation(elementsEchec());
+  // §17 Q11 : symetrique de l'appel pose dans traiterEchecPlantation --
+  // si la bande se leve pendant que l'accueil est ENCORE la scene visible,
+  // #mur recupere la hauteur qu'elle lui prenait, et le plafond doit le
+  // suivre (§17 Q9). Sans effet ici en pratique (planter() a deja masque
+  // l'accueil plus haut dans cette meme fonction) : pose pour rester vrai
+  // si ce chemin change un jour, pas pour corriger un defaut observe.
+  if (accueilSection && !accueilSection.hidden) mur?.replafonner();
 
   svg.replaceChildren();
   const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
@@ -1084,6 +1124,11 @@ boutonLogo?.addEventListener("click", () => {
   fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   masquerCorrection();
   masquerEchecPlantation(elementsEchec()); // §17 Q6 : le visiteur repart, la bande se leve
+  // §17 Q11 : pas de mur?.replafonner() ici -- afficherAccueil() ci-dessous
+  // detruit le mur courant et en construit un NEUF, qui mesure deja la
+  // hauteur correcte (bande levee) a sa premiere peinture. Un appel ici
+  // serait sans effet (mur pas encore reconstruit) et immediatement suivi
+  // d'une reconstruction complete.
   nomCentreCourant = null;
   lignee.reinitialiser();
   ligneeNoms = [];

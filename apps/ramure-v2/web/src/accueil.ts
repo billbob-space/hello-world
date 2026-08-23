@@ -180,6 +180,16 @@ export interface OptionsMur {
 export interface MurAccueil {
   readonly ordre: OrdreMur;
   definirOrdre(ordre: OrdreMur): void;
+  // replafonner (§17 Q11, PRODUCT.md, decision du 23 aout 2026) : reevalue
+  // le plafond SEUL, SANS retrier ni reconstruire -- exactement l'appel
+  // deja fait par `surRedimensionnement` a chaque `resize` (§17 Q9), expose
+  // ici pour que main.ts le rappelle a l'apparition ET a la disparition de
+  // la bande d'echec (§17 Q6/Q11). La hauteur disponible pour `.mur` change
+  // quand la bande pousse #accueil (index.html, regle `main:has(...)`)
+  // exactement comme au redimensionnement -- sans cet appel, la derniere
+  // rangee resterait rognee tant que la bande est la, ce que §17 Q9
+  // interdit.
+  replafonner(): void;
   detruire(): void;
 }
 
@@ -339,6 +349,7 @@ export function construireMur(
       memoriserOrdre(nouveau, options.stockage);
       peindre(nouveau); // "aleatoire" relance un NOUVEAU tirage a chaque appel
     },
+    replafonner,
     detruire() {
       fenetre.removeEventListener("resize", surRedimensionnement);
       conteneur.replaceChildren();
