@@ -56,7 +56,15 @@ test("pas d'arbre precedent -- la bande s'affiche seule (§17 Q6, cas traite, pa
   // est le moyen.
   await expect(page.locator("#accueil")).toBeVisible();
   await expect(page.locator("#accueil")).toHaveClass(/estompe/);
-  await expect(page.locator("#accueil")).toHaveCSS("opacity", "0.4");
+  // Critique 2026-08-23-c (troisieme passage) : l'opacite porte sur #mur
+  // SEUL, pas sur #accueil entier -- opacity se compose avec ses
+  // descendants, et la dimmer sur #accueil aurait aussi dimme
+  // .accueil-barre (intertitre + tri) sous le seuil de contraste WCAG 2.2
+  // AA (mesure : 3,28:1 et 1,70:1). C'est le mur, "le plan precedent", que
+  // §17 Q6 estompe ; la barre est l'UI courante, jamais la selection
+  // passee -- elle reste lisible.
+  await expect(page.locator("#mur")).toHaveCSS("opacity", "0.4");
+  await expect(page.locator(".accueil-barre")).toHaveCSS("opacity", "1");
   // Constat 2026-08-23 N1 : l'accueil qui revient ici NE PASSE PAS par
   // afficherAccueil() (traiterEchecPlantation pose accueilSection.hidden
   // directement) -- sans le correctif, le champ gardait le placeholder
@@ -74,7 +82,7 @@ test("pas d'arbre precedent -- la bande s'affiche seule (§17 Q6, cas traite, pa
   await expect(page.locator(".tuile")).toHaveCount(6);
 });
 
-test("les tuiles et la barre de l'accueil restent cliquables sous la bande (N5) -- contrairement a l'arbre, qui reste inerte", async ({ page }) => {
+test("les tuiles de l'accueil restent cliquables pendant l'echec (N5) -- contrairement a l'arbre, qui reste inerte", async ({ page }) => {
   const scenario = new ScenarioAPI();
   scenario.definirCentre("Zzzt", centreVide('Aucun artiste ne correspond a "Zzzt".'));
   await installerAPI(page, scenario);
@@ -91,6 +99,120 @@ test("les tuiles et la barre de l'accueil restent cliquables sous la bande (N5) 
   // La tentative a bien ete jouee -- la bande se met a jour avec le nom de
   // la tuile cliquee, preuve que le clic n'a pas ete absorbe.
   await expect(page.locator("#echec-plantation")).toContainText("Portishead");
+});
+
+// PRODUCT.md §17 Q11 (decision du 23 aout 2026, variante A retenue -- "la
+// bande pousse le mur"). Le test PRECEDENT porte le nom "la barre de
+// l'accueil reste cliquable" depuis avant cette decision, mais ne clique
+// qu'une TUILE -- qui est sous le mur, jamais sous .accueil-barre, et l'a
+// toujours ete : il ne prouvait donc RIEN sur la barre elle-meme et
+// passait deja avec le defaut (critique 2026-08-23-c, N1, "couverture").
+// Le defaut mesure par N1 : #echec-plantation recouvrait ENTIEREMENT
+// .accueil-barre (intertitre + tri) aux deux largeurs -- le tri restait
+// focalisable au clavier (tabIndex 0) mais totalement invisible et
+// injoignable au pointeur (`elementFromPoint` au centre du tri rendait
+// #echec-plantation), un manquement a WCAG 2.2 2.4.11 qu'aucune regle
+// axe-core ne detecte. Ce test-ci clique reellement CE QUE SON NOM promet.
+for (const [libelle, largeur, hauteur] of [
+  ["@1440", 1440, 900],
+  ["@390", 390, 844],
+] as const) {
+  test(`la barre de l'accueil (#tri) reste visible ET cliquable pendant l'echec, jamais seulement focalisable ${libelle} (§17 Q11, N1)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: largeur, height: hauteur });
+    const scenario = new ScenarioAPI();
+    scenario.definirCentre("Zzzt", centreVide('Aucun artiste ne correspond a "Zzzt".'));
+    await installerAPI(page, scenario);
+    await page.goto(`${BASE_URL}/`);
+
+    await planter(page, "Zzzt");
+    await expect(page.locator("#echec-plantation")).toBeVisible();
+    await expect(page.locator("#tri")).toBeVisible();
+
+    // Le defaut EXACT mesure par la critique : le centre du tri repondait
+    // #echec-plantation, jamais #tri lui-meme -- covert a 100 %, aux deux
+    // largeurs. Reproduit ici avec le meme outil de mesure (elementFromPoint).
+    const auCentreDuTri = await page.evaluate(() => {
+      const tri = document.querySelector("#tri")!;
+      const r = tri.getBoundingClientRect();
+      const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return el === tri;
+    });
+    expect(auCentreDuTri, "le point au centre du tri doit rendre le tri, pas la bande d'echec par-dessus").toBe(true);
+
+    // Cliquable pour de vrai, pas seulement focalisable : changer sa valeur
+    // doit reussir, comme n'importe quel select non recouvert.
+    await expect(page.locator("#tri")).toHaveValue("recents");
+    await page.selectOption("#tri", "alphabetique");
+    await expect(page.locator("#tri")).toHaveValue("alphabetique");
+
+    // Geometrie : la bande ne recouvre plus rien -- elle POUSSE l'accueil,
+    // elle ne se superpose plus a sa barre (§17 Q11, "rien ne recouvre
+    // rien"). Une marge de 0,5px absorbe l'arrondi de mise en page.
+    const bande = await page.locator("#echec-plantation").boundingBox();
+    const barre = await page.locator(".accueil-barre").boundingBox();
+    if (!bande || !barre) throw new Error("geometrie introuvable");
+    expect(
+      barre.y,
+      `la barre (y=${barre.y}) doit commencer au niveau ou apres le bas de la bande (${bande.y + bande.height})`,
+    ).toBeGreaterThanOrEqual(bande.y + bande.height - 0.5);
+  });
+}
+
+// PRODUCT.md §17 Q11, "condition explicite" : le cout (44px de mur a 1440,
+// 82px a 390) ne devient un defaut QUE si le plafond de §17 Q9 n'est pas
+// reevalue a l'apparition ET a la disparition de la bande -- sinon la
+// derniere rangee resterait rognee tant qu'elle est la. A 1440, les 6
+// tuiles de l'amorcage editorial tiennent TOUJOURS sur une seule rangee
+// (bien plus de 6 colonnes a cette largeur, §17 Q8/Q9) : aucune hauteur de
+// fenetre ne peut donc les faire deborder, et ce test ne peut etre probant
+// qu'a 390 (2 colonnes, 3 rangees necessaires) -- voir accueil-mur.spec.ts
+// pour la mesure de hauteur (avec/sans bande) aux DEUX largeurs.
+test("le plafond du mur (§17 Q9) est reevalue a l'apparition ET a la disparition de la bande @390 (§17 Q11)", async ({
+  page,
+}) => {
+  // Hauteur choisie plus courte que le 844 habituel : a 390x844, les 6
+  // tuiles de l'amorcage editorial tiennent DEJA en 3 rangees meme une
+  // fois la bande apparue (mesure : #mur passe de 691 a ~628px, encore
+  // au-dessus des ~581px necessaires pour 3 rangees a cette largeur) --
+  // ce test a besoin d'une marge plus fine pour etre probant, sans
+  // dependre de la longueur exacte du message d'echec (qui fixe la
+  // hauteur de la bande, cf accueil-mur.spec.ts pour cette mesure-la).
+  await page.setViewportSize({ width: 390, height: 760 });
+  const scenario = new ScenarioAPI();
+  scenario.definirCentre("Zzzt", centreVide('Aucun artiste ne correspond a "Zzzt".'));
+  await installerAPI(page, scenario);
+  await page.goto(`${BASE_URL}/`);
+  await expect(page.locator("#accueil")).toBeVisible();
+
+  const masquees = () =>
+    page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).filter((i) => i.hidden).length);
+
+  await expect(page.locator(".mur-item")).toHaveCount(6);
+  expect(await masquees(), "avant tout echec, la zone doit porter les 6 tuiles a cette hauteur -- sinon ce test ne serait pas probant").toBe(0);
+
+  await planter(page, "Zzzt");
+  await expect(page.locator("#echec-plantation")).toBeVisible();
+  await expect
+    .poll(masquees, "la bande reduit #mur : au moins une tuile doit sortir de la capacite")
+    .toBeGreaterThan(0);
+
+  // Aucune tuile masquee n'est atteignable au clavier (§17 Q9, inchange).
+  const focusEchoue = await page.evaluate(() => {
+    const masque = Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).find((i) => i.hidden);
+    const bouton = masque?.querySelector<HTMLButtonElement>("button");
+    bouton?.focus();
+    return document.activeElement !== bouton;
+  });
+  expect(focusEchoue, "une tuile masquee par le nouveau plafond ne doit jamais recevoir le focus").toBe(true);
+
+  // Retour a l'accueil : la bande se leve, #mur retrouve sa hauteur pleine,
+  // le plafond doit suivre dans l'AUTRE sens -- c'est le second sens de
+  // "a l'apparition ET a la disparition" que §17 Q11 exige explicitement.
+  await page.locator("#logo").click();
+  await expect(page.locator("#echec-plantation")).toBeHidden();
+  await expect.poll(masquees, "la bande levee, les 6 tuiles doivent redevenir visibles").toBe(0);
 });
 
 test("la fiche du centre reste a 0,4 d'opacite derriere la bande, arbre existant (N7, contrairement a l'accueil)", async ({ page }) => {

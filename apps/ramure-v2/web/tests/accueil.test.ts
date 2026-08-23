@@ -494,3 +494,94 @@ describe("12 · le mur nomme ce qu'il montre, sans mentir sur une garde qui n'a 
     expect(libelleAccueilIntertitre("collection")).not.toBe(libelleTriRecents("collection"));
   });
 });
+
+// §17 Q11 (PRODUCT.md, decision du 23 aout 2026) : "la bande pousse le
+// mur" ne coute rien QUE SI le plafond (§17 Q9) est reevalue a
+// l'apparition ET a la disparition de la bande -- sinon la derniere
+// rangee reste rognee tant qu'elle est la. main.ts appelle pour cela
+// mur.replafonner(), expose ici pour la premiere fois : ce describe
+// verifie que l'appel PUBLIC fait exactement ce que fait deja
+// `surRedimensionnement` (describe 11 ci-dessus), sans attendre un
+// evenement `resize` -- c'est le meme mecanisme, appele autrement.
+describe("13 · replafonner() est expose, et fait ce que fait deja le redimensionnement (§17 Q11)", () => {
+  const quatre: TuileDonnees[] = [
+    { nom: "Portishead" },
+    { nom: "Aphex Twin" },
+    { nom: "Boards of Canada" },
+    { nom: "Massive Attack" },
+  ];
+
+  function libellesVisibles(conteneur: HTMLElement): string[] {
+    return Array.from(conteneur.querySelectorAll<HTMLElement>(".mur-item"))
+      .filter((item) => !item.hidden)
+      .map((item) => item.querySelector(".tuile-libelle")!.textContent);
+  }
+
+  it("un appel direct retrecit la capacite -- comme la bande d'echec qui pousse #accueil", () => {
+    // mesurerVariable simule la bande qui apparait : 4 places tant qu'elle
+    // est absente, 2 des qu'elle a pris sa rangee (index.html, regle
+    // `main:has(#accueil:not([hidden]))`) -- sans dependre d'un vrai calcul
+    // de layout (jsdom n'en fait pas, cf. describe 9).
+    let appel = 0;
+    const mesurerVariable = (): MesureMur => {
+      appel += 1;
+      return { colonnes: appel === 1 ? 4 : 2, tailleTuile: 100, gap: 0, hauteurDisponible: 100 };
+    };
+
+    const conteneur = document.createElement("div");
+    const mur = construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(),
+      surPlanter: () => {},
+      mesurer: mesurerVariable,
+    });
+
+    expect(libellesVisibles(conteneur)).toHaveLength(4); // capacite 4 au premier rendu
+
+    mur.replafonner(); // l'appel que main.ts pose a l'apparition de la bande
+
+    expect(libellesVisibles(conteneur)).toHaveLength(2);
+  });
+
+  it("un appel direct rend la capacite -- comme la bande d'echec qui leve #accueil", () => {
+    // Symetrique du test precedent : 2 places d'abord (bande affichee), 4
+    // ensuite (bande levee, §17 Q11 "a l'apparition ET a la disparition").
+    let appel = 0;
+    const mesurerVariable = (): MesureMur => {
+      appel += 1;
+      return { colonnes: appel === 1 ? 2 : 4, tailleTuile: 100, gap: 0, hauteurDisponible: 100 };
+    };
+
+    const conteneur = document.createElement("div");
+    const mur = construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(),
+      surPlanter: () => {},
+      mesurer: mesurerVariable,
+    });
+
+    expect(libellesVisibles(conteneur)).toHaveLength(2);
+
+    mur.replafonner(); // l'appel que main.ts pose a la disparition de la bande
+
+    expect(libellesVisibles(conteneur)).toHaveLength(4);
+  });
+
+  it("replafonner() ne re-trie ni ne re-insere aucune tuile -- seul le plafond bouge (comme le redimensionnement, describe 11)", () => {
+    const conteneur = document.createElement("div");
+    const mur = construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(),
+      surPlanter: () => {},
+      mesurer: () => ({ colonnes: 2, tailleTuile: 100, gap: 0, hauteurDisponible: 100 }),
+    });
+
+    const avant = Array.from(conteneur.children);
+    const observateur = new MutationObserver(() => {});
+    observateur.observe(conteneur, { childList: true });
+
+    mur.replafonner();
+    const mutations = observateur.takeRecords();
+    observateur.disconnect();
+
+    expect(mutations.flatMap((m) => Array.from(m.addedNodes))).toEqual([]);
+    expect(Array.from(conteneur.children)).toEqual(avant);
+  });
+});
