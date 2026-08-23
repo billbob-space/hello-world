@@ -33,7 +33,7 @@ func centreHandler(d arbre.Dependances) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nom := strings.TrimSpace(r.URL.Query().Get("nom"))
 		if nom == "" {
-			ecrireErreur(w, http.StatusBadRequest, "le parametre nom est requis")
+			ecrireErreur(w, http.StatusBadRequest, "le paramètre nom est requis")
 			return
 		}
 

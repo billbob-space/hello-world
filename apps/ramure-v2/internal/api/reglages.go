@@ -30,7 +30,7 @@ func reglagesLireHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	reglages, err := Reglages.Lire(r.Context(), utilisateur)
 	if err != nil {
-		ecrireErreur(w, http.StatusInternalServerError, "reglages illisibles")
+		ecrireErreur(w, http.StatusInternalServerError, "réglages illisibles")
 		return
 	}
 	ecrireJSON(w, http.StatusOK, reglagesJSON{Service: reglages.ServiceEcoute})
@@ -47,11 +47,11 @@ func reglagesEcrireHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if Reglages == nil {
-		ecrireErreur(w, http.StatusServiceUnavailable, "reglages indisponibles")
+		ecrireErreur(w, http.StatusServiceUnavailable, "réglages indisponibles")
 		return
 	}
 	if err := Reglages.Ecrire(r.Context(), utilisateur, collection.Reglages{ServiceEcoute: corps.Service}); err != nil {
-		ecrireErreur(w, http.StatusInternalServerError, "ecriture impossible")
+		ecrireErreur(w, http.StatusInternalServerError, "écriture impossible")
 		return
 	}
 	// Relit ce qui a ete effectivement enregistre : un service inconnu
@@ -60,7 +60,7 @@ func reglagesEcrireHandler(w http.ResponseWriter, r *http.Request) {
 	// jamais ce que le client a envoye a l'aveugle.
 	relu, err := Reglages.Lire(r.Context(), utilisateur)
 	if err != nil {
-		ecrireErreur(w, http.StatusInternalServerError, "reglages illisibles")
+		ecrireErreur(w, http.StatusInternalServerError, "réglages illisibles")
 		return
 	}
 	ecrireJSON(w, http.StatusOK, reglagesJSON{Service: relu.ServiceEcoute})

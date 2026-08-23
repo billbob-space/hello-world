@@ -78,7 +78,7 @@ func collectionAjouterHandler(w http.ResponseWriter, r *http.Request) {
 		Ajoute: time.Now().UTC(), // horodatage pose par le SERVEUR, jamais fourni par le client
 	}
 	if err := Collection.Ajouter(r.Context(), utilisateur, e); err != nil {
-		ecrireErreur(w, http.StatusInternalServerError, "ecriture impossible")
+		ecrireErreur(w, http.StatusInternalServerError, "écriture impossible")
 		return
 	}
 	if Mesure != nil {
@@ -94,7 +94,7 @@ func collectionRetirerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mbid := strings.TrimSpace(r.URL.Query().Get("mbid"))
 	if mbid == "" {
-		ecrireErreur(w, http.StatusBadRequest, "le parametre mbid est requis")
+		ecrireErreur(w, http.StatusBadRequest, "le paramètre mbid est requis")
 		return
 	}
 	if Collection == nil {
@@ -102,7 +102,7 @@ func collectionRetirerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := Collection.Retirer(r.Context(), utilisateur, mbid); err != nil {
-		ecrireErreur(w, http.StatusInternalServerError, "ecriture impossible")
+		ecrireErreur(w, http.StatusInternalServerError, "écriture impossible")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

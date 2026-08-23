@@ -18,6 +18,18 @@ func ecrireJSON(w http.ResponseWriter, statut int, corps any) {
 // erreurJSON est le format des erreurs de requete (400, etc.) — distinct
 // du contrat de /api/centre, qui porte toujours un etat plutot qu'une
 // erreur HTTP, sauf sur une requete malformee.
+//
+// Le champ Erreur est un DIAGNOSTIC, destine au developpeur qui inspecte
+// la reponse et au test qui la compare — pas un texte d'ecran : le client
+// ne le lit pas aujourd'hui, il retombe sur ses propres libelles (voir
+// web/src/textes.ts, qui s'annonce comme la SEULE source de ce que le
+// visiteur lit). Le jour ou un client affiche ce champ directement, cette
+// distinction disparait et Erreur devient une seconde source de chaines a
+// cote de textes.ts, silencieuse celle-la : c'est pourquoi il reste
+// accentue et tutoye des aujourd'hui (garde-fou :
+// messages_orthographe_test.go), mais ne doit pas migrer vers un usage
+// d'affichage sans que ce commentaire et l'annonce de textes.ts soient mis
+// a jour ensemble.
 type erreurJSON struct {
 	Erreur string `json:"erreur"`
 }

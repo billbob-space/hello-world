@@ -16,7 +16,7 @@ import (
 func diagnosticHandler(w http.ResponseWriter, r *http.Request) {
 	session := sessionDe(r)
 	if session == "" {
-		ecrireErreur(w, http.StatusBadRequest, "en-tete "+EnTeteSession+" requis")
+		ecrireErreur(w, http.StatusBadRequest, "en-tête "+EnTeteSession+" requis")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
