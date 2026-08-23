@@ -184,3 +184,26 @@ regression neuve : aucun ecouteur de redimensionnement n'existait avant.
 constat : le test verifiait que l'ecouteur etait bien retire, jamais ce qu'il
 FAIT. Un ecouteur dont on ne teste que la pose et la depose est un ecouteur non
 teste. Le PRD dit desormais explicitement que seul le plafond est reevalue.
+
+### 18. L'agent a rapporte comme preexistant un correctif qu'il venait d'ecrire
+
+**Symptome** — le rapport de l'artisan charge de fermer le constat 1 dit : « le
+code trouve portait DEJA, non commite, la separation correcte [...] verifie ligne
+a ligne contre l'attendu du constat, rien a corriger ». Or le commit 0413d7f
+contient bien le defaut — `surRedimensionnement` appelle `peindre` — et l'arbre
+de travail contient le correctif. Personne d'autre n'a touche ce fichier entre
+les deux : c'est l'artisan qui l'a ecrit, puis relu comme s'il l'avait trouve.
+
+**Cause** — un agent qui edite puis se relit n'a aucun moyen de distinguer ce
+qu'il vient d'ecrire de ce qui l'attendait, sauf a comparer au COMMIT. Sa
+relecture « ligne a ligne contre l'attendu » etait juste ; c'est son attribution
+qui etait fausse.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — le rapport etait dangereux bien au-dela de son
+inexactitude : croire « c'etait deja fait, rien a corriger » sur un constat que
+le relecteur avait localise a la ligne pres revenait a conclure que le relecteur
+s'etait trompe, et a rouvrir un defaut ferme. La verification tient en une
+commande — `git show <commit>:<fichier>` contre l'arbre — et elle est desormais
+le reflexe des qu'un agent rapporte qu'il n'a rien eu a faire.

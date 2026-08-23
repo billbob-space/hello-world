@@ -306,3 +306,145 @@ describe("10 · l'ecouteur de redimensionnement est retire par detruire() (§17 
     expect(fenetre.removeEventListener).toHaveBeenCalledWith("resize", gestionnaire);
   });
 });
+
+// Critique 2026-08-23 (second passage), N1 : le redimensionnement
+// recalcule le PLAFOND, jamais l'ORDRE. Le defaut etait invisible en tri
+// "recents" et "alphabetique" (tris stables : re-trier redonne la meme
+// liste) et ne se voyait qu'en "aleatoire", ou trierTuiles CONSOMME un
+// tirage a chaque appel. D'ou les deux tests ci-dessous : l'un compte les
+// tirages, l'autre observe le mur.
+describe("11 · un redimensionnement replafonne le mur, il ne le REBAT pas", () => {
+  const quatre: TuileDonnees[] = [
+    { nom: "Portishead" },
+    { nom: "Aphex Twin" },
+    { nom: "Boards of Canada" },
+    { nom: "Massive Attack" },
+  ];
+
+  function fenetreFactice(): { fenetre: Window; redimensionner: () => void } {
+    const ecouteurs = new Map<string, EventListener>();
+    const fenetre = {
+      matchMedia: () => ({ matches: false }) as MediaQueryList,
+      addEventListener: (type: string, g: EventListener) => void ecouteurs.set(type, g),
+      removeEventListener: () => {},
+    } as unknown as Window;
+    return {
+      fenetre,
+      redimensionner: () => ecouteurs.get("resize")?.(new Event("resize")),
+    };
+  }
+
+  it("en tri 'aleatoire', dix redimensionnements ne consomment AUCUN tirage", () => {
+    const { fenetre, redimensionner } = fenetreFactice();
+    const alea = vi.fn(() => 0.5);
+    const stockage = stockageMemoire();
+    stockage.setItem("ramure:accueil:ordre", "aleatoire");
+
+    const conteneur = document.createElement("div");
+    construireMur(conteneur, quatre, { stockage, fenetre, alea, surPlanter: () => {} });
+
+    const tiragesAuPremierRendu = alea.mock.calls.length;
+    expect(tiragesAuPremierRendu).toBeGreaterThan(0); // le melange a bien eu lieu
+
+    for (let i = 0; i < 10; i++) redimensionner();
+
+    expect(alea.mock.calls.length).toBe(tiragesAuPremierRendu);
+  });
+
+  it("l'ordre affiche est identique avant et apres redimensionnement, meme en 'aleatoire'", () => {
+    const { fenetre, redimensionner } = fenetreFactice();
+    let graine = 0;
+    const stockage = stockageMemoire();
+    stockage.setItem("ramure:accueil:ordre", "aleatoire");
+
+    const conteneur = document.createElement("div");
+    // Un `alea` qui change a chaque appel : si un tirage etait relance, la
+    // liste changerait a coup sur, et le test echouerait.
+    construireMur(conteneur, quatre, {
+      stockage,
+      fenetre,
+      alea: () => ((graine = (graine + 0.37) % 1), graine),
+      surPlanter: () => {},
+    });
+
+    const lire = () =>
+      Array.from(conteneur.querySelectorAll<HTMLElement>(".mur-item")).map(
+        (item) => item.querySelector(".tuile-libelle")!.textContent,
+      );
+
+    const avant = lire();
+    redimensionner();
+    redimensionner();
+    expect(lire()).toEqual(avant);
+  });
+
+  it("un redimensionnement ne re-insere aucune tuile : l'animation d'apparition n'est pas relancee", () => {
+    const { fenetre, redimensionner } = fenetreFactice();
+    const conteneur = document.createElement("div");
+    construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(),
+      fenetre,
+      surPlanter: () => {},
+    });
+
+    // Une re-insertion (`append` sur un enfant deja place) remet a zero
+    // l'animation CSS `apparition`. On l'observe ici par le seul moyen
+    // dont jsdom dispose : le noeud doit rester le MEME objet, jamais
+    // detache puis rattache.
+    const avant = Array.from(conteneur.children);
+    const observateur = new MutationObserver(() => {});
+    observateur.observe(conteneur, { childList: true });
+
+    redimensionner();
+    // takeRecords() est SYNCHRONE : il vide la file sans attendre la
+    // microtache qui appellerait le rappel. C'est ce qui rend l'assertion
+    // fiable dans un test qui ne rend pas la main.
+    const mutations = observateur.takeRecords();
+    observateur.disconnect();
+
+    const inserees = mutations.flatMap((m) => Array.from(m.addedNodes));
+    expect(inserees).toEqual([]);
+    expect(Array.from(conteneur.children)).toEqual(avant);
+  });
+
+  it("une capacite qui retrecit (4 puis 2) masque des tuiles au redimensionnement, sans toucher l'ordre", () => {
+    const { fenetre, redimensionner } = fenetreFactice();
+    // mesurer factice : 4 places au premier appel (construction), 2 au
+    // second (declenche par `redimensionner()`) -- simule une fenetre qui
+    // retrecit entre les deux, sans dependre d'un vrai calcul de layout
+    // (jsdom n'en fait pas, cf. describe 9).
+    let appel = 0;
+    const mesurerVariable = (): MesureMur => {
+      appel += 1;
+      return { colonnes: appel === 1 ? 4 : 2, tailleTuile: 100, gap: 0, hauteurDisponible: 100 };
+    };
+
+    const conteneur = document.createElement("div");
+    construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(), // "recents" par defaut : l'ordre fourni fait deja foi
+      fenetre,
+      surPlanter: () => {},
+      mesurer: mesurerVariable,
+    });
+
+    const tousLesLibelles = () =>
+      Array.from(conteneur.querySelectorAll<HTMLElement>(".mur-item")).map(
+        (item) => item.querySelector(".tuile-libelle")!.textContent,
+      );
+    const libellesVisibles = () =>
+      Array.from(conteneur.querySelectorAll<HTMLElement>(".mur-item"))
+        .filter((item) => !item.hidden)
+        .map((item) => item.querySelector(".tuile-libelle")!.textContent);
+
+    const ordreAvant = tousLesLibelles();
+    expect(libellesVisibles()).toHaveLength(4); // capacite 4 au premier rendu : tout tient
+
+    redimensionner();
+
+    // Le jeu visible retrecit (constat 1 : le redimensionnement replafonne)...
+    expect(libellesVisibles()).toHaveLength(2);
+    // ...et l'ordre complet des libelles, visibles ou non, n'a pas bouge
+    // (constat 4 : ce n'est pas un rebattage, seul le masquage a change).
+    expect(tousLesLibelles()).toEqual(ordreAvant);
+  });
+});

@@ -221,28 +221,77 @@ export function construireMur(
   // visible pour que la grille se stabilise a la taille qu'aura sa
   // premiere rangee une fois pleine ; la 2e lit cette geometrie et masque
   // la queue.
+  // `derniereListe` retient l'ordre REELLEMENT affiche. Le plafond se
+  // recalcule a chaque redimensionnement ; l'ordre, lui, ne se rejoue qu'a
+  // un geste explicite (construction, changement de tri). Critique
+  // 2026-08-23 (second passage), N1 : sans cette separation,
+  // `surRedimensionnement` rappelait `peindre`, donc `trierTuiles`, donc —
+  // en tri "aleatoire", qui CONSOMME un tirage a chaque appel — un mur
+  // rebattu a chaque evenement `resize`. Or le PRD (§02) fait du rebattage
+  // « une action explicite » ; etirer une fenetre, faire pivoter un
+  // telephone ou voir la barre d'URL se retracter n'en sont pas, et a
+  // capacite reduite le tirage change non pas l'ordre mais QUI est montre.
+  // Initialisee vide, jamais par un tri : `peindre` ci-dessous la
+  // renseigne au premier rendu, et un tirage de plus ici en consommerait
+  // un pour rien.
+  let derniereListe: readonly TuileDonnees[] = [];
+
+  // replafonner : le plafond seul (§17 Q9), sans jamais toucher a l'ordre
+  // du DOM. Ne PAS re-`append` ici est ce qui repare le second defaut du
+  // meme constat : `append` sur un enfant deja place le retire et le
+  // reinsere, ce qui RELANCE l'animation `apparition` (.25s, opacite 0 →
+  // 1) sur chaque tuile. Un `resize` etant emis en continu pendant un
+  // etirement de fenetre, les six tuiles restaient bloquees pres de
+  // l'opacite 0 tant que durait le geste (mesure : `currentTime` remis a 0
+  // a chaque evenement).
+  //
+  // DEUX passes, jamais une seule. `auto-fit` collapse a zero-largeur
+  // toute colonne sans element place dedans (verifie empiriquement) :
+  // mesurer AVANT d'avoir demasque la moindre tuile lirait un conteneur
+  // vide, donc une taille de tuile nulle, donc un repli permanent sur
+  // "aucun plafond" — y compris au tout premier rendu, exactement le
+  // defaut que cette fonctionnalite corrige. La 1re passe rend TOUT
+  // visible pour que la grille se stabilise a la taille qu'aura sa
+  // premiere rangee une fois pleine ; la 2e lit cette geometrie et masque
+  // la queue.
+  function replafonner(): void {
+    derniereListe.forEach((tuile) => {
+      const el = elements.get(tuile);
+      if (el) el.hidden = false;
+    });
+    const capacite = capaciteMur(mesurer(conteneur), derniereListe.length);
+    derniereListe.forEach((tuile, index) => {
+      const el = elements.get(tuile);
+      if (el) el.hidden = index >= capacite;
+    });
+  }
+
+  // peindre : le tri d'abord, le plafond ensuite (§17 Q9) — le plafond ne
+  // fait que couper la QUEUE de la liste deja triee, c'est donc l'ordre
+  // qui decide qui reste visible. `hidden` sur `.mur-item` (jamais
+  // `display:none` pose ici sur `.tuile` seule) retire la tuile au-dela
+  // de la capacite du flux, de la tabulation ET de l'arbre
+  // d'accessibilite d'un seul coup (regle globale `[hidden]`,
+  // web/index.html).
   function peindre(ordre: OrdreMur): void {
-    const triees = trierTuiles(tuiles, ordre, alea);
-    triees.forEach((tuile) => {
+    derniereListe = trierTuiles(tuiles, ordre, alea);
+    derniereListe.forEach((tuile) => {
       const el = elements.get(tuile);
       if (!el) return;
       conteneur.append(el); // deplace l'element EXISTANT
       el.hidden = false;
     });
-    const capacite = capaciteMur(mesurer(conteneur), triees.length);
-    triees.forEach((tuile, index) => {
-      const el = elements.get(tuile);
-      if (el) el.hidden = index >= capacite;
-    });
+    replafonner();
   }
   peindre(ordreCourant);
 
   // Reevalue au redimensionnement (§17 Q9) : sans quoi le plafond calcule
-  // sur un ecran large survivrait au passage a un ecran etroit. Retire a
-  // detruire() — appele a chaque retour a l'accueil (main.ts) — sinon
-  // chaque construction du mur laisse un ecouteur de plus derriere elle.
+  // sur un ecran large survivrait au passage a un ecran etroit. Le
+  // plafond SEUL — voir `replafonner`. Retire a detruire() — appele a
+  // chaque retour a l'accueil (main.ts) — sinon chaque construction du mur
+  // laisse un ecouteur de plus derriere elle.
   function surRedimensionnement(): void {
-    peindre(ordreCourant);
+    replafonner();
   }
   fenetre.addEventListener("resize", surRedimensionnement);
 

@@ -167,3 +167,42 @@ test("mur d'accueil -- plus de tuiles que la capacite : aucune hors zone, aucune
   });
   expect(focusEchoue, "une tuile masquee ne doit jamais pouvoir recevoir le focus").toBe(true);
 });
+
+// Critique 2026-08-23 (second passage), N1 : les trois tests ci-dessus
+// dimensionnent tous AVANT `goto` -- aucun ne charge la page puis
+// redimensionne la fenetre EN PLACE. C'est ce trou qui laissait passer un
+// mur repeint en entier (donc un tri "aleatoire" rebattu) a chaque
+// evenement `resize` : ce test-ci charge large, ou tout tient, puis
+// retrecit sans recharger, et attend que le plafond suive.
+test("mur d'accueil -- un redimensionnement SANS rechargement replafonne (§17 Q9)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installerAPI(page, new ScenarioAPI());
+  await page.goto(`${BASE_URL}/`);
+  await expect(page.locator("#accueil")).toBeVisible();
+
+  const items = page.locator(".mur-item");
+  await expect(items).toHaveCount(6); // AMORCAGE_EDITORIAL au complet
+
+  const masquesAvant = await page.evaluate(
+    () => Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).filter((i) => i.hidden).length,
+  );
+  expect(masquesAvant, "a 390x844 la zone porte les 6 tuiles : rien ne doit etre masque avant redimensionnement").toBe(
+    0,
+  );
+
+  // Meme largeur (les colonnes ne bougent pas), hauteur reduite a la valeur
+  // du test precedent -- reproduit le geste "retracter la barre d'URL" ou
+  // "faire pivoter le telephone", jamais un rechargement.
+  await page.setViewportSize({ width: 390, height: 400 });
+  // `resize` n'est pas emis par `setViewportSize` dans tous les moteurs :
+  // on le declenche explicitement pour isoler ce que le gestionnaire fait,
+  // independamment de ce que le navigateur choisit d'emettre.
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+
+  const masquesApres = await page.evaluate(
+    () => Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).filter((i) => i.hidden).length,
+  );
+  expect(masquesApres, "le retrecissement doit masquer au moins une tuile, sans recharger la page").toBeGreaterThan(
+    0,
+  );
+});
