@@ -11,16 +11,19 @@ export default defineConfig({
     environment: "jsdom",
     include: ["tests/**/*.test.ts"],
     watch: false,
-    // L'axe « couverture navigateur » de scripts/revue.sh (partage, hors
-    // perimetre de cette app) ne sait lire qu'un `node --test tests/*.test.js`
-    // a la racine de l'app : il ne trouve rien ici, ne mesure rien, et rend
-    // un verdict Go seul sans le dire. L'app porte donc sa propre barre,
-    // verifiee par test.sh via `npm run test` -> `vitest run --coverage`.
-    // Seuil pose au niveau mesure aujourd'hui, arrondi vers le bas : il doit
-    // rester vert des l'instant ou il est ecrit, et rougir des qu'un module
-    // perd de la couverture. Remonte de 53 a 57 (revue PRP 06) apres
-    // l'extraction de la couche reseau de main.ts vers passerelle.ts,
-    // couverte a 100 %.
+    // Deux seuils, deux distances au code. Celui-ci est LOCAL : il rougit
+    // au plus pres du developpeur, des `npm run test` (test.sh l'appelle
+    // via `vitest run --coverage`), avant meme un commit. L'axe « couverture
+    // navigateur » de scripts/revue.sh (partage, hors perimetre de cette
+    // app) lit desormais vitest lui-meme et porte le cliquet de la revue
+    // dans apps/ramure-v2/app.yml (`revue_couverture_web`) -- ce n'est plus
+    // le verdict Go seul, sans le dire, que ce commentaire decrivait avant
+    // que l'outillage partage n'apprenne a lire vitest. Les deux seuils
+    // doivent donc rester en phase ; celui-ci ne descend jamais sous celui
+    // de app.yml. Seuil arrondi vers le bas : il doit rester vert des
+    // l'instant ou il est ecrit, et rougir des qu'un module perd de la
+    // couverture. Remonte de 53 a 57 (revue PRP 06) apres l'extraction de
+    // la couche reseau de main.ts vers passerelle.ts, couverte a 100 %.
     coverage: {
       provider: "v8",
       include: ["src/**"],

@@ -1,0 +1,54 @@
+# 2026-08-23 — claude/ramure-v2-refonte-suite-w2epqj
+
+Branche : `claude/ramure-v2-refonte-suite-w2epqj`
+Périmètre : ramure-v2, fabrique
+Mode : `chaud`
+
+Suite de `journal/2026-08-22-claude-ramure-v2-refonte-1q0zsr.md`, dont les
+anomalies 20, 21 et 23 sont le reste a traiter : le troisieme choix de forme
+(les 548 px libres du mur), le rognage du mur, et les deux defauts d'outillage
+laisses ouverts parce qu'ils debordaient de la demande d'alors.
+
+## Anomalies
+
+### 1. L'axe de couverture navigateur se taisait au lieu de rendre KO
+
+**Symptome** — `./scripts/revue.sh ramure-v2` rendait « couverture Go 82,0 % » et
+rien d'autre. Le client TypeScript de l'app — 15 modules, 16 fichiers de test —
+n'etait mesure par aucune revue. Rien dans la sortie ne disait qu'une moitie de
+l'app n'avait pas ete lue.
+
+**Cause** — l'axe reconnaissait une seule chaine de test client, `node --test
+tests/*.test.js` a la racine de l'app. C'est la chaine des trois apps qui
+l'utilisent, et elle a l'avantage de n'installer aucune dependance. Un client en
+TypeScript ne peut pas l'utiliser — node n'execute pas de `.ts` — et passe donc
+par vitest, sous `web/`. Le `ls tests/*.test.js` echouait, la branche entiere
+etait sautee, et `web_pct` restait vide : la variable vide traversait tout le
+chemin jusqu'au manifeste, ou `revue_couverture_web` n'etait tout simplement
+jamais posee. Un axe qui ne trouve pas ce qu'il cherche rend `ok`.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — le defaut n'est pas d'ignorer vitest, c'est de rendre
+`ok` en n'ayant rien mesure. Une app qui echappe a un axe doit le FAIRE SAVOIR ;
+ici l'app avait du reporter la barre dans son propre `test.sh`, ce qui donne deux
+barres pour une mesure, dont une seule alimente le cliquet.
+
+### 2. Les diagnostics du serveur de langage Go sont tous faux dans le conteneur cloud
+
+**Symptome** — a la premiere edition d'un fichier Go, seize diagnostics
+identiques : « go.work requires go >= 1.25.0 (running go 1.24.7) », sur des
+fichiers qui compilent et dont les tests passent dans le meme conteneur.
+
+**Cause** — deux Go dans l'image. Le shell voit `go1.25.0` ; `gopls`, lance par
+le harnais, en trouve un autre en 1.24.7 et refuse de charger les paquets. Aucun
+diagnostic Go n'est donc exploitable dans une session cloud, ni les vrais ni les
+faux.
+
+**Detecte par** — `auteur`
+
+**Action** — `outillage` — un LSP qui rend seize faux constats sur un depot sain
+coute plus qu'il ne rapporte : on apprend a ne plus lire ses sorties, et le jour
+ou il en rend un vrai il est ignore. Meme mecanique que les faux « introuvable »
+du 22 aout.
+

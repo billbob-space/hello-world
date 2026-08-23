@@ -26,8 +26,18 @@ d'instruire un constat, de déplacer un seuil, ou d'ajouter un axe.
 | Qualité, simplification, code mort | `staticcheck` | `tsc --noEmit` là où TypeScript existe | le premier constat |
 | Sécurité | `gosec` | — | HIGH ou MEDIUM |
 | Dépendances vulnérables | `govulncheck` | `npm audit --audit-level=high` | la première vulnérabilité |
-| Couverture | `go test -coverprofile` | `node --test --experimental-test-coverage` | sous `revue_couverture` / `revue_couverture_web` |
+| Couverture | `go test -coverprofile` | `node --test --experimental-test-coverage`, ou `vitest run --coverage` quand le client est en TypeScript | sous `revue_couverture` / `revue_couverture_web` |
 | Duplication | `jscpd` | `jscpd` | au-dessus de `revue_duplication` |
+
+**Deux chaînes de test client coexistent, et l'axe reconnaît les deux.** `node
+--test tests/*.test.js` à la racine de l'app n'installe aucune dépendance, d'où
+son adoption par la plupart des apps ; un client en TypeScript ne peut pas
+l'utiliser — node n'exécute pas de `.ts` — et passe par `vitest` sous `web/`,
+détecté sur un `package.json` qui déclare **à la fois** `vitest` et un script
+`test`. Le chiffre retenu est le même des deux côtés, un **pourcentage de
+lignes**, sans quoi `revue_couverture_web` changerait de sens d'une app à
+l'autre. Une app qui n'entre dans aucune des deux familles ne fait pas taire
+l'axe : elle le fait crier.
 
 Les versions des quatre outils sont épinglées dans `fabrique.yml`, sous
 `outil_staticcheck`, `outil_gosec`, `outil_govulncheck`, `outil_jscpd`, **et
@@ -130,6 +140,7 @@ venant du même endroit, aucun visible dans un diff.
 | `jscpd` reçoit un nom de format inconnu (`golang` au lieu de `go`) | « 0 % de duplication », rapport bien formé, périmètre vide |
 | `jscpd` écarte par défaut les fichiers de plus de 1000 lignes ou 100 ko | 0 %, en n'ayant pas lu les gros fichiers — ceux où la duplication se cache |
 | La couverture navigateur lisait un séparateur de colonnes au lieu du chiffre | une clé vide dans le manifeste |
+| La couverture navigateur ne reconnaissait qu'une seule chaîne de test client | « Go 82 % » seul, et rien qui dise que le client n'avait pas été lu |
 | `//nosec` mal écrit, puis `#nosec` bien écrit mais invisible | un axe vert sans rien de corrigé |
 
 D'où la règle : **pour chaque axe, le périmètre réellement analysé se compare au

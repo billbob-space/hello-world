@@ -365,6 +365,23 @@ axe_dependances() {  # <app>
   return 0
 }
 
+# repertoire_vitest : le repertoire de l'app, relatif a elle, dont le
+# package.json declare vitest ET un script `test` -- ou rien. `web/` d'abord,
+# parce que c'est la convention de la fabrique pour un client compile ; la
+# racine ensuite, pour une app qui serait entierement du navigateur. Deux
+# conditions et non une : un package.json qui depend de vitest sans script
+# `test` ne sait pas se lancer, et l'axe ne doit pas inventer sa commande.
+repertoire_vitest() {
+  local d
+  for d in web .; do
+    [ -f "$d/package.json" ] || continue
+    grep -q '"vitest"' "$d/package.json" || continue
+    grep -qE '"test"[[:space:]]*:' "$d/package.json" || continue
+    printf '%s' "$d"; return 0
+  done
+  return 0
+}
+
 axe_couverture() {  # <app>
   local a="$1"; local prof="$TRAVAIL/$a.cover" log="$TRAVAIL/$a.gotest" rc=0
   VERDICT=ok MESSAGE="" MESURE="" DETAIL=""
@@ -382,11 +399,22 @@ axe_couverture() {  # <app>
     [ -n "$go_pct" ] || { VERDICT=bad; MESSAGE="profil de couverture illisible"; return 0; }
   fi
 
-  # Le navigateur. node --test porte sa propre couverture depuis Node 22 :
-  # aucune dependance a installer, ce qui est la raison pour laquelle les apps
-  # de la fabrique l'utilisent deja pour leurs tests.
+  # Le navigateur. DEUX chaines de test client coexistent dans la fabrique, et
+  # cet axe ne lisait que la premiere :
+  #  - `node --test tests/*.test.js` a la racine de l'app, qui porte sa propre
+  #    couverture depuis Node 22 sans aucune dependance a installer -- c'est la
+  #    raison pour laquelle la plupart des apps l'utilisent ;
+  #  - vitest sous `web/`, quand le client est en TypeScript : node ne sait pas
+  #    executer du .ts, `tests/*.test.js` n'existe donc simplement pas.
+  # Une app de la seconde famille ressortait avec un verdict Go SEUL, sans que
+  # rien ne dise que son client n'avait pas ete mesure -- et un axe qui se tait
+  # ressemble a un axe qui passe (ramure-v2, critique du 2026-08-23). Elle
+  # portait sa propre barre dans son test.sh, faute de mieux : deux barres pour
+  # une seule mesure, dont une seule alimente le cliquet.
+  local dweb="" muet=""
   if ls tests/*.test.js >/dev/null 2>&1; then
     local nlog="$TRAVAIL/$a.nodetest"
+    rc=0
     node --test --experimental-test-coverage tests/*.test.js >"$nlog" 2>&1 || rc=$?
     if [ "$rc" -ne 0 ]; then
       VERDICT=bad; MESSAGE="les tests navigateur echouent : $(grep -m2 'not ok' "$nlog" | tr '\n' ' ')"
@@ -397,6 +425,39 @@ axe_couverture() {  # <app>
     # vaut « | » : une valeur non numerique qui traverse tout le chemin et
     # ressort en « revue_couverture_web: » vide dans le manifeste.
     web_pct=$(awk '/^# all files/{gsub(/\|/, " "); print $4}' "$nlog" | tail -1)
+  elif dweb=$(repertoire_vitest); [ -n "$dweb" ]; then
+    local vlog="$TRAVAIL/$a.vitest"
+    rc=0
+    # Les dependances sont deja la : prepare.sh a fait le `npm ci` avant les
+    # axes. Un axe n'installe rien lui-meme -- il mesure ce que l'app livre.
+    ( cd "$dweb" && npm test --silent ) >"$vlog" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      VERDICT=bad
+      MESSAGE="les tests navigateur echouent : $(grep -m2 -E '(FAIL|× |ERROR)' "$vlog" | tr '\n' ' ')"
+      return 0
+    fi
+    # Le rapporteur `json-summary` ecrit coverage/coverage-summary.json, dont
+    # total.lines.pct est la MEME grandeur que la colonne lue chez node --test :
+    # un pourcentage de LIGNES. Les deux familles restent donc comparables, et
+    # `revue_couverture_web` garde un sens unique d'une app a l'autre.
+    web_pct=$(node -e 'process.stdout.write(String(require(process.argv[1]).total.lines.pct))' \
+                "$PWD/$dweb/coverage/coverage-summary.json" 2>/dev/null) || web_pct=""
+    # Repli, pour une app qui n'aurait declare que le rapporteur texte :
+    # « All files | 57.12 | 85.71 | 65.21 | 57.12 | », memes barres-separateurs
+    # qu'au-dessus, et % Lines en QUATRIEME colonne (donc $6 une fois « All »
+    # et « files » comptes) -- pas en premiere comme chez node.
+    [ -n "$web_pct" ] || web_pct=$(awk '/^All files/{gsub(/\|/, " "); print $6}' "$vlog" | tail -1)
+    [ -n "$web_pct" ] || {
+      VERDICT=bad
+      MESSAGE="couverture navigateur illisible : ni coverage-summary.json ni tableau texte dans $dweb"
+      return 0; }
+  elif [ -f package.json ] || [ -f web/package.json ]; then
+    # Troisieme famille : un client existe, et sa chaine de test n'entre dans
+    # aucune des deux precedentes. C'est LE cas qui a fait taire cet axe, et se
+    # taire une seconde fois sous un autre nom serait le meme defaut. L'axe dit
+    # donc ce qu'il n'a pas mesure, plutot que de rendre un verdict Go seul qui
+    # ressemble a un verdict complet.
+    muet="client non mesure — ni « node --test tests/*.test.js », ni vitest sous web/"
   fi
 
   local plancher plancher_web depasse=0
@@ -416,11 +477,13 @@ axe_couverture() {  # <app>
     fi
   fi
 
-  [ -n "$dit" ] || { VERDICT=skip; MESSAGE="rien de mesurable"; return 0; }
+  [ -n "$dit" ] || { VERDICT=skip; MESSAGE="rien de mesurable${muet:+ — $muet}"; return 0; }
   MESURE="${go_pct:--};${web_pct:--}"
   MESSAGE="$dit"
   if [ "$depasse" = 1 ]; then
     VERDICT=bad; MESSAGE="$MESSAGE — la barre ne redescend pas"
+  elif [ -n "$muet" ]; then
+    VERDICT=warn; MESSAGE="$MESSAGE — $muet"
   elif [ -z "$plancher$plancher_web" ]; then
     VERDICT=warn; MESSAGE="$MESSAGE — aucune barre posee (./scripts/revue.sh --releve)"
   fi
