@@ -486,10 +486,14 @@
   <p id="echec-plantation" class="echec-plantation" role="alert" hidden></p>
   <section id="accueil" class="accueil" hidden>
     <div class="accueil-barre">
-      <!-- Intertitre (§17 Q10, PRODUCT.md, decision du 23 aout 2026) :
-           nomme ce que le mur montre -- "Pour commencer" tant que rien
-           n'est garde, "Gardes recemment" ensuite (main.ts,
-           afficherAccueil, via accueil.ts:libelleAccueilIntertitre).
+      <!-- Intertitre (§17 Q10, PRODUCT.md, decisions du 23 aout 2026,
+           constats N4 et N7) : nomme ce que le mur montre -- "Pour
+           commencer" tant que rien n'est garde, "Deja gardes" ensuite
+           (main.ts, afficherAccueil, via accueil.ts:libelleAccueilIntertitre)
+           -- JAMAIS le libelle du tri (#tri ci-dessous) : les deux
+           repondent a des questions differentes et ne partagent plus leur
+           formulation (constat N7), pour ne pas affirmer un classement par
+           date de garde quand le visiteur trie autrement.
            h2, comme .fiche-titre (fiche.ts) : un vrai titre, jamais un
            <p> qui ne porte qu'une couleur de texte. aria-labelledby sur
            #mur (plus bas) en fait le nom accessible de la liste, pas

@@ -293,28 +293,28 @@ function retirerNoeud(n: NoeudDessine): void {
 // ---------------------------------------------------------------------
 
 // construireSelectTri cree les trois options UNE seule fois (le select
-// est reutilise a chaque retour a l'accueil, jamais recree), mais met a
-// jour le libelle de "recents" a CHAQUE appel : lui seul depend de
-// `source` (§17 Q10, constat N4) — "alphabetique" et "aleatoire" restent
-// vrais quelle que soit la provenance du mur.
+// est reutilise a chaque retour a l'accueil, jamais recree). "recents" est
+// le SEUL libelle qui depend de `source` (§17 Q10) — il est donc pose en
+// SORTIE UNIQUE, apres la creation eventuelle, plutot que dans la branche
+// creation ET dans la branche mise a jour separees par un `return` : les
+// deux ecrivaient la meme chaine pour les memes appelants (constat
+// 2026-08-23 N5). "alphabetique" et "aleatoire" restent vrais quelle que
+// soit la provenance du mur, donc figes a la creation.
 function construireSelectTri(source: SourceMur): void {
   if (!triSelect) return;
   if (triSelect.childElementCount === 0) {
-    const libelles: Record<string, string> = {
-      recents: libelleTriRecents(source),
-      alphabetique: textes.triAlphabetique,
-      aleatoire: textes.triAleatoire,
-    };
     for (const ordre of ["recents", "alphabetique", "aleatoire"] as const) {
       const opt = document.createElement("option");
       opt.value = ordre;
-      opt.textContent = libelles[ordre] ?? ordre;
       triSelect.append(opt);
     }
+    const optionAlphabetique = triSelect.querySelector<HTMLOptionElement>('option[value="alphabetique"]');
+    if (optionAlphabetique) optionAlphabetique.textContent = textes.triAlphabetique;
+    const optionAleatoire = triSelect.querySelector<HTMLOptionElement>('option[value="aleatoire"]');
+    if (optionAleatoire) optionAleatoire.textContent = textes.triAleatoire;
     triSelect.addEventListener("change", () => {
       mur?.definirOrdre(triSelect.value as "recents" | "alphabetique" | "aleatoire");
     });
-    return;
   }
   const optionRecents = triSelect.querySelector<HTMLOptionElement>('option[value="recents"]');
   if (optionRecents) optionRecents.textContent = libelleTriRecents(source);
@@ -331,12 +331,23 @@ function construireSelectTri(source: SourceMur): void {
 // tant que la seconde branche n'a pas d'appelant reel, elle doit rester
 // pilotable depuis l'exterieur (tests, accueil.ts) pour ne pas pourrir
 // comme `accueilVide` avant elle (jamais appelee, critique 2026-08-23 N4).
+// appliquerTexteAttente (§17 Q10, critique 2026-08-23 N1) : le placeholder
+// du champ de recherche porte soit la promesse (accueil visible), soit son
+// texte ordinaire (ailleurs) — decision UNIQUE, appelee par les TROIS sites
+// qui font basculer #accueil (afficherAccueil, masquerAccueil,
+// traiterEchecPlantation), plutot qu'un quatrieme site qui la repose a la
+// main : c'est ce dernier cas qui laissait le placeholder ordinaire en
+// place apres un echec de plantation revenu sur l'accueil.
+function appliquerTexteAttente(surAccueil: boolean): void {
+  if (champGraine) champGraine.placeholder = surAccueil ? textes.accueilPromesse : textes.champRecherchePlaceholder;
+}
+
 function afficherAccueil(source: SourceMur = "amorcage"): void {
   if (!accueilSection || !murConteneur || !svg) return;
   if (accueilIntertitreEl) accueilIntertitreEl.textContent = libelleAccueilIntertitre(source);
   // §17 Q10 : la promesse quitte le haut de l'accueil pour devenir le
   // texte d'attente du champ — restaure par masquerAccueil().
-  if (champGraine) champGraine.placeholder = textes.accueilPromesse;
+  appliquerTexteAttente(true);
   construireSelectTri(source);
   if (triSelect) triSelect.value = mur?.ordre ?? "recents";
 
@@ -407,7 +418,14 @@ function traiterEchecPlantation(message: string): void {
   if (etat) etat.textContent = "";
   const arbrePresent = groupeRacine !== null;
   commandesDArbre(arbrePresent);
-  if (!arbrePresent && accueilSection) accueilSection.hidden = false;
+  if (!arbrePresent && accueilSection) {
+    accueilSection.hidden = false;
+    // Critique 2026-08-23 N1 : sans cette ligne, le placeholder restait
+    // celui pose par masquerAccueil() (l'ordinaire) au lieu de la promesse
+    // que l'accueil doit montrer — exactement quand le visiteur vient
+    // d'echouer une plantation.
+    appliquerTexteAttente(true);
+  }
   afficherEchecPlantation(elementsEchec(), message, arbrePresent);
 }
 
@@ -418,7 +436,7 @@ function masquerAccueil(): void {
   commandesDArbre(true);
   // §17 Q10 : la promesse ne s'applique qu'a l'accueil — le champ retrouve
   // son texte d'attente ordinaire des qu'une graine est plantee.
-  if (champGraine) champGraine.placeholder = textes.champRecherchePlaceholder;
+  appliquerTexteAttente(false);
 }
 
 // ---------------------------------------------------------------------

@@ -32,15 +32,24 @@ export interface TuileDonnees {
 // (critique 2026-08-23 N4, "ecrit, jamais utilise nulle part").
 export type SourceMur = "amorcage" | "collection";
 
-// libelleAccueilIntertitre et libelleTriRecents (§17 Q10, constat N4) :
-// le mur ne nommait ce qu'il montre nulle part, et le tri par defaut
+// libelleAccueilIntertitre et libelleTriRecents (§17 Q10, constats N4 et
+// N7) : le mur ne nommait ce qu'il montre nulle part, et le tri par defaut
 // affirmait "Gardes recemment" au-dessus de six artistes que personne
 // n'avait gardes — le seul mot qui qualifiait le mur le qualifiait faux,
-// pour CHAQUE premier visiteur. Les deux fonctions partagent la meme
-// regle : "Gardes recemment" seulement quand c'est vrai (source
-// "collection"), une formulation honnete de repli sinon.
+// pour CHAQUE premier visiteur (N4).
+//
+// Les deux fonctions repondent a des questions DIFFERENTES et ne
+// partagent PLUS leur formulation (N7) : libelleAccueilIntertitre dit CE
+// QUE LE MUR MONTRE (la collection elle-meme, vraie quel que soit l'ordre
+// choisi), libelleTriRecents dit DANS QUEL ORDRE (vrai seulement quand le
+// tri actif est "recents"). Les confondre — reprendre `textes.triRecents`
+// pour les deux, comme avant N7 — afficherait deux fois la meme chaine
+// dans la meme bande de 36 px, et l'intertitre continuerait d'annoncer un
+// classement par date de garde apres que le visiteur soit passe en
+// alphabetique ou en aleatoire : exactement le libelle qui ment que N4
+// venait de corriger, recree dans l'etat "collection".
 export function libelleAccueilIntertitre(source: SourceMur): string {
-  return source === "collection" ? textes.triRecents : textes.accueilIntertitrePourCommencer;
+  return source === "collection" ? textes.accueilIntertitreCollection : textes.accueilIntertitrePourCommencer;
 }
 
 export function libelleTriRecents(source: SourceMur): string {

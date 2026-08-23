@@ -259,7 +259,9 @@ produit un lien qui ouvre l'arbre sur cet artiste chez le destinataire.
 L'écran d'entrée ne doit jamais être un champ de recherche seul sur fond vide : c'est le moment
 où le produit doit donner envie. Il présente un **mur de pochettes plein écran** — les artistes
 déjà gardés en priorité, sinon une sélection éditoriale d'amorçage — surmonté d'un bandeau
-compact : titre, invitation, accès à la recherche, choix de tri.
+compact : titre et accès à la recherche, puis un intertitre qui **nomme le mur**, le choix de
+tri terminant cette ligne (§17 q10). L'invitation n'occupe pas le bandeau : elle est le texte
+d'attente du champ de recherche.
 
 - Chaque tuile est une action explicite : planter cet artiste.
 - Un tri au choix de l'utilisateur, mémorisé d'une session à l'autre.
@@ -835,6 +837,16 @@ disqualifie la moitié des réponses possibles à la première.
     devient le texte d'attente du champ de recherche, emprunté à la variante A
     ci-dessous. Elle ne coûte alors aucune hauteur, et l'accueil continue de dire
     ce qu'il fait à qui ne connaît pas le produit.
+
+    **L'intertitre et le tri ne partagent pas leur formulation.** Ils répondent à
+    deux questions différentes — l'un dit *ce que le mur montre*, l'autre *dans
+    quel ordre* — et les confondre reproduirait, dans l'état à venir, le défaut
+    que cette question corrige. Un intertitre qui reprendrait mot pour mot le
+    libellé du tri afficherait deux fois la même phrase dans la même bande de
+    36 px, et continuerait d'annoncer un classement par date de garde alors que
+    le visiteur vient de basculer sur l'ordre alphabétique. Le titre nomme donc
+    la collection, le tri nomme l'ordre, et chacun reste vrai quand l'autre
+    change.
 
     *Écarté* — **la recherche possède le haut, mais à sa taille** (bande de
     64 px, champ ramené de 1 000 à 420 px, la promesse en texte d'attente) : elle

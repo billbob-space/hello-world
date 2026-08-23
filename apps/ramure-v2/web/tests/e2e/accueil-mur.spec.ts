@@ -38,7 +38,7 @@
 // apercoive -- d'ou le test dedie plus bas, qui mesure le haut ET la
 // hauteur qu'il laisse au mur, jamais l'un sans l'autre.
 import { expect, test } from "@playwright/test";
-import { ScenarioAPI, installerAPI } from "./support/api";
+import { ScenarioAPI, centreOK, installerAPI } from "./support/api";
 import { BASE_URL, demarrerServeur, type ServeurRamure } from "./support/serveur";
 
 let serveur: ServeurRamure;
@@ -240,22 +240,79 @@ test("le haut de l'accueil tient sa cible (~100px a 1440, pas de croissance a 39
     return { haut: header.height + barre.height, hauteurMur: mur.height };
   }
 
-  const AVANT_1440 = 121.6; // critique 2026-08-23-b, N3 -- mesure avant §17 Q10
-  const AVANT_390 = 188.6;
+  // AVANT_1440 et AVANT_390 : mesures d'AVANT §17 Q10, gardees ici pour la
+  // seule PROVENANCE du chiffre -- plus jamais lues par une assertion.
+  // Constat 2026-08-23 N4 : borner sur AVANT_390 tolerait +35,6px de
+  // croissance la ou la contrainte ecrite est "ne grandit pas" -- une
+  // regression deja corrigee (`flex-basis`, qui redonnait 190,0px) n'etait
+  // rattrapee que par 1,4px de marge sur cette borne-la. Les bornes
+  // suivent desormais l'ACQUIS : les mesures REELLES relevees sur cette
+  // branche.
+  const AVANT_1440 = 121.6; // critique 2026-08-23-b, N3 -- provenance seule
+  const AVANT_390 = 188.6; // idem -- provenance seule
+
+  const ACQUIS_HAUT_1440 = 101.0; // header 65 + barre 36, mesure sur cette branche
+  const ACQUIS_HAUT_390 = 153.0; // header 117 + barre 36, mesure sur cette branche
+  const ACQUIS_MUR_1440 = 799; // #mur.height a 1440x900, mesure sur cette branche
+  const ACQUIS_MUR_390 = 691; // #mur.height a 390x844, mesure sur cette branche
+  const MARGE_HAUT = 5; // tolerance de mesure (arrondi navigateur), serree
+  const MARGE_MUR = 15; // "meme geste, plus doux" (N4) : hauteurMur herite de l'arrondi du haut ET de sa propre mesure -- tolerance plus large, jamais aussi large que l'ancien ecart avec AVANT
 
   const g1440 = await mesurerHaut(1440, 900);
-  expect(g1440.haut, `haut mesure a 1440 : ${g1440.haut.toFixed(1)}px (cible ~100px)`).toBeLessThan(110);
+  expect(
+    g1440.haut,
+    `haut mesure a 1440 : ${g1440.haut.toFixed(1)}px (cible ~100px, acquis ${ACQUIS_HAUT_1440}, jamais l'avant ${AVANT_1440})`,
+  ).toBeLessThan(ACQUIS_HAUT_1440 + MARGE_HAUT);
   expect(
     g1440.hauteurMur,
-    `hauteur laissee au mur a 1440 : ${g1440.hauteurMur.toFixed(1)}px`,
-  ).toBeGreaterThan(900 - AVANT_1440);
+    `hauteur laissee au mur a 1440 : ${g1440.hauteurMur.toFixed(1)}px (acquis ${ACQUIS_MUR_1440})`,
+  ).toBeGreaterThan(ACQUIS_MUR_1440 - MARGE_MUR);
 
   const g390 = await mesurerHaut(390, 844);
-  expect(g390.haut, `haut mesure a 390 : ${g390.haut.toFixed(1)}px (ne doit pas depasser l'avant)`).toBeLessThanOrEqual(
-    AVANT_390,
-  );
+  expect(
+    g390.haut,
+    `haut mesure a 390 : ${g390.haut.toFixed(1)}px (ne doit pas depasser l'acquis ${ACQUIS_HAUT_390}, jamais l'avant ${AVANT_390})`,
+  ).toBeLessThanOrEqual(ACQUIS_HAUT_390 + MARGE_HAUT);
   expect(
     g390.hauteurMur,
-    `hauteur laissee au mur a 390 : ${g390.hauteurMur.toFixed(1)}px`,
-  ).toBeGreaterThanOrEqual(844 - AVANT_390);
+    `hauteur laissee au mur a 390 : ${g390.hauteurMur.toFixed(1)}px (acquis ${ACQUIS_MUR_390})`,
+  ).toBeGreaterThanOrEqual(ACQUIS_MUR_390 - MARGE_MUR);
+});
+
+// Constat 2026-08-23 N2 : le cablage entre `source` et l'ecran -- l'option
+// "recents" du tri, le texte d'attente promis sur l'accueil, et son retrait
+// des qu'une graine est plantee -- n'etait couvert par AUCUNE spec e2e,
+// alors que c'est lui le correctif que §17 Q10 annonce. accessibilite.test.ts
+// (fixture, DOM simule) verifie deja aria-labelledby (#mur/#accueil-
+// intertitre, couvre le lien structurel) ; ce test-ci verifie l'ECRAN
+// REELLEMENT rendu, texte compris, et le cycle complet promesse -> ordinaire.
+test("tri 'recents' = \"Sélection éditoriale\" et texte d'attente = la promesse sur l'accueil, puis retour au texte ordinaire une fois une graine plantee (§17 Q10)", async ({
+  page,
+}) => {
+  const scenario = new ScenarioAPI();
+  scenario.definirCentre("Portishead", centreOK("Portishead"));
+  await installerAPI(page, scenario);
+  await page.goto(`${BASE_URL}/`);
+  await expect(page.locator("#accueil")).toBeVisible();
+
+  // Amorcage editorial (seul cas atteignable aujourd'hui, aucune collection
+  // cablee, F-28/F-30) : "recents" nomme la SELECTION, jamais une garde qui
+  // n'a pas eu lieu (constat N4).
+  await expect(page.locator('#tri option[value="recents"]')).toHaveText("Sélection éditoriale");
+
+  // La promesse quitte le bandeau pour devenir le texte d'attente du champ
+  // (§17 Q10, "coute reduit plutot qu'accepte").
+  await expect(page.locator("#graine")).toHaveAttribute(
+    "placeholder",
+    "Plante un nom, saute de branche en branche.",
+  );
+
+  await page.fill("#graine", "Portishead");
+  await page.locator("#recherche button[type=submit]").click();
+  await expect(page.locator("#accueil")).toBeHidden();
+
+  // La promesse ne s'applique qu'a l'accueil (masquerAccueil, main.ts) : le
+  // champ retrouve son texte d'attente ordinaire des qu'une graine est
+  // plantee.
+  await expect(page.locator("#graine")).toHaveAttribute("placeholder", "Planter un artiste…");
 });

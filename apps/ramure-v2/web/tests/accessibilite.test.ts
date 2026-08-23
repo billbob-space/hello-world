@@ -496,13 +496,20 @@ describe("11 · aucune information n'est portee par la couleur seule (l'affinite
 // d'attente du champ, et un vrai intertitre nomme la liste.
 // ---------------------------------------------------------------------
 
+// Constat 2026-08-23 N2 : les deux tests retires d'ici posaient EUX-MEMES
+// le placeholder et l'intertitre dans construireEtatAccueil() puis
+// relisaient ces memes affectations -- ils verifiaient le fixture, jamais
+// afficherAccueil() (main.ts). Le cablage reel (source -> placeholder,
+// source -> intertitre, source -> option "recents" du tri) est desormais
+// couvert en e2e, sur l'ecran REELLEMENT rendu par main.ts : voir
+// tests/e2e/accueil-mur.spec.ts ("tri 'recents' = ... et texte
+// d'attente = la promesse ...") et tests/e2e/echec-plantation.spec.ts
+// ("pas d'arbre precedent -- la bande s'affiche seule", qui verifie en
+// plus le retour de la promesse apres un echec, constat N1). Le test
+// ci-dessous est GARDE : il lit le vrai index.html (construireDocument)
+// et verifie une propriete structurelle (aria-labelledby) que le fixture
+// ne pose PAS lui-meme.
 describe("12 · le mur possede le haut de l'accueil (§17 Q10)", () => {
-  it("le champ de recherche porte la promesse en texte d'attente sur l'accueil", () => {
-    construireEtatAccueil();
-    const graine = document.querySelector<HTMLInputElement>("#graine");
-    expect(graine?.placeholder).toBe(textes.accueilPromesse);
-  });
-
   it("le mur (role=list) est relie a son intertitre par aria-labelledby, jamais un texte pose a cote sans lien", () => {
     construireEtatAccueil();
     const mur = document.querySelector<HTMLElement>("#mur");
@@ -513,12 +520,19 @@ describe("12 · le mur possede le haut de l'accueil (§17 Q10)", () => {
     expect(intertitre, `aucun element d'id "${idLabel}"`).not.toBeNull();
     expect(intertitre?.textContent?.trim()).toBeTruthy();
   });
+});
 
-  it("l'intertitre suit l'etat : \"Pour commencer\" sur amorcage, \"Gardés récemment\" sur collection", () => {
-    construireEtatAccueil("amorcage");
-    expect(document.querySelector("#accueil-intertitre")?.textContent).toBe(textes.accueilIntertitrePourCommencer);
-
-    construireEtatAccueil("collection");
-    expect(document.querySelector("#accueil-intertitre")?.textContent).toBe(textes.triRecents);
+// Constat 2026-08-23 N3 : le placeholder FIGE dans index.html (etat B, hors
+// accueil) et textes.champRecherchePlaceholder (main.ts, masquerAccueil)
+// DOIVENT rester synchrones -- un defaut deja rencontre une fois (critique
+// 2026-08-22 C2, un libelle en dur y avait diverge sans accent). Ce test
+// lit le VRAI index.html (construireDocument, comme le reste de ce
+// fichier) : une divergence future le fait rougir au lieu d'attendre une
+// nouvelle critique visuelle.
+describe("13 · le placeholder fige d'index.html ne diverge pas de textes.champRecherchePlaceholder", () => {
+  it("#graine porte le meme placeholder que textes.champRecherchePlaceholder, tel que fige dans index.html", () => {
+    construireDocument();
+    const graine = document.querySelector<HTMLInputElement>("#graine");
+    expect(graine?.getAttribute("placeholder")).toBe(textes.champRecherchePlaceholder);
   });
 });
