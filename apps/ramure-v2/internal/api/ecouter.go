@@ -36,7 +36,7 @@ func ecouterHandler(d arbre.Dependances) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		artiste := strings.TrimSpace(r.URL.Query().Get("artiste"))
 		if artiste == "" {
-			ecrireErreur(w, http.StatusBadRequest, "le parametre artiste est requis")
+			ecrireErreur(w, http.StatusBadRequest, "le paramètre artiste est requis")
 			return
 		}
 		album := strings.TrimSpace(r.URL.Query().Get("album"))
