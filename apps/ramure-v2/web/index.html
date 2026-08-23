@@ -129,6 +129,32 @@
     background: rgba(10, 10, 11, .92); border-radius: .3rem;
     padding: var(--espace-1) var(--espace-2);
   }
+
+  /* Bande d'echec de plantation (§17 Q6, PRODUCT.md, decision du 22 aout
+     2026) : pleine largeur, sous la barre de recherche -- remplace
+     l'ancien artiste fantome (un disque au centre portant le nom mal
+     orthographie, dementi seulement par une ligne de gris a l'autre bout
+     de l'ecran -- critique 2026-08-22 C15). C'est un ETAT, pas une alerte
+     qui s'auto-efface (web/src/echec.ts) : elle reste jusqu'a une
+     plantation reussie ou un retour a l'accueil. role="alert" (aria-live
+     assertive implicite) l'annonce des son apparition -- rien d'autre ne
+     signale ce changement d'etat a une technologie d'assistance. Fond et
+     texte mesures : ratio de contraste 10.45:1 (WCAG 2.2 AA exige 4.5:1).
+     Positionnee (position:absolute, z-index) plutot qu'en flux : elle
+     n'affecte jamais la hauteur de <main>, ni le grid de <body>. */
+  #echec-plantation {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 4;
+    margin: 0; padding: var(--espace-3) var(--espace-4);
+    background: #2a1010; color: #f5b8ac; font-size: var(--texte-corps);
+    border-bottom: 1px solid #4a2020;
+  }
+  /* L'arbre precedent reste DERRIERE la bande, estompe -- jamais perdu
+     (§17 Q6) : assez lisible pour se reperer, sans concurrencer le
+     message. pointer-events:none evite qu'un clic sur une branche
+     dimmee ne promeuve un noeud pendant que l'echec reste a traiter. */
+  #canevas.estompe {
+    opacity: .4; pointer-events: none; transition: opacity .15s ease;
+  }
   .visuellement-cache {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); white-space: nowrap;
@@ -181,20 +207,35 @@
     display: flex; align-items: center; justify-content: space-between; gap: var(--espace-3);
     padding: var(--espace-2) var(--espace-3); font-size: var(--texte-second); color: #8a867c;
   }
-  /* Critique 2026-08-22 C3 : `auto-fill` conserve les pistes vides. Avec 6
-     amorces et 9 pistes calculees a 1440, le mur s'arretait a x=955 et
-     laissait 485 px (34 % de la largeur) de noir — sur l'ecran d'entree,
-     collection vide, celui que voit un nouvel arrivant. `auto-fit` effondre
-     les pistes vides ; au-dela de 9 artistes rien ne change. */
+  /* Critique 2026-08-22 C3 (premiere correction) : `auto-fill` conservait
+     les pistes vides, 485 px (34 % de 1440) de noir a droite. `auto-fit`
+     les effondre : les colonnes en `minmax(9rem, 1fr)` occupent alors la
+     largeur ENTIERE, sans aucun reliquat -- ce mecanisme-la reste
+     INCHANGE ci-dessous.
+     §17 Q7 (PRODUCT.md, decision du 22 aout 2026, second passage) : le PRD
+     parle d'un « mur de POCHETTES » — la premiere correction donnait des
+     bandes verticales de rapport 1:3,2 a 1440 (mesure) au lieu du carre que
+     l'objet cite designe, `grid-auto-rows: 1fr` etirant chaque rangee sur
+     TOUTE la hauteur du conteneur. Piege ecarte : passer les colonnes a une
+     taille FIXE (ex. `repeat(auto-fit, 9rem)`) pour forcer le carre
+     ROUVRE le vide lateral que C3 venait de fermer — verifie a la mesure,
+     pas a l'oeil (web/tests/e2e/accueil-mur.spec.ts). La solution retenue
+     touche la RANGEE, jamais la colonne : `aspect-ratio: 1` sur `.tuile`
+     fait que sa hauteur suit sa PROPRE largeur (deja stiree a 1fr, zero
+     reliquat), et `grid-auto-rows: auto` laisse la rangee s'ajuster a cette
+     hauteur plutot que de forcer 100 % du conteneur. Le mur (souvent une
+     seule rangee, plus bas que le conteneur) se centre alors verticalement
+     -- c'est la « grille centree » retenue. */
   .mur {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    grid-auto-rows: 1fr; gap: var(--espace-2); padding: var(--espace-2); overflow: hidden; height: 100%;
+    grid-auto-rows: auto; align-content: center;
+    gap: var(--espace-2); padding: var(--espace-2); overflow: hidden; height: 100%;
   }
   .mur-item { min-height: 0; }
   .tuile {
-    position: relative; width: 100%; height: 100%; border: none; border-radius: .5rem;
+    position: relative; width: 100%; aspect-ratio: 1; border: none; border-radius: .5rem;
     cursor: pointer; overflow: hidden; display: flex; align-items: flex-end;
-    padding: 0; color: #ece7dc; min-height: 4rem;
+    padding: 0; color: #ece7dc;
   }
   .tuile-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .tuile-libelle {
@@ -333,6 +374,9 @@
   </div>
 </header>
 <main id="contenu">
+  <!-- Texte pose par main.ts (echec.ts) depuis textes.ts : jamais fige ici,
+       comme le reste des chaines de l'ecran (§17 Q6). -->
+  <p id="echec-plantation" class="echec-plantation" role="alert" hidden></p>
   <section id="accueil" class="accueil" hidden>
     <div class="accueil-barre">
       <p id="accueil-promesse" class="accueil-promesse"></p>

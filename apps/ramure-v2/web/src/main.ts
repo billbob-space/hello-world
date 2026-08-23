@@ -65,6 +65,7 @@ import {
   type PanneauCollection,
 } from "./collection";
 import { EN_TETE_SESSION, SessionExpireeError, sessionId } from "./session";
+import { afficherEchecPlantation, estEchecDePlantation, masquerEchecPlantation, texteEchecPlantation } from "./echec";
 import {
   ajouterALaCollection as envoyerAjoutCollection,
   chargerCentre,
@@ -97,6 +98,7 @@ const AMORCAGE_EDITORIAL: TuileDonnees[] = [
 
 const svg = document.querySelector<SVGSVGElement>("#canevas");
 const etat = document.querySelector<HTMLElement>("#etat");
+const echecPlantationEl = document.querySelector<HTMLElement>("#echec-plantation");
 const formulaire = document.querySelector<HTMLFormElement>("#recherche");
 const champGraine = document.querySelector<HTMLInputElement>("#graine");
 const boutonZoomerAvant = document.querySelector<HTMLButtonElement>("#zoomer-avant");
@@ -707,13 +709,7 @@ function cablerNoeud(n: NoeudDessine, nom: string): void {
 // voyager un noeud DEJA present (F-12).
 function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   if (!svg) return;
-  svg.replaceChildren();
-  const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
-  racine.setAttribute("class", "racine");
-  svg.append(racine);
-  groupeRacine = racine;
-  groupes = creerGroupes(racine);
-  noeudsDessines = new Map();
+
   // Defaut #1 (REFERENCE.md) corrige : sur un centre "aucun_voisin"/"panne",
   // centreAPI.artiste.nom est une chaine VIDE (Artiste zero-valeur, voir
   // centreVide()/centrePanne() cote Go) — la garder telle quelle rendait
@@ -722,14 +718,39 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   // lui, avait deja pousse une entree. Repli sur `nomDemande` (le nom
   // REELLEMENT demande, toujours non vide) : nomCentreCourant ne peut plus
   // etre faux alors qu'un centre existe deja, ce qui garde `ligneeNoms` et
-  // `lignee.lignee` de MEME longueur en toute circonstance.
+  // `lignee.lignee` de MEME longueur en toute circonstance. Pose ICI, AVANT
+  // le guard d'echec de plantation ci-dessous (§17 Q6) : une tentative
+  // corrigee compte, a bon droit, comme un centre quitte (F-14, F-29/F-30,
+  // web/tests/e2e/parcours.spec.ts) MEME quand rien ne se dessine.
   nomCentreCourant = centreAPI.artiste.nom || nomDemande;
 
-  if (centreAPI.etat !== "ok" || !centreAPI.branches || centreAPI.branches.length === 0) {
+  // §17 Q6 (PRODUCT.md, decision du 22 aout 2026) : un centre qui n'a RIEN
+  // resolu ne reconstruit plus la scene -- l'ancien artiste fantome
+  // (critique 2026-08-22 C15) laisse place a une bande d'echec, l'arbre
+  // precedent conserve DERRIERE elle, estompe (echec.ts). `groupeRacine`
+  // (deja construit ou non) dit s'il existe un arbre a estomper.
+  if (estEchecDePlantation(centreAPI)) {
+    if (etat) etat.textContent = ""; // le "Chargement de …" pose par planter() ne doit pas rester colle
+    afficherEchecPlantation({ bande: echecPlantationEl, arbre: svg }, texteEchecPlantation(centreAPI), groupeRacine !== null);
+    if (centreAPI.etat === "aucun_voisin") void tenterRattrapage(nomDemande); // F-03 : la correction reste proposee, EN PLUS de la bande
+    return;
+  }
+  masquerEchecPlantation({ bande: echecPlantationEl, arbre: svg });
+
+  svg.replaceChildren();
+  const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
+  racine.setAttribute("class", "racine");
+  svg.append(racine);
+  groupeRacine = racine;
+  groupes = creerGroupes(racine);
+  noeudsDessines = new Map();
+
+  // Ici, l'echec de plantation est deja ecarte (guard ci-dessus) : ce qui
+  // reste sous "aucun_voisin" est toujours un mbid REEL (F-36, "aucun
+  // voisin connu pour CET artiste" -- un resultat legitime, jamais un
+  // fantome).
+  if (!centreAPI.branches || centreAPI.branches.length === 0) {
     if (etat) etat.textContent = centreAPI.message ?? "Aucun voisin connu pour cet artiste.";
-    if (centreAPI.etat === "aucun_voisin" && !centreAPI.artiste.mbid) {
-      void tenterRattrapage(nomDemande); // F-03 : l'artiste demande est introuvable
-    }
   } else if (etat) {
     etat.textContent = "";
   }
@@ -793,8 +814,12 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
     if (lignee.estPerimee(generation)) return;
     if (erreur instanceof SessionExpireeError) {
       afficherSessionExpiree();
-    } else if (etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+    } else {
+      // §17 Q6 : une plantation qui echoue au niveau reseau (jamais de
+      // reponse serveur exploitable) est un echec de plantation comme un
+      // autre -- meme bande, meme arbre precedent conserve derriere elle.
+      if (etat) etat.textContent = "";
+      afficherEchecPlantation({ bande: echecPlantationEl, arbre: svg }, textes.reseauIndisponible, groupeRacine !== null);
     }
     return;
   }
@@ -954,6 +979,7 @@ boutonLogo?.addEventListener("click", () => {
   if (champGraine) champGraine.value = "";
   fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   masquerCorrection();
+  masquerEchecPlantation({ bande: echecPlantationEl, arbre: svg }); // §17 Q6 : le visiteur repart, la bande se leve
   nomCentreCourant = null;
   lignee.reinitialiser();
   ligneeNoms = [];

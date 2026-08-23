@@ -1370,3 +1370,93 @@ se consigne, sans quoi la troisieme occurrence ressemblera encore a la premiere.
 **Action** — `garde-fou` — l'instabilite est desormais vue sur deux suites
 differentes. Tant qu'elle n'est pas nommee, chaque branche paiera son rejeu et
 personne n'accumulera les occurrences.
+
+---
+
+## Suite — apres fusion, les deux choix rendus par l'utilisateur
+
+La pull request #171 est fusionnee et deployee (`e83765c`). La branche repart de
+`main` sous le meme nom, et cette entree continue apres ce separateur plutot que
+d'en ouvrir une seconde : c'est le meme sujet, et les anomalies d'avant la
+fusion expliquent une partie de ce qui suit.
+
+L'esthete avait montre trois variantes pour chacun des deux ecrans qu'il
+refusait de trancher seul. L'utilisateur a retenu **C** pour l'ecran d'echec de
+plantation — bande pleine largeur, arbre precedent conserve et estompe — et
+**A** pour le mur d'accueil sur ecran large — pochettes carrees, grille centree.
+Les deux decisions, avec ce qui a ete ecarte et pourquoi, sont ecrites au
+`PRODUCT.md` §17.
+
+### 17. L'app affirmait un resultat qu'elle n'avait pas
+
+**Symptome** — une graine mal orthographiee ne produisait pas un echec mais un
+**faux resultat** : un disque de 119 px au centre de l'ecran, portant le nom
+saisi, entoure de rien. Le seul dementi etait une ligne de gris de 12,8 px a
+l'autre bout de l'ecran.
+
+**Cause** — l'ecran d'echec n'avait jamais ete concu ; le chemin nominal a servi
+de chemin par defaut, et un centre sans voisins reste un centre a l'affichage.
+Le PRD exigeait pourtant (F-36) que « rien a montrer » et « panne » produisent
+deux messages differents — la troisieme possibilite, « ce nom ne correspond a
+rien », n'etait dans aucune des deux cases.
+
+**Detecte par** — `relecture`
+
+**Action** — `arbitrage` — la forme de cet ecran revenait a l'utilisateur, et
+elle lui a ete montree en trois variantes plutot que decidee. Trancher seul
+aurait ete plus rapide et aurait produit un ecran que personne n'aurait choisi.
+
+### 18. Le bout en bout a rattrape une regression que rien d'autre ne voyait
+
+**Symptome** — en supprimant le centre fantome de l'ecran d'echec, la mise a jour
+de la lignee disparaissait avec lui : une tentative de plantation fautive puis
+corrigee ne comptait plus comme « centre quitte ». F-14 et F-29 s'en trouvaient
+casses. `parcours.spec.ts` l'a vu ; aucun test unitaire ne pouvait le voir.
+
+**Cause** — le dessin du faux centre et l'avancement de la lignee vivaient dans
+la meme fonction de `main.ts`, le fichier que l'app exempte deliberement de test
+unitaire. Retirer l'un retirait l'autre. Deux responsabilites au meme endroit,
+dont une seule etait le sujet du chantier.
+
+**Detecte par** — `test`
+
+**Action** — `rien` — le filet a joue exactement ou il devait : le bout en bout
+est ce qui couvre le cablage que l'unitaire ne couvre pas, et c'est
+l'argument sur lequel repose l'exemption de `main.ts`. Il vient d'etre paye.
+
+### 19. Le carre pose en centrant la grille rouvrait le vide qu'on venait de fermer
+
+**Symptome** — premiere mise en oeuvre des pochettes carrees : colonnes de
+largeur fixe plus grille centree. Le rendu paraissait juste. A la mesure, le vide
+lateral revenait — environ 260 px de chaque cote a 1440 px, la ou le correctif de
+la veille l'avait ramene a presque rien. Le defaut n'etait plus asymetrique, donc
+plus visible a l'oeil ; il etait toujours la.
+
+**Cause** — deux facons d'obtenir un carre. Figer la largeur de colonne le donne,
+et abandonne l'occupation de la largeur disponible. Garder les colonnes
+elastiques et faire porter le carre sur la hauteur de rangee le donne aussi, sans
+rien lacher. La premiere est la premiere qui vient a l'esprit.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — un correctif de mise en page se verifie a la
+mesure, jamais au rendu. Un vide symetrique ressemble a une marge voulue ; c'est
+ce qui l'aurait fait passer.
+
+### 20. Le mur ne redimensionne plus, il rogne
+
+**Symptome** — les tuiles etant desormais de taille fixe plutot qu'etirees en
+hauteur, une collection assez grande deborderait verticalement, et
+`overflow: hidden` rognerait les dernieres au lieu de les retrecir comme avant.
+
+**Cause** — le contrat existant du mur — pas de defilement — a ete ecrit quand
+les tuiles s'etiraient : elles absorbaient la place. Des tuiles carrees ne
+l'absorbent plus. Le contrat n'a pas change, ce qu'il gouverne si.
+
+**Detecte par** — `auteur`
+
+**Action** — `arbitrage` — rien n'est casse aujourd'hui, l'accueil ne montrant
+que six propositions. Cela le deviendra si F-28 ou F-30 laissent la collection
+grossir sans plafond. Ne pas le corriger a l'aveugle : le choix entre plafonner
+le nombre de tuiles, autoriser le defilement, ou retrecir sous un seuil est un
+choix de produit.
