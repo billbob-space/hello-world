@@ -199,6 +199,7 @@ cas neufs couvrent desormais la seconde chaine cliente : la mesure lue, la barre
 posee, les tests rouges, le rapport perime jamais pris pour la mesure du jour, et
 le client qu'aucune chaine ne mesure.
 
+---
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
@@ -564,3 +565,11 @@ claude-opus-4-7, claude-opus-5, claude-haiku-4-5-20251001, claude-sonnet-5. Tari
 322 agent claude-haiku-4-5-20251001 293 21489 2
 -->
 <!-- /cout -->
+
+## Suite
+
+La branche a ete rouverte depuis `main` apres la fusion de la #174, sous le nom
+`claude/ramure-v2-refonte-suite-l94n9m` assigne par le harnais. La suite du
+travail — le constat N2 de la critique du 23 aout, et le rognage du mur — vit
+dans `journal/2026-08-23-claude-ramure-v2-refonte-suite-l94n9m.md`, dont
+l'anomalie 11 dit pourquoi elle n'a pas pu rester ici.

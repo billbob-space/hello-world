@@ -2,13 +2,15 @@
 //
 // Etat A de l'ecran (PRD §07) : mur de pochettes plein ecran, tri memorise
 // (F-05, F-06, F-07). Porte 06.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ORDRES_MUR,
+  capaciteMur,
   chargerOrdre,
   construireMur,
   memoriserOrdre,
   trierTuiles,
+  type MesureMur,
   type TuileDonnees,
 } from "../src/accueil";
 
@@ -145,6 +147,10 @@ describe("6 · apparition progressive neutralisee sous mouvement reduit, jamais 
   function fenetreAvecPreference(reduit: boolean): Window {
     return {
       matchMedia: () => ({ matches: reduit }) as MediaQueryList,
+      // Depuis le plafond §17 Q9, construireMur pose TOUJOURS un ecouteur
+      // de redimensionnement : ces fenetres factices doivent l'accepter.
+      addEventListener: () => {},
+      removeEventListener: () => {},
     } as unknown as Window;
   }
 
@@ -188,5 +194,115 @@ describe("7 · chaque tuile plante l'artiste au clic (action explicite)", () => 
     construireMur(conteneur, tuiles, { stockage: stockageMemoire(), surPlanter: () => {} });
     const bouton = conteneur.querySelector<HTMLButtonElement>(".tuile")!;
     expect(bouton.getAttribute("aria-label")).toBe("Planter Portishead");
+  });
+});
+
+describe("8 · capaciteMur — le mur n'affiche que ce qui tient (§17 Q9)", () => {
+  it("cas nominal : mesure §17 Q8 a 1440 (6 colonnes, 778px) -> 3 rangees, 18 tuiles", () => {
+    const mesure: MesureMur = { colonnes: 6, tailleTuile: 230.7, gap: 8, hauteurDisponible: 778 };
+    expect(capaciteMur(mesure, 50)).toBe(18);
+  });
+
+  it("une seule rangee tient : capacite = colonnes", () => {
+    const mesure: MesureMur = { colonnes: 6, tailleTuile: 230.7, gap: 8, hauteurDisponible: 240 };
+    expect(capaciteMur(mesure, 50)).toBe(6);
+  });
+
+  it("le plafond ne descend jamais sous le nombre de tuiles disponible", () => {
+    const mesure: MesureMur = { colonnes: 6, tailleTuile: 100, gap: 8, hauteurDisponible: 2000 };
+    expect(capaciteMur(mesure, 3)).toBe(3);
+  });
+
+  it("entree non finie ou <= 0 : repli sur le total, jamais 0 tuile affichee", () => {
+    expect(capaciteMur({ colonnes: NaN, tailleTuile: 100, gap: 8, hauteurDisponible: 500 }, 6)).toBe(6);
+    expect(capaciteMur({ colonnes: 6, tailleTuile: 0, gap: 8, hauteurDisponible: 500 }, 6)).toBe(6);
+    expect(capaciteMur({ colonnes: 6, tailleTuile: 100, gap: 8, hauteurDisponible: 0 }, 6)).toBe(6);
+  });
+
+  it("fenetre trop courte pour une seule rangee : la montre quand meme (max(1, ...))", () => {
+    const mesure: MesureMur = { colonnes: 4, tailleTuile: 200, gap: 8, hauteurDisponible: 50 };
+    expect(capaciteMur(mesure, 20)).toBe(4);
+  });
+});
+
+describe("9 · le plafond s'applique APRES le tri : l'ordre decide qui est visible (§17 Q9)", () => {
+  // mesurer factice : capacite constante de 2, quel que soit le
+  // conteneur -- isole le test du calcul de layout reel (jsdom n'en fait
+  // pas), conformement au principe d'injection deja en place pour `alea`.
+  const mesurerDeux = () => ({ colonnes: 2, tailleTuile: 100, gap: 0, hauteurDisponible: 100 }) as MesureMur;
+
+  const quatre: TuileDonnees[] = [
+    { nom: "Portishead" },
+    { nom: "Aphex Twin" },
+    { nom: "Boards of Canada" },
+    { nom: "Massive Attack" },
+  ];
+
+  function libellesVisibles(conteneur: HTMLElement): string[] {
+    return Array.from(conteneur.querySelectorAll<HTMLElement>(".mur-item"))
+      .filter((item) => !item.hidden)
+      .map((item) => item.querySelector(".tuile-libelle")!.textContent);
+  }
+
+  function libellesMasques(conteneur: HTMLElement): string[] {
+    return Array.from(conteneur.querySelectorAll<HTMLElement>(".mur-item"))
+      .filter((item) => item.hidden)
+      .map((item) => item.querySelector(".tuile-libelle")!.textContent);
+  }
+
+  it("ordre 'recents' : les 2 premieres de l'ordre fourni sont visibles, les 2 suivantes masquees", () => {
+    const conteneur = document.createElement("div");
+    construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(),
+      surPlanter: () => {},
+      mesurer: mesurerDeux,
+    });
+
+    expect(libellesVisibles(conteneur)).toEqual(["Portishead", "Aphex Twin"]);
+    expect(libellesMasques(conteneur)).toEqual(["Boards of Canada", "Massive Attack"]);
+  });
+
+  it("changer l'ordre en 'alphabetique' change QUI est visible, sans changer la capacite", () => {
+    const conteneur = document.createElement("div");
+    const mur = construireMur(conteneur, quatre, {
+      stockage: stockageMemoire(),
+      surPlanter: () => {},
+      mesurer: mesurerDeux,
+    });
+
+    mur.definirOrdre("alphabetique");
+
+    // "Portishead", visible sous 'recents', passe hors capacite une fois
+    // trie alphabetiquement : c'est bien l'ORDRE qui a decide, pas un
+    // filtre fixe sur les tuiles elles-memes.
+    expect(libellesVisibles(conteneur)).toEqual(["Aphex Twin", "Boards of Canada"]);
+    expect(libellesMasques(conteneur)).toEqual(["Massive Attack", "Portishead"]);
+  });
+});
+
+describe("10 · l'ecouteur de redimensionnement est retire par detruire() (§17 Q9)", () => {
+  it("addEventListener puis removeEventListener portent le MEME gestionnaire", () => {
+    const ecouteurs = new Map<string, EventListener>();
+    const fenetre = {
+      matchMedia: () => ({ matches: false }) as MediaQueryList,
+      addEventListener: vi.fn((type: string, gestionnaire: EventListener) => {
+        ecouteurs.set(type, gestionnaire);
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as Window;
+
+    const conteneur = document.createElement("div");
+    const mur = construireMur(conteneur, tuiles, {
+      stockage: stockageMemoire(),
+      fenetre,
+      surPlanter: () => {},
+    });
+
+    expect(fenetre.addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
+    const gestionnaire = ecouteurs.get("resize");
+
+    mur.detruire();
+
+    expect(fenetre.removeEventListener).toHaveBeenCalledWith("resize", gestionnaire);
   });
 });
