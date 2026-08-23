@@ -447,7 +447,7 @@ services:
 
   # >>> ramure-v2 — apps/ramure-v2/app.yml — https://ramure-v2.apps.billbob.ovh
   ramure-v2:
-    image: ghcr.io/billbob-space/hello-world/ramure-v2:93ec1443af58398fafe6490975c069d3f19634fe
+    image: ghcr.io/billbob-space/hello-world/ramure-v2:0929eeb4fdc4af9791f1594cc71fe9f9f748e041
     container_name: ramure-v2
     restart: unless-stopped
     mem_limit: 128m
