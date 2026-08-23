@@ -230,50 +230,90 @@ comparer est celui des quatre branches ramure-v2 : 470, 271, 246 et 152.
 
 **Action** — `rien` — le garde-fou fait ce pour quoi il est ecrit.
 
+### 13. Le marqueur neuf se lisait sans ancre, et l'entree qui l'explique le faussait
+
+**Symptome** — constat de la relecture : `cout_releves_ecrits` cherchait
+`<!-- cout-releve ... -->` n'importe ou dans l'entree de journal. Une entree qui
+CITE le marqueur — dans un exemple, ou dans l'anomalie qui explique le mecanisme
+— entrait donc dans le cumul, et le total de la branche partait faux, jusque dans
+l'agregat du depot que lit `scripts/jetons.sh`.
+
+**Cause** — le piege avait deja ete rencontre et corrige dans `jetons.sh`, dont
+le commentaire dit en toutes lettres « ANCRES EN DEBUT DE LIGNE, et ce n'est pas
+une precaution de style ». Il a ete repaye a l'identique en ajoutant un marqueur
+neuf : la lecon vivait a cote du code qui l'avait apprise, et pas a cote du geste
+qui la redemande. C'est le seul des six constats que rien n'aurait attrape — les
+cinq autres sont des ecarts de documentation ou de couverture, celui-ci rendait
+un nombre faux qui ressemble trait pour trait a un nombre juste.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — l'ancre est posee, et un cas de `test-cout.sh` place
+un marqueur en pleine prose pour verifier qu'il n'est pas compte.
+
+### 14. Une alerte appariait le nombre de tours d'un conteneur a la moyenne d'un autre
+
+**Symptome** — constat de la relecture : le maximum de tours d'agent est pris sur
+TOUS les conteneurs, la relecture moyenne venait du seul conteneur courant. Un
+conteneur qui n'a lance aucun agent apres un conteneur qui en a lance un de 109
+tours produisait « la plus longue session fait 109 tours a 0 jetons relus
+chacun ».
+
+**Cause** — le cumul a ete ajoute a une phrase ecrite quand toutes ses grandeurs
+venaient de la meme mesure. Agreger l'une sans agreger l'autre laisse une phrase
+grammaticalement intacte et arithmetiquement fausse — et c'est le seul chiffre de
+l'alerte qui en justifie le cout. La moyenne n'est desormais dite que si le
+maximum vient du conteneur courant.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — quand une grandeur devient cumulee, relire toutes
+les phrases ou elle voisine une grandeur qui ne l'est pas.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
-Relevé le 2026-08-23 à 19:12 UTC, sur 1 session(s) lisible(s) depuis
+Relevé le 2026-08-23 à 19:24 UTC, sur 1 session(s) lisible(s) depuis
 ce conteneur — celles des conteneurs précédents sont perdues. Modèle(s) :
-claude-opus-5, claude-haiku-4-5-20251001. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
+claude-opus-4-7, claude-opus-5, claude-haiku-4-5-20251001. Tarifs de `fabrique.yml`, en dollars par million de jetons ;
 écriture de cache à 1,25x le prix d'entrée, lecture à 0,10x. Taux
 1 $ = 0,86843 € au 2026-08-04.
 
 | Poste | Jetons | Coût |
 |---|---:|---:|
-| Entrée | 396 | 0,00 $ |
-| Écriture de cache | 696 731 | 4,18 $ |
-| Lecture de cache | 14 576 291 | 7,22 $ |
-| Sortie | 68 668 | 1,72 $ |
-| **Total** | **15 342 086** | **13,12 $ — 11,39 €** |
+| Entrée | 543 | 0,00 $ |
+| Écriture de cache | 908 514 | 5,40 $ |
+| Lecture de cache | 18 375 968 | 9,07 $ |
+| Sortie | 88 256 | 2,20 $ |
+| **Total** | **19 373 281** | **16,67 $ — 14,48 €** |
 
 **Ce qui coûte**
 
-- **157 appel(s) au modèle** — un par réponse, outils compris —, dont 90 par des sous-agents — 4 194 051 jetons, 3,88 $.
+- **201 appel(s) au modèle** — un par réponse, outils compris —, dont 115 par des sous-agents — 5 014 267 jetons, 4,75 $.
 - **Démarrage** — contrat, outillage et définitions d'outils pèsent
   68 722 jetons, écrits une fois par session puis relus à chaque
-  échange : 4 535 652 jetons de relecture, 31 % de tout ce qui a été relu.
-- **Tours courts** — 115 des 157 tours (73 %) sortent
+  échange : 5 841 370 jetons de relecture, 31 % de tout ce qui a été relu.
+- **Tours courts** — 143 des 201 tours (71 %) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
-  une sortie de rien. Ils coûtent 6,33 $, soit 48 % de la facture.
-  Dont 90 chez des agents, où un tour EST un appel d'outil :
+  une sortie de rien. Ils coûtent 7,82 $, soit 46 % de la facture.
+  Dont 110 chez des agents, où un tour EST un appel d'outil :
   ceux-là ne se groupent pas — c'est la LONGUEUR de la session qu'il faut réduire,
   ligne suivante. Le reste vient de la session principale, et se groupe.
-- **Session principale** — 67 tour(s) dans ce conteneur, 67 sur la branche.
+- **Session principale** — 86 tour(s) dans ce conteneur, 86 sur la branche.
   **Au-delà de 60 tours, coupe et repars du PRP** — le prompt de reprise
   est dans `memory/travail.md`.
-- **Sessions d'agent** — 7, dont la plus longue fait 28 tours,
+- **Sessions d'agent** — 9, dont la plus longue fait 28 tours,
   relit 43 102 jetons par tour en moyenne et coûte 1,08 $.
   Son coût croît en **carré** de sa longueur : deux fois plus de tours, chacun
   relisant deux fois plus. Deux sessions de moitié, la seconde repartant du
   document de conception et non de l'exploration de la première, coûtent environ
   la moitié.
 - **Croissance** — 68 722 jetons relus au premier appel qui relise
-  quelque chose, 229 090 au dernier : une session longue se paie à chaque tour.
+  quelque chose, 244 649 au dernier : une session longue se paie à chaque tour.
 
-<!-- cout-releve fb3d9c8e0236 15342086 13.121010 67 28 -->
-<!-- cout-total: 15342086 -->
-<!-- cout-principal-tours: 67 -->
+<!-- cout-releve fb3d9c8e0236 19373281 16.674843 86 28 -->
+<!-- cout-total: 19373281 -->
+<!-- cout-principal-tours: 86 -->
 <!-- cout-agent-max: 28 -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 1 principal claude-opus-5 68722 0 650
@@ -343,95 +383,139 @@ claude-opus-5, claude-haiku-4-5-20251001. Tarifs de `fabrique.yml`, en dollars p
 65 principal claude-opus-5 582 228076 295
 66 principal claude-opus-5 432 228658 144
 67 principal claude-opus-5 478 229090 1437
-68 agent claude-opus-5 13155 0 3
-69 agent claude-opus-5 3982 13155 5
-70 agent claude-opus-5 4000 17137 2
-71 agent claude-opus-5 5731 21137 3
-72 agent claude-opus-5 1814 26868 2
-73 agent claude-opus-5 9164 28682 3
-74 agent claude-opus-5 10603 37846 4
-75 agent claude-opus-5 8654 48449 4
-76 agent claude-haiku-4-5-20251001 11889 0 4
-77 agent claude-haiku-4-5-20251001 1488 11889 2
-78 agent claude-haiku-4-5-20251001 568 13377 2
-79 agent claude-haiku-4-5-20251001 1780 13945 2
-80 agent claude-haiku-4-5-20251001 2392 15725 2
-81 agent claude-haiku-4-5-20251001 1639 18117 2
-82 agent claude-haiku-4-5-20251001 316 19756 2
-83 agent claude-opus-5 15739 24987 1
-84 agent claude-opus-5 3031 40726 3
-85 agent claude-opus-5 3318 43757 4
-86 agent claude-opus-5 9526 47075 3
-87 agent claude-opus-5 2904 56601 3
-88 agent claude-opus-5 1930 59505 3
-89 agent claude-opus-5 2842 61435 4
-90 agent claude-opus-5 3035 64277 2
-91 agent claude-opus-5 634 67312 9
-92 agent claude-opus-5 2156 67946 2
-93 agent claude-opus-5 12683 0 6
-94 agent claude-opus-5 2245 12683 5
-95 agent claude-opus-5 9618 14928 3
-96 agent claude-opus-5 4237 24546 21
-97 agent claude-opus-5 1994 28783 3
-98 agent claude-opus-5 1379 30777 2
-99 agent claude-opus-5 1671 32156 3
-100 agent claude-opus-5 1290 33827 20
-101 agent claude-opus-5 447 35117 20
-102 agent claude-opus-5 812 35564 7
-103 agent claude-opus-5 1226 36376 7
-104 agent claude-opus-5 663 37602 17
-105 agent claude-opus-5 423 38265 3
-106 agent claude-opus-5 2672 38688 3
-107 agent claude-opus-5 2074 41360 3
-108 agent claude-opus-5 1294 43434 3
-109 agent claude-opus-5 1817 44728 3
-110 agent claude-opus-5 5466 46545 3
-111 agent claude-opus-5 3184 52011 3
-112 agent claude-opus-5 2649 55195 2
-113 agent claude-opus-5 1788 57844 8
-114 agent claude-opus-5 3160 59632 3
-115 agent claude-opus-5 2193 62792 3
-116 agent claude-opus-5 1999 64985 2
-117 agent claude-opus-5 2817 66984 3
-118 agent claude-opus-5 872 69801 2
-119 agent claude-opus-5 902 70673 2
-120 agent claude-opus-5 3736 71575 2
-121 agent claude-haiku-4-5-20251001 11780 0 4
-122 agent claude-haiku-4-5-20251001 1366 11780 2
-123 agent claude-haiku-4-5-20251001 440 13146 3
-124 agent claude-haiku-4-5-20251001 488 13586 5
-125 agent claude-haiku-4-5-20251001 523 14074 4
-126 agent claude-haiku-4-5-20251001 378 14597 2
-127 agent claude-opus-5 40830 0 1
-128 agent claude-opus-5 1575 40830 17
-129 agent claude-opus-5 1925 42405 3
-130 agent claude-opus-5 3105 44330 3
-131 agent claude-opus-5 1868 47435 2
-132 agent claude-opus-5 1076 49303 17
-133 agent claude-opus-5 1745 50379 3
-134 agent claude-opus-5 2354 52124 2
-135 agent claude-opus-5 2283 54478 3
-136 agent claude-opus-5 1391 56761 3
-137 agent claude-opus-5 1110 58152 3
-138 agent claude-opus-5 654 59262 2
-139 agent claude-opus-5 5123 59916 3
-140 agent claude-opus-5 1982 65039 5
-141 agent claude-opus-5 2210 67021 3
-142 agent claude-opus-5 3625 69231 5
-143 agent claude-opus-5 15941 24987 1
-144 agent claude-opus-5 1636 40928 2
-145 agent claude-opus-5 5109 42564 3
-146 agent claude-opus-5 5228 47673 4
-147 agent claude-opus-5 4926 52901 4
-148 agent claude-opus-5 1591 57827 3
-149 agent claude-opus-5 4914 59418 5
-150 agent claude-opus-5 3887 64332 3
-151 agent claude-opus-5 2383 68219 2
-152 agent claude-opus-5 2983 70602 4
-153 agent claude-opus-5 3694 73585 3
-154 agent claude-opus-5 5321 77279 4
-155 agent claude-opus-5 1573 82600 3
-156 agent claude-opus-5 1382 84173 2
-157 agent claude-opus-5 4345 85555 1
+68 principal claude-opus-5 1486 229568 687
+69 principal claude-opus-4-7 45160 0 115
+70 principal claude-opus-4-7 228 45160 98
+71 principal claude-opus-4-7 275 45388 82
+72 principal claude-opus-4-7 20396 45663 82
+73 principal claude-opus-4-7 7325 66059 80
+74 principal claude-opus-4-7 16881 73384 80
+75 principal claude-opus-5 890 231054 131
+76 principal claude-opus-5 252 231944 1215
+77 principal claude-opus-4-7 9765 90265 3479
+78 principal claude-opus-4-7 5781 100030 1992
+79 principal claude-opus-5 1609 232196 366
+80 principal claude-opus-5 3130 234171 513
+81 principal claude-opus-5 2066 237301 1737
+82 principal claude-opus-5 1775 239367 807
+83 principal claude-opus-5 924 241142 1774
+84 principal claude-opus-5 2082 242066 369
+85 principal claude-opus-5 501 244148 1508
+86 principal claude-opus-5 1605 244649 143
+87 agent claude-haiku-4-5-20251001 11991 0 4
+88 agent claude-haiku-4-5-20251001 1353 11991 2
+89 agent claude-haiku-4-5-20251001 481 13344 2
+90 agent claude-haiku-4-5-20251001 595 13825 4
+91 agent claude-haiku-4-5-20251001 228 14420 1
+92 agent claude-haiku-4-5-20251001 312 14648 2
+93 agent claude-haiku-4-5-20251001 325 14960 109
+94 agent claude-haiku-4-5-20251001 4202 15285 2
+95 agent claude-haiku-4-5-20251001 606 19487 4
+96 agent claude-haiku-4-5-20251001 286 20093 2
+97 agent claude-opus-5 13155 0 3
+98 agent claude-opus-5 3982 13155 5
+99 agent claude-opus-5 4000 17137 2
+100 agent claude-opus-5 5731 21137 3
+101 agent claude-opus-5 1814 26868 2
+102 agent claude-opus-5 9164 28682 3
+103 agent claude-opus-5 10603 37846 4
+104 agent claude-opus-5 8654 48449 4
+105 agent claude-opus-5 12801 0 268
+106 agent claude-opus-5 1467 12801 114
+107 agent claude-opus-5 1255 14268 17
+108 agent claude-opus-5 8812 15523 3
+109 agent claude-opus-5 4724 24335 730
+110 agent claude-opus-5 6196 29059 3
+111 agent claude-opus-5 9483 35255 546
+112 agent claude-opus-5 2448 44738 2
+113 agent claude-opus-5 6439 47186 599
+114 agent claude-opus-5 1881 53625 413
+115 agent claude-opus-5 1327 55506 3
+116 agent claude-opus-5 8291 56833 3
+117 agent claude-opus-5 809 65124 1493
+118 agent claude-opus-5 1950 65933 2
+119 agent claude-opus-5 1390 67883 2
+120 agent claude-haiku-4-5-20251001 11889 0 4
+121 agent claude-haiku-4-5-20251001 1488 11889 2
+122 agent claude-haiku-4-5-20251001 568 13377 2
+123 agent claude-haiku-4-5-20251001 1780 13945 2
+124 agent claude-haiku-4-5-20251001 2392 15725 2
+125 agent claude-haiku-4-5-20251001 1639 18117 2
+126 agent claude-haiku-4-5-20251001 316 19756 2
+127 agent claude-opus-5 15739 24987 1
+128 agent claude-opus-5 3031 40726 3
+129 agent claude-opus-5 3318 43757 4
+130 agent claude-opus-5 9526 47075 3
+131 agent claude-opus-5 2904 56601 3
+132 agent claude-opus-5 1930 59505 3
+133 agent claude-opus-5 2842 61435 4
+134 agent claude-opus-5 3035 64277 2
+135 agent claude-opus-5 634 67312 9
+136 agent claude-opus-5 2156 67946 2
+137 agent claude-opus-5 12683 0 6
+138 agent claude-opus-5 2245 12683 5
+139 agent claude-opus-5 9618 14928 3
+140 agent claude-opus-5 4237 24546 21
+141 agent claude-opus-5 1994 28783 3
+142 agent claude-opus-5 1379 30777 2
+143 agent claude-opus-5 1671 32156 3
+144 agent claude-opus-5 1290 33827 20
+145 agent claude-opus-5 447 35117 20
+146 agent claude-opus-5 812 35564 7
+147 agent claude-opus-5 1226 36376 7
+148 agent claude-opus-5 663 37602 17
+149 agent claude-opus-5 423 38265 3
+150 agent claude-opus-5 2672 38688 3
+151 agent claude-opus-5 2074 41360 3
+152 agent claude-opus-5 1294 43434 3
+153 agent claude-opus-5 1817 44728 3
+154 agent claude-opus-5 5466 46545 3
+155 agent claude-opus-5 3184 52011 3
+156 agent claude-opus-5 2649 55195 2
+157 agent claude-opus-5 1788 57844 8
+158 agent claude-opus-5 3160 59632 3
+159 agent claude-opus-5 2193 62792 3
+160 agent claude-opus-5 1999 64985 2
+161 agent claude-opus-5 2817 66984 3
+162 agent claude-opus-5 872 69801 2
+163 agent claude-opus-5 902 70673 2
+164 agent claude-opus-5 3736 71575 2
+165 agent claude-haiku-4-5-20251001 11780 0 4
+166 agent claude-haiku-4-5-20251001 1366 11780 2
+167 agent claude-haiku-4-5-20251001 440 13146 3
+168 agent claude-haiku-4-5-20251001 488 13586 5
+169 agent claude-haiku-4-5-20251001 523 14074 4
+170 agent claude-haiku-4-5-20251001 378 14597 2
+171 agent claude-opus-5 40830 0 1
+172 agent claude-opus-5 1575 40830 17
+173 agent claude-opus-5 1925 42405 3
+174 agent claude-opus-5 3105 44330 3
+175 agent claude-opus-5 1868 47435 2
+176 agent claude-opus-5 1076 49303 17
+177 agent claude-opus-5 1745 50379 3
+178 agent claude-opus-5 2354 52124 2
+179 agent claude-opus-5 2283 54478 3
+180 agent claude-opus-5 1391 56761 3
+181 agent claude-opus-5 1110 58152 3
+182 agent claude-opus-5 654 59262 2
+183 agent claude-opus-5 5123 59916 3
+184 agent claude-opus-5 1982 65039 5
+185 agent claude-opus-5 2210 67021 3
+186 agent claude-opus-5 3625 69231 5
+187 agent claude-opus-5 15941 24987 1
+188 agent claude-opus-5 1636 40928 2
+189 agent claude-opus-5 5109 42564 3
+190 agent claude-opus-5 5228 47673 4
+191 agent claude-opus-5 4926 52901 4
+192 agent claude-opus-5 1591 57827 3
+193 agent claude-opus-5 4914 59418 5
+194 agent claude-opus-5 3887 64332 3
+195 agent claude-opus-5 2383 68219 2
+196 agent claude-opus-5 2983 70602 4
+197 agent claude-opus-5 3694 73585 3
+198 agent claude-opus-5 5321 77279 4
+199 agent claude-opus-5 1573 82600 3
+200 agent claude-opus-5 1382 84173 2
+201 agent claude-opus-5 4345 85555 1
 -->
 <!-- /cout -->

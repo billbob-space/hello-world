@@ -84,8 +84,10 @@ COUT_FIN='<!-- /cout -->'
 # Le bloc s'ECRIT avec COUT_DEBUT, mais il se RECONNAIT sur ce prefixe. Les
 # entrees deja committees nomment « ./init.sh --cout », qui n'existe plus depuis
 # que le releve a son propre script : les reconnaitre a l'identique leur
-# ajouterait un second bloc au lieu de remplacer le premier, et cout_total_ecrit
-# — qui garde la premiere occurrence — lirait le total perime pour toujours.
+# ajouterait un second bloc au lieu de remplacer le premier. Le dedoublement se
+# paierait deux fois depuis que le bloc porte les lignes `cout-releve` : le
+# premier bloc garderait des lignes que le second ignore, et le cumul de la
+# branche se figerait sur un etat perime sans que rien ne le signale.
 COUT_OUVERTURE='<!-- cout : genere par '
 
 cout_dir() {  # le repertoire des conversations de CE depot, ou vide
@@ -388,7 +390,12 @@ cout_conteneur() {
 cout_releves_ecrits() {
   local entree="$1" sauf="${2:-}"
   [ -f "$entree" ] || return 0
-  grep -o '<!-- cout-releve [^>]*-->' "$entree" 2>/dev/null \
+  # ANCRE EN DEBUT DE LIGNE, comme dans jetons.sh et pour la meme raison : sans
+  # elle, une entree qui CITE le marqueur — dans un exemple, ou dans une anomalie
+  # qui explique le mecanisme — entre dans le cumul, et le total de la branche
+  # devient faux sans que rien ne le dise. cout_ecrit les ecrit toujours en debut
+  # de ligne : l'ancre ne coute rien et ferme le piege.
+  grep -o '^<!-- cout-releve [^>]*-->' "$entree" 2>/dev/null \
     | sed 's/^<!-- cout-releve //; s/ *-->$//' \
     | awk -v k="$sauf" 'NF >= 5 && $1 != k' || true
 }
@@ -396,9 +403,12 @@ cout_releves_ecrits() {
 # cout_cumul <lignes> <rang> — un champ agrege des lignes de releve :
 #   1 jetons (somme) · 2 dollars (somme) · 3 tours principaux (somme)
 #   4 tours d'agent (max) · 5 nombre de conteneurs
-# Les tours s'ADDITIONNENT d'un conteneur a l'autre : une session coupee en trois
-# a bien fait la somme de ses trois longueurs, et c'est ce total que le plafond
-# doit regarder — sinon couper suffit a passer sous le seuil sans rien raccourcir.
+# Les tours de la session PRINCIPALE (rang 3) s'ADDITIONNENT d'un conteneur a
+# l'autre : une session coupee en trois a bien fait la somme de ses trois
+# longueurs, et c'est ce total que le plafond doit regarder — sinon couper suffit
+# a passer sous le seuil sans rien raccourcir. Ceux des agents (rang 4) prennent
+# le MAX : deux sessions de 50 tours ne font pas une session de 100, et c'est la
+# longueur d'UNE session qui fait croitre son cout en carre.
 cout_cumul() {
   printf '%s\n' "$1" | awk -v r="$2" '
     NF >= 5 { j += $2; d += $3; p += $4; if ($5 + 0 > a) a = $5; n++ }
@@ -409,10 +419,6 @@ cout_cumul() {
       else if (r == 4) printf "%d", a
       else printf "%d", n
     }'
-}
-
-cout_total_ecrit() {  # le total en jetons deja consigne dans <entree>, ou vide
-  grep -o 'cout-total: [0-9]*' "$1" 2>/dev/null | head -1 | tr -dc '0-9' || true
 }
 
 cout_ecrit() {  # cout_ecrit <entree> <bloc> — remplace le bloc existant, ou l'ajoute
@@ -524,7 +530,13 @@ cout_rappel_tours() {  # cout_rappel_tours <entree> <releve>
   cum_p=$(cout_cumul "$lignes" 3)
 
   if [ "${cum_a:-0}" -gt "$COUT_TOURS_ALERTE" ] 2>/dev/null; then
-    warn "agents : la plus longue session fait $cum_a tours a $(jetons_nb "${moyen:-0}") jetons relus chacun — son cout croit en carre de sa longueur ; decoupe le chantier suivant en deux"
+    # La moyenne ne se dit que si le maximum vient de CE conteneur : ailleurs elle
+    # decrit une autre session que celle qu'on nomme, et l'alerte chiffrerait son
+    # cout avec un nombre qui ne s'y rapporte pas — jusqu'a « 109 tours a 0 jetons
+    # relus chacun » quand le conteneur courant n'a lance aucun agent.
+    local relu=""
+    [ "$cum_a" = "$tours" ] && [ -n "${moyen:-}" ] && relu=" a $(jetons_nb "$moyen") jetons relus chacun"
+    warn "agents : la plus longue session fait $cum_a tours$relu — son cout croit en carre de sa longueur ; decoupe le chantier suivant en deux"
   fi
   if [ "${cum_p:-0}" -gt "$COUT_TOURS_ALERTE" ] 2>/dev/null; then
     warn "session principale : $cum_p tours sur cette branche, plafond $COUT_TOURS_ALERTE — coupe et repars du PRP ; termine ton message par le PROMPT DE REPRISE, gabarit dans memory/travail.md"

@@ -660,6 +660,56 @@ muet "sous le plafond, la session principale ne dit rien" "session principale :"
 $(for i in $(seq 1 10); do requete "u_$i" "$BRANCHE" 0 claude-opus-5 10 100 1000 50; done)
 FIN
 
+
+# Le rappel de PEREMPTION, que rien ne tenait. Il compare ce que la conversation
+# compte a ce qui est deja consigne POUR CE CONTENEUR — et c'est la correction
+# du 23 aout : tant qu'il lisait `cout-total`, devenu le cumul de la branche,
+# la comparaison etait devenue impossible et le garde-fou s'etait eteint sans
+# qu'aucun des vingt-neuf cas d'alors ne bronche.
+peremption() {  # peremption <nom> <motif attendu> <ligne de releve|vide>
+  local nom="$1" motif="$2" ligne="${3:-}" d entree sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  entree="$d/journal/2026-01-01-$(printf '%s' "$BRANCHE" | tr '/' '-').md"
+  cat > "$entree" <<'ENTREE'
+# 2026-01-01 — claude/test-cout
+
+Branche : `claude/test-cout`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+ENTREE
+  [ -n "$ligne" ] && printf '%s\n' "$ligne" >> "$entree"
+  sortie=$( cd "$d" && HOME="$d/home" COUT_CONTENEUR=conteneur1 ./scripts/cout.sh --rappel 2>&1 ) || true
+  if grep -qF -- "$motif" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "« $motif » absent de la sortie de --rappel"
+  fi
+}
+
+peremption "sans ligne pour ce conteneur, le releve est dit non fait" "cout : non releve" "" <<FIN
+$(requete r_1 "$BRANCHE" 0 claude-opus-5 10 5000 5000 50)
+FIN
+
+peremption "une ligne de releve perimee fait redemander le releve" "relance ./scripts/cout.sh" \
+  '<!-- cout-releve conteneur1 100 0.010000 1 0 -->' <<FIN
+$(requete r_2 "$BRANCHE" 0 claude-opus-5 10 5000 5000 50)
+FIN
+
+# Une entree qui CITE le marqueur — dans un exemple, ou dans l'anomalie qui
+# explique le mecanisme — ne doit pas entrer dans le cumul. Sans ancre de debut
+# de ligne, la prose devenait un releve et le total de la branche partait faux,
+# jusque dans l'agregat du depot que lit scripts/jetons.sh.
+peremption "un marqueur cite en pleine prose n'est pas compte" "cout : non releve" \
+  'Le releve ecrit une ligne <!-- cout-releve conteneur1 999999999 99.0 999 999 --> par conteneur.' <<FIN
+$(requete r_3 "$BRANCHE" 0 claude-opus-5 10 5000 5000 50)
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]
