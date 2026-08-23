@@ -34,11 +34,37 @@ export const textes = {
   // Accueil, mur de pochettes et tri (PRD §07 etat A, F-05, F-06, F-07).
   planterDepuisTuile: (nom: string): string => `Planter ${nom}`,
   triLabel: "Trier le mur",
+  // §17 Q10 (PRODUCT.md, decision du 23 aout 2026, constat N4) : ce
+  // libelle n'est vrai QUE si le mur vient reellement d'une collection
+  // gardee. Reutilise tel quel pour l'intertitre du mur (accueil.ts,
+  // libelleAccueilIntertitre) dans ce meme etat — meme phrase, meme
+  // verite, pas de doublon a faire diverger.
   triRecents: "Gardés récemment",
+  // Libelle de l'ordre "recents" tant que le mur vient de l'amorcage
+  // editorial (aucune collection cablee, F-28/F-30) : "recents" respecte
+  // alors l'ordre EDITORIAL fourni par l'appelant (accueil.ts,
+  // trierTuiles), qui n'a rien de "garde" — cf. triRecents ci-dessus.
+  triSelectionEditoriale: "Sélection éditoriale",
   triAlphabetique: "Ordre alphabétique",
   triAleatoire: "Aléatoire",
+  // §17 Q10 : la promesse quitte le haut de l'accueil pour devenir le
+  // texte d'attente du champ de recherche — elle continue de dire ce que
+  // fait le produit, lue au moment ou elle sert plutot qu'affirmee en
+  // permanence au-dessus d'un mur qu'elle ne decrit pas.
   accueilPromesse: "Plante un nom, saute de branche en branche.",
-  accueilVide: "Plante un premier artiste pour commencer l'exploration.",
+  // Texte d'attente par defaut du champ de recherche HORS accueil (etat
+  // B) : restaure par masquerAccueil() (main.ts) quand accueilPromesse
+  // cesse de s'appliquer. Identique a la valeur figee dans index.html
+  // (attribut `placeholder`, lu avant que ce script ne s'execute) — les
+  // deux DOIVENT rester synchrones (defaut deja rencontre, critique
+  // 2026-08-22 C2 : un libelle en dur y avait diverge de textes.ts).
+  champRecherchePlaceholder: "Planter un artiste…",
+  // Intertitre du mur (§17 Q10, decision du 23 aout 2026) : nomme ce qu'on
+  // regarde, remplace l'ancien `accueilVide` — ecrit pour "rien de garde"
+  // mais jamais appele (critique 2026-08-23 N4). Sert desormais vraiment,
+  // au meme titre que triRecents ci-dessus, dans accueil.ts
+  // (libelleAccueilIntertitre).
+  accueilIntertitrePourCommencer: "Pour commencer",
   // Intitule accessible du panneau d'accueil (§12, "les panneaux et
   // fenetres sont titres, meme sans titre visible") : aucun heading visible
   // ne porte ce role dans la barre d'accueil, d'ou ce nom pose sur la

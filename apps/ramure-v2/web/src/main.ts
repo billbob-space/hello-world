@@ -44,7 +44,14 @@ import {
   recadrerSiBouge,
 } from "./promotion";
 import { textes } from "./textes";
-import { construireMur, type MurAccueil, type TuileDonnees } from "./accueil";
+import {
+  construireMur,
+  libelleAccueilIntertitre,
+  libelleTriRecents,
+  type MurAccueil,
+  type SourceMur,
+  type TuileDonnees,
+} from "./accueil";
 import {
   GestionnaireSuggestions,
   construireLienPartage,
@@ -111,7 +118,7 @@ const boutonPartager = document.querySelector<HTMLButtonElement>("#partager");
 const accueilSection = document.querySelector<HTMLElement>("#accueil");
 const murConteneur = document.querySelector<HTMLElement>("#mur");
 const triSelect = document.querySelector<HTMLSelectElement>("#tri");
-const accueilPromesseEl = document.querySelector<HTMLElement>("#accueil-promesse");
+const accueilIntertitreEl = document.querySelector<HTMLElement>("#accueil-intertitre");
 const suggestionsEl = document.querySelector<HTMLUListElement>("#suggestions");
 const correctionEl = document.querySelector<HTMLElement>("#correction");
 const serviceSelect = document.querySelector<HTMLSelectElement>("#service");
@@ -285,31 +292,52 @@ function retirerNoeud(n: NoeudDessine): void {
 // Etat A — accueil (§07, F-05 a F-07)
 // ---------------------------------------------------------------------
 
-function construireSelectTri(): void {
-  if (!triSelect || triSelect.childElementCount > 0) return;
-  const libelles: Record<string, string> = {
-    recents: textes.triRecents,
-    alphabetique: textes.triAlphabetique,
-    aleatoire: textes.triAleatoire,
-  };
-  for (const ordre of ["recents", "alphabetique", "aleatoire"] as const) {
-    const opt = document.createElement("option");
-    opt.value = ordre;
-    opt.textContent = libelles[ordre] ?? ordre;
-    triSelect.append(opt);
+// construireSelectTri cree les trois options UNE seule fois (le select
+// est reutilise a chaque retour a l'accueil, jamais recree), mais met a
+// jour le libelle de "recents" a CHAQUE appel : lui seul depend de
+// `source` (§17 Q10, constat N4) — "alphabetique" et "aleatoire" restent
+// vrais quelle que soit la provenance du mur.
+function construireSelectTri(source: SourceMur): void {
+  if (!triSelect) return;
+  if (triSelect.childElementCount === 0) {
+    const libelles: Record<string, string> = {
+      recents: libelleTriRecents(source),
+      alphabetique: textes.triAlphabetique,
+      aleatoire: textes.triAleatoire,
+    };
+    for (const ordre of ["recents", "alphabetique", "aleatoire"] as const) {
+      const opt = document.createElement("option");
+      opt.value = ordre;
+      opt.textContent = libelles[ordre] ?? ordre;
+      triSelect.append(opt);
+    }
+    triSelect.addEventListener("change", () => {
+      mur?.definirOrdre(triSelect.value as "recents" | "alphabetique" | "aleatoire");
+    });
+    return;
   }
-  triSelect.addEventListener("change", () => {
-    mur?.definirOrdre(triSelect.value as "recents" | "alphabetique" | "aleatoire");
-  });
+  const optionRecents = triSelect.querySelector<HTMLOptionElement>('option[value="recents"]');
+  if (optionRecents) optionRecents.textContent = libelleTriRecents(source);
 }
 
 // afficherAccueil (F-07) : reconstruit le mur a chaque fois — jamais de
 // graine residuelle, jamais d'etat de la derniere exploration qui reste
 // colle.
-function afficherAccueil(): void {
+//
+// `source` (§17 Q10, decision du 23 aout 2026, constat N4) : ce que le
+// mur montre — "amorcage" (seul cas atteignable aujourd'hui, la
+// collection ne nourrit pas encore le mur, F-28/F-30) ou "collection".
+// Parametre EXPLICITE plutot que devine ici depuis `collectionServeur` :
+// tant que la seconde branche n'a pas d'appelant reel, elle doit rester
+// pilotable depuis l'exterieur (tests, accueil.ts) pour ne pas pourrir
+// comme `accueilVide` avant elle (jamais appelee, critique 2026-08-23 N4).
+function afficherAccueil(source: SourceMur = "amorcage"): void {
   if (!accueilSection || !murConteneur || !svg) return;
-  if (accueilPromesseEl) accueilPromesseEl.textContent = textes.accueilPromesse;
-  construireSelectTri();
+  if (accueilIntertitreEl) accueilIntertitreEl.textContent = libelleAccueilIntertitre(source);
+  // §17 Q10 : la promesse quitte le haut de l'accueil pour devenir le
+  // texte d'attente du champ — restaure par masquerAccueil().
+  if (champGraine) champGraine.placeholder = textes.accueilPromesse;
+  construireSelectTri(source);
   if (triSelect) triSelect.value = mur?.ordre ?? "recents";
 
   mur?.detruire();
@@ -388,6 +416,9 @@ function masquerAccueil(): void {
   accueilSection.hidden = true;
   svg.removeAttribute("hidden");
   commandesDArbre(true);
+  // §17 Q10 : la promesse ne s'applique qu'a l'accueil — le champ retrouve
+  // son texte d'attente ordinaire des qu'une graine est plantee.
+  if (champGraine) champGraine.placeholder = textes.champRecherchePlaceholder;
 }
 
 // ---------------------------------------------------------------------

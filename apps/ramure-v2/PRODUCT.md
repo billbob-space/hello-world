@@ -802,6 +802,53 @@ disqualifie la moitié des réponses possibles à la première.
    couché tient une rangée entière, nom compris. Écrit pour que la limite soit
    connue plutôt que découverte.
 
+10. **Qui possède les 121 px du haut de l'accueil — la recherche, la phrase, ou
+    le mur ?** — *Une seconde critique, postérieure au calage haut, relève deux
+    choses à la fois. Le champ de recherche vide, 1 000 px de large, est l'objet
+    le plus contrasté de l'écran alors qu'il n'est pas ce qu'on vient voir. Et le
+    tri par défaut affirme « Gardés récemment » au-dessus de six artistes
+    d'amorçage que personne n'a gardés — la chaîne de repli écrite pour ce cas
+    exact n'a jamais eu d'appelant. Le calage haut, le carré, la grille centrée,
+    le plafond, le plancher de 9 rem et l'absence de défilement ne sont pas
+    rediscutés.*
+    → **Le mur possède le haut.** Une bande unique de 64 px, sans phrase, puis un
+    intertitre de 36 px qui **nomme ce qu'on regarde** — « Pour commencer » tant
+    que rien n'est gardé, « Gardés récemment » ensuite — et que le tri termine.
+    100 px au total, le plus petit des trois, et le seul qui ne grandisse pas sur
+    téléphone.
+
+    Deux raisons, dont la première suffirait. **C'est la seule des trois qui
+    répare le libellé qui ment** : les deux autres laissent l'écran affirmer une
+    garde qui n'a pas eu lieu, et entre trois arrangements de hiérarchie, celui
+    qui supprime une fausse affirmation ne se compare pas aux autres. **Et c'est
+    la seule dont le coût ne contredise pas une décision déjà prise** : la
+    question 8 a écarté une variante parce qu'une phrase utile à la première
+    visite et inerte aux suivantes ne mérite pas le premier rang ; la retenir ici
+    en plus petit ferait dire à ce document le contraire de ce qu'il dit deux
+    questions plus haut.
+
+    *Coût assumé* — la promesse quitte le haut de l'accueil, et l'intertitre
+    devra changer de mot le jour où F-28 et F-30 feront nourrir le mur par la
+    collection. Le second n'est pas un coût : distinguer « rien de gardé » de
+    « quelque chose de gardé » est de toute façon exigé par ces deux exigences.
+    Le premier est réel, et il est **réduit plutôt qu'accepté** : la promesse
+    devient le texte d'attente du champ de recherche, emprunté à la variante A
+    ci-dessous. Elle ne coûte alors aucune hauteur, et l'accueil continue de dire
+    ce qu'il fait à qui ne connaît pas le produit.
+
+    *Écarté* — **la recherche possède le haut, mais à sa taille** (bande de
+    64 px, champ ramené de 1 000 à 420 px, la promesse en texte d'attente) : elle
+    règle bien le déséquilibre du champ, et c'est d'elle qu'est repris le texte
+    d'attente. Mais elle s'arrête là — un texte d'attente **s'efface à la
+    première lettre tapée**, il n'est donc pas un titre, et l'accueil n'explique
+    plus rien de lui-même à qui commence à taper. Surtout, elle laisse le libellé
+    du tri mentir. **La phrase possède le haut** (deux bandes conservées, 112 px,
+    la promesse en 20 px pleine encre, première chose lue) : c'est la variante
+    écartée de la question 8 en 20 px au lieu de 300, avec le même défaut — un
+    texte utile une fois garde le premier rang pour toujours. C'est en outre la
+    seule des trois qui **grandit** le haut sur téléphone, là où l'écran est le
+    plus disputé, et elle laisse le libellé du tri mentir elle aussi.
+
    Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
    artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »
    (§07) — et non l'inventaire de la collection, qui a son propre écran (F-25).

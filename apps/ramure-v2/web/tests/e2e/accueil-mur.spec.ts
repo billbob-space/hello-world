@@ -26,6 +26,17 @@
 // tabulables. Verifie ci-dessous avec un viewport dont la hauteur est
 // deliberement trop courte pour porter les 6 tuiles de l'amorcage
 // editorial (web/src/main.ts, AMORCAGE_EDITORIAL) en plusieurs rangees.
+//
+// PRODUCT.md §17 Q10 (decision du 23 aout 2026, variante C -- "le mur
+// possede le haut") : le calage haut, le carre, la grille centree, le
+// plafond et le plancher ne bougent pas, mais ce que le haut de l'accueil
+// LAISSE au mur, si -- header + .accueil-barre passent de 121,6px a
+// ~100px a 1440 (critique 2026-08-23-b, N3), et ne doivent PAS grandir a
+// 390 (188,6px avant cette decision). Comme le plafond (§17 Q9) est lu
+// sur la hauteur REELLE du conteneur, un haut qui grandirait ferait
+// RECULER la capacite du mur sans qu'aucun test de cette suite ne s'en
+// apercoive -- d'ou le test dedie plus bas, qui mesure le haut ET la
+// hauteur qu'il laisse au mur, jamais l'un sans l'autre.
 import { expect, test } from "@playwright/test";
 import { ScenarioAPI, installerAPI } from "./support/api";
 import { BASE_URL, demarrerServeur, type ServeurRamure } from "./support/serveur";
@@ -205,4 +216,46 @@ test("mur d'accueil -- un redimensionnement SANS rechargement replafonne (§17 Q
   expect(masquesApres, "le retrecissement doit masquer au moins une tuile, sans recharger la page").toBeGreaterThan(
     0,
   );
+});
+
+// PRODUCT.md §17 Q10 (decision du 23 aout 2026) : le haut de l'accueil
+// (header + .accueil-barre) tient sa cible de hauteur, ET -- ce que
+// mesurer sa seule hauteur ne prouverait pas -- la zone qu'il LAISSE au
+// mur (#mur, `height: 100%` de la ligne `1fr` du grid `.accueil`, §07)
+// augmente en consequence, jamais l'inverse. Bornes reprises de la
+// critique 2026-08-23-b (N3, mesures AVANT cette decision) : 121,6px puis
+// 188,6px.
+test("le haut de l'accueil tient sa cible (~100px a 1440, pas de croissance a 390) et laisse PLUS de hauteur au mur (§17 Q10)", async ({
+  page,
+}) => {
+  async function mesurerHaut(largeur: number, hauteur: number) {
+    await page.setViewportSize({ width: largeur, height: hauteur });
+    await installerAPI(page, new ScenarioAPI());
+    await page.goto(`${BASE_URL}/`);
+    await expect(page.locator("#accueil")).toBeVisible();
+    const header = await page.locator("header").boundingBox();
+    const barre = await page.locator(".accueil-barre").boundingBox();
+    const mur = await page.locator("#mur").boundingBox();
+    if (!header || !barre || !mur) throw new Error("geometrie du haut introuvable");
+    return { haut: header.height + barre.height, hauteurMur: mur.height };
+  }
+
+  const AVANT_1440 = 121.6; // critique 2026-08-23-b, N3 -- mesure avant §17 Q10
+  const AVANT_390 = 188.6;
+
+  const g1440 = await mesurerHaut(1440, 900);
+  expect(g1440.haut, `haut mesure a 1440 : ${g1440.haut.toFixed(1)}px (cible ~100px)`).toBeLessThan(110);
+  expect(
+    g1440.hauteurMur,
+    `hauteur laissee au mur a 1440 : ${g1440.hauteurMur.toFixed(1)}px`,
+  ).toBeGreaterThan(900 - AVANT_1440);
+
+  const g390 = await mesurerHaut(390, 844);
+  expect(g390.haut, `haut mesure a 390 : ${g390.haut.toFixed(1)}px (ne doit pas depasser l'avant)`).toBeLessThanOrEqual(
+    AVANT_390,
+  );
+  expect(
+    g390.hauteurMur,
+    `hauteur laissee au mur a 390 : ${g390.hauteurMur.toFixed(1)}px`,
+  ).toBeGreaterThanOrEqual(844 - AVANT_390);
 });
