@@ -270,6 +270,31 @@ degrade qui rend le meme format de sortie.
 un vert mesure. Ce qui a fonctionne ici est que l'agent l'ait DIT ; ce qui manque
 est que le mode degrade se signale tout seul.
 
+### 22. Sortir la pull request du brouillon rejoue toute la CI sur le meme commit
+
+**Symptome** — la pull request ouverte en brouillon, ses sept controles verts, la
+fusion est refusee : « 2 of 2 required status checks have not succeeded ». Le
+passage de brouillon a « prete a relire » a declenche un SECOND cycle complet sur
+le meme SHA — contrat, detect, outillage, tests — dont les controles obligatoires
+etaient a nouveau en attente.
+
+**Cause** — le workflow se declenche sur l'evenement `ready_for_review` comme sur
+`opened`. Ouvrir en brouillon puis sortir du brouillon fait donc deux cycles
+complets la ou une ouverture directe n'en fait qu'un. La consigne d'ouvrir en
+brouillon vient du harnais cloud, pas du contrat ; les deux ne se sont jamais
+parle, et personne ne paie visiblement la difference.
+
+**Detecte par** — `CI`
+
+**Action** — `arbitrage` — non corrige ici : toucher aux declencheurs du workflow
+est un geste sur le partage, alors que le sujet de cette branche est une app. Mais
+le cout est reel et se repete a CHAQUE pull request de la fabrique : le premier
+poste de la facture est la longueur des sessions, le second pourrait bien etre ce
+doublon que personne ne regarde. Soit le workflow ignore `ready_for_review`
+quand un cycle a deja conclu sur le meme SHA, soit la pull request s'ouvre
+directement prete. Le choix demande de trancher entre une consigne du harnais et
+une consigne du contrat.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
