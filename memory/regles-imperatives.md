@@ -20,6 +20,17 @@ refusé, `LABEL traefik.*` dans le Dockerfile refusé ; CI — taille d’image 
 - **Le routage vit dans les labels du `compose.yaml`**, générés. N'y touche pas : le
   middleware du palier et `priority=100` y sont posés — cette priorité empêche un
   serveur catch-all de capter l'URL et de servir un 404 silencieux.
+- **Un test qui lit l'heure la fige.** Horloge du système, date du jour, « maintenant » :
+  un test qui les lit sans les figer est une **bombe à retardement** — il passe
+  jusqu'au jour où il ne passe plus, et rien ne le signale avant. Le 22 août 2026,
+  deux tests de `marcq-handball` sont devenus rouges parce que le programme
+  qu'ils supposaient en cours s'était terminé la veille ; l'app, elle, faisait
+  exactement ce que son PRD demandait. Côté Go, l'heure se passe **en paramètre**
+  (`RecupererA`, dans `estran`) ; côté navigateur, l'horloge se fige avant le
+  premier rendu (`page.clock.install`). Et la date choisie porte **par écrit** ce
+  qu'elle doit satisfaire : figer sur une date qui *évite* le cas au lieu de
+  l'exercer rend la suite verte sans rien vérifier — la même faute que désactiver
+  un test pour reverdir.
 - **Chaque app déclare ses tests dans `apps/<nom>/test.sh`**, exécutable. La CI ne
   lance que ce fichier ; la fabrique n'a pas à connaître ton langage. **Il tourne
   réseau coupé** — `RESEAU_COUPE`, dans `lib/socle.sh` — parce qu'un test qui

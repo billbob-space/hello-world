@@ -25,6 +25,29 @@ on:
     # fusionner sans le moindre job vert est exactement ce que le verrou du
     # contrat existe pour empecher.
     types: [opened, synchronize, reopened, edited, ready_for_review]
+  # Le passage complet hebdomadaire. La matrice ne teste d'ordinaire que les
+  # apps MODIFIEES — bon choix pour le cout, et angle mort exact : une app que
+  # personne ne touche n'est jamais rejouee, et son rouge attend qu'un
+  # changement partage le revele. Constate le 2026-08-22 sur marcq-handball,
+  # dont un test de bout en bout etait devenu rouge la veille en changeant de
+  # jour, sans que rien ne le dise ; il n'a ete vu que parce qu'une branche
+  # touchant l'outillage a force la matrice complete.
+  #
+  # Hebdomadaire et non quotidien, tranche par l'utilisateur le 2026-08-22 : une
+  # app peut alors rester cassee jusqu'a six jours — contre un temps NON BORNE
+  # aujourd'hui — pour un septieme du cout.
+  #
+  # Ce passage ne deploie pas et ne publie pas : le job « deploy » n'ecoute que
+  # « push » et « workflow_dispatch » (voir sa condition), et « build » ne
+  # pousse pas ses images sur un evenement « schedule ». Il ne fait que
+  # REGARDER.
+  #
+  # Lundi 04:00 UTC. Un echec est notifie par courriel au proprietaire du depot,
+  # comme tout workflow programme qui tombe : c'est le seul canal, et il vaut
+  # d'etre su — sans lui, ce passage serait un garde-fou de plus que personne ne
+  # regarde.
+  schedule:
+    - cron: '0 4 * * 1'
   workflow_dispatch:
     inputs:
       toutes:
@@ -334,7 +357,14 @@ jobs:
           # force-push — donnerait un diff vide. On reconstruit tout plutot que
           # de ne rien construire en silence.
           tout=0
-          if [ "$EVENT" = workflow_dispatch ] && [ "$TOUTES" = true ]; then
+          if [ "$EVENT" = schedule ]; then
+            # Le passage hebdomadaire regarde TOUT — c'est sa seule raison
+            # d'etre. Ecrit explicitement plutot que laisse au repli « base de
+            # comparaison indisponible » qui l'attraperait aussi : un
+            # comportement obtenu par accident se perd au premier remaniement.
+            echo "passage hebdomadaire — toutes les apps"
+            tout=1
+          elif [ "$EVENT" = workflow_dispatch ] && [ "$TOUTES" = true ]; then
             tout=1
           elif [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             echo "base de comparaison indisponible ($base) — reconstruction complete"
@@ -662,13 +692,26 @@ jobs:
           file: apps/${{ matrix.app }}/Dockerfile
           # Sur une pull request on construit sans publier : la validation du
           # Dockerfile ne doit pas bouger le tag :main que le serveur suit.
-          push: ${{ github.event_name != 'pull_request' }}
+          # Ni sur une pull request — la validation ne merite pas une image
+          # publiee — ni sur le passage hebdomadaire, qui REGARDE et ne livre
+          # rien : sans cette seconde condition, il republierait chaque semaine
+          # dix images identiques a celles deja en ligne.
+          push: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
           # ... mais l'image doit alors entrer dans le demon local, sinon
-          # l'etape suivante n'a rien a inspecter sur une pull request : sans
-          # publication, l'image reste dans le cache de buildx, invisible a
-          # « docker image inspect ». push et load s'excluent — jamais vrais
-          # ensemble ici, c'est la meme condition inversee.
-          load: ${{ github.event_name == 'pull_request' }}
+          # l'etape suivante n'a rien a inspecter : sans publication, l'image
+          # reste dans le cache de buildx, invisible a « docker image inspect ».
+          #
+          # La condition est donc l'INVERSE EXACTE de « push », et se lit ainsi :
+          # on charge quand on ne publie pas. Ecrite « == pull_request » elle
+          # etait juste tant que la pull request etait le seul evenement sans
+          # publication ; l'ajout du passage hebdomadaire en a cree un second, et
+          # le lundi l'image construite restait dans le cache pendant que
+          # l'etape suivante tirait le tag « :main » — donc inspectait l'image de
+          # la DERNIERE POUSSEE, pas celle qu'elle venait de construire. Un
+          # « traefik.* » herite d'une image de base retaguee depuis — la derive
+          # que SEUL un passage periodique peut voir, et la raison d'etre de ce
+          # controle — aurait ete construit chaque semaine puis jamais regarde.
+          load: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
           tags: |
             ${{ needs.detect.outputs.registry }}/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}/${{ matrix.app }}:main
             ${{ needs.detect.outputs.registry }}/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}/${{ matrix.app }}:${{ github.sha }}
@@ -685,12 +728,17 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
       # Deux controles sur l'image finie, la seule chose que le serveur tirera.
-      # Sur une pull request elle vient de « load », sur main du registre.
+      # Quand elle vient d'etre chargee localement — pull request, passage
+      # hebdomadaire — on inspecte CELLE-LA ; quand elle a ete publiee, on la
+      # tire du registre. Le critere est le meme que celui de « load » ci-dessus,
+      # et pour la meme raison : tirer le tag « :main » sur un evenement qui n'a
+      # rien publie ferait inspecter l'image de la derniere poussee.
       - name: labels et taille de l'image
         run: |
           set -euo pipefail
           image=${{ needs.detect.outputs.registry }}/${{ needs.detect.outputs.org }}/${{ needs.detect.outputs.repo }}/${{ matrix.app }}:main
-          if [ "${{ github.event_name }}" != pull_request ]; then
+          EVENT=${{ github.event_name }}
+          if [ "$EVENT" != pull_request ] && [ "$EVENT" != schedule ]; then
             docker pull "$image"
           fi
 

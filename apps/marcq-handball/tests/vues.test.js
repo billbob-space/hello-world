@@ -47,12 +47,88 @@ test('jour de seance : le titre du coach, le compte de cases, le lien vers la se
   assert.equal(m.details, '8 exercices · lundi 3 août');
   assert.deepEqual(m.lien, { texte: 'Commencer la séance', href: '#/seance/2026-08-03' });
   assert.deepEqual(m.etat, { statut: 'aujourd-hui', cochable: true, total: 8, coches: 0 });
+  // Rien de coche : la phrase le dit sans chiffre, rien a comparer.
+  assert.equal(m.phrase, 'Pas encore commencée');
 });
 
 test('seance entamee : on reprend, on ne recommence pas', () => {
   const m = modeleJour(contexte('2026-08-03', { 's1-r1': '2026-08-03T18:22:11.000Z' }));
   assert.equal(m.lien.texte, 'Reprendre la séance');
   assert.equal(m.etat.coches, 1);
+  // En cours : la phrase ne compte plus ce qui est fait mais ce qui reste
+  // (critique du 22 aout, §P2, variante C) — 8 - 1 = 7. Le total, lui, reste
+  // ecrit une seule fois, dans `details` au-dessus.
+  assert.equal(m.phrase, 'Il t’en reste 7');
+  // L'oeil et la voix ne divergent pas : la barre annonce le meme texte.
+  assert.equal(m.texteVoix, m.phrase);
+});
+
+test('seance bien avancee : la phrase dit ce qui reste, jamais ce qui est deja ecrit dans details', () => {
+  const faits = Object.fromEntries(
+    ['s1-c1', 's1-c2', 's1-r1'].map((id) => [id, '2026-08-03T18:22:11.000Z']),
+  );
+  const m = modeleJour(contexte('2026-08-03', faits));
+  assert.equal(m.etat.coches, 3);
+  assert.equal(m.details, '8 exercices · lundi 3 août', 'details garde le total, une seule fois sur l ecran');
+  assert.equal(m.phrase, 'Il t’en reste 5');
+  assert.equal(m.texteVoix, 'Il t’en reste 5');
+  assert.equal(m.lien.texte, 'Reprendre la séance');
+});
+
+// Le singulier : « reste » ne s'accorde qu'avec « il », jamais avec ce qu'il
+// compte, donc aucun accord a gerer — mais un test le dit, plutot que de le
+// supposer.
+test('un seul exercice restant : « Il t’en reste 1 », pas de pluriel invente', () => {
+  const tousSaufUn = ['s1-c1', 's1-c2', 's1-r1', 's1-r2', 's1-r3', 's1-r4', 's1-r5'];
+  const faits = Object.fromEntries(tousSaufUn.map((id) => [id, '2026-08-03T18:22:11.000Z']));
+  const m = modeleJour(contexte('2026-08-03', faits));
+  assert.equal(m.etat.coches, 7);
+  assert.equal(m.etat.total, 8);
+  assert.equal(m.phrase, 'Il t’en reste 1');
+  assert.equal(m.texteVoix, 'Il t’en reste 1');
+});
+
+// Le defaut d'origine (critique du 2026-08-22, §P2) : a 7 sur 7 (ici 8 sur 8),
+// l'ecran etait IDENTIQUE a 0 sur 8 — meme phrase de bouton, aucune phrase ne
+// disait « fini ». Cette branche etait invisible : aucun test ne la nommait.
+test('seance finie, une autre suit dans le programme : le bloc bleu pointe vers elle', () => {
+  const tousLesExercices = ['s1-c1', 's1-c2', 's1-r1', 's1-r2', 's1-r3', 's1-r4', 's1-r5', 's1-r6'];
+  const faits = Object.fromEntries(tousLesExercices.map((id) => [id, '2026-08-03T18:22:11.000Z']));
+  const finie = modeleJour(contexte('2026-08-03', faits));
+  const jamaisCommencee = modeleJour(contexte('2026-08-03'));
+
+  assert.equal(finie.etat.coches, finie.etat.total, 'les 8 exercices sont coches');
+  assert.equal(finie.etat.statut, 'faite');
+  assert.equal(finie.phrase, 'Séance terminée');
+  // Ce n'est plus « Revoir la séance » — le bloc bleu ne dit plus « va faire
+  // ta seance » une fois qu'elle est faite (critique du 22 aout, §P2, variante
+  // C) : il pointe vers la prochaine seance du programme, sans date inventee.
+  assert.deepEqual(finie.lien, { texte: 'Prochaine séance : mercredi 5 août', href: '#/seance/2026-08-05' });
+
+  // Le defaut precis : un ecran a 7/7 (ici 8/8) ne doit RIEN afficher de commun
+  // avec un ecran a 0/7, ni le mot du bouton ni la phrase — c'etait pourtant
+  // exactement le cas avant ce correctif.
+  assert.notEqual(finie.lien.texte, jamaisCommencee.lien.texte);
+  assert.notEqual(finie.phrase, jamaisCommencee.phrase);
+});
+
+// Le cas que la critique laissait ouvert : plus aucune seance apres celle du
+// jour (17 aout, la derniere du programme de web/programme.json — le
+// programme continue jusqu'au 21, mais plus aucune seance n'y est plannifiee).
+// Rien n'invente une date : le bloc bleu retombe sur son comportement
+// d'origine, relire la seance du jour.
+test('derniere seance du programme, finie : aucune date inventee, on relit la seance', () => {
+  const derniere = prog.seances.at(-1);
+  assert.equal(prog.seances.some((s) => s.date > derniere.date), false, 'verifie que c est bien la derniere');
+
+  const faits = {};
+  for (const bloc of derniere.blocs) {
+    for (const ex of bloc.exercices) faits[ex.id] = '2026-08-17T18:22:11.000Z';
+  }
+  const m = modeleJour({ prog, aujourdhui: derniere.date, prenom: 'Lucas', faits });
+  assert.equal(m.cas, 'aujourd-hui');
+  assert.equal(m.phrase, 'Séance terminée');
+  assert.deepEqual(m.lien, { texte: 'Revoir la séance', href: `#/seance/${derniere.date}` });
 });
 
 test('jour de repos : on annonce la prochaine seance (PRD §6, lot 1)', () => {

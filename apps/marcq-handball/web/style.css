@@ -219,9 +219,11 @@ body {
   cursor: pointer;
 }
 
-/* Le seul aplat de bleu plein de l'app, et il ne dit qu'une chose : va faire ta
-   seance. Blanc dessus — 6,0:1, la nuance du blason a ete descendue d'un cran
-   exactement pour ca. */
+/* Le seul aplat de bleu plein de l'app. Sur l'ecran du jour il pointe toujours
+   vers ce qui est vivant maintenant — commencer, reprendre, ou, une seance
+   finie, la PROCHAINE (critique du 22 aout, §P2, variante C) : l'aplat ne se
+   retire jamais, seule sa cible change. Blanc dessus — 6,0:1,
+   la nuance du blason a ete descendue d'un cran exactement pour ca. */
 .bouton-principal {
   border-color: var(--marcq-bleu);
   background: var(--marcq-bleu);
@@ -269,9 +271,11 @@ body {
   transition: translate 260ms var(--marcq-sortie);
 }
 
-.progression-jour,
+/* La barre de l'ecran du jour est pleine largeur, la phrase d'avancement en
+   dessous — une colonne, pas une ligne : PRD, decision du 2026-08-22. Celle de
+   l'ecran de seance reste une ligne, barre puis compte cote a cote. */
+.progression-jour { display: flex; flex-direction: column; gap: .5rem; margin: 0; }
 .progression-seance { display: flex; align-items: center; gap: .7rem; margin: 0; }
-.progression-jour .barre,
 .progression-seance .barre { flex: 1; }
 
 /* Le compte se lit comme un score : chiffres a chasse fixe, corps eleve. */
@@ -280,6 +284,15 @@ body {
   font-size: 1.15rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* La phrase d'avancement de l'ecran du jour : une phrase, pas un score — elle
+   remplace le « n / total » qui repetait le total deja ecrit dans
+   .details-jour. */
+.avancement-jour {
+  margin: 0;
+  font-size: .95rem;
+  font-weight: 600;
 }
 
 /* ---------------------------------------------------------------------------
@@ -359,7 +372,7 @@ body {
    contraste du fond », pas « toujours la meme couleur ». */
 .cas-aujourd-hui .barre { background: rgb(255 255 255 / .18); }
 .cas-aujourd-hui .barre-remplissage { background: #ffffff; }
-.cas-aujourd-hui .compte { color: #ffffff; }
+.cas-aujourd-hui .avancement-jour { color: #ffffff; }
 .cas-aujourd-hui .bouton-principal { margin-top: .2rem; }
 
 /* Repos et fin de programme : rien a faire ici aujourd'hui, donc le cadre
@@ -486,7 +499,13 @@ body {
   text-decoration: none;
   font-size: .85rem;
 }
-.exercice.fait .video-exercice { opacity: .55; }
+/* Un exercice coche n'attenue plus la colonne d'actions par `opacity` : sa
+   couleur de repos, `--marcq-encre-douce`, est deja la plus discrete de la
+   palette (7,4:1 sur le fond clair). L'attenuer encore repassait sous les
+   4,5:1 de la WCAG — mesure axe, `#/seance`, 3 cases cochees — sans qu'aucune
+   couleur neuve ne soit necessaire pour le corriger : il suffisait de ne plus
+   doubler la mise en sourdine. Le trait laisse par une case cochee (bordure de
+   ligne, texte barre) porte deja tout le signal de « fait ». */
 
 /* Le minuteur, en tableau d'affichage : chiffres a chasse fixe — sans eux,
    « 0:39 » puis « 0:38 » font sauter le bouton a chaque seconde, et l'oeil suit
@@ -528,8 +547,10 @@ body {
 .chrono-remise-dort { visibility: hidden; }
 
 /* Un exercice coche garde son minuteur — on peut vouloir le relancer pour un
-   second tour —, mais il cesse d'attirer l'oeil. */
-.exercice.fait .chrono { opacity: .55; }
+   second tour. Il ne perd plus `opacity` en le cochant, pour la meme raison
+   que `.video-exercice` juste au-dessus : sa couleur de repos est deja
+   discrete, et l'estomper encore faisait tomber le texte a 2,56:1 — mesure
+   axe sur trois nombres du chronometre, `#/seance`, 3 cases cochees. */
 
 /* Plus haut que la cible minimale de l'app : la ligne est atteinte du pouce, en
    mouvement, les mains moites (PRD §11). */

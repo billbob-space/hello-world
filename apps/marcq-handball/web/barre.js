@@ -38,8 +38,21 @@ export function partDe(coches, echelle) {
 // Cree la barre. `classe` ajoute une classe a cote de `barre` ; `muette` retire
 // la barre de la restitution des lecteurs d'ecran, pour les deux ecrans ou le
 // nombre est deja ecrit juste a cote et ou l'annoncer deux fois serait du bruit.
+//
+// `nom` est le nom accessible d'une barre NON muette : `role="progressbar"`
+// sans nom est annonce par un lecteur d'ecran sans dire ce qu'il mesure — axe
+// le releve sous `aria-progressbar-name`, gravite serieuse. Il doit dire CE
+// QU'ELLE MESURE, et RIEN DE PLUS : le nom est pose une fois a la creation et
+// n'est jamais rejoue par `reglerBarre`. Un nom qui porterait le compte serait
+// donc fige au compte du montage, et mentirait des la premiere coche sur le
+// seul ecran ou la barre bouge. Le chiffre vit dans les aria-value* en dessous,
+// qui, eux, sont remis a jour a chaque appel.
+//
+// `texte`, lui, n'est pas destructure ici : cree comme rejoue, il traverse
+// `options` tel quel jusqu'a `reglerBarre`, qui seule en fait quelque chose —
+// voir sa documentation.
 export function creerBarre(coches, echelle, options = {}) {
-  const { classe = '', muette = false } = options;
+  const { classe = '', muette = false, nom = null } = options;
 
   const barre = document.createElement('div');
   barre.className = classe ? `barre ${classe}` : 'barre';
@@ -48,8 +61,12 @@ export function creerBarre(coches, echelle, options = {}) {
   remplissage.className = 'barre-remplissage';
   barre.append(remplissage);
 
-  if (muette) barre.setAttribute('aria-hidden', 'true');
-  else barre.setAttribute('role', 'progressbar');
+  if (muette) {
+    barre.setAttribute('aria-hidden', 'true');
+  } else {
+    barre.setAttribute('role', 'progressbar');
+    if (nom) barre.setAttribute('aria-label', nom);
+  }
 
   reglerBarre(barre, coches, echelle, options);
   return barre;
@@ -62,10 +79,23 @@ export function creerBarre(coches, echelle, options = {}) {
 // `muette` est repasse plutot que relu sur l'element : relire un attribut qu'on
 // vient d'ecrire fait dependre le calcul de l'etat du DOM, ce qui se paie deux
 // fois — en lecture inutile, et en double de DOM a etoffer dans les tests.
-export function reglerBarre(barre, coches, echelle, { muette = false } = {}) {
+//
+// `texte` remplace le « n sur max » par defaut quand l'ecran appelant affiche
+// un mot different a cote de la barre — l'ecran du jour, en etat « en-cours »,
+// ecrit « Il t’en reste 4 » et ne peut pas laisser la voix annoncer « 3 sur 7 »
+// a la place : l'oeil et la voix ne divergent pas.
+export function reglerBarre(barre, coches, echelle, { muette = false, texte = null } = {}) {
   barre.style.setProperty('--part', String(partDe(coches, echelle)));
   if (muette) return;
+  const max = Number(echelle) > 0 ? echelle : 1;
   barre.setAttribute('aria-valuemin', '0');
-  barre.setAttribute('aria-valuemax', String(Number(echelle) > 0 ? echelle : 1));
+  barre.setAttribute('aria-valuemax', String(max));
   barre.setAttribute('aria-valuenow', String(coches));
+  // Sans `aria-valuetext`, un lecteur d'ecran calcule un POURCENTAGE a partir
+  // des trois valeurs ci-dessus et annonce « 43 % » la ou l'ecran, lui, ecrit
+  // « 3 / 7 ». L'unite entendue n'existe alors nulle part a l'oeil, et il reste
+  // une division a faire pour rapprocher les deux. On dicte donc le compte, qui
+  // est ce que l'ecran montre — ou le texte fourni par l'appelant, quand ce que
+  // l'ecran montre n'est plus un compte.
+  barre.setAttribute('aria-valuetext', texte ?? `${coches} sur ${max}`);
 }

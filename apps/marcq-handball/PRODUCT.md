@@ -900,6 +900,90 @@ s'arrête là où commence la promesse du § 5.
 
 ---
 
+#### 16.10 Ce que les barres de progression disent à voix haute — 22 août
+
+**Ce qui l'a demandé** : un test de bout en bout devenu rouge en changeant de
+jour. En le rendant indépendant du calendrier, on a découvert que sa date
+tombait depuis toujours, par hasard, sur des jours **sans séance** — et qu'elle
+masquait ainsi trois défauts que personne n'avait jamais vus.
+
+**Les noms pour les lecteurs d'écran, désormais fixés ici** plutôt que laissés au
+choix de qui écrit le code :
+
+- sur l'écran du jour et sur celui d'une séance, la barre s'annonce
+  « **Avancement des exercices de la séance** » ;
+- sur le profil, où elle mesure **ce qui était programmé jusqu'à aujourd'hui**
+  et non une séance, elle s'annonce « **Avancement des exercices programmés à ce
+  jour** ».
+
+Ce troisième libellé a d'abord été écrit « du programme », et c'était **faux** :
+`progression()` écarte délibérément toute séance à venir (§ 9, « accompli sur
+programmé à ce jour »). Un enfant à jour de ses séances aurait entendu
+« avancement du programme, 12 sur 12 » devant une barre pleine, alors que le
+programme n'est pas fini — quand la phrase écrite juste à côté dit, elle,
+« sur 30 programmés à ce jour ». Une barre pleine qui ment est pire qu'une barre
+sans nom.
+
+Les deux se distinguent délibérément : la même phrase dirait une chose fausse sur
+l'un des deux écrans. Les **nombres** ne sont pas dans le nom — ils vivent à côté,
+et se rejouent à chaque case cochée ; un nom qui les porterait resterait figé sur
+la valeur qu'il avait au moment de l'affichage. La voix annonçait auparavant un
+**pourcentage** qui n'est écrit sur aucun écran.
+
+**Ce que le PRD affirmait avant** : rien. Ces libellés n'existaient nulle part, et
+la barre n'avait pas de nom du tout — un lecteur d'écran annonçait « barre de
+progression » et s'arrêtait là.
+
+#### 16.11 Une séance finie se dit, elle ne se compte pas — 22 août
+
+**Ce qui existe maintenant** — livré dans le même commit que cette section, comme
+le contrat l'exige : l'écran du jour dit **en toutes lettres** où en est la
+séance. « Pas encore commencée », « Il t'en reste 5 », « Séance terminée ». Une
+séance terminée se lit sans compter, et le total n'est plus écrit deux fois — il
+l'était encore, à deux lignes d'écart, entre « 7 exercices · mercredi 12 août »
+et « 3 exercices sur 7 ».
+
+En cours, l'écran dit ce qui **reste** plutôt que ce qui est fait : c'est la
+question qu'on se pose au milieu d'une séance, et c'est aussi ce qui supprime la
+dernière répétition du total. *Écarté — garder la date seule en haut* et
+*— « 3 cochés » en bas* : les deux suppriment la répétition sans répondre à la
+question.
+
+La barre reste : elle porte l'avancement à l'œil. **Et sa voix dit exactement ce
+que l'écran dit** — « Il t'en reste 5 », pas « 3 sur 8 ». Un lecteur d'écran et
+un œil doivent recevoir le même message ; c'est le fil de toute cette série de
+décisions, et la raison pour laquelle le **nom** de la barre, lui, ne bouge pas :
+il dit ce qu'elle mesure, jamais où elle en est.
+
+**Une fois la séance faite, l'écran pointe la suivante** — « Prochaine séance :
+mercredi 5 août », et le lien y mène. Le bloc bleu disait « va faire ta séance »
+y compris quand elle était faite. Sur la **dernière** séance du programme, il
+n'invente aucune date : il propose de revoir celle du jour. *Écarté — qu'il se
+retire en simple contour*, et *— que la félicitation prenne sa place* : le
+premier laisse l'écran muet, le second fête sans donner la suite.
+
+Le bouton prend **un mot par état** : « Commencer » quand rien n'est coché,
+« Reprendre » en cours, « Revoir » une fois fini.
+
+**Ce qui l'a demandé** : la critique d'écran du 22 août 2026. Sept sur sept
+s'affichait exactement comme zéro sur sept, avec le même bouton « Reprendre » —
+qui supposait donc qu'on avait déjà commencé, y compris quand ce n'était pas
+vrai.
+
+**Ce qui a été écarté**, montré en trois maquettes et tranché par l'utilisateur :
+
+*Écarté — un mot de plus à la fin*, tout le reste inchangé. Le plus petit
+changement des trois. Écarté parce qu'il laisse le total écrit deux fois, qui
+était l'autre moitié du défaut.
+
+*Écarté — le score prend la place du titre*, l'avancement devenant la première
+chose qu'on lit. Écarté parce qu'on ouvre cet écran pour savoir ce qu'il y a à
+faire aujourd'hui, pas où l'on en est : le nom de la séance passe avant.
+
+**Ce que cela engage** : l'état d'une séance se lit en français, pas en fraction.
+Un écran qui affiche un score sans le dire suppose que celui qui regarde fait la
+division lui-même.
+
 ### Annexe — provenance de ce document
 
 Rédigé le 3 août 2026 à partir de deux captures d'écran du programme du coach
