@@ -804,6 +804,13 @@ disqualifie la moitié des réponses possibles à la première.
    couché tient une rangée entière, nom compris. Écrit pour que la limite soit
    connue plutôt que découverte.
 
+   La question 11 **déplace ce seuil** tant que la bande d'échec est affichée :
+   elle prend 44 px de hauteur à 1440 et 82 px à 390, que le mur perd. Le
+   plafond est réévalué à son apparition comme à sa disparition, donc le mur
+   reste juste ; c'est le seuil de la limite ci-dessus qui monte d'autant
+   pendant ce temps. Vérifié : aucune fenêtre d'appareil réel n'y entre, bande
+   comprise.
+
    Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
    artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »
    (§07) — et non l'inventaire de la collection, qui a son propre écran (F-25).
