@@ -100,9 +100,9 @@ func Composer(ctx context.Context, d Dependances, nom string, c Cadrage, alea *r
 	}
 	if err != nil {
 		if errors.Is(err, source.ErrIntrouvable) {
-			return centreVide(fmt.Sprintf("Aucun artiste ne correspond a %q.", nom)), nil
+			return centreVide(fmt.Sprintf("Aucun artiste ne correspond à %q.", nom)), nil
 		}
-		return centrePanne("l'identite de l'artiste n'a pas pu etre verifiee, reessayez dans un instant."), nil
+		return centrePanne("L'identité de l'artiste n'a pas pu être vérifiée. Réessaie dans un instant."), nil
 	}
 
 	discographie, err := d.Catalogue.Discographie(ctx, artiste.MBID, budget.Centre)
@@ -110,7 +110,7 @@ func Composer(ctx context.Context, d Dependances, nom string, c Cadrage, alea *r
 		return Centre{}, annule
 	}
 	if err != nil {
-		return centrePanne("la discographie n'a pas pu etre chargee, reessayez dans un instant."), nil
+		return centrePanne("La discographie n'a pas pu être chargée. Réessaie dans un instant."), nil
 	}
 
 	var illustrationCentre source.Illustration
@@ -132,7 +132,7 @@ func Composer(ctx context.Context, d Dependances, nom string, c Cadrage, alea *r
 			return centreVideAvec(artiste, discographie, illustrationCentre,
 				"Aucun voisin connu pour cet artiste."), nil
 		}
-		return centrePanne("les voisins de cet artiste n'ont pas pu etre charges, reessayez dans un instant."), nil
+		return centrePanne("Les voisins de cet artiste n'ont pas pu être chargés. Réessaie dans un instant."), nil
 	}
 	if len(vivier) == 0 {
 		return centreVideAvec(artiste, discographie, illustrationCentre,

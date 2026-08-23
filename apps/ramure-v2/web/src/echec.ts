@@ -42,6 +42,28 @@ export interface ElementsEchec {
   // Element, pas HTMLElement : `arbre` est #canevas, un SVGSVGElement
   // (main.ts) -- seul `classList` (porte par Element) est necessaire ici.
   arbre: Element | null;
+  // Critique 2026-08-23 N7 : la scene precedente ne se limite PAS au
+  // canevas. Sur ecran large, la fiche du centre est un ASIDE de 352x747
+  // pose a cote de lui ; sur ecran etroit, elle occupe 45 % de la hauteur.
+  // Estomper le seul canevas laissait 94 elements interactifs a pleine
+  // opacite -- le plan qu'on voulait mettre en retrait devenait le plus
+  // lumineux de l'ecran, et l'echec restait "a traiter" pendant qu'on
+  // gardait un artiste ou ouvrait un lien d'ecoute dessous. §17 Q6 exige
+  // que l'estompe "ne concurrence pas le message" : elle porte donc sur la
+  // scene ENTIERE. Le mur de l'accueil en fait partie -- un echec depuis
+  // l'accueil retirait ses six amorces, c'est-a-dire la punition pour
+  // laquelle la variante A avait justement ete ecartee.
+  // Seuls les plans VISIBLES sont estompes : un panneau `hidden` n'a rien a
+  // montrer, et garder la classe le ferait reapparaitre dimme.
+  plans?: Iterable<Element | null | undefined>;
+}
+
+function plansVisibles(elements: ElementsEchec): Element[] {
+  const plans: Element[] = [];
+  for (const plan of elements.plans ?? []) {
+    if (plan && !(plan as Partial<HTMLElement>).hidden) plans.push(plan);
+  }
+  return plans;
 }
 
 // afficherEchecPlantation pose le message et estompe l'arbre precedent --
@@ -58,6 +80,7 @@ export function afficherEchecPlantation(elements: ElementsEchec, message: string
     bande.hidden = false;
   }
   if (arbre && arbreExistant) arbre.classList.add("estompe");
+  for (const plan of plansVisibles(elements)) plan.classList.add("estompe");
 }
 
 // masquerEchecPlantation leve la bande -- jamais toute seule (ce n'est pas
@@ -71,4 +94,8 @@ export function masquerEchecPlantation(elements: ElementsEchec): void {
     bande.textContent = "";
   }
   arbre?.classList.remove("estompe");
+  // Retire de TOUS les plans, visibles ou non : un panneau referme pendant
+  // que l'echec etait affiche garderait sinon la classe et reviendrait
+  // dimme a sa prochaine ouverture.
+  for (const plan of elements.plans ?? []) plan?.classList.remove("estompe");
 }

@@ -151,10 +151,56 @@
   /* L'arbre precedent reste DERRIERE la bande, estompe -- jamais perdu
      (§17 Q6) : assez lisible pour se reperer, sans concurrencer le
      message. pointer-events:none evite qu'un clic sur une branche
-     dimmee ne promeuve un noeud pendant que l'echec reste a traiter. */
-  #canevas.estompe {
+     dimmee ne promeuve un noeud pendant que l'echec reste a traiter.
+
+     Critique 2026-08-23 N7 : l'estompe portait sur le SEUL canevas. La
+     fiche du centre restait a opacite 1 et pleinement cliquable (94
+     elements interactifs mesures) juste a cote d'une bande de 44 px :
+     le plan mis en retrait etait le plus lumineux de l'ecran, et l'echec
+     restait a traiter pendant qu'on agissait dessous. Elle porte
+     desormais sur la scene entiere -- canevas, mur de l'accueil, fiche,
+     apercu, collection. Selecteurs par id, pour passer devant les regles
+     de .fiche-panneau / .accueil sans dependre de l'ordre du fichier. */
+  #canevas.estompe,
+  #accueil.estompe,
+  #fiche.estompe,
+  #apercu-branche.estompe,
+  #collection.estompe {
     opacity: .4; pointer-events: none; transition: opacity .15s ease;
   }
+  /* La bande est posee en absolu sur #contenu, et .accueil est en inset:0 :
+     la barre de l'accueil (promesse + tri) passe donc DERRIERE elle. Mesure :
+     le select de tri se retrouve couvert a 89 %, il en depasse 4 px sous le
+     bord de la bande -- une lisiere qui se lit comme un defaut de rendu.
+     `visibility` plutot que `display` : la rangee garde sa hauteur, le mur
+     ne se decale pas d'un pixel quand la bande se leve. */
+  #accueil.estompe .accueil-barre { visibility: hidden; }
+  @media (prefers-reduced-motion: reduce) {
+    #canevas.estompe,
+    #accueil.estompe,
+    #fiche.estompe,
+    #apercu-branche.estompe,
+    #collection.estompe { transition: none; }
+  }
+  /* Critique 2026-08-23 N1 et N3 : #etat porte depuis F-41 un lien
+     « Se reconnecter », et il etait le seul element de l'app laisse au
+     rendu par defaut du navigateur -- bleu rgb(0,0,238) sur le fond
+     rgb(10,10,11) du bandeau, soit 2,11:1 la ou AA exige 4,5:1, et
+     15 px de haut la ou WCAG 2.5.8 pose 24. Pire, le pointer-events:none
+     pose sur #etat par C10 (2026-08-22, quand il ne portait que du texte)
+     l'avait rendu INCLIQUABLE : elementFromPoint renvoyait DIV.mur sur
+     ses trois coins. La seule sortie d'une session expiree ne repondait
+     pas. Le bandeau reste transparent au pointeur, son lien ne l'est plus. */
+  #etat a {
+    pointer-events: auto;
+    /* #f0a828 : la couleur de lien deja employee par la fiche (plus bas),
+       pas une teinte neuve. Mesure sur le fond du bandeau : 9,74:1. */
+    color: #f0a828;
+    display: inline-block;
+    min-height: 24px; line-height: 24px;
+    padding: 0 .25rem;
+  }
+  #etat a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
   .visuellement-cache {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); white-space: nowrap;

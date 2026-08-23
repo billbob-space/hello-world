@@ -66,6 +66,7 @@ import {
 } from "./collection";
 import { EN_TETE_SESSION, SessionExpireeError, sessionId } from "./session";
 import { afficherEchecPlantation, estEchecDePlantation, masquerEchecPlantation, texteEchecPlantation } from "./echec";
+import type { ElementsEchec } from "./echec";
 import {
   ajouterALaCollection as envoyerAjoutCollection,
   chargerCentre,
@@ -340,6 +341,20 @@ function commandesDArbre(visibles: boolean): void {
   if (boutonZoomerAvant) boutonZoomerAvant.hidden = !visibles;
   if (boutonZoomerArriere) boutonZoomerArriere.hidden = !visibles;
   if (boutonPartager) boutonPartager.hidden = !visibles;
+}
+
+// elementsEchec (critique 2026-08-23 N7) : la scene que la bande d'echec
+// met en retrait. Le canevas n'en est qu'une moitie -- la fiche du centre
+// pese 352x747 sur ecran large et 45 % de la hauteur sur ecran etroit, et
+// elle restait a pleine opacite, pleinement cliquable, a cote d'une bande
+// de 44 px. Recalcule a chaque appel : `hidden` change entre-temps, et
+// echec.ts n'estompe que ce qui est visible.
+function elementsEchec(): ElementsEchec {
+  return {
+    bande: echecPlantationEl,
+    arbre: svg,
+    plans: [accueilSection, ficheEl, apercuEl, collectionEl],
+  };
 }
 
 function masquerAccueil(): void {
@@ -731,11 +746,26 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   // (deja construit ou non) dit s'il existe un arbre a estomper.
   if (estEchecDePlantation(centreAPI)) {
     if (etat) etat.textContent = ""; // le "Chargement de …" pose par planter() ne doit pas rester colle
-    afficherEchecPlantation({ bande: echecPlantationEl, arbre: svg }, texteEchecPlantation(centreAPI), groupeRacine !== null);
+    // Critique 2026-08-23 N4 : sans arbre precedent, planter() venait de
+    // masquer l'accueil -- l'echec laissait 791 px de noir, zero contenu et
+    // zero action, apres avoir retire les six amorces qui etaient le seul
+    // moyen de rebondir. §17 Q6 ecarte la variante A precisement parce
+    // qu'elle "punit une faute de frappe par la perte de l'exploration" :
+    // le mur est le plan precedent de l'accueil, il reste donc derriere la
+    // bande, au meme titre que l'arbre. planter() rappelle masquerAccueil()
+    // a la tentative suivante, la reapparition est donc sans suite.
+    if (groupeRacine === null && accueilSection) accueilSection.hidden = false;
+    // Critique 2026-08-23 N6 : C4 avait masque zoom/dezoom/partage tant
+    // qu'aucune graine n'etait plantee, mais la condition portait sur la
+    // SOUMISSION, pas sur l'existence d'une scene -- l'echec les rouvrait
+    // sur un ecran sans le moindre noeud, "Copier le lien de cet arbre"
+    // compris.
+    commandesDArbre(groupeRacine !== null);
+    afficherEchecPlantation(elementsEchec(), texteEchecPlantation(centreAPI), groupeRacine !== null);
     if (centreAPI.etat === "aucun_voisin") void tenterRattrapage(nomDemande); // F-03 : la correction reste proposee, EN PLUS de la bande
     return;
   }
-  masquerEchecPlantation({ bande: echecPlantationEl, arbre: svg });
+  masquerEchecPlantation(elementsEchec());
 
   svg.replaceChildren();
   const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
@@ -819,7 +849,9 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
       // reponse serveur exploitable) est un echec de plantation comme un
       // autre -- meme bande, meme arbre precedent conserve derriere elle.
       if (etat) etat.textContent = "";
-      afficherEchecPlantation({ bande: echecPlantationEl, arbre: svg }, textes.reseauIndisponible, groupeRacine !== null);
+      commandesDArbre(groupeRacine !== null); // N6 : idem, un echec reseau ne fait pas apparaitre de scene
+      if (groupeRacine === null && accueilSection) accueilSection.hidden = false; // N4
+      afficherEchecPlantation(elementsEchec(), textes.reseauIndisponible, groupeRacine !== null);
     }
     return;
   }
@@ -979,7 +1011,7 @@ boutonLogo?.addEventListener("click", () => {
   if (champGraine) champGraine.value = "";
   fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   masquerCorrection();
-  masquerEchecPlantation({ bande: echecPlantationEl, arbre: svg }); // §17 Q6 : le visiteur repart, la bande se leve
+  masquerEchecPlantation(elementsEchec()); // §17 Q6 : le visiteur repart, la bande se leve
   nomCentreCourant = null;
   lignee.reinitialiser();
   ligneeNoms = [];

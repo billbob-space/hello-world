@@ -1460,3 +1460,58 @@ que six propositions. Cela le deviendra si F-28 ou F-30 laissent la collection
 grossir sans plafond. Ne pas le corriger a l'aveugle : le choix entre plafonner
 le nombre de tuiles, autoriser le defilement, ou retrecir sous un seuil est un
 choix de produit.
+
+### 21. La phrase d'echec corrigee cote client n'etait pas celle que le visiteur lit
+
+**Symptome** — la passe du 22 aout a accentue toute l'interface, `textes.ts`
+compris, y compris son message « aucun artiste ne correspond a… ». La critique
+du 23 aout, regardant l'ecran reel, retrouve la meme phrase **sans accent** — et
+vouvoyant, dans une app qui tutoie partout. Le libelle corrige cote client est un
+**repli**, jamais atteint des que le serveur repond : la phrase affichee vient de
+`internal/arbre/centre.go`.
+
+**Cause** — le meme message existe a deux endroits, dans deux langages, et rien
+ne dit lequel fait autorite. Corriger « toutes les chaines affichees » en ne
+regardant que `textes.ts` etait donc faux sans en avoir l'air : le fichier
+s'annonce comme la source unique — ses propres tests l'affirment — alors qu'il ne
+l'est pas.
+
+**Detecte par** — `relecture`
+
+**Action** — `contrat` — « les chaines affichees vivent dans textes.ts et nulle
+part ailleurs » est une regle que le depot ecrit et que le serveur enfreint. Soit
+le serveur ne rend pas de texte affichable, soit la regle nomme les deux
+sources. Aujourd'hui elle en cache une.
+
+### 22. Le service worker a fait mesurer l'etat d'avant les correctifs
+
+**Symptome** — la premiere serie de mesures de la critique du 23 aout portait sur
+l'interface **precedente**. Profil de navigateur neuf, app relancee, binaire
+reconstruit : le service worker servait quand meme la coquille mise en cache la
+veille.
+
+**Cause** — c'est son role, et il le remplit bien. Mais toute mesure faite en
+navigateur sur cette app doit purger `ramure-shell` d'abord, sans quoi elle
+decrit un etat qui n'existe plus. Un profil neuf ne suffit pas : le cache est
+reconstruit au premier chargement, avant la mesure.
+
+**Detecte par** — `auteur`
+
+**Action** — `comportement` — l'app est installable et fonctionne hors ligne ;
+la contrepartie est qu'elle ment a qui la mesure sans precaution. A dire dans la
+mission de tout agent qui regarde ses ecrans.
+
+### 23. Un troisieme choix de forme est remonte, non tranche
+
+**Symptome** — la critique du 23 aout montre que le mur d'accueil laisse 548 px
+de noir, soit 70 % de la zone, une fois les tuiles rendues carrees. La forme
+carree etant un choix de l'utilisateur, la question qui suit lui revient aussi :
+qu'est-ce qui occupe cette place.
+
+**Cause** — aucune. Une decision de forme en appelle une autre, et c'est normal :
+rendre les tuiles carrees liberait mecaniquement de la hauteur.
+
+**Detecte par** — `relecture`
+
+**Action** — `arbitrage` — trois variantes publiees, rien de retenu d'avance.
+Non bloquant pour cette livraison : l'ecran est correct, il est seulement vide.
