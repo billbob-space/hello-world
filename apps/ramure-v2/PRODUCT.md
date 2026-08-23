@@ -732,11 +732,23 @@ disqualifie la moitié des réponses possibles à la première.
    encadrent une rangée orpheline pour devenir une marge basse franche — 8 px en
    haut, 539 px en bas. La part de noir ne bouge pas d'un point, et c'est assumé :
    **la variante ne remplit pas le vide, elle le met là où il se remplira tout
-   seul.** C'est la seule des trois qui ne plafonne pas le mur : elle tient
-   **18 pochettes** sur trois rangées à taille de tuile inchangée, là où les deux
-   autres en tiennent 6. Le jour où F-28 et F-30 font nourrir le mur par la
-   collection, les rangées se remplissent vers le bas et la question se referme
-   d'elle-même, sans qu'aucune décision de forme ait à être reprise.
+   seul.** C'est la seule des trois qui ne plafonne pas le mur : à 1440 × 900
+   elle tient **36 pochettes**, là où les deux autres en tiennent 6. Le jour où
+   F-28 et F-30 font nourrir le mur par la collection, les rangées se remplissent
+   vers le bas et la question se referme d'elle-même, sans qu'aucune décision de
+   forme ait à être reprise.
+
+   **Ce que « tenir » veut dire, et ce qu'il en coûte.** La tuile n'est pas
+   inchangée : `auto-fit` ouvre jusqu'à 9 pistes à cette largeur, et les pistes
+   vides s'effondrent au profit des pleines. Le mur passe donc de 6 pochettes de
+   230,7 px à 9 pochettes de 151,1 px — puis **la tuile ne bouge plus**, toutes
+   les pistes étant ouvertes, et ce sont les rangées qui se remplissent, jusqu'à
+   quatre. C'est le plancher de 9 rem qui borne cette descente, et c'est ce qui
+   sépare C des deux variantes écartées : elles rétrécissent aussi, mais sans
+   plancher ni gain de rangée — A parce que sa tuile est dimensionnée par la
+   hauteur disponible, B parce que la phrase occupe la place de la deuxième
+   rangée. La différence n'est donc pas « rétrécir ou non », c'est **jusqu'où, et
+   contre quoi on l'échange**.
 
    *Écarté* — **les pochettes elles-mêmes, en 3 × 2 dimensionnées par la
    hauteur** (tuiles de 377 px, part de noir ramenée de 70,4 % à 20,3 %) : c'est
@@ -756,7 +768,7 @@ disqualifie la moitié des réponses possibles à la première.
 
 9. **Que voit-on quand le mur est plus grand que l'écran ?** — *Le mur est en
    `overflow: hidden` et ses tuiles sont carrées : au-delà de ce que la zone
-   peut porter — 18 pochettes sur écran large, moins sur écran étroit — la
+   peut porter — 36 pochettes à 1440 × 900, moins sur écran étroit — la
    rangée en trop n'est pas réduite, elle est **coupée**. Les tuiles concernées
    restent dans la page : invisibles à l'œil, mais atteintes par la tabulation et
    annoncées par un lecteur d'écran. Le PRD interdit par ailleurs le défilement
@@ -768,7 +780,18 @@ disqualifie la moitié des réponses possibles à la première.
    colonnes reste la décision de la CSS (§07, « le nombre de colonnes suit la
    largeur par CSS »), le code ne fait qu'en déduire combien de rangées entrent
    dans la hauteur disponible. Elle est réévaluée au redimensionnement, sans quoi
-   le plafond d'un écran large survivrait au passage en écran étroit.
+   le plafond d'un écran large survivrait au passage en écran étroit. Ce qui est
+   réévalué est le **plafond seul** : ni l'ordre des pochettes ni leur place dans
+   la page ne bougent, sans quoi un tri aléatoire se rebattrait à chaque pixel de
+   redimensionnement.
+
+   **Exception assumée** — une fenêtre trop courte pour porter ne serait-ce
+   qu'une rangée entière montre quand même cette rangée, rognée par le bas. Ne
+   jamais afficher zéro pochette prime sur ne jamais rogner : un accueil vide ne
+   dit pas au visiteur que sa fenêtre est trop petite, il lui dit que le produit
+   est cassé. C'est la seule situation où le mur coupe quelque chose, et elle est
+   écrite ici pour qu'une relecture ultérieure ne prenne pas ce garde-fou pour un
+   oubli et ne le retire pas.
 
    Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
    artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »

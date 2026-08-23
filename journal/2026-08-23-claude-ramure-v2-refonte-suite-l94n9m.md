@@ -139,3 +139,48 @@ nombre THEORIQUE maximal de pistes, pistes a 0 px comprises. A 1440 px, 0, 3 et
 
 **Action** — `rien` — ecrit ici pour que la question ne soit pas rouverte : le
 comptage brut est stable, et le filtrer sur la largeur serait le vrai defaut.
+
+### 16. Le chiffre qui pre-tranchait la question etait faux, et la demande interdisait de le recalculer
+
+**Symptome** — la critique du 23 aout chiffre la capacite du mur a 18 pochettes
+pour l'etat actuel comme pour la variante C, « a taille de tuile inchangee », et
+c'est ce 18 contre 6 qui departage C des deux autres. La capacite reelle a
+1440x900 est **36**, et la tuile n'est pas inchangee : elle passe de 230,7 px a
+151,1 px entre 6 et 9 pochettes.
+
+**Cause** — le calcul supposait le nombre de colonnes fige a 6. `auto-fit` ouvre
+9 pistes a cette largeur et effondre celles ou rien n'est place : ajouter des
+tuiles n'ajoute donc pas seulement des rangees, il ROUVRE des colonnes, et
+retrecit la tuile jusqu'au plancher de 9 rem. Le 18 est ce qu'on obtient en
+figeant la seule variable que la CSS fait bouger.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — le sens de l'arbitrage tient, et largement : 36
+contre 6. Mais la demande d'ouverture portait « ne refais pas — les couts des
+trois variantes sont chiffres dans la critique, ne les recalcule pas », et cette
+consigne, suivie a la lettre, aurait recopie le chiffre faux dans le PRD ou il
+serait devenu la reference. Une consigne d'economie qui protege un chiffre
+protege aussi ses erreurs : ce qui ne se recalcule pas doit au moins se
+verifier, et un chiffre de geometrie se verifie en trois lignes.
+
+### 17. Le repeint complet au redimensionnement rebattait le mur en continu
+
+**Symptome** — l'ecouteur de redimensionnement rappelait la fonction de peinture
+entiere. En tri aleatoire, chaque evenement — glisser une fenetre, tourner un
+telephone, faire disparaitre la barre d'URL — relancait un tirage : le mur se
+rebattait en continu pendant le geste. A tous les tris, chaque tuile etait
+detachee puis reinseree, ce qui relance son animation d'apparition a chaque
+trame.
+
+**Cause** — le §17 q9 demande que le PLAFOND soit reevalue au
+redimensionnement ; la seule fonction disponible faisait tri, placement et
+plafond d'un bloc, et elle a ete rappelee telle quelle. Le defaut est une
+regression neuve : aucun ecouteur de redimensionnement n'existait avant.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — le trou qui l'a laissee passer est nomme par le meme
+constat : le test verifiait que l'ecouteur etait bien retire, jamais ce qu'il
+FAIT. Un ecouteur dont on ne teste que la pose et la depose est un ecouteur non
+teste. Le PRD dit desormais explicitement que seul le plafond est reevalue.
