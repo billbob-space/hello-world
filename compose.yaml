@@ -36,7 +36,7 @@ services:
 
   # >>> ardoise — apps/ardoise/app.yml — https://ardoise.apps.billbob.ovh
   ardoise:
-    image: ghcr.io/billbob-space/hello-world/ardoise:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/ardoise:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: ardoise
     restart: unless-stopped
     mem_limit: 128m
@@ -118,7 +118,7 @@ services:
 
   # >>> cadran — apps/cadran/app.yml — https://cadran.apps.billbob.ovh
   cadran:
-    image: ghcr.io/billbob-space/hello-world/cadran:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/cadran:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: cadran
     restart: unless-stopped
     mem_limit: 128m
@@ -164,7 +164,7 @@ services:
 
   # >>> compteur — apps/compteur/app.yml — https://compteur.apps.billbob.ovh
   compteur:
-    image: ghcr.io/billbob-space/hello-world/compteur:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/compteur:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: compteur
     restart: unless-stopped
     mem_limit: 128m
@@ -246,7 +246,7 @@ services:
 
   # >>> estran — apps/estran/app.yml — https://estran.apps.billbob.ovh
   estran:
-    image: ghcr.io/billbob-space/hello-world/estran:c77d75f2a006981637621b1c1c39c19c039b12e5
+    image: ghcr.io/billbob-space/hello-world/estran:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: estran
     restart: unless-stopped
     mem_limit: 128m
@@ -294,7 +294,7 @@ services:
 
   # >>> hello-world — apps/hello-world/app.yml — https://hello-world.apps.billbob.ovh
   hello-world:
-    image: ghcr.io/billbob-space/hello-world/hello-world:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/hello-world:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: hello-world
     restart: unless-stopped
     mem_limit: 128m
@@ -340,7 +340,7 @@ services:
 
   # >>> marcq-handball — apps/marcq-handball/app.yml — https://marcq-handball.apps.billbob.ovh
   marcq-handball:
-    image: ghcr.io/billbob-space/hello-world/marcq-handball:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/marcq-handball:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: marcq-handball
     restart: unless-stopped
     mem_limit: 128m
@@ -389,7 +389,7 @@ services:
 
   # >>> pilabelle — apps/pilabelle/app.yml — https://pilabelle.apps.billbob.ovh
   pilabelle:
-    image: ghcr.io/billbob-space/hello-world/pilabelle:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/pilabelle:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: pilabelle
     restart: unless-stopped
     mem_limit: 128m
@@ -447,7 +447,7 @@ services:
 
   # >>> ramure-v2 — apps/ramure-v2/app.yml — https://ramure-v2.apps.billbob.ovh
   ramure-v2:
-    image: ghcr.io/billbob-space/hello-world/ramure-v2:3aa848fc190afdfc1a42a3b870cdc86b4aa92b91
+    image: ghcr.io/billbob-space/hello-world/ramure-v2:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: ramure-v2
     restart: unless-stopped
     mem_limit: 128m
@@ -497,7 +497,7 @@ services:
 
   # >>> renaissance-gym — apps/renaissance-gym/app.yml — https://renaissance-gym.apps.billbob.ovh
   renaissance-gym:
-    image: ghcr.io/billbob-space/hello-world/renaissance-gym:9eef03e0fe02bc5184862fefe26cc2067ab8ce96
+    image: ghcr.io/billbob-space/hello-world/renaissance-gym:28e70fe81e3c2d48608744f10ae5f0d37a365faf
     container_name: renaissance-gym
     restart: unless-stopped
     mem_limit: 128m
