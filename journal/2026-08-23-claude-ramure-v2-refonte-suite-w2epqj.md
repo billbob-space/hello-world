@@ -96,3 +96,83 @@ Mais le partage est a revoir — soit l'appelant fournit la premiere ligne et le
 corps, soit le greffier cesse de rediger. Aujourd'hui le fait de le lui laisser
 n'a jamais ete decide, il a ete herite.
 
+### 5. Le correctif reproduisait son propre defaut dans le cas frere
+
+**Symptome** — l'axe « couverture » corrige criait bien quand une app avait un
+client non mesure ET du Go mesure. Dans le cas plus grave — rien de mesure du
+tout, ni Go ni navigateur, alors qu'un client existe — il retombait sur `skip`,
+qui s'affiche en VERT. Le pire des deux cas sortait plus vert que le moins pire.
+
+**Cause** — la ligne de repli « rien de mesurable » preexistait au correctif et
+n'a pas ete relue avec lui. Elle est juste pour une app qui n'a reellement rien a
+mesurer, et fausse des qu'un client existe. Corriger un defaut nomme — « un axe
+qui se tait ressemble a un axe qui passe » — sans relire les autres sorties du
+meme axe le laisse vivant a cote de son correctif.
+
+**Detecte par** — `relecture`
+
+**Action** — `comportement` — un correctif se relit sur TOUTES les sorties de la
+fonction qu'il touche, pas seulement sur le chemin qu'il ajoute. Aucune des dix
+apps n'atteint ce cas aujourd'hui — toutes ont un `go.mod` — donc l'execution ne
+pouvait pas le montrer.
+
+### 6. Le pourcentage lu n'etait pas prouve venir de l'execution en cours
+
+**Symptome** — l'axe lit `coverage/coverage-summary.json` apres avoir lance les
+tests du client. Rien ne verifiait que ce fichier venait de CETTE execution : une
+app dont le script `test` ne demande pas de couverture sort en 0 sans rien
+produire, et le rapport laisse par une execution anterieure — `test.sh`, une
+autre branche, un autre commit — serait lu comme la mesure du jour, puis serre
+dans `app.yml` par `--releve`.
+
+**Cause** — la detection ne verifie que la presence de vitest et d'un script
+`test`, jamais que ce script produit une couverture. Le cliquet se serait alors
+referme sur un chiffre que personne n'a mesure, et il ne se desserre pas.
+
+**Detecte par** — `relecture`
+
+**Action** — `garde-fou` — meme famille que les quatre « verts silencieux » de
+`memory/revue.md` : un artefact qu'on lit sans l'avoir vu naitre n'est pas une
+mesure. Le rapport est desormais efface avant la mesure, ce qui fait retomber son
+absence sur le KO deja ecrit.
+
+### 7. La duplication qui compte est celle que l'axe duplication ne voit pas
+
+**Symptome** — le garde-fou d'orthographe ecrit aujourd'hui pour `internal/api`
+partage 102 lignes non vides, identiques, avec celui de `internal/arbre`. Les
+deux ont deja diverge le jour meme : le neuf sait lire un message compose par
+concatenation, l'ancien non — un futur message concatene dans `arbre` ne serait
+compare a rien, et le garde-fou se tairait.
+
+**Cause** — l'axe duplication exclut `*_test.go`, choix defendable pour des
+tests ordinaires. Un garde-fou n'est pas un test ordinaire : c'est du code
+d'analyse, et sa copie diverge comme n'importe quelle copie. Ecrire le second en
+partant du premier etait la facon la plus sure de le rendre correct tout de
+suite, et la plus sure de le rendre faux ensuite.
+
+**Detecte par** — `relecture`
+
+**Action** — `arbitrage` — tranche ici : la partie commune est mutualisee plutot
+que backportee, parce que backporter refait la copie a l'identique et remet la
+prochaine divergence a plus tard. Reste ouvert, et non traite dans cette branche :
+faut-il que l'axe duplication regarde les fichiers de test qui portent un
+garde-fou ? Le distinguer d'un test ordinaire demande un critere que personne n'a.
+
+### 8. Le detecteur mutualise n'etait pas couvert par le meta-test qui le surveille
+
+**Symptome** — la mutualisation faite, la revue passe au rouge : couverture Go
+81,2 % contre une barre a 82. Le coupable est la fonction de parcours du code,
+`ExtraireAppels`, a 0 %. Les deux autres fonctions du paquet sont a 100 %.
+
+**Cause** — elle n'etait exercee que par ses appelants, dans les tests de `api`
+et de `arbre`. Le profil d'un paquet ne compte que ce que ses PROPRES tests
+executent : la fonction etait donc largement jouee, et comptee nulle part. Un
+detecteur non couvert par le meta-test est exactement ce que le meta-test existe
+pour interdire.
+
+**Detecte par** — `relecture`
+
+**Action** — `rien` — repare, et la barre a joue le jour meme ou elle a ete
+posee : elle a bloque le code qui venait de la poser. C'est le meilleur usage
+qu'on pouvait en attendre.
+

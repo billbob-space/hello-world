@@ -20,24 +20,25 @@
 // vivent dans SIX fichiers (centre.go, collection.go, diagnostic.go,
 // ecouter.go, fiche.go, reglages.go), pas un seul -- l'analyse porte donc
 // sur parser.ParseDir (tout le paquet, fichiers de test exclus), pas sur
-// un unique parser.ParseFile. Un appel qui concatene un litteral et une
-// constante (diagnostic.go : "en-tete "+EnTeteSession+" requis") produit
-// aussi une forme que centre.go n'a pas : litteralMessage se decompose
-// donc sur un ast.BinaryExpr "+" en recolant les fragments STATIQUES de
-// chaque cote, comme elle recolait deja le premier argument d'un
-// fmt.Sprintf -- jamais la valeur dynamique (ici EnTeteSession, une
-// constante de code, jamais saisie par un visiteur).
+// un unique parser.ParseFile.
+//
+// La detection du vouvoiement et l'extraction des fragments STATIQUES d'un
+// argument message (dont la concatenation "+" -- diagnostic.go :
+// "en-tete "+EnTeteSession+" requis") sont MUTUALISEES avec
+// internal/arbre/messages_orthographe_test.go dans internal/orthographe.
+// Ce fichier ne garde que ce qui lui est PROPRE : la table des messages
+// deja relus pour ce paquet, et le nom de la fonction dont il analyse les
+// appels (ecrireErreur).
 package api
 
 import (
-	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/billbob-space/hello-world/apps/ramure-v2/internal/orthographe"
 )
 
 // messagesAttendus : la liste EXACTE, mot pour mot, des fragments de
@@ -48,7 +49,7 @@ import (
 // la comparaison litterale plus sure qu'une heuristique.
 //
 // "en-tête " et " requis" (diagnostic.go) figurent en DEUX fragments,
-// separes par la constante EnTeteSession que litteralMessage ne resout
+// separes par la constante EnTeteSession que LitteralMessage ne resout
 // jamais : c'est la forme que produit l'analyse d'un ast.BinaryExpr, pas
 // une erreur de decoupage.
 var messagesAttendus = map[string]bool{
@@ -67,58 +68,11 @@ var messagesAttendus = map[string]bool{
 	`réglages indisponibles`:          true,
 }
 
-// vouvoiement : "vous", ou un verbe conjugue a la 2e personne du pluriel
-// (terminaison -ez) -- une regle systematique en francais, donc valable
-// pour un message qu'aucune table d'aujourd'hui ne connait encore. "chez",
-// "assez" et "nez" ne sont pas des verbes : ils sont exclus.
-var vouvoiement = regexp.MustCompile(`(?i)\bvous\b|\b[a-zàâäéèêëïîôöùûüç]{3,}ez\b`)
-
-var exceptionsVouvoiement = map[string]bool{"chez": true, "assez": true, "nez": true}
-
-// trouveVouvoiement rend le premier mot qui vouvoie dans msg, ou "" si
-// rien ne ressort.
-func trouveVouvoiement(msg string) string {
-	for _, mot := range vouvoiement.FindAllString(msg, -1) {
-		if exceptionsVouvoiement[strings.ToLower(mot)] {
-			continue
-		}
-		return mot
-	}
-	return ""
-}
-
-// litteralMessage rend la ou les parties STATIQUES d'un argument message :
-// un litteral de chaine tel quel, le format d'un fmt.Sprintf (son premier
-// argument), ou les deux cotes d'une concatenation "+" -- jamais un
-// appel dynamique (identite.ErrSansIdentite.Error(), par exemple), dont le
-// contenu ne se lit pas par analyse statique et n'a donc rien a comparer
-// ici.
-func litteralMessage(expr ast.Expr) []string {
-	switch e := expr.(type) {
-	case *ast.BasicLit:
-		if e.Kind == token.STRING {
-			if v, err := strconv.Unquote(e.Value); err == nil {
-				return []string{v}
-			}
-		}
-	case *ast.CallExpr:
-		if sel, ok := e.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Sprintf" && len(e.Args) > 0 {
-			return litteralMessage(e.Args[0])
-		}
-	case *ast.BinaryExpr:
-		if e.Op == token.ADD {
-			var fragments []string
-			fragments = append(fragments, litteralMessage(e.X)...)
-			fragments = append(fragments, litteralMessage(e.Y)...)
-			return fragments
-		}
-	}
-	return nil
-}
-
 // messagesRendus extrait, par analyse statique de tous les fichiers .go de
 // ce paquet (fichiers de test exclus), tous les fragments litteraux passes
-// en troisieme argument (message) a ecrireErreur.
+// en troisieme argument (message) a ecrireErreur. L'extraction elle-meme --
+// marcher l'AST, reconnaitre un fmt.Sprintf ou une concatenation -- est
+// mutualisee dans orthographe.ExtraireAppels.
 func messagesRendus(t *testing.T) []string {
 	t.Helper()
 	fset := token.NewFileSet()
@@ -129,21 +83,11 @@ func messagesRendus(t *testing.T) []string {
 		t.Fatalf("analyse du paquet api : %v", err)
 	}
 
+	constructeurs := map[string]int{"ecrireErreur": 2}
 	var messages []string
 	for _, pkg := range pkgs {
 		for _, fichier := range pkg.Files {
-			ast.Inspect(fichier, func(n ast.Node) bool {
-				appel, ok := n.(*ast.CallExpr)
-				if !ok {
-					return true
-				}
-				ident, ok := appel.Fun.(*ast.Ident)
-				if !ok || ident.Name != "ecrireErreur" || len(appel.Args) < 3 {
-					return true
-				}
-				messages = append(messages, litteralMessage(appel.Args[2])...)
-				return true
-			})
+			messages = append(messages, orthographe.ExtraireAppels(fichier, constructeurs)...)
 		}
 	}
 	if len(messages) == 0 {
@@ -162,52 +106,30 @@ func TestMessagesRendusAccentuesEtTutoient(t *testing.T) {
 		if !messagesAttendus[msg] {
 			t.Errorf("message %q : absent de messagesAttendus -- message neuf ou modifie (meme d'un accent), a relire puis ajouter a la table", msg)
 		}
-		if mot := trouveVouvoiement(msg); mot != "" {
+		if mot := orthographe.TrouveVouvoiement(msg); mot != "" {
 			t.Errorf("message %q : %q vouvoie (l'app tutoie partout ailleurs, voir web/src/textes.ts)", msg, mot)
 		}
 	}
 }
 
-// TestReglesOrthographeEtTonDetectentLesCasConnus verifie les detecteurs
-// eux-memes contre des cas positifs ET negatifs connus : sans ce test, un
-// futur refactor de messagesAttendus ou de la regle de vouvoiement pourrait
-// les rendre muets sans que rien ne le signale. (Journal 2026-08-22,
-// anomalie 24 : un garde-fou se verifie sur ce qu'il ACCEPTE autant que sur
-// ce qu'il refuse.)
-func TestReglesOrthographeEtTonDetectentLesCasConnus(t *testing.T) {
-	t.Run("comparaison litterale", func(t *testing.T) {
-		cas := []struct {
-			nom   string
-			msg   string
-			connu bool
-		}{
-			{"message exact de la table", `réglages illisibles`, true},
-			{"meme message, un accent avale -- devient un message DIFFERENT, donc inconnu", `reglages illisibles`, false},
-			{"message jamais vu", `mot de passe incorrect`, false},
+// TestMessagesAttendusReconnaissentLesCasConnus verifie messagesAttendus
+// lui-meme, sur ce qu'il ACCEPTE (un message deja relu) autant que sur ce
+// qu'il refuse (un message absent, ou modifie meme d'un seul accent) --
+// Journal 2026-08-22, anomalie 24. La detection du vouvoiement, elle, est
+// mutualisee : voir internal/orthographe/orthographe_test.go.
+func TestMessagesAttendusReconnaissentLesCasConnus(t *testing.T) {
+	cas := []struct {
+		nom   string
+		msg   string
+		connu bool
+	}{
+		{"message exact de la table", `réglages illisibles`, true},
+		{"meme message, un accent avale -- devient un message DIFFERENT, donc inconnu", `reglages illisibles`, false},
+		{"message jamais vu", `mot de passe incorrect`, false},
+	}
+	for _, c := range cas {
+		if got := messagesAttendus[c.msg]; got != c.connu {
+			t.Errorf("%s : connu = %v, attendu %v (msg %q)", c.nom, got, c.connu, c.msg)
 		}
-		for _, c := range cas {
-			if got := messagesAttendus[c.msg]; got != c.connu {
-				t.Errorf("%s : connu = %v, attendu %v (msg %q)", c.nom, got, c.connu, c.msg)
-			}
-		}
-	})
-
-	t.Run("vouvoiement", func(t *testing.T) {
-		cas := []struct {
-			nom     string
-			msg     string
-			vouvoie bool
-		}{
-			{"vouvoiement explicite, terminaison -ez", "veuillez reessayer dans un instant.", true},
-			{"vouvoiement par le seul mot \"vous\"", "vous devez fournir un parametre.", true},
-			{"tutoiement correct", "le paramètre nom est requis", false},
-			{"exceptions -ez seules -- ne vouvoient pas sans \"vous\" ni verbe conjugue", "assez de requetes, reessaie plus tard.", false},
-			{"aucune marque de 2e personne du pluriel", "écriture impossible", false},
-		}
-		for _, c := range cas {
-			if got := trouveVouvoiement(c.msg) != ""; got != c.vouvoie {
-				t.Errorf("%s : vouvoiement detecte = %v, attendu %v (msg %q)", c.nom, got, c.vouvoie, c.msg)
-			}
-		}
-	})
+	}
 }

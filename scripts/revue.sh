@@ -428,6 +428,14 @@ axe_couverture() {  # <app>
   elif dweb=$(repertoire_vitest); [ -n "$dweb" ]; then
     local vlog="$TRAVAIL/$a.vitest"
     rc=0
+    # Le rapport de couverture est EFFACE avant la mesure. Sans cela, une app
+    # dont le script `test` ne demande pas de couverture sortirait en 0 sans
+    # rien produire, et le rapport laisse par une execution anterieure --
+    # test.sh, une autre branche, un autre commit -- serait lu comme la mesure
+    # du jour, puis serre dans app.yml par `--releve` : le cliquet se refermerait
+    # sur un chiffre que personne n'a mesure. Efface, l'absence de rapport
+    # retombe sur le KO ecrit plus bas.
+    rm -rf "$dweb/coverage"
     # Les dependances sont deja la : prepare.sh a fait le `npm ci` avant les
     # axes. Un axe n'installe rien lui-meme -- il mesure ce que l'app livre.
     ( cd "$dweb" && npm test --silent ) >"$vlog" 2>&1 || rc=$?
@@ -477,7 +485,16 @@ axe_couverture() {  # <app>
     fi
   fi
 
-  [ -n "$dit" ] || { VERDICT=skip; MESSAGE="rien de mesurable${muet:+ — $muet}"; return 0; }
+  # Rien de mesurable du tout. `skip` s'affiche en VERT, et c'est correct pour
+  # une app qui n'a rien a mesurer. Mais si un client existe et qu'aucune chaine
+  # n'a ete reconnue, c'est le cas le PLUS grave -- rien n'a ete lu, ni Go ni
+  # navigateur -- et il sortirait plus vert que le cas ou seul le client manque.
+  # L'inversion serait le defaut meme que cet axe vient de corriger.
+  if [ -z "$dit" ]; then
+    if [ -n "$muet" ]; then VERDICT=warn; else VERDICT=skip; fi
+    MESSAGE="rien de mesurable${muet:+ — $muet}"
+    return 0
+  fi
   MESURE="${go_pct:--};${web_pct:--}"
   MESSAGE="$dit"
   if [ "$depasse" = 1 ]; then
