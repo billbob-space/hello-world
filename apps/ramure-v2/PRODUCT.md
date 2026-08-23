@@ -676,6 +676,45 @@ sans savoir qu'elle avait été prise.
    chaînes affichées restent centralisées en un seul endroit pour ne pas fermer
    la porte.
 
+### Questions tranchées — le 22 août 2026
+
+Deux formes d'écran que la critique visuelle a refusé de trancher seule. Chacune
+a été montrée en trois variantes ; ce qui suit dit ce qui est retenu **et ce qui
+est écarté**, parce qu'une variante écartée sans trace se repropose.
+
+6. **Que voit-on quand une graine ne donne rien ?** — *Aujourd'hui, l'application
+   plante un artiste fantôme : un disque au centre portant le nom mal orthographié
+   saisi par le visiteur, démenti par une ligne de gris à l'autre bout de l'écran.
+   Elle affirme un résultat qu'elle n'a pas.*
+   → **Une bande pleine largeur sous la barre de recherche, l'arbre précédent
+   conservé derrière elle, estompé.** L'échec devient une information posée sur
+   l'écran plutôt qu'un faux résultat, et le visiteur ne perd pas l'exploration
+   en cours : c'est ce que la lignée du §06 promet, une exploration qui ne se
+   défait pas sur une faute de frappe. Conséquence assumée : deux plans à tenir à
+   l'écran, l'estompe devant rester assez lisible pour qu'on sache où l'on est
+   sans qu'elle concurrence le message.
+
+   *Écarté* — **le retour au mur d'accueil, champ armé** : il répare vite, mais
+   il efface l'arbre en cours, ce qui punit une faute de frappe par la perte de
+   l'exploration. **Le nœud d'échec explicite au centre** : plus économe, il
+   garde le nom fautif au centre de l'écran, c'est-à-dire à la place réservée à
+   ce qui existe.
+
+7. **Quelle est la forme des tuiles du mur d'accueil sur écran large ?** — *Six
+   bandes verticales très étirées, d'un rapport de 1 à 3,2, là où ce document
+   parle d'un « mur de pochettes ».*
+   → **Des pochettes carrées, en grille centrée.** Le mur cite un objet que tout
+   le monde reconnaît, et le carré est la forme de cet objet ; l'écart entre le
+   mot et l'image disparaît. La grille centrée évite en outre de rouvrir le vide
+   latéral que la même critique venait de fermer.
+
+   *Écarté* — **la tuile d'honneur entourée d'une mosaïque** : elle hiérarchise
+   des propositions qui ne sont pas hiérarchisées, et donnerait à la première un
+   poids que rien ne justifie. **Les bandes verticales assumées, plein cadre,
+   nom à la verticale** : forme la plus affirmée des trois, mais elle éloigne
+   encore le mur de la pochette au lieu de l'en rapprocher, et un nom à la
+   verticale se lit mal.
+
 ---
 
 ## 18 · Annexe — les questions qu'un PRD doit avoir tranchées

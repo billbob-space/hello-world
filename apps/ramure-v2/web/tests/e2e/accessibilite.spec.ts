@@ -115,14 +115,16 @@ for (const disposition of DISPOSITIONS) {
       await page.fill("#graine", "Tyop");
       await page.locator("#recherche button[type=submit]").click();
       await expect(page.locator("#correction")).toBeVisible();
-      // Defaut #5 (REFERENCE.md, "aria-command-name") corrige : avant que la
-      // correction ne soit acceptee, le centre reste "aucun_voisin" avec un
-      // artiste dont le nom n'a resolu vers rien -- reconstruireScene()
-      // (web/src/main.ts) dessine quand meme le noeud central (F-38, "toujours
-      // un contenu"), desormais avec le nom REELLEMENT demande ("Tyop") comme
-      // repli, jamais une chaine vide : la commande ARIA (role="button",
-      // tabindex=0) garde un nom accessible en toute circonstance.
-      await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Tyop");
+      // §17 Q6 (PRODUCT.md, decision du 22 aout 2026, remplace l'ancien
+      // defaut #5/artiste fantome, REFERENCE.md) : le centre reste
+      // "aucun_voisin" SANS mbid ("Tyop" n'a resolu vers aucun artiste) --
+      // c'est un echec de plantation (echec.ts) : la bande, pas un centre
+      // fantome nomme du texte saisi, porte desormais le message. Les DEUX
+      // coexistent : la bande dit ce qui s'est passe, la correction dit ce
+      // qu'on peut faire (F-03).
+      await expect(page.locator("#echec-plantation")).toBeVisible();
+      await expect(page.locator("#echec-plantation")).toContainText("Tyop");
+      await expect(page.locator(".noeud")).toHaveCount(0);
       await scanner(page);
     });
 

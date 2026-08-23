@@ -113,6 +113,16 @@ export const textes = {
   ligneeDeDecouverte: (lignee: readonly string[]): string => lignee.join(" → "),
   gardeLe: (date: string): string => `Gardé le ${date}`,
 
+  // Echec de plantation (§17 Q6 de PRODUCT.md, decision du 22 aout 2026) :
+  // la bande remplace l'ancien artiste fantome (un disque au centre portant
+  // le nom mal orthographie saisi par le visiteur, dementi seulement par
+  // une ligne de gris a l'autre bout de l'ecran -- critique 2026-08-22
+  // C15). Son message dit ce qui s'est passe ET ce qu'on peut faire, jamais
+  // un simple constat : voir web/src/echec.ts, qui compose ce texte.
+  echecPlantation: (messageServeur: string): string => `${messageServeur} Vérifie l'orthographe, ou plante un autre nom.`,
+  echecPlantationGenerique: "Aucun artiste ne correspond à cette recherche.",
+  reseauIndisponible: "Le réseau n'a pas répondu. Réessaie dans un instant.",
+
   // Session expiree (F-41) : Traefik redirige une session expiree vers
   // Google, jamais un JSON — le defaut le plus deroutant serait de laisser
   // croire a une erreur de saisie. Le lien recharge la page courante, ce

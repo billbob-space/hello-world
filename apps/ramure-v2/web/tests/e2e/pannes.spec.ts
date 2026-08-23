@@ -61,6 +61,10 @@ test("panne 1/5 -- source vide (F-36, aucun voisin connu)", async ({ page }) => 
   // cause ci-dessus).
   await expect(page.locator(".noeud")).toHaveCount(1);
   await expect(page.locator("#graine")).toBeEnabled();
+  // §17 Q6 (PRODUCT.md, decision du 22 aout 2026) : un mbid REEL (l'artiste
+  // est bel et bien resolu, il n'a simplement aucun voisin connu) n'est
+  // JAMAIS un echec de plantation -- la bande reste masquee.
+  await expect(page.locator("#echec-plantation")).toBeHidden();
 });
 
 // ---------------------------------------------------------------------
@@ -79,19 +83,25 @@ test("panne 2/5 -- source en erreur (F-37, invite a reessayer)", async ({ page }
 
   await planter(page, "Artiste Malchanceux");
 
-  // Meme defaut #3 corrige que le cas 1/5 ci-dessus : le message distinctif
-  // de panne, pose dans #etat par reconstruireScene(), n'est plus ecrase par
-  // une annonce "Nouveau centre" qui n'a plus lieu d'etre puisqu'il n'y a
-  // pas de nouveau centre (etat "panne", pas "ok").
-  await expect(page.locator("#etat")).toHaveText(
+  // §17 Q6 (PRODUCT.md, decision du 22 aout 2026, remplace l'ancien defaut
+  // #3/artiste fantome) : centrePanne() ne porte JAMAIS de mbid -- c'est un
+  // echec de plantation (echec.ts, estEchecDePlantation), plus un simple
+  // "aucun voisin". reconstruireScene() ne dessine donc plus AUCUN centre :
+  // #etat reste vide, le message distinctif de panne vit desormais dans la
+  // bande pleine largeur, jamais ecrase par une annonce "Nouveau centre".
+  await expect(page.locator("#etat")).toHaveText("");
+  await expect(page.locator("#echec-plantation")).toBeVisible();
+  await expect(page.locator("#echec-plantation")).toHaveText(
     "les voisins de cet artiste n'ont pas pu etre charges, reessayez dans un instant.",
   );
-  // Meme dessin inconditionnel que le cas 1/5 -- ici avec une identite
-  // JAMAIS resolue (centrePanne() ne porte aucun artiste), mais un cercle
-  // qui garde neanmoins un nom accessible (defaut #5, REFERENCE.md, corrige) :
-  // reconstruireScene() replie sur le nom REELLEMENT demande.
-  await expect(page.locator(".noeud")).toHaveCount(1);
-  await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Artiste Malchanceux");
+  await expect(page.locator("#echec-plantation")).toHaveAttribute("role", "alert");
+  // Critique 2026-08-22 C15 : l'ancien artiste fantome (un cercle nomme du
+  // texte saisi par le visiteur, JAMAIS resolu) a disparu -- aucun centre
+  // n'est plus dessine sur un echec de plantation. Premier essai depuis
+  // l'accueil (aucun arbre precedent) : la bande s'affiche seule (§17 Q6,
+  // "cas a traiter, pas un oubli"), rien n'est estompe faute d'arbre.
+  await expect(page.locator(".noeud")).toHaveCount(0);
+  await expect(page.locator("#canevas")).not.toHaveClass(/estompe/);
   // internal/api/centre.go : une panne repond 503, jamais 200 -- le JSON
   // reste neanmoins exploitable (chargerCentre() ne teste jamais
   // response.ok, voir web/src/main.ts) : c'est le CONTENU qui distingue.
@@ -104,6 +114,10 @@ test("panne 2/5 -- source en erreur (F-37, invite a reessayer)", async ({ page }
   await page.fill("#graine", "Artiste Malchanceux");
   await page.locator("#recherche button[type=submit]").click();
   await expect(page.locator('.noeud[data-id="centre"]')).toHaveAttribute("aria-label", "Artiste Malchanceux");
+  // §17 Q6 : la bande n'est pas une alerte qui s'auto-efface -- elle se
+  // leve uniquement sur une plantation reussie (echec.ts,
+  // masquerEchecPlantation, appelee par reconstruireScene).
+  await expect(page.locator("#echec-plantation")).toBeHidden();
 });
 
 // ---------------------------------------------------------------------

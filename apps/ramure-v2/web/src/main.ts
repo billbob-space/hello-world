@@ -65,6 +65,8 @@ import {
   type PanneauCollection,
 } from "./collection";
 import { EN_TETE_SESSION, SessionExpireeError, sessionId } from "./session";
+import { afficherEchecPlantation, estEchecDePlantation, masquerEchecPlantation, texteEchecPlantation } from "./echec";
+import type { ElementsEchec } from "./echec";
 import {
   ajouterALaCollection as envoyerAjoutCollection,
   chargerCentre,
@@ -97,6 +99,7 @@ const AMORCAGE_EDITORIAL: TuileDonnees[] = [
 
 const svg = document.querySelector<SVGSVGElement>("#canevas");
 const etat = document.querySelector<HTMLElement>("#etat");
+const echecPlantationEl = document.querySelector<HTMLElement>("#echec-plantation");
 const formulaire = document.querySelector<HTMLFormElement>("#recherche");
 const champGraine = document.querySelector<HTMLInputElement>("#graine");
 const boutonZoomerAvant = document.querySelector<HTMLButtonElement>("#zoomer-avant");
@@ -338,6 +341,40 @@ function commandesDArbre(visibles: boolean): void {
   if (boutonZoomerAvant) boutonZoomerAvant.hidden = !visibles;
   if (boutonZoomerArriere) boutonZoomerArriere.hidden = !visibles;
   if (boutonPartager) boutonPartager.hidden = !visibles;
+}
+
+// elementsEchec (critique 2026-08-23 N7) : la scene que la bande d'echec
+// met en retrait. Le canevas n'en est qu'une moitie -- la fiche du centre
+// pese 352x747 sur ecran large et 45 % de la hauteur sur ecran etroit, et
+// elle restait a pleine opacite, pleinement cliquable, a cote d'une bande
+// de 44 px. Recalcule a chaque appel : `hidden` change entre-temps, et
+// echec.ts n'estompe que ce qui est visible.
+function elementsEchec(): ElementsEchec {
+  return {
+    bande: echecPlantationEl,
+    arbre: svg,
+    plans: [accueilSection, ficheEl, apercuEl, collectionEl],
+  };
+}
+
+// traiterEchecPlantation (critique 2026-08-23 N3) : les TROIS chemins qui
+// menent a une bande d'echec -- centre non resolu (reconstruireScene),
+// panne reseau a la plantation (planter) -- executaient la MEME regle
+// recopiee mot pour mot : vider le "Chargement de …" laisse par planter(),
+// masquer zoom/dezoom/partage tant qu'aucune scene n'existe (N6), rouvrir
+// l'accueil quand il n'y a AUCUN arbre precedent a montrer derriere la
+// bande (N4), puis poser la bande elle-meme. Deux copies, trop courtes
+// pour que jscpd les voie, avaient DEJA diverge une fois (le masquage des
+// commandes n'avait d'abord ete applique qu'a l'une des deux) -- symptome
+// qu'une regle recopiee se defait sans qu'aucun test ne rougisse.
+// `groupeRacine` (deja construit ou non) dit a lui seul s'il existe un
+// arbre a estomper derriere la bande.
+function traiterEchecPlantation(message: string): void {
+  if (etat) etat.textContent = "";
+  const arbrePresent = groupeRacine !== null;
+  commandesDArbre(arbrePresent);
+  if (!arbrePresent && accueilSection) accueilSection.hidden = false;
+  afficherEchecPlantation(elementsEchec(), message, arbrePresent);
 }
 
 function masquerAccueil(): void {
@@ -707,13 +744,7 @@ function cablerNoeud(n: NoeudDessine, nom: string): void {
 // voyager un noeud DEJA present (F-12).
 function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   if (!svg) return;
-  svg.replaceChildren();
-  const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
-  racine.setAttribute("class", "racine");
-  svg.append(racine);
-  groupeRacine = racine;
-  groupes = creerGroupes(racine);
-  noeudsDessines = new Map();
+
   // Defaut #1 (REFERENCE.md) corrige : sur un centre "aucun_voisin"/"panne",
   // centreAPI.artiste.nom est une chaine VIDE (Artiste zero-valeur, voir
   // centreVide()/centrePanne() cote Go) — la garder telle quelle rendait
@@ -722,14 +753,52 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   // lui, avait deja pousse une entree. Repli sur `nomDemande` (le nom
   // REELLEMENT demande, toujours non vide) : nomCentreCourant ne peut plus
   // etre faux alors qu'un centre existe deja, ce qui garde `ligneeNoms` et
-  // `lignee.lignee` de MEME longueur en toute circonstance.
+  // `lignee.lignee` de MEME longueur en toute circonstance. Pose ICI, AVANT
+  // le guard d'echec de plantation ci-dessous (§17 Q6) : une tentative
+  // corrigee compte, a bon droit, comme un centre quitte (F-14, F-29/F-30,
+  // web/tests/e2e/parcours.spec.ts) MEME quand rien ne se dessine.
   nomCentreCourant = centreAPI.artiste.nom || nomDemande;
 
-  if (centreAPI.etat !== "ok" || !centreAPI.branches || centreAPI.branches.length === 0) {
+  // §17 Q6 (PRODUCT.md, decision du 22 aout 2026) : un centre qui n'a RIEN
+  // resolu ne reconstruit plus la scene -- l'ancien artiste fantome
+  // (critique 2026-08-22 C15) laisse place a une bande d'echec, l'arbre
+  // precedent conserve DERRIERE elle, estompe (echec.ts). `groupeRacine`
+  // (deja construit ou non) dit s'il existe un arbre a estomper.
+  if (estEchecDePlantation(centreAPI)) {
+    // Critique 2026-08-23 N4 : sans arbre precedent, planter() venait de
+    // masquer l'accueil -- l'echec laissait 791 px de noir, zero contenu et
+    // zero action, apres avoir retire les six amorces qui etaient le seul
+    // moyen de rebondir. §17 Q6 ecarte la variante A precisement parce
+    // qu'elle "punit une faute de frappe par la perte de l'exploration" :
+    // le mur est le plan precedent de l'accueil, il reste donc derriere la
+    // bande, au meme titre que l'arbre. planter() rappelle masquerAccueil()
+    // a la tentative suivante, la reapparition est donc sans suite.
+    // Critique 2026-08-23 N6 : C4 avait masque zoom/dezoom/partage tant
+    // qu'aucune graine n'etait plantee, mais la condition portait sur la
+    // SOUMISSION, pas sur l'existence d'une scene -- l'echec les rouvrait
+    // sur un ecran sans le moindre noeud, "Copier le lien de cet arbre"
+    // compris. Les deux sont traites par traiterEchecPlantation (N3), une
+    // seule fois pour les deux chemins qui menent ici.
+    traiterEchecPlantation(texteEchecPlantation(centreAPI));
+    if (centreAPI.etat === "aucun_voisin") void tenterRattrapage(nomDemande); // F-03 : la correction reste proposee, EN PLUS de la bande
+    return;
+  }
+  masquerEchecPlantation(elementsEchec());
+
+  svg.replaceChildren();
+  const racine = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
+  racine.setAttribute("class", "racine");
+  svg.append(racine);
+  groupeRacine = racine;
+  groupes = creerGroupes(racine);
+  noeudsDessines = new Map();
+
+  // Ici, l'echec de plantation est deja ecarte (guard ci-dessus) : ce qui
+  // reste sous "aucun_voisin" est toujours un mbid REEL (F-36, "aucun
+  // voisin connu pour CET artiste" -- un resultat legitime, jamais un
+  // fantome).
+  if (!centreAPI.branches || centreAPI.branches.length === 0) {
     if (etat) etat.textContent = centreAPI.message ?? "Aucun voisin connu pour cet artiste.";
-    if (centreAPI.etat === "aucun_voisin" && !centreAPI.artiste.mbid) {
-      void tenterRattrapage(nomDemande); // F-03 : l'artiste demande est introuvable
-    }
   } else if (etat) {
     etat.textContent = "";
   }
@@ -793,8 +862,13 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
     if (lignee.estPerimee(generation)) return;
     if (erreur instanceof SessionExpireeError) {
       afficherSessionExpiree();
-    } else if (etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+    } else {
+      // §17 Q6 : une plantation qui echoue au niveau reseau (jamais de
+      // reponse serveur exploitable) est un echec de plantation comme un
+      // autre -- meme bande, meme arbre precedent conserve derriere elle,
+      // traite par traiterEchecPlantation (N3) comme le centre non resolu
+      // de reconstruireScene.
+      traiterEchecPlantation(textes.reseauIndisponible);
     }
     return;
   }
@@ -826,7 +900,7 @@ async function remonterLignee(): Promise<void> {
     if (erreur instanceof SessionExpireeError) {
       afficherSessionExpiree();
     } else if (etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+      etat.textContent = textes.reseauIndisponible;
     }
     return;
   }
@@ -868,7 +942,7 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
     if (erreur instanceof SessionExpireeError) {
       afficherSessionExpiree();
     } else if (etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+      etat.textContent = textes.reseauIndisponible;
     }
     return;
   }
@@ -954,6 +1028,7 @@ boutonLogo?.addEventListener("click", () => {
   if (champGraine) champGraine.value = "";
   fermerSuggestions(); // defaut #7 : invalide aussi une requete debattue encore en vol
   masquerCorrection();
+  masquerEchecPlantation(elementsEchec()); // §17 Q6 : le visiteur repart, la bande se leve
   nomCentreCourant = null;
   lignee.reinitialiser();
   ligneeNoms = [];
