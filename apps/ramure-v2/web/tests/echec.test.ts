@@ -95,3 +95,46 @@ describe("afficherEchecPlantation / masquerEchecPlantation", () => {
     expect(() => masquerEchecPlantation({ bande: null, arbre: null })).not.toThrow();
   });
 });
+
+// Critique 2026-08-23 N2 : `plans` n'etait exerce par AUCUN test -- les
+// trois assertions ci-dessus portent toutes sur `arbre` (#canevas), c'est-a-
+// dire sur le comportement du commit precedent, pas sur celui de N7.
+describe("afficherEchecPlantation / masquerEchecPlantation -- plans (critique 2026-08-23 N7/N2)", () => {
+  function elementsAvecPlans() {
+    const bande = document.createElement("p");
+    bande.hidden = true;
+    const arbre = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const planVisible = document.createElement("div");
+    const planCache = document.createElement("div");
+    planCache.hidden = true;
+    return { bande, arbre, plans: [planVisible, planCache] };
+  }
+
+  it("estompe chaque plan VISIBLE", () => {
+    const els = elementsAvecPlans();
+    afficherEchecPlantation(els, "message", false);
+    expect(els.plans[0]!.classList.contains("estompe")).toBe(true);
+  });
+
+  it("un plan `hidden` n'est PAS estompe -- rien a montrer, la classe le ferait reapparaitre dimme", () => {
+    const els = elementsAvecPlans();
+    afficherEchecPlantation(els, "message", false);
+    expect(els.plans[1]!.classList.contains("estompe")).toBe(false);
+  });
+
+  it("masquerEchecPlantation retire l'estompe MEME d'un plan cache entre-temps (evite qu'il revienne dimme a sa reouverture)", () => {
+    const els = elementsAvecPlans();
+    afficherEchecPlantation(els, "message", false);
+    expect(els.plans[0]!.classList.contains("estompe")).toBe(true);
+    els.plans[0]!.hidden = true; // se referme pendant que l'echec est affiche
+    masquerEchecPlantation(els);
+    expect(els.plans[0]!.classList.contains("estompe")).toBe(false);
+  });
+
+  it("plans absent, ou contenant null/undefined -- ne plante jamais", () => {
+    expect(() => afficherEchecPlantation({ bande: null, arbre: null }, "message", false)).not.toThrow();
+    const els = { bande: null, arbre: null, plans: [null, undefined] };
+    expect(() => afficherEchecPlantation(els, "message", false)).not.toThrow();
+    expect(() => masquerEchecPlantation(els)).not.toThrow();
+  });
+});

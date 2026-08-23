@@ -12,6 +12,32 @@
 // centreVideAvec, meme une que personne n'a encore declenchee en test.
 // C'est la difference entre reparer les deux chaines d'aujourd'hui et
 // empecher la prochaine.
+//
+// Critique 2026-08-23 N4 : la premiere version detectait un "accent avale"
+// par heuristique generique (une liste de formes ASCII interdites, plus
+// une regle qui accusait tout "a" seul de manquer son accent grave). Verifie
+// en execution, cette regle sur "a" seul est FAUSSE dans les deux sens : elle
+// accusait a tort "Cet artiste a disparu de la source." (le "a" du verbe
+// avoir, 3e personne du singulier, s'ecrit SANS accent -- seule la
+// preposition "à" en porte un, et rien ne les distingue de facon fiable par
+// regex courte) ; et elle laissait passer "repondu", "resultat", "acces",
+// "cree" -- des accents REELLEMENT avales qu'aucun mot de la liste ne
+// couvrait, faute d'y avoir pense. Cent soixante-dix-huit lignes d'AST et
+// d'heuristique pour cinq litteraux d'un seul fichier, avec des faux
+// positifs ET des faux negatifs : un garde-fou qui crie a tort sur du code
+// correct finit ignore -- c'est deja arrive dans ce depot (six faux
+// "introuvable" qui cachaient un vrai, meme categorie de defaut).
+//
+// La correction ne tente pas une meilleure heuristique : le francais ne se
+// verifie pas par regex generique. Elle COMPARE les litteraux extraits a une
+// table figee de messages deja relus (messagesAttendus, ci-dessous) --
+// litteralement, sans marge d'erreur possible dans un sens ou l'autre. Un
+// message qui n'y figure pas EXACTEMENT (neuf, ou existant mais modifie,
+// meme d'un seul accent) fait echouer le test : il n'a jamais ete relu, la
+// regle force une revue humaine plutot que de deviner. Le vouvoiement, lui,
+// RESTE detecte par regle : "vous" et les terminaisons -ez sont un signal
+// systematique en francais, fiable quel que soit le message, y compris un
+// message futur qu'aucune table n'a encore vu.
 package arbre
 
 import (
@@ -25,41 +51,27 @@ import (
 	"testing"
 )
 
-// motsSansAccentInterdits : formes ASCII qui ne correspondent a AUCUN mot
-// francais correct dans un message d'etat -- leur presence signale un
-// accent avale (etre -> être, verifiee -> vérifiée), pas une variante
-// orthographique legitime.
-var motsSansAccentInterdits = regexp.MustCompile(`(?i)\b(etre|etait|ete|deja|tres|apres|egalement|necessaire|probleme|problemes|derniere|dernieres|premiere|premieres|entiere|entierement|meme|memes|reessaye|reessayer|reessai|verifie|verifiee|verifies|verifiees|identite|chargee|chargees|generee|generees|creee|creees|annee|annees|donnee|donnees|systeme|methode|reponse|reponses|requete|requetes|echec|echecs|echoue|echouee|genere|controle|precedent|precedente|immediat|immediate|utilisee|utilisees)\b`)
-
-// motElideAvoir et ilYA neutralisent les deux formes ou "a" est un VERBE
-// (avoir), pas la preposition "à" : l'elision ("n'a", "qu'a", "l'a") et
-// "il y a". Sans ce nettoyage, "n'a pas pu être chargée" -- pourtant
-// correcte -- se ferait accuser d'avaler l'accent de "à".
-var motElideAvoir = regexp.MustCompile(`(?i)\b\w+'a\b`)
-var ilYA = regexp.MustCompile(`(?i)\bil y a\b`)
-var aSeul = regexp.MustCompile(`\ba\b`)
+// messagesAttendus : la liste EXACTE, mot pour mot, des messages que
+// Composer peut rendre aujourd'hui (centre.go), relus a la main pour leur
+// accentuation et leur tutoiement. Toute modification de centre.go --
+// correction, faute de frappe ou message neuf -- doit se refleter ICI apres
+// relecture, jamais avant : c'est ce qui rend la comparaison litterale plus
+// sure qu'une heuristique.
+var messagesAttendus = map[string]bool{
+	`Aucun artiste ne correspond à %q.`:                                               true,
+	`L'identité de l'artiste n'a pas pu être vérifiée. Réessaie dans un instant.`:     true,
+	`La discographie n'a pas pu être chargée. Réessaie dans un instant.`:              true,
+	`Aucun voisin connu pour cet artiste.`:                                            true,
+	`Les voisins de cet artiste n'ont pas pu être chargés. Réessaie dans un instant.`: true,
+}
 
 // vouvoiement : "vous", ou un verbe conjugue a la 2e personne du pluriel
 // (terminaison -ez) -- une regle systematique en francais, donc valable
-// pour un verbe qu'aucune chaine d'aujourd'hui n'emploie encore. "chez",
+// pour un message qu'aucune table d'aujourd'hui ne connait encore. "chez",
 // "assez" et "nez" ne sont pas des verbes : ils sont exclus.
 var vouvoiement = regexp.MustCompile(`(?i)\bvous\b|\b[a-zàâäéèêëïîôöùûüç]{3,}ez\b`)
 
 var exceptionsVouvoiement = map[string]bool{"chez": true, "assez": true, "nez": true}
-
-// trouveAccentManquant rend le premier indice d'accent avale dans msg, ou
-// "" si rien ne ressort.
-func trouveAccentManquant(msg string) string {
-	if m := motsSansAccentInterdits.FindString(msg); m != "" {
-		return m
-	}
-	nettoye := motElideAvoir.ReplaceAllString(msg, "")
-	nettoye = ilYA.ReplaceAllString(nettoye, "")
-	if aSeul.MatchString(nettoye) {
-		return "a"
-	}
-	return ""
-}
 
 // trouveVouvoiement rend le premier mot qui vouvoie dans msg, ou "" si
 // rien ne ressort.
@@ -136,12 +148,13 @@ func messagesRendus(t *testing.T) []string {
 
 // TestMessagesRendusAccentuesEtTutoient est le garde-fou attendu : tout
 // message que Composer peut renvoyer au visiteur -- aujourd'hui comme
-// demain -- doit rester accentue et tutoyer, comme le reste de
+// demain -- doit rester CONNU (compare litteralement a messagesAttendus,
+// donc deja relu pour son accentuation) et tutoyer, comme le reste de
 // l'application (web/src/textes.ts).
 func TestMessagesRendusAccentuesEtTutoient(t *testing.T) {
 	for _, msg := range messagesRendus(t) {
-		if mot := trouveAccentManquant(msg); mot != "" {
-			t.Errorf("message %q : %q ressemble a un accent avale (l'app est francophone, PRD §05)", msg, mot)
+		if !messagesAttendus[msg] {
+			t.Errorf("message %q : absent de messagesAttendus -- message neuf ou modifie (meme d'un accent), a relire puis ajouter a la table", msg)
 		}
 		if mot := trouveVouvoiement(msg); mot != "" {
 			t.Errorf("message %q : %q vouvoie (l'app tutoie partout ailleurs, voir web/src/textes.ts)", msg, mot)
@@ -151,28 +164,42 @@ func TestMessagesRendusAccentuesEtTutoient(t *testing.T) {
 
 // TestReglesOrthographeEtTonDetectentLesCasConnus verifie les detecteurs
 // eux-memes contre des cas positifs ET negatifs connus : sans ce test, un
-// futur refactor des regex ci-dessus pourrait les rendre muettes sans que
-// rien ne le signale.
+// futur refactor de messagesAttendus ou de la regle de vouvoiement pourrait
+// les rendre muets sans que rien ne le signale.
 func TestReglesOrthographeEtTonDetectentLesCasConnus(t *testing.T) {
-	cas := []struct {
-		nom            string
-		msg            string
-		accentManquant bool
-		vouvoie        bool
-	}{
-		{"accent avale sur a preposition", "Aucun artiste ne correspond a %q.", true, false},
-		{"vouvoiement", "L'identite n'a pas pu etre verifiee, reessayez dans un instant.", true, true},
-		{"correct et accentue", "Réessaie dans un instant.", false, false},
-		{"n'a pas est correct sans accent", "La discographie n'a pas pu être chargée.", false, false},
-		{"il y a est correct sans accent", "Il y a un instant, tout allait bien.", false, false},
-		{"phrase correcte sans diacritique necessaire", "Aucun voisin connu pour cet artiste.", false, false},
-	}
-	for _, c := range cas {
-		if got := trouveAccentManquant(c.msg) != ""; got != c.accentManquant {
-			t.Errorf("%s : accent manquant detecte = %v, attendu %v (msg %q)", c.nom, got, c.accentManquant, c.msg)
+	t.Run("comparaison litterale", func(t *testing.T) {
+		cas := []struct {
+			nom   string
+			msg   string
+			connu bool
+		}{
+			{"message exact de la table", `Aucun voisin connu pour cet artiste.`, true},
+			{"meme message, un accent avale -- devient un message DIFFERENT, donc inconnu", `Aucun voisin connu pour cet artiste`, false},
+			{"message jamais vu", `Cet artiste a disparu de la source.`, false},
 		}
-		if got := trouveVouvoiement(c.msg) != ""; got != c.vouvoie {
-			t.Errorf("%s : vouvoiement detecte = %v, attendu %v (msg %q)", c.nom, got, c.vouvoie, c.msg)
+		for _, c := range cas {
+			if got := messagesAttendus[c.msg]; got != c.connu {
+				t.Errorf("%s : connu = %v, attendu %v (msg %q)", c.nom, got, c.connu, c.msg)
+			}
 		}
-	}
+	})
+
+	t.Run("vouvoiement", func(t *testing.T) {
+		cas := []struct {
+			nom     string
+			msg     string
+			vouvoie bool
+		}{
+			{"vouvoiement explicite, terminaison -ez", "L'identite n'a pas pu etre verifiee, reessayez dans un instant.", true},
+			{"vouvoiement par le seul mot \"vous\"", "Vous devriez recommencer.", true},
+			{"tutoiement correct", "Réessaie dans un instant.", false},
+			{"exceptions -ez seules -- ne vouvoient pas sans \"vous\" ni verbe conjugue", "Il habite assez pres du nez, juste a cote de chez lui.", false},
+			{"aucune marque de 2e personne du pluriel", "Aucun voisin connu pour cet artiste.", false},
+		}
+		for _, c := range cas {
+			if got := trouveVouvoiement(c.msg) != ""; got != c.vouvoie {
+				t.Errorf("%s : vouvoiement detecte = %v, attendu %v (msg %q)", c.nom, got, c.vouvoie, c.msg)
+			}
+		}
+	})
 }

@@ -162,19 +162,32 @@
      apercu, collection. Selecteurs par id, pour passer devant les regles
      de .fiche-panneau / .accueil sans dependre de l'ordre du fichier. */
   #canevas.estompe,
-  #accueil.estompe,
   #fiche.estompe,
   #apercu-branche.estompe,
   #collection.estompe {
     opacity: .4; pointer-events: none; transition: opacity .15s ease;
   }
+  /* Critique 2026-08-23 N5 (arbitrage de l'appelant) : #accueil ne suit PAS
+     la regle ci-dessus. La bande dit « plante un autre nom », et une tuile
+     du mur EST ce rebond -- retirer pointer-events dessus punirait la faute
+     de frappe qu'on cherche justement a rattraper, comme la variante A deja
+     ecartee par §17 Q6. L'arbre (#canevas), lui, GARDE pointer-events:none :
+     il reste construit derriere la bande avec ses branches en place, et y
+     cliquer promouvrait un noeud pendant que l'echec reste a traiter -- un
+     effet de bord sans equivalent sur l'accueil, qui ne fait que replanter
+     via le meme formulaire deja visible au-dessus. L'estompe reste donc
+     VISUELLE ici : seule l'opacite baisse, tuiles et barre restent actives. */
+  #accueil.estompe { opacity: .4; transition: opacity .15s ease; }
   /* La bande est posee en absolu sur #contenu, et .accueil est en inset:0 :
-     la barre de l'accueil (promesse + tri) passe donc DERRIERE elle. Mesure :
-     le select de tri se retrouve couvert a 89 %, il en depasse 4 px sous le
-     bord de la bande -- une lisiere qui se lit comme un defaut de rendu.
-     `visibility` plutot que `display` : la rangee garde sa hauteur, le mur
-     ne se decale pas d'un pixel quand la bande se leve. */
-  #accueil.estompe .accueil-barre { visibility: hidden; }
+     la barre de l'accueil (promesse + tri) passe donc DERRIERE elle en
+     empilement par defaut. Mesure : le select de tri se retrouve couvert a
+     89 %, il en depasse 4 px sous le bord de la bande -- une lisiere qui se
+     lit comme un defaut de rendu. Avant N5, on la rendait invisible
+     (`visibility: hidden`) -- mais l'arbitrage exige qu'elle reste
+     actionnable. Un z-index local la fait plutot passer PAR-DESSUS la
+     bande : entierement visible (et dans l'opacite .4 de son parent), sans
+     la lisiere. */
+  #accueil.estompe .accueil-barre { position: relative; z-index: 5; }
   @media (prefers-reduced-motion: reduce) {
     #canevas.estompe,
     #accueil.estompe,

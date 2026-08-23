@@ -357,6 +357,26 @@ function elementsEchec(): ElementsEchec {
   };
 }
 
+// traiterEchecPlantation (critique 2026-08-23 N3) : les TROIS chemins qui
+// menent a une bande d'echec -- centre non resolu (reconstruireScene),
+// panne reseau a la plantation (planter) -- executaient la MEME regle
+// recopiee mot pour mot : vider le "Chargement de …" laisse par planter(),
+// masquer zoom/dezoom/partage tant qu'aucune scene n'existe (N6), rouvrir
+// l'accueil quand il n'y a AUCUN arbre precedent a montrer derriere la
+// bande (N4), puis poser la bande elle-meme. Deux copies, trop courtes
+// pour que jscpd les voie, avaient DEJA diverge une fois (le masquage des
+// commandes n'avait d'abord ete applique qu'a l'une des deux) -- symptome
+// qu'une regle recopiee se defait sans qu'aucun test ne rougisse.
+// `groupeRacine` (deja construit ou non) dit a lui seul s'il existe un
+// arbre a estomper derriere la bande.
+function traiterEchecPlantation(message: string): void {
+  if (etat) etat.textContent = "";
+  const arbrePresent = groupeRacine !== null;
+  commandesDArbre(arbrePresent);
+  if (!arbrePresent && accueilSection) accueilSection.hidden = false;
+  afficherEchecPlantation(elementsEchec(), message, arbrePresent);
+}
+
 function masquerAccueil(): void {
   if (!accueilSection || !svg) return;
   accueilSection.hidden = true;
@@ -745,7 +765,6 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
   // precedent conserve DERRIERE elle, estompe (echec.ts). `groupeRacine`
   // (deja construit ou non) dit s'il existe un arbre a estomper.
   if (estEchecDePlantation(centreAPI)) {
-    if (etat) etat.textContent = ""; // le "Chargement de …" pose par planter() ne doit pas rester colle
     // Critique 2026-08-23 N4 : sans arbre precedent, planter() venait de
     // masquer l'accueil -- l'echec laissait 791 px de noir, zero contenu et
     // zero action, apres avoir retire les six amorces qui etaient le seul
@@ -754,14 +773,13 @@ function reconstruireScene(centreAPI: CentreAPI, nomDemande: string): void {
     // le mur est le plan precedent de l'accueil, il reste donc derriere la
     // bande, au meme titre que l'arbre. planter() rappelle masquerAccueil()
     // a la tentative suivante, la reapparition est donc sans suite.
-    if (groupeRacine === null && accueilSection) accueilSection.hidden = false;
     // Critique 2026-08-23 N6 : C4 avait masque zoom/dezoom/partage tant
     // qu'aucune graine n'etait plantee, mais la condition portait sur la
     // SOUMISSION, pas sur l'existence d'une scene -- l'echec les rouvrait
     // sur un ecran sans le moindre noeud, "Copier le lien de cet arbre"
-    // compris.
-    commandesDArbre(groupeRacine !== null);
-    afficherEchecPlantation(elementsEchec(), texteEchecPlantation(centreAPI), groupeRacine !== null);
+    // compris. Les deux sont traites par traiterEchecPlantation (N3), une
+    // seule fois pour les deux chemins qui menent ici.
+    traiterEchecPlantation(texteEchecPlantation(centreAPI));
     if (centreAPI.etat === "aucun_voisin") void tenterRattrapage(nomDemande); // F-03 : la correction reste proposee, EN PLUS de la bande
     return;
   }
@@ -847,11 +865,10 @@ async function planter(nom: string, amorce?: "collection" | "partage"): Promise<
     } else {
       // §17 Q6 : une plantation qui echoue au niveau reseau (jamais de
       // reponse serveur exploitable) est un echec de plantation comme un
-      // autre -- meme bande, meme arbre precedent conserve derriere elle.
-      if (etat) etat.textContent = "";
-      commandesDArbre(groupeRacine !== null); // N6 : idem, un echec reseau ne fait pas apparaitre de scene
-      if (groupeRacine === null && accueilSection) accueilSection.hidden = false; // N4
-      afficherEchecPlantation(elementsEchec(), textes.reseauIndisponible, groupeRacine !== null);
+      // autre -- meme bande, meme arbre precedent conserve derriere elle,
+      // traite par traiterEchecPlantation (N3) comme le centre non resolu
+      // de reconstruireScene.
+      traiterEchecPlantation(textes.reseauIndisponible);
     }
     return;
   }
@@ -883,7 +900,7 @@ async function remonterLignee(): Promise<void> {
     if (erreur instanceof SessionExpireeError) {
       afficherSessionExpiree();
     } else if (etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+      etat.textContent = textes.reseauIndisponible;
     }
     return;
   }
@@ -925,7 +942,7 @@ async function promouvoirVers(noeud: NoeudDessine, nom: string): Promise<void> {
     if (erreur instanceof SessionExpireeError) {
       afficherSessionExpiree();
     } else if (etat) {
-      etat.textContent = "Le reseau n'a pas repondu, reessayez dans un instant.";
+      etat.textContent = textes.reseauIndisponible;
     }
     return;
   }

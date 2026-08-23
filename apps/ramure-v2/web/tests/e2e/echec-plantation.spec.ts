@@ -49,6 +49,56 @@ test("pas d'arbre precedent -- la bande s'affiche seule (§17 Q6, cas traite, pa
   // Rien a estomper -- aucun arbre n'a jamais ete dessine.
   await expect(page.locator(".noeud")).toHaveCount(0);
   await expect(page.locator("#canevas")).not.toHaveClass(/estompe/);
+
+  // Critique 2026-08-23 N4/N5 : l'accueil, lui, REVIENT -- c'est le seul
+  // rebond possible sans arbre. Il reste visible ET estompe (dimme, jamais
+  // masque) : la bande dit "plante un autre nom", et le mur en dessous en
+  // est le moyen.
+  await expect(page.locator("#accueil")).toBeVisible();
+  await expect(page.locator("#accueil")).toHaveClass(/estompe/);
+  await expect(page.locator("#accueil")).toHaveCSS("opacity", "0.4");
+  // Zoom, dezoom et partage n'ont de sens que sur un arbre : masques (N6).
+  await expect(page.locator("#zoomer-avant")).toBeHidden();
+  await expect(page.locator("#zoomer-arriere")).toBeHidden();
+  await expect(page.locator("#partager")).toBeHidden();
+  // Les six tuiles de l'amorcage editorial sont toutes la.
+  await expect(page.locator(".tuile")).toHaveCount(6);
+});
+
+test("les tuiles et la barre de l'accueil restent cliquables sous la bande (N5) -- contrairement a l'arbre, qui reste inerte", async ({ page }) => {
+  const scenario = new ScenarioAPI();
+  scenario.definirCentre("Zzzt", centreVide('Aucun artiste ne correspond a "Zzzt".'));
+  await installerAPI(page, scenario);
+  await page.goto(`${BASE_URL}/`);
+
+  await planter(page, "Zzzt");
+  await expect(page.locator("#echec-plantation")).toBeVisible();
+  await expect(page.locator("#accueil")).toHaveClass(/estompe/);
+
+  // #accueil.estompe n'a PAS pointer-events:none (a la difference de
+  // #canevas.estompe) : une tuile EST le rebond que la bande propose.
+  await expect(page.locator("#accueil")).not.toHaveCSS("pointer-events", "none");
+  await page.getByRole("button", { name: "Planter Portishead" }).click();
+  // La tentative a bien ete jouee -- la bande se met a jour avec le nom de
+  // la tuile cliquee, preuve que le clic n'a pas ete absorbe.
+  await expect(page.locator("#echec-plantation")).toContainText("Portishead");
+});
+
+test("la fiche du centre reste a 0,4 d'opacite derriere la bande, arbre existant (N7, contrairement a l'accueil)", async ({ page }) => {
+  const scenario = new ScenarioAPI();
+  scenario.definirCentre("Artiste Connu", centreOK("Artiste Connu", { branches: [branche("Voisin Connu", { affinite: 0.9 })] }));
+  scenario.definirCentre("Fotte De Frappe", centreVide('Aucun artiste ne correspond a "Fotte De Frappe".'));
+  await installerAPI(page, scenario);
+  await page.goto(`${BASE_URL}/`);
+
+  await planter(page, "Artiste Connu");
+  await expect(page.locator("#fiche")).toBeVisible();
+
+  await planter(page, "Fotte De Frappe");
+  await expect(page.locator("#echec-plantation")).toBeVisible();
+  await expect(page.locator("#fiche")).toHaveClass(/estompe/);
+  await expect(page.locator("#fiche")).toHaveCSS("opacity", "0.4");
+  await expect(page.locator("#fiche")).toHaveCSS("pointer-events", "none");
 });
 
 test("l'arbre precedent survit a une plantation ratee, estompe derriere la bande, puis se retablit", async ({ page }) => {
