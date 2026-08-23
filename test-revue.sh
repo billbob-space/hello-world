@@ -170,6 +170,20 @@ GV
   cat > "$d/bin/npm" <<'NPM'
 #!/usr/bin/env bash
 set -uo pipefail
+# « npm test » — la chaine de test client vitest. La doublure n'execute pas
+# vitest : elle ECRIT le rapport que le rapporteur json-summary aurait ecrit,
+# dans son format reel. Trois comportements, parce qu'ils se confondent tous
+# dans un code de retour 0 : mesure normale, tests rouges, et l'app dont le
+# script `test` ne DEMANDE pas de couverture — celle-la sort en 0 sans rien
+# ecrire, et c'est le cas ou un rapport perime se ferait passer pour la mesure
+# du jour.
+if [ "${1:-}" = test ]; then
+  [ "${FAUX_VITEST_RC:-0}" != 0 ] && { echo "FAIL  tests/exemple.test.ts"; exit "${FAUX_VITEST_RC}"; }
+  [ "${FAUX_VITEST_MUET:-0}" = 1 ] && exit 0
+  mkdir -p coverage
+  printf '{"total":{"lines":{"pct":%s}}}' "${FAUX_VITEST_PCT:-71}" > coverage/coverage-summary.json
+  exit 0
+fi
 [ "${1:-}" = audit ] || exit 0
 if [ "${FAUX_NPM_MUET:-0}" = 1 ]; then
   printf '{"message":"request to https://registry.npmjs.org failed, reason: ECONNREFUSED"}'
@@ -235,6 +249,27 @@ import assert from 'node:assert'
 import { double } from '../web/calc.js'
 test('double', () => { assert.equal(double(2), 4) })
 JS
+}
+
+# avec_client_vitest <bac> — donne a l'app un client TypeScript sous web/, la
+# SECONDE famille de chaine de test reconnue par l'axe couverture. Ce que la
+# detection exige : un package.json qui declare vitest ET un script « test ».
+# Rien n'est installe — c'est la doublure de npm qui rejoue la mesure.
+avec_client_vitest() {
+  mkdir -p "$1/apps/appx/web"
+  cat > "$1/apps/appx/web/package.json" <<'JSON'
+{ "name": "appx-web", "private": true,
+  "scripts": { "test": "vitest run --coverage" },
+  "devDependencies": { "vitest": "^2.1.5" } }
+JSON
+}
+
+# avec_client_inconnu <bac> — un client qui n'entre dans AUCUNE des deux
+# familles : ni tests/*.test.js, ni vitest. C'est le cas ou l'axe ne peut rien
+# mesurer et ou il doit le DIRE, sous peine de rendre le verdict Go seul pour un
+# verdict complet.
+avec_client_inconnu() {
+  printf '{ "name": "appx", "private": true, "scripts": { "build": "true" } }\n' > "$1/apps/appx/package.json"
 }
 
 # avec_verrou_npm <bac> — donne a l'app un package.json ET son verrou, ce qui
@@ -336,6 +371,35 @@ FIN
 cas "la couverture navigateur sous sa barre bloque" \
     'KO.*couverture.*navigateur.*plancher 99 %' <<'FIN'
 d=$(bac 64 'revue_couverture_web: 99'); avec_tests_navigateur "$d"; revue "$d"
+FIN
+
+cas "vitest est la seconde chaine cliente, et se lit" \
+    'couverture.*navigateur 71' <<'FIN'
+d=$(bac 64); avec_client_vitest "$d"; revue "$d"
+FIN
+
+cas "la barre navigateur se pose aussi sur une mesure vitest" \
+    'revue_couverture_web: 71' <<'FIN'
+d=$(bac 64); avec_client_vitest "$d"; revue "$d" --releve >/dev/null
+cat "$d/apps/appx/app.yml"
+FIN
+
+cas "des tests clients rouges rendent la couverture sans valeur : KO" \
+    'KO.*couverture.*tests navigateur echouent' <<'FIN'
+d=$(bac 64); avec_client_vitest "$d"; FAUX_VITEST_RC=1 revue "$d"
+FIN
+
+cas "un rapport de couverture perime n'est jamais lu comme la mesure du jour" \
+    'KO.*couverture.*illisible' <<'FIN'
+d=$(bac 64); avec_client_vitest "$d"
+mkdir -p "$d/apps/appx/web/coverage"
+printf '{"total":{"lines":{"pct":99}}}' > "$d/apps/appx/web/coverage/coverage-summary.json"
+FAUX_VITEST_MUET=1 revue "$d"
+FIN
+
+cas "un client qu'aucune chaine ne mesure fait crier l'axe" \
+    'attn.*couverture.*client non mesure' <<'FIN'
+d=$(bac 64); avec_client_inconnu "$d"; revue "$d"
 FIN
 
 echo
