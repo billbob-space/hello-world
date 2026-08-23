@@ -541,6 +541,32 @@ le rendu de cet agent cesse de citer un detecteur qui ne detecte pas. Ce qui a
 fonctionne deux fois de suite est que l'agent l'ait DIT de lui-meme ; ce qui
 manque est que le mode degrade se signale sans dependre de sa franchise.
 
+### 34. J'ai fusionne une pull request qui annoncait bien plus qu'elle ne contenait
+
+**Symptome** — la PR 176 fusionnee sur une CI entierement verte. Elle ne portait
+que la critique esthetique, 228 lignes : les decisions §17 q11 et q12, le code,
+les tests et le journal — 1 517 lignes — etaient restes dans un second commit
+local jamais pousse. Le message de fusion, lui, decrit l'ensemble du travail.
+`main` annonce donc du travail qu'il ne contient pas.
+
+**Cause** — deux fautes qui se sont additionnees. Le greffier a scinde l'etape en
+deux commits au lieu d'un, n'a pousse que le premier, et son second push a ete
+refuse par une autorisation du harnais. Et moi, j'ai fusionne sur la foi du seul
+verdict de la CI. Or une CI verte ne dit pas que le commit contient le travail :
+ici elle etait verte PARCE QUE le code etait absent — rien de neuf ne pouvait
+rien casser. Le verrou `contrat` lui-meme etait satisfait, la critique etant le
+seul fichier present.
+
+**Detecte par** — `auteur`
+
+**Action** — `garde-fou` — quatrieme cas de la famille « vert qui mesure autre
+chose » sur cette seule branche, et le plus cher : les trois autres etaient des
+tests, celui-ci a mis une trace fausse sur `main`, ou elle survit a la fusion. Le
+geste manquant tient en une commande — comparer la liste de fichiers du commit a
+celle qu'on a annoncee — et il doit precede toute fusion. Le rapport du greffier
+disait d'ailleurs l'echec en clair ; je ne l'avais pas lu avant de fusionner,
+parce que j'attendais la CI et non lui.
+
 <!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->
 ## Coût
 
