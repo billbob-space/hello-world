@@ -313,18 +313,24 @@ function afficherAccueil(): void {
   if (triSelect) triSelect.value = mur?.ordre ?? "recents";
 
   mur?.detruire();
-  mur = construireMur(murConteneur, AMORCAGE_EDITORIAL, {
-    stockage: window.localStorage,
-    surPlanter: (nom) => void planter(nom),
-  });
-  if (triSelect) triSelect.value = mur.ordre;
 
+  // L'ordre compte (§17 Q9) : le plafond du mur mesure la hauteur REELLE
+  // du conteneur au moment de construireMur. #accueil doit donc deja etre
+  // visible AVANT cet appel — l'inverse mesurerait un conteneur encore
+  // `hidden` (hauteur nulle) et replierait sur "aucun plafond" a chaque
+  // premier affichage, silencieusement.
   accueilSection.hidden = false;
   svg.setAttribute("hidden", "");
   if (ficheEl) ficheEl.hidden = true;
   if (apercuEl) apercuEl.hidden = true;
   if (etat) etat.textContent = "";
   commandesDArbre(false);
+
+  mur = construireMur(murConteneur, AMORCAGE_EDITORIAL, {
+    stockage: window.localStorage,
+    surPlanter: (nom) => void planter(nom),
+  });
+  if (triSelect) triSelect.value = mur.ordre;
 }
 
 // commandesDArbre montre ou cache les commandes qui n'ont de sens QUE sur un

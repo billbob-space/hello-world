@@ -715,6 +715,110 @@ est écarté**, parce qu'une variante écartée sans trace se repropose.
    encore le mur de la pochette au lieu de l'en rapprocher, et un nom à la
    verticale se lit mal.
 
+### Questions tranchées — le 23 août 2026
+
+La question 7 a donné au mur sa forme de tuile ; elle a laissé intacte la
+question de ce que le mur fait du reste de l'écran, et celle de ce qu'il advient
+d'un mur plus grand que l'écran. Les deux se tranchent ensemble : la seconde
+disqualifie la moitié des réponses possibles à la première.
+
+8. **Qu'est-ce qui occupe les 548 px de noir du mur d'accueil ?** — *Sur écran
+   large, les six pochettes carrées de la question 7 tiennent sur une rangée de
+   230,7 px, centrée dans une zone de 778 px : 547,7 px de noir, soit 70,4 % de
+   la surface du mur. Le carré et la grille centrée ne sont pas rediscutés — la
+   seule question est ce qui remplit le vide qu'ils laissent.*
+   → **Rien, mais rangé : le mur se cale sous la barre plutôt que de flotter au
+   milieu** (variante C). Le noir cesse d'être deux marges symétriques qui
+   encadrent une rangée orpheline pour devenir une marge basse franche — 8 px en
+   haut, 539 px en bas. La part de noir ne bouge pas d'un point, et c'est assumé :
+   **la variante ne remplit pas le vide, elle le met là où il se remplira tout
+   seul.** C'est la seule des trois qui ne plafonne pas le mur : à 1440 × 900
+   elle tient **36 pochettes**, là où les deux autres en tiennent 6. Le jour où
+   F-28 et F-30 font nourrir le mur par la collection, les rangées se remplissent
+   vers le bas et la question se referme d'elle-même, sans qu'aucune décision de
+   forme ait à être reprise.
+
+   **Ce que « tenir » veut dire, et ce qu'il en coûte.** La tuile n'est pas
+   inchangée : `auto-fit` ouvre jusqu'à 9 pistes à cette largeur, et les pistes
+   vides s'effondrent au profit des pleines. Le mur passe donc de 6 pochettes de
+   230,7 px à 9 pochettes de 151,1 px — puis **la tuile ne bouge plus**, toutes
+   les pistes étant ouvertes, et ce sont les rangées qui se remplissent, jusqu'à
+   quatre. C'est le plancher de 9 rem qui borne cette descente, et c'est ce qui
+   sépare C des deux variantes écartées : elles rétrécissent aussi, mais sans
+   plancher ni gain de rangée — A parce que sa tuile est dimensionnée par la
+   hauteur disponible, B parce que la phrase occupe la place de la deuxième
+   rangée. La différence n'est donc pas « rétrécir ou non », c'est **jusqu'où, et
+   contre quoi on l'échange**.
+
+   *Écarté* — **les pochettes elles-mêmes, en 3 × 2 dimensionnées par la
+   hauteur** (tuiles de 377 px, part de noir ramenée de 70,4 % à 20,3 %) : c'est
+   la seule qui traite vraiment le vide vertical, mais elle le paie deux fois. La
+   tuile carrée de 377 px ne remplit plus la largeur et **rouvre 293 px de vide
+   latéral**, 146,5 de chaque côté, là où l'écran n'en a plus que 8 — exactement
+   le vide que la question 7 invoquait pour retenir la grille centrée, qui
+   garderait son nom en perdant sa raison. Et elle plafonne le mur à 6 pochettes :
+   au-delà, il faut rétrécir la tuile (9 → 249 px, 12 → 185 px), c'est-à-dire
+   défaire la variante pour la faire tenir. **La promesse du produit en grand**,
+   la phrase d'invitation portée de 12,8 px de gris à 300 px de haut : elle
+   remplit honnêtement 300 des 548 px, mais transforme une partie de l'accueil en
+   page d'accroche — utile à la première visite, inerte à toutes les suivantes —
+   et occupe la place de la deuxième rangée, plafonnant le mur à 6 pochettes elle
+   aussi. Les deux achètent l'écran d'aujourd'hui en hypothéquant celui de demain,
+   alors que le mur est fait pour grossir.
+
+9. **Que voit-on quand le mur est plus grand que l'écran ?** — *Le mur est en
+   `overflow: hidden` et ses tuiles sont carrées : au-delà de ce que la zone
+   peut porter — 36 pochettes à 1440 × 900, moins sur écran étroit — la
+   rangée en trop n'est pas réduite, elle est **coupée**. Les tuiles concernées
+   restent dans la page : invisibles à l'œil, mais atteintes par la tabulation et
+   annoncées par un lecteur d'écran. Le PRD interdit par ailleurs le défilement
+   sur l'accueil (§07 état A).*
+   → **Le mur n'affiche que ce qui tient, et le plafond suit la taille de la
+   fenêtre.** Les tuiles au-delà de la capacité mesurée ne sont pas rendues —
+   ni à l'œil, ni au clavier, ni au lecteur d'écran. La capacité est **lue sur la
+   grille que la CSS a calculée**, jamais recalculée en parallèle : le nombre de
+   colonnes reste la décision de la CSS (§07, « le nombre de colonnes suit la
+   largeur par CSS »), le code ne fait qu'en déduire combien de rangées entrent
+   dans la hauteur disponible. Elle est réévaluée au redimensionnement, sans quoi
+   le plafond d'un écran large survivrait au passage en écran étroit. Ce qui est
+   réévalué est le **plafond seul** : ni l'ordre des pochettes ni leur place dans
+   la page ne bougent, sans quoi un tri aléatoire se rebattrait à chaque pixel de
+   redimensionnement.
+
+   **Exception assumée** — une fenêtre trop courte pour porter ne serait-ce
+   qu'une rangée entière montre quand même cette rangée, rognée par le bas. Ne
+   jamais afficher zéro pochette prime sur ne jamais rogner : un accueil vide ne
+   dit pas au visiteur que sa fenêtre est trop petite, il lui dit que le produit
+   est cassé. C'est la seule situation où le mur coupe quelque chose, et elle est
+   écrite ici pour qu'une relecture ultérieure ne prenne pas ce garde-fou pour un
+   oubli et ne le retire pas.
+
+   *Limite connue de cette exception* — sous environ 296 px de hauteur de
+   fenêtre, la rangée montrée dépasse d'un quart et le nom, posé en bas de la
+   pochette, tombe entièrement hors de la zone : il reste des aplats cliquables
+   sans un mot, l'intitulé accessible tenant seul. Non corrigé, et assumé pour
+   deux raisons : la décision ci-dessus porte sur *montrer la rangée*, pas sur
+   *garder le nom*, et aucune fenêtre d'appareil réel n'y descend — un téléphone
+   couché tient une rangée entière, nom compris. Écrit pour que la limite soit
+   connue plutôt que découverte.
+
+   Cette décision est cohérente avec ce que le mur **est** : une sélection — « les
+   artistes déjà gardés en priorité, sinon une sélection éditoriale d'amorçage »
+   (§07) — et non l'inventaire de la collection, qui a son propre écran (F-25).
+   Un mur qui montre les vingt premiers d'une collection de cinquante ne ment
+   pas ; un mur qui en coupe trente en les laissant dans la page, si.
+
+   *Écarté* — **rétrécir la tuile sous le plancher de 9 rem** pour tout faire
+   tenir : le plancher existe parce qu'en deçà une pochette cesse d'être
+   reconnaissable, et un mur de vignettes illisibles ne « donne pas envie »,
+   ce qui est la seule chose que le §07 demande à cet écran. La contrainte se
+   déplacerait sans disparaître, jusqu'à devenir absurde sur une grande
+   collection. **Rouvrir le contrat et autoriser le défilement** : c'est la
+   réponse la moins chère à écrire et la plus chère à porter — le §07 interdit le
+   défilement sur l'accueil parce que le mur est un tableau qu'on embrasse d'un
+   regard, pas une liste qu'on parcourt ; rendre l'accueil défilant en ferait un
+   autre écran, décision qui excède de loin le défaut qu'elle corrigerait.
+
 ---
 
 ## 18 · Annexe — les questions qu'un PRD doit avoir tranchées

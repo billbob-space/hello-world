@@ -6,6 +6,13 @@
 // columns responsive, web/index.html) : ce fichier ne calcule aucune
 // disposition, il construit une seule structure DOM qui s'adapte — la
 // parite stricte (PRP 08) interdit deux variantes du meme mur.
+//
+// PRODUCT.md §17 Q9 (decision du 23 aout 2026) : le mur n'affiche que ce
+// qui tient dans la zone mesuree, jamais une rangee coupee par
+// `overflow: hidden` sur `.mur` (invisible a l'oeil, mais restee
+// tabulable et annoncee par un lecteur d'ecran). La capacite est LUE sur
+// la grille que la CSS a calculee (colonnes, taille de tuile), jamais
+// recalculee en parallele — capaciteMur et mesurerMur ci-dessous.
 import { repliCouleur } from "./canevas";
 import { textes } from "./textes";
 
@@ -68,11 +75,71 @@ export function mouvementReduit(fenetre: Window): boolean {
   return fenetre.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
+// MesureMur : ce que la CSS a decide, lu et jamais recalcule (§17 Q9). Le
+// nombre de colonnes reste la decision de `.mur` (§07) ; ce fichier n'en
+// deduit que combien de rangees entrent dans la hauteur disponible.
+export interface MesureMur {
+  colonnes: number;
+  tailleTuile: number;
+  gap: number;
+  hauteurDisponible: number;
+}
+
+// capaciteMur est PURE (comme trierTuiles) : aucun acces DOM, testable
+// sans jsdom ni navigateur.
+//
+// Garde-fous (§17 Q9) : une entree absente, non finie ou <= 0 (mesure
+// ratee, conteneur pas encore attache) replie sur `total` — jamais 0
+// tuile affichee, une geometrie illisible ne doit jamais faire
+// disparaitre le mur. `Math.max(1, ...)` est deliberee : une fenetre trop
+// courte pour une seule rangee montre quand meme cette rangee (l'option
+// ecartee au §17 Q9 est de retrecir la tuile sous le plancher de 9rem,
+// jamais de montrer zero rangee).
+export function capaciteMur(mesure: MesureMur, total: number): number {
+  const { colonnes, tailleTuile, hauteurDisponible } = mesure;
+  const gap = Number.isFinite(mesure.gap) && mesure.gap >= 0 ? mesure.gap : 0;
+  if (
+    !Number.isFinite(colonnes) ||
+    colonnes <= 0 ||
+    !Number.isFinite(tailleTuile) ||
+    tailleTuile <= 0 ||
+    !Number.isFinite(hauteurDisponible) ||
+    hauteurDisponible <= 0
+  ) {
+    return total;
+  }
+  const rangees = Math.max(1, Math.floor((hauteurDisponible + gap) / (tailleTuile + gap)));
+  return Math.min(total, colonnes * rangees);
+}
+
+// mesurerMur LIT la grille que `.mur` a calculee — jamais un calcul
+// parallele de la largeur de colonne (§07, §17 Q9). Le carre de `.tuile`
+// (aspect-ratio: 1) fait que la largeur de la premiere colonne EST la
+// hauteur de tuile ; `rowGap` est l'espacement entre rangees, pas entre
+// colonnes, c'est deliberement celui-la qu'on lit pour empiler des
+// rangees. En dehors d'un navigateur (jsdom, conteneur non attache),
+// `getComputedStyle` ne resout pas la grille : colonnes/tailleTuile
+// valent alors NaN et capaciteMur replie sur `total`.
+export function mesurerMur(conteneur: HTMLElement): MesureMur {
+  const style = getComputedStyle(conteneur);
+  const pistes = style.gridTemplateColumns.split(/\s+/).filter(Boolean);
+  const colonnes = pistes.length;
+  const tailleTuile = parseFloat(pistes[0] ?? "");
+  const gap = parseFloat(style.rowGap || style.gap || "");
+  const paddingTop = parseFloat(style.paddingTop || "0");
+  const paddingBottom = parseFloat(style.paddingBottom || "0");
+  const hauteurDisponible = conteneur.clientHeight - paddingTop - paddingBottom;
+  return { colonnes, tailleTuile, gap, hauteurDisponible };
+}
+
 export interface OptionsMur {
   stockage: Storage;
   surPlanter: (nom: string) => void;
   alea?: () => number;
   fenetre?: Window;
+  // Injectable en test (comme `alea` et `fenetre`) : mesure la geometrie
+  // du mur sans dependre d'un vrai calcul de layout (§17 Q9).
+  mesurer?: (conteneur: HTMLElement) => MesureMur;
 }
 
 export interface MurAccueil {
@@ -93,6 +160,7 @@ export function construireMur(
 ): MurAccueil {
   const fenetre = options.fenetre ?? window;
   const alea = options.alea ?? Math.random;
+  const mesurer = options.mesurer ?? mesurerMur;
   const reduit = mouvementReduit(fenetre);
 
   conteneur.replaceChildren();
@@ -136,13 +204,96 @@ export function construireMur(
 
   let ordreCourant = chargerOrdre(options.stockage);
 
-  function peindre(ordre: OrdreMur): void {
-    for (const tuile of trierTuiles(tuiles, ordre, alea)) {
+  // peindre : le tri d'abord, le plafond ensuite (§17 Q9) — le plafond ne
+  // fait que couper la QUEUE de la liste deja triee, c'est donc l'ordre
+  // qui decide qui reste visible. `hidden` sur `.mur-item` (jamais
+  // `display:none` pose ici sur `.tuile` seule) retire la tuile au-dela
+  // de la capacite du flux, de la tabulation ET de l'arbre
+  // d'accessibilite d'un seul coup (regle globale `[hidden]`,
+  // web/index.html).
+  //
+  // DEUX passes, jamais une seule. `auto-fit` collapse a zero-largeur
+  // toute colonne sans element place dedans (verifie empiriquement) :
+  // mesurer AVANT d'avoir appose la moindre tuile lirait un conteneur
+  // vide, donc une taille de tuile nulle, donc un repli permanent sur
+  // "aucun plafond" — y compris au tout premier rendu, exactement le
+  // defaut que cette fonctionnalite corrige. La 1re passe rend TOUT
+  // visible pour que la grille se stabilise a la taille qu'aura sa
+  // premiere rangee une fois pleine ; la 2e lit cette geometrie et masque
+  // la queue.
+  // `derniereListe` retient l'ordre REELLEMENT affiche. Le plafond se
+  // recalcule a chaque redimensionnement ; l'ordre, lui, ne se rejoue qu'a
+  // un geste explicite (construction, changement de tri). Critique
+  // 2026-08-23 (second passage), N1 : sans cette separation,
+  // `surRedimensionnement` rappelait `peindre`, donc `trierTuiles`, donc —
+  // en tri "aleatoire", qui CONSOMME un tirage a chaque appel — un mur
+  // rebattu a chaque evenement `resize`. Or le PRD (§02) fait du rebattage
+  // « une action explicite » ; etirer une fenetre, faire pivoter un
+  // telephone ou voir la barre d'URL se retracter n'en sont pas, et a
+  // capacite reduite le tirage change non pas l'ordre mais QUI est montre.
+  // Initialisee vide, jamais par un tri : `peindre` ci-dessous la
+  // renseigne au premier rendu, et un tirage de plus ici en consommerait
+  // un pour rien.
+  let derniereListe: readonly TuileDonnees[] = [];
+
+  // replafonner : le plafond seul (§17 Q9), sans jamais toucher a l'ordre
+  // du DOM. Ne PAS re-`append` ici est ce qui repare le second defaut du
+  // meme constat : `append` sur un enfant deja place le retire et le
+  // reinsere, ce qui RELANCE l'animation `apparition` (.25s, opacite 0 →
+  // 1) sur chaque tuile. Un `resize` etant emis en continu pendant un
+  // etirement de fenetre, les six tuiles restaient bloquees pres de
+  // l'opacite 0 tant que durait le geste (mesure : `currentTime` remis a 0
+  // a chaque evenement).
+  //
+  // DEUX passes, jamais une seule. `auto-fit` collapse a zero-largeur
+  // toute colonne sans element place dedans (verifie empiriquement) :
+  // mesurer AVANT d'avoir demasque la moindre tuile lirait un conteneur
+  // vide, donc une taille de tuile nulle, donc un repli permanent sur
+  // "aucun plafond" — y compris au tout premier rendu, exactement le
+  // defaut que cette fonctionnalite corrige. La 1re passe rend TOUT
+  // visible pour que la grille se stabilise a la taille qu'aura sa
+  // premiere rangee une fois pleine ; la 2e lit cette geometrie et masque
+  // la queue.
+  function replafonner(): void {
+    derniereListe.forEach((tuile) => {
       const el = elements.get(tuile);
-      if (el) conteneur.append(el); // deplace l'element EXISTANT
-    }
+      if (el) el.hidden = false;
+    });
+    const capacite = capaciteMur(mesurer(conteneur), derniereListe.length);
+    derniereListe.forEach((tuile, index) => {
+      const el = elements.get(tuile);
+      if (el) el.hidden = index >= capacite;
+    });
+  }
+
+  // peindre : le tri d'abord, le plafond ensuite (§17 Q9) — le plafond ne
+  // fait que couper la QUEUE de la liste deja triee, c'est donc l'ordre
+  // qui decide qui reste visible. `hidden` sur `.mur-item` (jamais
+  // `display:none` pose ici sur `.tuile` seule) retire la tuile au-dela
+  // de la capacite du flux, de la tabulation ET de l'arbre
+  // d'accessibilite d'un seul coup (regle globale `[hidden]`,
+  // web/index.html).
+  function peindre(ordre: OrdreMur): void {
+    derniereListe = trierTuiles(tuiles, ordre, alea);
+    derniereListe.forEach((tuile) => {
+      const el = elements.get(tuile);
+      if (!el) return;
+      conteneur.append(el); // deplace l'element EXISTANT
+      el.hidden = false;
+    });
+    replafonner();
   }
   peindre(ordreCourant);
+
+  // Reevalue au redimensionnement (§17 Q9) : sans quoi le plafond calcule
+  // sur un ecran large survivrait au passage a un ecran etroit. Le
+  // plafond SEUL — voir `replafonner`. Retire a detruire() — appele a
+  // chaque retour a l'accueil (main.ts) — sinon chaque construction du mur
+  // laisse un ecouteur de plus derriere elle.
+  function surRedimensionnement(): void {
+    replafonner();
+  }
+  fenetre.addEventListener("resize", surRedimensionnement);
 
   return {
     get ordre() {
@@ -154,6 +305,7 @@ export function construireMur(
       peindre(nouveau); // "aleatoire" relance un NOUVEAU tirage a chaque appel
     },
     detruire() {
+      fenetre.removeEventListener("resize", surRedimensionnement);
       conteneur.replaceChildren();
       elements.clear();
     },

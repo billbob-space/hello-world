@@ -282,12 +282,19 @@
      touche la RANGEE, jamais la colonne : `aspect-ratio: 1` sur `.tuile`
      fait que sa hauteur suit sa PROPRE largeur (deja stiree a 1fr, zero
      reliquat), et `grid-auto-rows: auto` laisse la rangee s'ajuster a cette
-     hauteur plutot que de forcer 100 % du conteneur. Le mur (souvent une
-     seule rangee, plus bas que le conteneur) se centre alors verticalement
-     -- c'est la « grille centree » retenue. */
+     hauteur plutot que de forcer 100 % du conteneur.
+     PRODUCT.md §17 Q8 (decision du 23 aout 2026, variante C) : la rangee
+     n'est plus centree dans le vide, elle est CALEE en haut, sous la
+     barre -- le noir cesse d'etre deux marges symetriques pour devenir une
+     seule marge basse franche. La part de noir ne bouge pas ; la variante
+     ne remplit pas le vide, elle le met la ou il se remplira tout seul
+     (F-28/F-30). C'est aussi la seule des trois variantes montrees qui ne
+     plafonne pas le mur a la mise en page : 18 pochettes tenues a 1440
+     contre 6 pour les deux ecartees (§17 Q9 traite ce que devient le
+     18e+1). */
   .mur {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    grid-auto-rows: auto; align-content: center;
+    grid-auto-rows: auto; align-content: start;
     gap: var(--espace-2); padding: var(--espace-2); overflow: hidden; height: 100%;
   }
   .mur-item { min-height: 0; }

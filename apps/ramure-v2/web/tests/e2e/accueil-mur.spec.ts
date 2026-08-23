@@ -13,6 +13,19 @@
 // porter le carre sur la RANGEE (`aspect-ratio: 1` sur `.tuile`,
 // `grid-auto-rows: auto`) -- d'ou l'exigence de cette suite : mesurer le
 // rapport ET le vide lateral, jamais l'un sans l'autre.
+//
+// PRODUCT.md §17 Q8 (decision du 23 aout 2026, variante C) : la rangee
+// n'est plus centree dans le vide, elle est CALEE en haut -- ce fichier
+// mesure desormais aussi ce calage (vide haut minimal, vide bas qui
+// absorbe tout le reste), jamais seulement la forme des tuiles.
+//
+// PRODUCT.md §17 Q9 (decision du 23 aout 2026) : au-dela de la capacite
+// mesuree de la zone, le mur n'affiche plus une rangee coupee par
+// `overflow: hidden` -- les tuiles en trop sont retirees de la page ET de
+// l'arbre d'accessibilite (`hidden`), jamais laissees invisibles-mais-
+// tabulables. Verifie ci-dessous avec un viewport dont la hauteur est
+// deliberement trop courte pour porter les 6 tuiles de l'amorcage
+// editorial (web/src/main.ts, AMORCAGE_EDITORIAL) en plusieurs rangees.
 import { expect, test } from "@playwright/test";
 import { ScenarioAPI, installerAPI } from "./support/api";
 import { BASE_URL, demarrerServeur, type ServeurRamure } from "./support/serveur";
@@ -59,6 +72,16 @@ test("mur d'accueil @1440 -- tuiles carrees, vide lateral RESTE borne (§17 Q7)"
   const videGauche = Math.min(...xs) - murBox.x;
   expect(videGauche, `vide lateral mesure a 1440 : ${videGauche.toFixed(1)}px`).toBeGreaterThanOrEqual(0);
   expect(videGauche, `vide lateral mesure a 1440 : ${videGauche.toFixed(1)}px`).toBeLessThan(20); // padding de .mur (8px) + arrondi
+
+  // §17 Q8 (variante C, 23 aout 2026) : la rangee est CALEE en haut, plus
+  // centree dans le vide. Vide haut minimal (padding de .mur seul) ; vide
+  // bas qui absorbe tout le reste -- valeurs citees par la decision :
+  // ~8px en haut, ~539px en bas pour ces six tuiles a 1440x900.
+  const ys = await tuiles.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom));
+  const videHaut = (await tuiles.first().boundingBox())!.y - murBox.y;
+  const videBas = murBox.y + murBox.height - Math.max(...ys);
+  expect(videHaut, `vide haut mesure a 1440 : ${videHaut.toFixed(1)}px`).toBeLessThan(20); // padding (8px) + arrondi
+  expect(videBas, `vide bas mesure a 1440 : ${videBas.toFixed(1)}px`).toBeGreaterThan(videHaut * 10); // la quasi-totalite du vide est en bas
 });
 
 test("mur d'accueil @390 -- deux colonnes, quasi carre, aucun defilement (ne casse pas l'existant)", async ({ page }) => {
@@ -86,4 +109,100 @@ test("mur d'accueil @390 -- deux colonnes, quasi carre, aucun defilement (ne cas
     return mur.scrollHeight > mur.clientHeight;
   });
   expect(defile).toBe(false);
+});
+
+test("mur d'accueil -- plus de tuiles que la capacite : aucune hors zone, aucune masquee atteignable au clavier (§17 Q9)", async ({
+  page,
+}) => {
+  // 390x400 : les 2 colonnes de l'ecran etroit imposent des tuiles de
+  // 183 px de cote (carre, aspect-ratio: 1) -- une hauteur trop courte
+  // pour porter les 3 rangees des 6 tuiles de AMORCAGE_EDITORIAL
+  // (web/src/main.ts) en entier, mais assez haute pour qu'UNE rangee
+  // complete tienne sans etre elle-meme rognee (mesure empiriquement en
+  // ecrivant ce test : en dessous, la rangee retenue deborde par le bas
+  // -- comportement assume par §17 Q9, "une fenetre trop courte pour une
+  // seule rangee montre quand meme cette rangee", hors de portee de ce cas).
+  await page.setViewportSize({ width: 390, height: 400 });
+  await installerAPI(page, new ScenarioAPI());
+  await page.goto(`${BASE_URL}/`);
+  await expect(page.locator("#accueil")).toBeVisible();
+
+  const items = page.locator(".mur-item");
+  await expect(items).toHaveCount(6); // AMORCAGE_EDITORIAL au complet, cote DOM
+
+  const murBox = await page.locator("#mur").boundingBox();
+  if (!murBox) throw new Error("#mur introuvable");
+
+  const etat = await page.evaluate(() => {
+    const conteneurBox = document.querySelector("#mur")!.getBoundingClientRect();
+    const tousLesItems = Array.from(document.querySelectorAll<HTMLElement>(".mur-item"));
+    const visibles = tousLesItems.filter((i) => !i.hidden);
+    const masques = tousLesItems.filter((i) => i.hidden);
+    const boxesVisibles = visibles.map((i) => i.querySelector(".tuile")!.getBoundingClientRect());
+    const horsZone = boxesVisibles.filter(
+      (r) =>
+        r.top < conteneurBox.top - 0.5 ||
+        r.bottom > conteneurBox.bottom + 0.5 ||
+        r.left < conteneurBox.left - 0.5 ||
+        r.right > conteneurBox.right + 0.5,
+    ).length;
+    return { total: tousLesItems.length, visibles: visibles.length, masques: masques.length, horsZone };
+  });
+
+  // La capacite mesuree a ce viewport est strictement inferieure aux 6
+  // tuiles de l'amorcage : sans quoi ce test ne verifierait rien.
+  expect(etat.masques, "au moins une tuile doit deborder de la capacite pour que ce test soit probant").toBeGreaterThan(0);
+  expect(etat.visibles + etat.masques).toBe(etat.total);
+  expect(etat.horsZone, "aucune tuile VISIBLE ne doit deborder, meme partiellement, de la zone du mur").toBe(0);
+
+  // Aucune tuile masquee n'est atteignable au clavier : Tab depuis le
+  // corps de page ne doit jamais y poser le focus, et un focus()
+  // PROGRAMMATIQUE direct doit echouer -- `hidden` retire l'element du
+  // flux (regle globale `[hidden]{display:none!important}`, index.html).
+  const focusEchoue = await page.evaluate(() => {
+    const masque = Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).find((i) => i.hidden);
+    const bouton = masque?.querySelector<HTMLButtonElement>("button");
+    bouton?.focus();
+    return document.activeElement !== bouton;
+  });
+  expect(focusEchoue, "une tuile masquee ne doit jamais pouvoir recevoir le focus").toBe(true);
+});
+
+// Critique 2026-08-23 (second passage), N1 : les trois tests ci-dessus
+// dimensionnent tous AVANT `goto` -- aucun ne charge la page puis
+// redimensionne la fenetre EN PLACE. C'est ce trou qui laissait passer un
+// mur repeint en entier (donc un tri "aleatoire" rebattu) a chaque
+// evenement `resize` : ce test-ci charge large, ou tout tient, puis
+// retrecit sans recharger, et attend que le plafond suive.
+test("mur d'accueil -- un redimensionnement SANS rechargement replafonne (§17 Q9)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installerAPI(page, new ScenarioAPI());
+  await page.goto(`${BASE_URL}/`);
+  await expect(page.locator("#accueil")).toBeVisible();
+
+  const items = page.locator(".mur-item");
+  await expect(items).toHaveCount(6); // AMORCAGE_EDITORIAL au complet
+
+  const masquesAvant = await page.evaluate(
+    () => Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).filter((i) => i.hidden).length,
+  );
+  expect(masquesAvant, "a 390x844 la zone porte les 6 tuiles : rien ne doit etre masque avant redimensionnement").toBe(
+    0,
+  );
+
+  // Meme largeur (les colonnes ne bougent pas), hauteur reduite a la valeur
+  // du test precedent -- reproduit le geste "retracter la barre d'URL" ou
+  // "faire pivoter le telephone", jamais un rechargement.
+  await page.setViewportSize({ width: 390, height: 400 });
+  // `resize` n'est pas emis par `setViewportSize` dans tous les moteurs :
+  // on le declenche explicitement pour isoler ce que le gestionnaire fait,
+  // independamment de ce que le navigateur choisit d'emettre.
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+
+  const masquesApres = await page.evaluate(
+    () => Array.from(document.querySelectorAll<HTMLElement>(".mur-item")).filter((i) => i.hidden).length,
+  );
+  expect(masquesApres, "le retrecissement doit masquer au moins une tuile, sans recharger la page").toBeGreaterThan(
+    0,
+  );
 });
