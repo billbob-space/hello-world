@@ -348,6 +348,51 @@ journal_cas "une entree en cours de travail est reprise, jamais dupliquee" non \
 journal_cas "aucune entree : la premiere est creee, et sous set -e" aucune \
   "journal/*-claude-test-pret.md"
 
+
+# --- le controle de longueur, hors de la chaine journal ---------------------------
+#
+# Le seul controle du depot qui REFUSE un commit vivait dans le « else » de la
+# chaine journal : entree absente, restee au gabarit nu ou a l'en-tete
+# incomplet, et il n'etait jamais appele. La condition tombait precisement dans
+# le cas presse — celui ou le journal n'est pas rempli. Ces deux cas tiennent
+# qu'il sort desormais quel que soit l'etat du journal.
+
+printf '\n-- le controle de longueur, hors de la chaine journal\n'
+
+# critique <nom> <journal: nu|absent> — pose une conversation au contexte
+# au-dela du seuil critique sous le HOME du bac, met le journal dans l'etat
+# demande, puis verifie que pret.sh refuse.
+critique() {
+  local nom="$1" journal="$2" d sortie p entree
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(CHECK=vert bac)
+
+  # Une conversation d'un seul tour dont la relecture depasse COUT_CONTEXTE_CRITIQUE.
+  p="$d/home/.claude/projects/$(printf '%s' "$d" | sed 's/[^A-Za-z0-9]/-/g')"
+  mkdir -p "$p"
+  printf '{"parentUuid":null,"isSidechain":false,"message":{"id":"msg_x","type":"message","role":"assistant","model":"claude-opus-5","content":[{"type":"text","text":"x"}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":700000,"output_tokens":50}},"requestId":"x","type":"assistant","timestamp":"2026-08-05T10:00:00Z","gitBranch":"%s"}\n' \
+    "$BRANCHE" > "$p/session.jsonl"
+
+  entree="$d/journal/2026-01-01-$(printf '%s' "$BRANCHE" | tr '/' '-').md"
+  mkdir -p "$d/journal"
+  if [ "$journal" = nu ]; then
+    # Le gabarit nu : la chaine journal s'arrete ici, et c'est tout l'objet du cas.
+    ( cd "$d" && ./scripts/branche.sh "$BRANCHE" >/dev/null 2>&1 ) || true
+  else
+    rm -f "$d"/journal/*"$(printf '%s' "$BRANCHE" | tr '/' '-')"*.md
+  fi
+
+  sortie=$( cd "$d" && HOME="$d/home" ./scripts/pret.sh 2>&1 ) || true
+  if grep -qF "contexte critique" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "aucun refus alors que le contexte depasse le critique (journal : $journal)"
+  fi
+}
+
+critique "journal au gabarit nu : le contexte critique refuse quand meme" nu
+critique "journal absent : le contexte critique refuse quand meme" absent
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]
