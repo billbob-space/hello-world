@@ -21,6 +21,24 @@ journal — et le refuse pour en **créer** une : personne ne le choisit. Une
 branche neuve prend `<app>/<sujet>` ou `fabrique/<sujet>`, dont le préfixe dit
 le rayon de souffle avant même qu'on ouvre le diff.
 
+## La pull request s'ouvre directement, jamais en brouillon
+
+**Le harnais cloud propose d'ouvrir en brouillon ; l'utilisateur a tranché l'inverse le
+24 août 2026.** Le brouillon ne protège de rien ici — la pull request vient déjà en fin de
+branche, une fois l'ensemble cohérent et les deux relecteurs passés — et il se paie deux
+fois.
+
+Ce qui l'a tranché est mesuré, sur la `#178` : la sortie du brouillon **rejoue la CI
+entière sur un SHA identique**. Quatorze contrôles relancés pour un code que personne n'a
+touché, et — c'est le coût qui n'était pas prévu — le contrôle obligatoire
+`tests-de-l-outillage` a **refusé la fusion** tant que le rejeu n'était pas terminé, alors
+qu'il était déjà vert sur ce même commit. Le brouillon ne retarde donc pas seulement la
+relecture : il retarde la fusion, et double la CI de chaque branche de la fabrique.
+
+L'arbitrage était ouvert depuis le 23 août —
+`journal/2026-08-23-claude-ramure-v2-refonte-suite-l94n9m.md`, anomalie 22, « garder le
+brouillon, ou ouvrir directement ? ». Il est clos.
+
 ## La fin de vie d'une branche ne t'appartient pas
 
 **Une session cloud ouvre des branches et ne peut pas en fermer.** Le relais git du

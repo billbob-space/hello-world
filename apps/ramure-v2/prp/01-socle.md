@@ -1611,8 +1611,9 @@ cd /home/user/hello-world
 git push -u origin "$(git branch --show-current)"
 ```
 
-Puis, par le serveur MCP GitHub : ouvrir la pull request en brouillon, titre
-`ramure-v2 : socle deployable`, et suivre les vérifications jusqu'au vert.
+Puis, par le serveur MCP GitHub : ouvrir la pull request — **directement, jamais en
+brouillon**, cf. `CLAUDE.md` —, titre `ramure-v2 : socle deployable`, et suivre les
+vérifications jusqu'au vert.
 
 Ce que fait la CI, dans cet ordre, et ce que chaque job prouve :
 
