@@ -43,9 +43,13 @@ COUT_TAUX_JOURS=90         # au-dela, le taux de change est signale comme vieux
 # fait. Le seuil n'est pas une limite technique : c'est le point ou couper la
 # session, ou confier la suite a l'artisan, rapporte plus que ca ne coute.
 COUT_CONTEXTE_ALERTE=300000
-# Longueur d'une session d'agent au-dela de laquelle pret.sh avertit. Le cout
-# d'une session croit en CARRE de sa longueur : elle fait N tours, et chacun
-# relit ce que les N-1 precedents ont accumule. Mesure du 21 aout 2026, sur une
+# Longueur d'une session au-dela de laquelle pret.sh avertit — d'AGENT comme
+# PRINCIPALE. Le seuil ne regardait que les agents, et c'est ce qui l'a rendu
+# inoperant sur ramure-v2 : ses quatre sessions principales ont fait 470, 271,
+# 246 et 152 tours, porte 48 % de la facture, et rien ne s'est declenche. Un
+# plafond qui ne surveille que la moitie du travail ne plafonne rien.
+# Le cout d'une session croit en CARRE de sa longueur : elle fait N tours, et
+# chacun relit ce que les N-1 precedents ont accumule. Mesure du 21 aout 2026, sur une
 # branche a 501 tours d'agent : trois sessions de 88 a 109 tours relisaient 178 k
 # a 238 k jetons par tour, contre 11 k a 37 k pour six sessions de 4 a 19 tours.
 # Couper une session de cent tours en deux, chacune repartant du document de
@@ -54,7 +58,7 @@ COUT_CONTEXTE_ALERTE=300000
 # 60 n'est pas un rond : c'est la longueur au-dela de laquelle, sur cette
 # branche, la relecture moyenne d'une session a depasse 150 000 jetons — soit le
 # moment ou un tour coute plus cher que tout ce qu'il rend.
-COUT_AGENT_TOURS_ALERTE=60
+COUT_TOURS_ALERTE=60
 
 # Le double du seuil d'alerte, et le seul chiffre du depot qui REFUSE un commit.
 # L'alerte ci-dessus a ete ignoree neuf fois sur vingt-deux branches, jusqu'a
@@ -64,13 +68,26 @@ COUT_AGENT_TOURS_ALERTE=60
 # de l'alerte : deux branches du depot l'auraient franchi, les deux plus lourdes.
 COUT_CONTEXTE_CRITIQUE=600000
 
+# Le marqueur d'un releve, un par CONTENEUR ayant travaille la branche. C'est la
+# piece qui manquait : cout.sh ne voit que les conversations du conteneur
+# courant, et il REMPLACAIT le bloc entier a chaque passage — donc une branche
+# coupee puis reprise perdait le chiffre de ses sessions precedentes, et repartait
+# « courte » aux yeux des seuils. Les trois reprises de ramure-v2 sont ainsi
+# passees sous les deux alertes alors que le chantier, lui, continuait.
+#
+# Une ligne par conteneur, remplacee quand c'est le meme, gardee quand c'en est un
+# autre. Le total et les tours du bloc sont desormais ceux de la BRANCHE.
+COUT_RELEVE='<!-- cout-releve'
+
 COUT_DEBUT='<!-- cout : genere par ./scripts/cout.sh, ne pas editer a la main -->'
 COUT_FIN='<!-- /cout -->'
 # Le bloc s'ECRIT avec COUT_DEBUT, mais il se RECONNAIT sur ce prefixe. Les
 # entrees deja committees nomment « ./init.sh --cout », qui n'existe plus depuis
 # que le releve a son propre script : les reconnaitre a l'identique leur
-# ajouterait un second bloc au lieu de remplacer le premier, et cout_total_ecrit
-# — qui garde la premiere occurrence — lirait le total perime pour toujours.
+# ajouterait un second bloc au lieu de remplacer le premier. Le dedoublement se
+# paierait deux fois depuis que le bloc porte les lignes `cout-releve` : le
+# premier bloc garderait des lignes que le second ignore, et le cumul de la
+# branche se figerait sur un etat perime sans que rien ne le signale.
 COUT_OUVERTURE='<!-- cout : genere par '
 
 cout_dir() {  # le repertoire des conversations de CE depot, ou vide
@@ -356,8 +373,52 @@ cout_montant() {  # cout_montant <dollars> <taux|vide> — « 11,44 $ — 9,93 �
   }'
 }
 
-cout_total_ecrit() {  # le total en jetons deja consigne dans <entree>, ou vide
-  grep -o 'cout-total: [0-9]*' "$1" 2>/dev/null | head -1 | tr -dc '0-9' || true
+# L'identite du conteneur courant. « boot_id » change a chaque demarrage de
+# machine et ne bouge pas pendant la vie du conteneur : relancer le releve
+# remplace sa ligne au lieu d'en ajouter une. La variable d'environnement existe
+# pour les tests, qui doivent pouvoir simuler deux conteneurs sur une machine.
+cout_conteneur() {
+  local id="${COUT_CONTENEUR:-}"
+  [ -n "$id" ] || id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || true)
+  [ -n "$id" ] || id="${HOSTNAME:-inconnu}"
+  printf '%s' "$id" | tr -dc 'A-Za-z0-9' | cut -c1-12
+}
+
+# cout_releves_ecrits <entree> [sauf] — les lignes de releve deja consignees,
+# moins celle du conteneur <sauf>. C'est la seule memoire qui traverse la coupe :
+# le fichier de conversation meurt avec le conteneur, l'entree de journal reste.
+cout_releves_ecrits() {
+  local entree="$1" sauf="${2:-}"
+  [ -f "$entree" ] || return 0
+  # ANCRE EN DEBUT DE LIGNE, comme dans jetons.sh et pour la meme raison : sans
+  # elle, une entree qui CITE le marqueur — dans un exemple, ou dans une anomalie
+  # qui explique le mecanisme — entre dans le cumul, et le total de la branche
+  # devient faux sans que rien ne le dise. cout_ecrit les ecrit toujours en debut
+  # de ligne : l'ancre ne coute rien et ferme le piege.
+  grep -o '^<!-- cout-releve [^>]*-->' "$entree" 2>/dev/null \
+    | sed 's/^<!-- cout-releve //; s/ *-->$//' \
+    | awk -v k="$sauf" 'NF >= 5 && $1 != k' || true
+}
+
+# cout_cumul <lignes> <rang> — un champ agrege des lignes de releve :
+#   1 jetons (somme) · 2 dollars (somme) · 3 tours principaux (somme)
+#   4 tours d'agent (max) · 5 nombre de conteneurs
+# Les tours de la session PRINCIPALE (rang 3) s'ADDITIONNENT d'un conteneur a
+# l'autre : une session coupee en trois a bien fait la somme de ses trois
+# longueurs, et c'est ce total que le plafond doit regarder — sinon couper suffit
+# a passer sous le seuil sans rien raccourcir. Ceux des agents (rang 4) prennent
+# le MAX : deux sessions de 50 tours ne font pas une session de 100, et c'est la
+# longueur d'UNE session qui fait croitre son cout en carre.
+cout_cumul() {
+  printf '%s\n' "$1" | awk -v r="$2" '
+    NF >= 5 { j += $2; d += $3; p += $4; if ($5 + 0 > a) a = $5; n++ }
+    END {
+      if (r == 1) printf "%d", j
+      else if (r == 2) printf "%.6f", d
+      else if (r == 3) printf "%d", p
+      else if (r == 4) printf "%d", a
+      else printf "%d", n
+    }'
 }
 
 cout_ecrit() {  # cout_ecrit <entree> <bloc> — remplace le bloc existant, ou l'ajoute
@@ -412,13 +473,24 @@ cout_rappel() {
   local entree="$1" releve="$2" ecrit actuel
   actuel=$(printf '%s\n' "$releve" | awk '$1 == "TOTAL" { print $2 }')
   [ -n "$actuel" ] && [ "$actuel" -gt 0 ] 2>/dev/null || return 0
-  ecrit=$(cout_total_ecrit "$entree")
+  # La comparaison porte sur la ligne de CE conteneur, pas sur le total du bloc :
+  # depuis que le total est celui de la branche entiere, il est toujours superieur
+  # ou egal a ce que la conversation courante compte, et le test « perime » ne
+  # pouvait plus se declencher.
+  ecrit=$(cout_releve_conteneur "$entree")
   if [ -z "$ecrit" ]; then
     warn "cout : non releve — ./scripts/cout.sh l'ecrit dans l'entree (le chiffre disparait avec le conteneur)"
   elif [ "$((ecrit * 10))" -lt "$((actuel * 9))" ]; then
     warn "cout : releve a $(jetons_nb "$ecrit") jetons, la conversation en compte $(jetons_nb "$actuel") — relance ./scripts/cout.sh"
   fi
-  cout_rappel_agents "$releve"
+}
+
+# cout_releve_conteneur <entree> — les jetons deja consignes pour CE conteneur.
+cout_releve_conteneur() {
+  local id
+  id=$(cout_conteneur)
+  [ -f "$1" ] || return 0
+  cout_releves_ecrits "$1" | awk -v k="$id" '$1 == k { print $2; exit }' || true
 }
 
 # cout_rappel_agents <releve> — l'avertissement sur la LONGUEUR d'une session
@@ -434,12 +506,41 @@ cout_rappel() {
 # — « un chantier se dimensionne pour tenir sous 100 000 jetons » — sans qu'aucun
 # chiffre ne la mette devant les yeux de personne. C'est la lecon de la branche
 # qui l'a ajoute : une regle ecrite que rien ne mesure ne deplace rien.
-cout_rappel_agents() {  # cout_rappel_agents <releve>
-  local tours moyen
-  tours=$(printf '%s\n' "$1" | awk '$1 == "AGENTS" { print $3 }')
-  moyen=$(printf '%s\n' "$1" | awk '$1 == "AGENTS" { print $4 }')
-  [ -n "$tours" ] && [ "$tours" -gt "$COUT_AGENT_TOURS_ALERTE" ] 2>/dev/null || return 0
-  warn "agents : la plus longue session fait $tours tours a $(jetons_nb "$moyen") jetons relus chacun — son cout croit en carre de sa longueur ; decoupe le chantier suivant en deux"
+#
+# Il regarde les DEUX sortes de session, et il les regarde CUMULEES sur la
+# branche : couper une session en trois ne raccourcit aucun des trois morceaux,
+# et un seuil qui repart de zero a chaque conteneur recompense la coupe au lieu
+# du decoupage. Les tours des conteneurs precedents se lisent dans les lignes de
+# releve deja ecrites dans l'entree — la seule memoire qui traverse la coupe.
+cout_rappel_tours() {  # cout_rappel_tours <entree> <releve>
+  local entree="$1" releve="$2" id anciens tours moyen princ cum_a cum_p
+  id=$(cout_conteneur)
+  anciens=$(cout_releves_ecrits "$entree" "$id")
+
+  tours=$(printf '%s\n' "$releve" | awk '$1 == "AGENTS" { print $3 }')
+  moyen=$(printf '%s\n' "$releve" | awk '$1 == "AGENTS" { print $4 }')
+  princ=$(printf '%s\n' "$releve" | awk '$1 == "ECHANGES" { print $2 - $3 }')
+  tours=${tours:-0}; princ=${princ:-0}
+
+  # Le maximum pour les agents — deux sessions de 50 tours ne font pas une de
+  # 100 —, la somme pour la principale, qui est UNE session que la coupe prolonge.
+  local lignes
+  lignes=$(printf '%s\n%s' "$anciens" "courant 0 0 $princ $tours")
+  cum_a=$(cout_cumul "$lignes" 4)
+  cum_p=$(cout_cumul "$lignes" 3)
+
+  if [ "${cum_a:-0}" -gt "$COUT_TOURS_ALERTE" ] 2>/dev/null; then
+    # La moyenne ne se dit que si le maximum vient de CE conteneur : ailleurs elle
+    # decrit une autre session que celle qu'on nomme, et l'alerte chiffrerait son
+    # cout avec un nombre qui ne s'y rapporte pas — jusqu'a « 109 tours a 0 jetons
+    # relus chacun » quand le conteneur courant n'a lance aucun agent.
+    local relu=""
+    [ "$cum_a" = "$tours" ] && [ -n "${moyen:-}" ] && relu=" a $(jetons_nb "$moyen") jetons relus chacun"
+    warn "agents : la plus longue session fait $cum_a tours$relu — son cout croit en carre de sa longueur ; decoupe le chantier suivant en deux"
+  fi
+  if [ "${cum_p:-0}" -gt "$COUT_TOURS_ALERTE" ] 2>/dev/null; then
+    warn "session principale : $cum_p tours sur cette branche, plafond $COUT_TOURS_ALERTE — coupe et repars du PRP ; termine ton message par le PROMPT DE REPRISE, gabarit dans memory/travail.md"
+  fi
 }
 
 courante=$(branche_courante)
@@ -452,6 +553,10 @@ if [ "$RAPPEL" = 1 ]; then
   if [ -n "$d_rappel" ]; then
     releve_rappel=$(cout_releve "$d_rappel" "$courante" "$BASE")
     cout_alerte "$releve_rappel" || CRITIQUE=3
+    # L'alerte de tours sort meme sans entree de journal : elle ne depend que de
+    # la conversation, et une branche neuve est precisement celle ou le decoupage
+    # se decide encore.
+    cout_rappel_tours "$entree" "$releve_rappel"
     [ -n "$entree" ] && cout_rappel "$entree" "$releve_rappel"
   fi
   exit "$CRITIQUE"
@@ -480,6 +585,25 @@ courts=$(champ COURTS 1);        courts_d=$(champ COURTS 2)
 courts_side=$(champ COURTS 3)
 n_runs=$(champ AGENTS 1);        run_max_ech=$(champ AGENTS 2)
 run_max_cl=$(champ AGENTS 3);    run_max_d=$(champ AGENTS 4)
+ech_principal=$(( ${echanges:-0} - ${ech_side:-0} ))
+
+# La ligne de CE conteneur, fusionnee avec celles des precedents. C'est ici que
+# la branche recupere ce que la coupe lui avait fait perdre.
+conteneur=$(cout_conteneur)
+tot_j_courant=$(champ TOTAL 1); tot_d_courant=$(champ TOTAL 2)
+releves_anciens=$(cout_releves_ecrits "${entree:-}" "$conteneur")
+releves_tous=$(printf '%s\n%s' "$releves_anciens" \
+  "$conteneur ${tot_j_courant:-0} ${tot_d_courant:-0} $ech_principal ${run_max_ech:-0}")
+cum_j=$(cout_cumul "$releves_tous" 1)
+cum_d=$(cout_cumul "$releves_tous" 2)
+cum_princ=$(cout_cumul "$releves_tous" 3)
+cum_agent=$(cout_cumul "$releves_tous" 4)
+cum_n=$(cout_cumul "$releves_tous" 5)
+# Une ligne de marqueur par conteneur, triee pour que deux releves successifs
+# produisent le meme bloc et que le diff ne montre que ce qui a bouge.
+releves_marqueurs=$(printf '%s\n' "$releves_tous" \
+  | awk 'NF >= 5' | sort | awk '{ print "<!-- cout-releve " $0 " -->" }')
+
 taux=$(fab taux_usd_eur "")
 taux_date=$(fab taux_date "")
 
@@ -556,6 +680,35 @@ fi
 # La ligne qui manquait, et qui nomme le premier poste reel quand des agents
 # travaillent. Elle ne s'ecrit pas s'il n'y en a pas eu : une rubrique absente et
 # une rubrique a zero ne disent pas la meme chose.
+# La rubrique qui manquait. La session principale n'etait comptee nulle part
+# comme une LONGUEUR : seul son contexte etait surveille, ce qui dit la largeur
+# d'un tour et jamais leur nombre. Sur ramure-v2 elle a porte 48 % de la facture
+# sans qu'aucun seuil ne la regarde.
+principal_txt="
+- **Session principale** — $(jetons_nb "$ech_principal") tour(s) dans ce conteneur, $(jetons_nb "$cum_princ") sur la branche."
+[ "${cum_princ:-0}" -gt "$COUT_TOURS_ALERTE" ] 2>/dev/null && principal_txt="$principal_txt
+  **Au-delà de $COUT_TOURS_ALERTE tours, coupe et repars du PRP** — le prompt de reprise
+  est dans \`memory/travail.md\`."
+
+# Ce que les conteneurs precedents ont deja depense sur cette branche. La
+# rubrique ne s'ecrit que s'il y en a eu : sur une branche d'un seul conteneur
+# elle repeterait le total.
+cumul_txt=""
+if [ "${cum_n:-1}" -gt 1 ] 2>/dev/null; then
+  cumul_txt="
+- **Cumulé sur la branche** — $cum_n conteneur(s) l'ont travaillée, $(jetons_nb "$cum_j") jetons,
+  $(cout_montant "$cum_d" "$taux"). Le tableau ci-dessus ne montre que ce conteneur ;
+  ce cumul est ce que la branche a réellement coûté, coupes comprises."
+fi
+
+# Un total dont une part n'est pas chiffree se lit comme un total. Le releve
+# avertissait a l'ecran, et le bloc n'en gardait aucune trace : l'entree du
+# 19 aout annoncait 139,17 $ pour 151,01 $ reels, sans que rien ne le dise.
+inconnus_txt=""
+[ -n "$inconnus" ] && inconnus_txt="
+- **Non chiffré** — modèle(s) sans tarif dans \`fabrique.yml\` : $inconnus.
+  Leurs jetons sont dans le total, leur coût n'y est pas : le montant est un minorant."
+
 agents_txt=""
 if [ "${n_runs:-0}" -gt 0 ] 2>/dev/null; then
   agents_txt="
@@ -565,8 +718,8 @@ if [ "${n_runs:-0}" -gt 0 ] 2>/dev/null; then
   relisant deux fois plus. Deux sessions de moitié, la seconde repartant du
   document de conception et non de l'exploration de la première, coûtent environ
   la moitié."
-  [ "${run_max_ech:-0}" -gt "$COUT_AGENT_TOURS_ALERTE" ] 2>/dev/null && agents_txt="$agents_txt
-  **Au-delà de $COUT_AGENT_TOURS_ALERTE tours, découpe le chantier.**"
+  [ "${cum_agent:-0}" -gt "$COUT_TOURS_ALERTE" ] 2>/dev/null && agents_txt="$agents_txt
+  **Au-delà de $COUT_TOURS_ALERTE tours, découpe le chantier.**"
 fi
 
 # Le detail survit a la branche, et c'est tout son interet : le fichier de
@@ -599,12 +752,14 @@ $lignes| **Total** | **$(jetons_nb "$tot_j")** | **$(cout_montant "$tot_d" "$tau
 - **Tours courts** — $(jetons_nb "$courts") des $(jetons_nb "$echanges") tours ($(part "$courts" "$echanges")) sortent
   moins de 300 jetons : un appel d'outil nu, qui paie tout le contexte relu pour
   une sortie de rien. Ils coûtent $(cout_montant "$courts_d" ""), soit $(part_d "$courts_d" "$tot_d") de la facture.
-  $courts_txt$agents_txt
+  $courts_txt$principal_txt$agents_txt
 - **Croissance** — $(jetons_nb "$cl_premier") jetons relus au premier appel qui relise
-  quelque chose, $(jetons_nb "$cl_dernier") au dernier : une session longue se paie à chaque tour.$autres_txt
+  quelque chose, $(jetons_nb "$cl_dernier") au dernier : une session longue se paie à chaque tour.$cumul_txt$inconnus_txt$autres_txt
 
-<!-- cout-total: $tot_j -->
-<!-- cout-agent-max: ${run_max_ech:-0} -->
+$releves_marqueurs
+<!-- cout-total: $cum_j -->
+<!-- cout-principal-tours: ${cum_princ:-0} -->
+<!-- cout-agent-max: ${cum_agent:-0} -->
 <!-- cout-detail : un échange par ligne — rang, agent, modèle, écriture, lecture, sortie
 $detail
 -->

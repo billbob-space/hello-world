@@ -553,6 +553,163 @@ FIN
 }
 courts_agent "les tours courts d'un agent ne recoivent pas le conseil de groupement"
 
+
+# --- ce qui survit a la coupe ----------------------------------------------------
+#
+# La lecon des quatre branches ramure-v2 : cout.sh ne voit que le conteneur
+# courant, et il REMPLACAIT le bloc a chaque passage. Une branche coupee puis
+# reprise perdait donc le chiffre de ses sessions precedentes et repartait
+# « courte » aux yeux des seuils — trois reprises sont ainsi passees sous les
+# deux alertes pendant que le chantier, lui, continuait. Ces cas tiennent
+# l'inverse : les lignes de releve s'ajoutent, le total est celui de la BRANCHE.
+
+printf '\n-- ce qui survit a la coupe\n'
+
+# La ligne de la session principale. Elle n'existait pas : seul le contexte
+# etait surveille, ce qui dit la largeur d'un tour et jamais leur nombre.
+porte "la session principale est comptee en tours" "**Session principale** — 3 tour(s) dans ce conteneur" <<FIN
+$(requete p_1 "$BRANCHE" 0 claude-opus-5 10 1000 0 50)
+$(requete p_2 "$BRANCHE" 0 claude-opus-5 10 100 1000 50)
+$(requete p_3 "$BRANCHE" 0 claude-opus-5 10 100 2000 50)
+$(requete p_4 "$BRANCHE" 1 claude-opus-5 10 100 500 50)
+FIN
+
+porte "un modele sans tarif est nomme dans le bloc, pas seulement a l ecran" "**Non chiffré**" <<FIN
+$(requete i_1 "$BRANCHE" 0 claude-modele-sans-tarif 10 1000 0 50)
+FIN
+
+# cumule <nom> — ecrit le bloc sous un conteneur, puis releve sous un AUTRE, et
+# verifie que le second n'a pas efface le premier. C'est le seul cas du fichier
+# qui ait besoin d'ecrire deux fois : le bug qu'il tient est precisement celui
+# du second passage.
+cumule() {
+  local nom="$1" d entree sortie total
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  entree="$d/journal/2026-01-01-$(printf '%s' "$BRANCHE" | tr '/' '-').md"
+  cat > "$entree" <<'ENTREE'
+# 2026-01-01 — claude/test-cout
+
+Branche : `claude/test-cout`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+ENTREE
+  ( cd "$d" && HOME="$d/home" COUT_CONTENEUR=conteneur1 ./scripts/cout.sh >/dev/null 2>&1 ) \
+    || { echec "$nom" "le premier releve a echoue"; return 0; }
+  total=$(grep -m1 -o 'cout-total: [0-9]*' "$entree" | tr -dc '0-9')
+  sortie=$( cd "$d" && HOME="$d/home" COUT_CONTENEUR=conteneur2 ./scripts/cout.sh --dry-run 2>&1 ) \
+    || { echec "$nom" "le second releve a echoue"; return 0; }
+  local vu attendu
+  vu=$(grep -m1 -o 'cout-total: [0-9]*' <<< "$sortie" | tr -dc '0-9')
+  attendu=$((total * 2))
+  if ! grep -q 'cout-releve conteneur1' <<< "$sortie"; then
+    echec "$nom" "le second conteneur a efface la ligne du premier"
+  elif [ "$vu" != "$attendu" ]; then
+    echec "$nom" "total cumule $vu, attendu $attendu"
+  elif ! grep -qF "2 conteneur(s)" <<< "$sortie"; then
+    echec "$nom" "le bloc ne dit pas combien de conteneurs ont travaille la branche"
+  else
+    reussi "$nom"
+  fi
+}
+
+cumule "un second conteneur ajoute son releve au lieu d effacer le premier" <<FIN
+$(requete c_1 "$BRANCHE" 0 claude-opus-5 10 5000 0 50)
+$(requete c_2 "$BRANCHE" 0 claude-opus-5 10 100 5000 50)
+FIN
+
+# Le plafond de tours regarde la session PRINCIPALE, et il la regarde CUMULEE :
+# couper en trois ne raccourcit aucun des trois morceaux. Sans le cumul, couper
+# suffisait a repasser sous le seuil sans rien avoir decoupe.
+tours_principal() {
+  local nom="$1" attendu="$2" sous="${3:-}" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac_partage)
+  pose "$d" < <(cat)
+  sortie=$( cd "$d" && HOME="$d/home" ${sous:+COUT_CONTENEUR=$sous} ./scripts/cout.sh --rappel 2>&1 ) || true
+  if grep -qF -- "$attendu" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "« $attendu » absent — vu : $(grep -c . <<< "$sortie") ligne(s)"
+  fi
+}
+
+tours_principal "au-dela du plafond, la session principale est signalee" "session principale : 61 tours" <<FIN
+$(for i in $(seq 1 61); do requete "t_$i" "$BRANCHE" 0 claude-opus-5 10 100 1000 50; done)
+FIN
+
+muet() {  # muet <nom> <motif> — la sortie de --rappel ne doit PAS porter <motif>
+  local nom="$1" motif="$2" d sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac_partage)
+  pose "$d" < <(cat)
+  sortie=$( cd "$d" && HOME="$d/home" ./scripts/cout.sh --rappel 2>&1 ) || true
+  if grep -qF -- "$motif" <<< "$sortie"; then
+    echec "$nom" "la sortie porte « $motif », qu'elle ne devrait pas"
+  else
+    reussi "$nom"
+  fi
+}
+
+muet "sous le plafond, la session principale ne dit rien" "session principale :" <<FIN
+$(for i in $(seq 1 10); do requete "u_$i" "$BRANCHE" 0 claude-opus-5 10 100 1000 50; done)
+FIN
+
+
+# Le rappel de PEREMPTION, que rien ne tenait. Il compare ce que la conversation
+# compte a ce qui est deja consigne POUR CE CONTENEUR — et c'est la correction
+# du 23 aout : tant qu'il lisait `cout-total`, devenu le cumul de la branche,
+# la comparaison etait devenue impossible et le garde-fou s'etait eteint sans
+# qu'aucun des vingt-neuf cas d'alors ne bronche.
+peremption() {  # peremption <nom> <motif attendu> <ligne de releve|vide>
+  local nom="$1" motif="$2" ligne="${3:-}" d entree sortie
+  case "$nom" in *"$MOTIF"*) ;; *) return 0 ;; esac
+  d=$(bac)
+  pose "$d" < <(cat)
+  entree="$d/journal/2026-01-01-$(printf '%s' "$BRANCHE" | tr '/' '-').md"
+  cat > "$entree" <<'ENTREE'
+# 2026-01-01 — claude/test-cout
+
+Branche : `claude/test-cout`
+Périmètre : fabrique
+Mode : `chaud`
+
+## Anomalies
+
+Aucune anomalie.
+ENTREE
+  [ -n "$ligne" ] && printf '%s\n' "$ligne" >> "$entree"
+  sortie=$( cd "$d" && HOME="$d/home" COUT_CONTENEUR=conteneur1 ./scripts/cout.sh --rappel 2>&1 ) || true
+  if grep -qF -- "$motif" <<< "$sortie"; then
+    reussi "$nom"
+  else
+    echec "$nom" "« $motif » absent de la sortie de --rappel"
+  fi
+}
+
+peremption "sans ligne pour ce conteneur, le releve est dit non fait" "cout : non releve" "" <<FIN
+$(requete r_1 "$BRANCHE" 0 claude-opus-5 10 5000 5000 50)
+FIN
+
+peremption "une ligne de releve perimee fait redemander le releve" "relance ./scripts/cout.sh" \
+  '<!-- cout-releve conteneur1 100 0.010000 1 0 -->' <<FIN
+$(requete r_2 "$BRANCHE" 0 claude-opus-5 10 5000 5000 50)
+FIN
+
+# Une entree qui CITE le marqueur — dans un exemple, ou dans l'anomalie qui
+# explique le mecanisme — ne doit pas entrer dans le cumul. Sans ancre de debut
+# de ligne, la prose devenait un releve et le total de la branche partait faux,
+# jusque dans l'agregat du depot que lit scripts/jetons.sh.
+peremption "un marqueur cite en pleine prose n'est pas compte" "cout : non releve" \
+  'Le releve ecrit une ligne <!-- cout-releve conteneur1 999999999 99.0 999 999 --> par conteneur.' <<FIN
+$(requete r_3 "$BRANCHE" 0 claude-opus-5 10 5000 5000 50)
+FIN
+
 printf '\n-- resultat\n'
 printf '  %s reussi(s), %s echec(s)\n\n' "$REUSSIS" "$ECHOUES"
 [ "$ECHOUES" -eq 0 ]

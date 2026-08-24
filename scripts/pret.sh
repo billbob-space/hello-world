@@ -61,19 +61,6 @@ if [ "$courante" != "$BASE" ]; then
     : # journal_entete a deja dit ce qui manque
   else
     ok "journal : $entree"
-    # Le rappel de cout avertit sans bloquer. Depuis qu'il est un processus
-    # separe, sa panne emporterait pret.sh sous set -e — avant meme le verdict
-    # sur les tests, et sans dire pourquoi.
-    # Le « || true » d'origine protegeait d'une panne du script, qui aurait
-    # emporte pret.sh sous set -e avant meme le verdict sur les tests. Il
-    # avalait du meme coup le seul refus que cout.sh sache produire : le code 3
-    # du seuil critique. Les deux cas se distinguent maintenant — 3 bloque,
-    # tout autre incident passe comme avant.
-    rc=0; ./scripts/cout.sh --rappel || rc=$?
-    if [ "$rc" = 3 ]; then
-      bad "contexte critique — ouvre une session neuve sur cette branche avant de committer"
-    fi
-
     # Une Action « garde-fou » ou « contrat » PROMET un changement de la surface
     # partagee. Sur 41 entrees, 96 de ces promesses ont ete ecrites et 11 commits
     # seulement ont touche init.sh, scripts/, memory/ ou .claude/ : le journal
@@ -91,6 +78,26 @@ if [ "$courante" != "$BASE" ]; then
         warn "journal : $promesses action(s) garde-fou/contrat sans suite — rien sous memory/, .claude/, scripts/, init.sh ni CLAUDE.md. Si le correctif vit dans une autre branche, dis-le dans le champ Action"
       fi
     fi
+  fi
+
+  # Le rappel de cout avertit sans bloquer. Depuis qu'il est un processus
+  # separe, sa panne emporterait pret.sh sous set -e — avant meme le verdict
+  # sur les tests, et sans dire pourquoi.
+  # Le « || true » d'origine protegeait d'une panne du script, qui aurait
+  # emporte pret.sh sous set -e avant meme le verdict sur les tests. Il
+  # avalait du meme coup le seul refus que cout.sh sache produire : le code 3
+  # du seuil critique. Les deux cas se distinguent maintenant — 3 bloque,
+  # tout autre incident passe comme avant.
+  #
+  # Il est DEHORS de la chaine journal, et c'est la correction du 23 aout 2026 :
+  # il vivait dans le « else » ci-dessus, donc une entree absente, restee au
+  # gabarit nu ou a l'en-tete incomplet privait la branche du seul controle du
+  # depot qui refuse un commit. La condition tombait precisement dans le cas
+  # presse — celui ou le journal n'est pas rempli —, et deux garde-fous
+  # independants n'ont aucune raison d'etre imbriques.
+  rc=0; ./scripts/cout.sh --rappel || rc=$?
+  if [ "$rc" = 3 ]; then
+    bad "contexte critique — ouvre une session neuve sur cette branche avant de committer"
   fi
 fi
 
