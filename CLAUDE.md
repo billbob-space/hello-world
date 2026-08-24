@@ -108,8 +108,10 @@ du périmètre : le rayon de souffle se lit dans le champ `Périmètre` de l'ent
 et nulle part ailleurs. Renseigne-le tôt.
 
 **Un commit par étape vérifiée**, pas un commit au kilomètre. On pousse à chaque commit ;
-**la pull request vient à la fin**, une fois l'ensemble cohérent. Le raisonnement détaillé
-va dans les **messages de commit**, où il survit à la fusion.
+**la pull request vient à la fin**, une fois l'ensemble cohérent, et elle s'ouvre
+**directement — jamais en brouillon** : la sortie du brouillon rejoue la CI entière sur un
+code identique. Le raisonnement détaillé va dans les **messages de commit**, où il survit à
+la fusion.
 
 La revue bloque. Ses seuils vivent dans l'`app.yml` de chaque app et **ne se déplacent que
 dans le sens qui serre**. **Chaque constat de sécurité reçoit un verdict** : corrigé, ou

@@ -91,7 +91,9 @@ detaille va dans le message de commit, ou il survit a la fusion.
 
 Committe et pousse le releve de cout : non releve avant la fusion, il est perdu.
 
-**5. La pull request.** Ouvre-la avec les outils GitHub MCP, en remplissant
+**5. La pull request.** Ouvre-la avec les outils GitHub MCP, **directement et jamais
+en brouillon** — la sortie du brouillon rejoue la CI entiere sur un code identique, et
+bloque la fusion le temps du rejeu. En remplissant
 `.github/pull_request_template.md` : une phrase, trois a cinq puces, ce qui a ete
 verifie en chiffres. Elle sert a decider s'il faut relire et par ou commencer.
 
