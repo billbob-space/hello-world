@@ -18,7 +18,12 @@ on:
   # interdit. Un controle qui porte sur un texte editable hors de git doit
   # ecouter l'evenement qui modifie ce texte.
   pull_request:
-    # « ready_for_review » : une PR ouverte en BROUILLON puis passee prete ne
+    # « ready_for_review » : le contrat INTERDIT desormais le brouillon — CLAUDE.md
+    # et memory/travail.md, decision du 24 aout 2026 — parce que la sortie du
+    # brouillon rejoue toute la CI sur un SHA identique et bloque la fusion le
+    # temps du rejeu. Ce declencheur n'est donc plus un parcours nominal : c'est
+    # le filet si le harnais en ouvre un malgre la regle. Il reste, et voici
+    # pourquoi : une PR ouverte en BROUILLON puis passee prete ne
     # declenchait rien si aucun commit n'etait pousse entre les deux. Constate
     # sur la PR #166 — dix commits pousses AVANT l'ouverture, donc aucun
     # « synchronize », et aucun controle sur la tete de branche. Une PR prete a
