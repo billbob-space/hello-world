@@ -759,6 +759,29 @@ mem_to_mb() {  # 128m -> 128, 1g -> 1024
   esac
 }
 
+# 128m -> 134217729, la valeur du memswap_limit qui accompagne ce mem_limit.
+#
+# UN OCTET DE PLUS QUE LA LIMITE RAM, et l'ecart compte. Sans memswap_limit du
+# tout, Docker applique son defaut, memswap = 2 x mem_limit : chaque conteneur
+# recoit en douce une reserve de swap egale a sa limite RAM, prise sur la
+# partition de l'hote du serveur — 3 Go partages par une soixantaine de
+# conteneurs. Un service qui deborde n'est alors ni ralenti ni tue, il deverse
+# ses pages dans le swap ou elles restent bloquees : le swap ne fait que
+# descendre, et a zero la machine entiere part en thrashing.
+#
+# Le poser EGAL au mem_limit ne marche pas non plus, et c'est le piege : a valeur
+# egale l'autorisation calculee par runc vaut exactement 0, or 0 signifie « ne pas
+# definir » dans son encodage des proprietes systemd. runc ecrit alors la limite
+# directement dans le cgroup sans la declarer a systemd, et le premier
+# « systemctl daemon-reload » venu — n'importe quel apt install sur le serveur —
+# la remet a l'infini sans le moindre signal. C'est arrive le 2026-08-15.
+#
+# Un octet de plus donne MemorySwapMax=1, que systemd enregistre et conserve ;
+# la valeur effective reste zero. D'ou l'ecriture en octets, seule assez precise.
+mem_to_swap_bytes() {  # 128m -> 134217729
+  echo $(( $(mem_to_mb "$1") * 1048576 + 1 ))
+}
+
 # --- validation d'ensemble des manifestes ---------------------------------------
 #
 # Ecrit un probleme par ligne sur la sortie standard, rien si tout va bien, et ne
@@ -1110,6 +1133,8 @@ aux_block() {  # aux_block <service> <proprietaire> <image> <memoire> <argv, un 
     container_name: $svc
     restart: unless-stopped
     mem_limit: $mem
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: $(mem_to_swap_bytes "$mem")
     # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
     # l'image locale deja presente et sert silencieusement la version d'avant.
     pull_policy: always
@@ -1218,6 +1243,8 @@ service_block() {  # bloc de service de l'app chargee par load_app
     container_name: $APP
     restart: unless-stopped
     mem_limit: $A_MEMORY
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: $(mem_to_swap_bytes "$A_MEMORY")
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -2108,6 +2135,8 @@ check_aux_service() {  # check_aux_service <service> <proprietaire> <memoire> <s
   grep -qF "$NETWORK" <<<"$blk"                && ok "$p sur $NETWORK"     || bad "$p absent du reseau $NETWORK"
   grep -qF "container_name: $svc" <<<"$blk"    && ok "$p container_name"   || bad "$p container_name absent ou different"
   grep -qF "mem_limit: $mem" <<<"$blk"         && ok "$p mem_limit"        || bad "$p mem_limit different du manifeste"
+  grep -qF "memswap_limit: $(mem_to_swap_bytes "$mem")" <<<"$blk" \
+    && ok "$p memswap_limit" || bad "$p memswap_limit absent ou faux — le conteneur pourrait siphonner le swap de l'hote"
   grep -qF "restart: unless-stopped" <<<"$blk" && ok "$p restart"          || bad "$p restart absent"
   grep -qF "pull_policy: always" <<<"$blk"     && ok "$p pull_policy"      || bad "$p pull_policy absent — servirait l'image locale perimee"
   grep -qF "max-size:" <<<"$blk"               && ok "$p journaux bornes"  || bad "$p logging absent — journal non borne"
@@ -2175,6 +2204,7 @@ check_service() {
   has "traefik.enable=true"                                         && ok "$p routage active"        || bad "$p traefik.enable absent"
   has "traefik.docker.network=$NETWORK"                             && ok "$p reseau annonce"        || bad "$p traefik.docker.network absent"
   has "mem_limit: $A_MEMORY"                                        && ok "$p mem_limit"             || bad "$p mem_limit different de app.yml"
+  has "memswap_limit: $(mem_to_swap_bytes "$A_MEMORY")"             && ok "$p memswap_limit"         || bad "$p memswap_limit absent ou faux — le conteneur pourrait siphonner le swap de l'hote"
   has "container_name: $APP"                                        && ok "$p container_name"        || bad "$p container_name absent ou different du nom d'app"
   has "pull_policy: always"                                         && ok "$p pull_policy"           || bad "$p pull_policy absent — servirait l'image locale perimee"
   has "image: $REGISTRY/$ORG/$REPO/$APP:$(app_tag "$APP")"          && ok "$p image sur $(app_tag "$APP")" || bad "$p image hors convention, ou tag different de $VERSIONS — lance ./init.sh"
