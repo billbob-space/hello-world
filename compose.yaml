@@ -40,6 +40,8 @@ services:
     container_name: ardoise
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -90,6 +92,8 @@ services:
     container_name: ardoise-base
     restart: unless-stopped
     mem_limit: 192m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 201326593
     # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
     # l'image locale deja presente et sert silencieusement la version d'avant.
     pull_policy: always
@@ -122,6 +126,8 @@ services:
     container_name: cadran
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -168,6 +174,8 @@ services:
     container_name: compteur
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -218,6 +226,8 @@ services:
     container_name: compteur-base
     restart: unless-stopped
     mem_limit: 160m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 167772161
     # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
     # l'image locale deja presente et sert silencieusement la version d'avant.
     pull_policy: always
@@ -250,6 +260,8 @@ services:
     container_name: estran
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -298,6 +310,8 @@ services:
     container_name: hello-world
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -344,6 +358,8 @@ services:
     container_name: marcq-handball
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -393,6 +409,8 @@ services:
     container_name: pilabelle
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -451,6 +469,8 @@ services:
     container_name: ramure-v2
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -501,6 +521,8 @@ services:
     container_name: renaissance-gym
     restart: unless-stopped
     mem_limit: 128m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 134217729
     # Le tag vient de versions.yml, ou la CI ecrit le commit qu'elle vient de
     # publier. Il change donc a chaque livraison de CETTE app, et de celle-la
     # seule : « docker compose up » ne recree que les services dont la ligne
@@ -555,6 +577,8 @@ services:
     container_name: redis
     restart: unless-stopped
     mem_limit: 96m
+    # Un octet de plus que la limite RAM : voir mem_to_swap_bytes() dans init.sh.
+    memswap_limit: 100663297
     # Le tag est souvent mutable : sans ce reglage, un redeploiement relance
     # l'image locale deja presente et sert silencieusement la version d'avant.
     pull_policy: always
