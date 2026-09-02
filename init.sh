@@ -778,8 +778,24 @@ mem_to_mb() {  # 128m -> 128, 1g -> 1024
 #
 # Un octet de plus donne MemorySwapMax=1, que systemd enregistre et conserve ;
 # la valeur effective reste zero. D'ou l'ecriture en octets, seule assez precise.
+# Convertit en OCTETS sans repasser par les Mo. Le detour par mem_to_mb() tronque :
+# « 512k » y vaut 0 Mo et « 100000000 » 95 Mo, or les trois validations de
+# manifeste acceptent le suffixe k et la valeur nue. Le memswap tombait alors
+# SOUS le mem_limit (1 octet pour 512k), et le demon refuse cet ordre -- il rejette
+# le fichier ENTIER, donc les douze services, pas seulement l'app fautive.
+mem_to_bytes() {  # 128m -> 134217728, 512k -> 524288, 100000000 -> 100000000
+  local v n; v=$(printf '%s' "$1" | tr 'A-Z' 'a-z'); n=${v%%[!0-9]*}
+  [ -n "$n" ] || { echo 0; return; }
+  case "$v" in
+    *g) echo $(( n * 1073741824 )) ;;
+    *m) echo $(( n * 1048576 )) ;;
+    *k) echo $(( n * 1024 )) ;;
+    *)  echo "$n" ;;
+  esac
+}
+
 mem_to_swap_bytes() {  # 128m -> 134217729
-  echo $(( $(mem_to_mb "$1") * 1048576 + 1 ))
+  echo $(( $(mem_to_bytes "$1") + 1 ))
 }
 
 # --- validation d'ensemble des manifestes ---------------------------------------

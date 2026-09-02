@@ -341,6 +341,28 @@ refuse "un compose absent est refuse" "compose" <<'FIN'
 rm -f compose.yaml
 FIN
 
+# La borne de swap accompagne CHAQUE mem_limit genere. Sans ces cas, retirer la
+# ligne de aux_block() ou service_block() laisse tout vert : le compose et le
+# generateur retombent d'accord entre eux, donc le controle de desynchronisation
+# ne mord pas, et les services repartent avec le defaut de Docker -- memswap
+# valant deux fois la RAM, c'est-a-dire une reserve de swap par conteneur, prise
+# sur les 3 Go de l'hote. C'est exactement l'etat du 2026-08-15.
+genere "un service genere porte sa borne de swap" 'memswap_limit: 134217729' <<'FIN'
+sed -i 's/^memory: .*/memory: 128m/' apps/hello-world/app.yml
+FIN
+
+# Le suffixe k et la valeur nue sont acceptes par la validation des manifestes.
+# La conversion doit donc les traiter en OCTETS : un detour par les Mo tronque
+# 512k a zero et rend un memswap de 1, INFERIEUR au mem_limit -- ordre que le
+# demon refuse en rejetant le fichier entier, donc les douze services.
+genere "un mem_limit en k donne une borne au-dessus de lui" 'memswap_limit: 524289' <<'FIN'
+sed -i 's/^memory: .*/memory: 512k/' apps/hello-world/app.yml
+FIN
+
+genere "un mem_limit en octets nus donne une borne au-dessus de lui" 'memswap_limit: 100000001' <<'FIN'
+sed -i 's/^memory: .*/memory: 100000000/' apps/hello-world/app.yml
+FIN
+
 section 'versions epinglees'
 
 # C'est ce qui rend le deploiement selectif : le tag de l'app livree change,
